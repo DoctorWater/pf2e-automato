@@ -1,0 +1,12 @@
+{
+  "AUTOFLOW2": {
+    "Setting": { "Mode": { "Name": "Режим применения (испытания / эффекты предметов)", "Hint": "auto: бросать и применять сразу; button: кнопки для ГМа; off: выключено" }, "Auto": "Применять сразу", "Button": "Предлагать кнопкой", "Off": "Выключено" },
+    "Save": { "Title": "{item}: {type}, СЛ {dc}{basic}", "Basic": " (базовое)", "Roll": "Бросить за всех", "Pending": "не брошено", "NoStat": "нет такого спасброска", "NoTargets": "Нет целей" },
+    "Apply": "Применить", "Undo": "Отменить",
+    "Degree": { "0": "Крит. провал", "1": "Провал", "2": "Успех", "3": "Крит. успех" },
+    "Effect": { "Title": "{item}: эффект", "NoEffect": "В описании предмета не найдена ссылка на эффект" },
+    "Zone": { "Title": "Зона: {item}", "Close": "Закрыть зону", "Closed": "закрыта" },
+    "Reaction": { "Title": "{actor} может использовать «{item}»", "Attack": "Атака {total} против КБ {ac}: {now}.", "With": "С +{bonus} к КБ: {then}.", "Use": "Использовать реакцию", "Used": "Реакция использована" }
+  },
+  "PF2E": { "RuleElement": { "AutoflowZone": "Autoflow: зона", "AutoflowSave": "Autoflow: испытание по степеням", "AutoflowEffect": "Autoflow: эффект предмета", "AutoflowReaction": "Autoflow: реакция" } }
+}

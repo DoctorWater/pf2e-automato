@@ -1,0 +1,8 @@
+{
+  "PF2E_AUTOMATO": {
+    "noGM": "No active GM: the action was not performed.",
+    "protoWarning": "A pf2e-autoflow-proto-* prototype is active: disable it, otherwise pf2e-automato will double-apply effects.",
+    "mode": { "auto": "Automatic", "button": "On button", "off": "Off" },
+    "messageMode": { "public": "Public", "gm": "GM only" }
+  }
+}

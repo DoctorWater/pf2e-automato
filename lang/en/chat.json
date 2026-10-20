@@ -1,0 +1,56 @@
+{
+  "PF2E_AUTOMATO": {
+    "chat": {
+      "title": "Automation",
+      "yielded": "Handled by pf2e-automations",
+      "yieldWarn": "The group \"{name}\" in pf2e-automations will also react to this roll; disable it or do not remove the yield.",
+      "waiting": "Waiting for the GM",
+      "resume": "Resume",
+      "awaitingRegion": "Waiting for the area to be placed",
+      "challengeOff": "Challenges are handled by Toolbelt",
+      "dc": "DC {dc}",
+      "dcUnknown": "DC unknown",
+      "setDC": "Enter DC",
+      "setDCTitle": "Challenge DC",
+      "challenge": "Challenge: {stat}",
+      "basic": "basic",
+      "noResult": "no result",
+      "result": "{degree} ({total})",
+      "multiplier": "damage ×{value}",
+      "changed": "result changed after applying",
+      "applied": "applied: {degree}",
+      "rollSave": "Roll",
+      "apply": "Apply",
+      "applyAll": "Apply all",
+      "undo": "Undo",
+      "undoAll": "Undo all",
+      "applyUse": "Apply",
+      "applyDerived": "Apply (detected)",
+      "applyDerivedTitle": "Detected from description: {text}",
+      "stepSelf": "{what} on self",
+      "stepTarget": "{what} on target",
+      "stepZone": "zone: {what}",
+      "applyDone": "Applied",
+      "zone": "Zone",
+      "zonePending": "waiting to be created",
+      "zoneActive": "active",
+      "zoneClosed": "closed",
+      "zoneExpired": "expired",
+      "createZone": "Create zone",
+      "closeZone": "Close zone",
+      "macroErrors": "Macro errors",
+      "failed": "Failed: {reason}",
+      "degree": {
+        "criticalFailure": "Critical Failure",
+        "failure": "Failure",
+        "success": "Success",
+        "criticalSuccess": "Critical Success"
+      },
+      "reaction": {
+        "hint": "Reaction \"{item}\": {before} → {after}",
+        "use": "Use",
+        "used": "used"
+      }
+    }
+  }
+}

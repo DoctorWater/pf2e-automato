@@ -1,0 +1,52 @@
+{
+  "v": 1,
+  "bySource": {
+    "Compendium.pf2e.spells-srd.Item.y6rAdMK6EFlV6U0t": {
+      "v": 1, "label": "Огненное дыхание",
+      "onUse": { "targets": "area", "zone": null,
+        "challenge": { "statistic": "reflex", "dc": { "source": "spell" }, "basic": true, "rollerRole": "target", "byDegree": {} },
+        "apply": [] }
+    },
+    "Compendium.pf2e.feats-srd.Item.dNH8OHEvx3vI9NBQ": {
+      "v": 1, "label": "Ловкое уклонение",
+      "onAttacked": { "trigger": "attack-on-self",
+        "bonus": { "stat": "ac", "type": "circumstance", "value": 2 }, "cost": "reaction", "notify": ["owner", "gm"] }
+    }
+  },
+  "bySlug": {
+    "smoke-ball-lesser": {
+      "v": 1, "label": "Дымовая завеса",
+      "onUse": { "targets": "area",
+        "zone": { "condition": { "slug": "concealed" }, "effect": null, "duration": { "seconds": 60, "rounds": 10 } },
+        "challenge": null, "apply": [] }
+    },
+    "smoke-ball-greater": {
+      "v": 1, "label": "Дымовая завеса",
+      "onUse": { "targets": "area",
+        "zone": { "condition": { "slug": "concealed" }, "effect": null, "duration": { "seconds": 60, "rounds": 10 } },
+        "challenge": null, "apply": [] }
+    },
+    "breathe-fire": {
+      "v": 1, "label": "Огненное дыхание",
+      "onUse": { "targets": "area", "zone": null,
+        "challenge": { "statistic": "reflex", "dc": { "source": "spell" }, "basic": true, "rollerRole": "target", "byDegree": {} },
+        "apply": [] }
+    },
+    "frightful-presence": {
+      "v": 1, "label": "Устрашающее присутствие", "yield": true,
+      "onUse": { "targets": "selected", "zone": null,
+        "challenge": { "statistic": "will", "dc": { "expr": "markup" }, "basic": false, "traits": ["fear", "mental", "emotion"],
+          "rollerRole": "target",
+          "byDegree": {
+            "success":         [ { "to": "target", "condition": { "slug": "frightened", "value": 1, "policy": "max" } } ],
+            "failure":         [ { "to": "target", "condition": { "slug": "frightened", "value": 2, "policy": "max" } } ],
+            "criticalFailure": [ { "to": "target", "condition": { "slug": "frightened", "value": 3, "policy": "max" } } ] } },
+        "apply": [] }
+    },
+    "nimble-dodge": {
+      "v": 1, "label": "Ловкое уклонение",
+      "onAttacked": { "trigger": "attack-on-self",
+        "bonus": { "stat": "ac", "type": "circumstance", "value": 2 }, "cost": "reaction", "notify": ["owner", "gm"] }
+    }
+  }
+}

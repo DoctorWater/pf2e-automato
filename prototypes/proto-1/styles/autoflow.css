@@ -1,0 +1,7 @@
+.pf2e-autoflow .af-row { display: flex; align-items: center; gap: 6px; padding: 2px 0; border-bottom: 1px solid var(--color-border-light-2, #ccc); }
+.pf2e-autoflow .af-name { flex: 1; font-weight: bold; }
+.pf2e-autoflow .af-deg-0, .pf2e-autoflow .af-deg-1 { color: #8b1a1a; }
+.pf2e-autoflow .af-deg-2, .pf2e-autoflow .af-deg-3 { color: #1a6b1a; }
+.pf2e-autoflow button { width: auto; line-height: 1.4; padding: 0 6px; }
+.pf2e-autoflow .af-title { font-weight: bold; margin-bottom: 4px; }
+.pf2e-autoflow .af-note { font-size: 0.85em; opacity: 0.8; }

@@ -1,0 +1,72 @@
+{
+  "PF2E_AUTOMATO": {
+    "builtin": {
+      "unknown": "built-in handler not found",
+      "needOneTarget": "\"{name}\": exactly one target is required (target it before using).",
+      "blood": {
+        "title": "Blood Magic",
+        "prompt": "{name} cast a blood spell (aberrant bloodline). Choose:",
+        "self": "Self: +2 status bonus to Will saves for 1 round",
+        "target": "Target \"{name}\": -1 status penalty to Will saves for 1 round",
+        "skip": "Do not apply"
+      },
+      "double": {
+        "title": "Double Slice",
+        "first": "First weapon",
+        "second": "Second weapon",
+        "map": "Current multiple attack penalty (for both Strikes)",
+        "ok": "Attack",
+        "noWeapons": "\"{name}\": needs two melee weapons, one in each hand (equipped, held in one hand).",
+        "sameWeapon": "\"{name}\": the same weapon was chosen twice.",
+        "mergeFailed": "Double Slice: could not combine damage; two separate rolls are shown - add them manually (precision damage once).",
+        "next": "<p><b>{name}</b>: counts as two attacks. The next Strike this turn takes the third-attack penalty: {map}.</p>"
+      },
+      "twin": {
+        "effect": "Twin Feint: off-guard"
+      },
+      "dirty": {
+        "effect": "Dirty Trick: clumsy 1 (1 round)"
+      },
+      "fakeOut": {
+        "title": "Fake Out",
+        "ally": "Ally whose attack you Aid",
+        "hurt": "+1: dealt damage to this enemy with this weapon since your last turn began",
+        "roll": "Roll Aid",
+        "noGun": "\"{name}\": needs a firearm or crossbow.",
+        "noAlly": "\"{name}\": no allies on the scene."
+      },
+      "reactive": {
+        "hint": "<p><b>Reactive Strike</b>: {source} uses a {trigger} within {holder}'s reach. Reaction: @UUID[{item}]</p>",
+        "manipulate": "manipulate action",
+        "move": "a move (leaving a square)",
+        "ranged": "ranged attack",
+        "strike": "Strike",
+        "damage": "damage to ally \"{ally}\"",
+        "cannot": "No permission for this actor, or the target is gone.",
+        "moveStep": "a 5-foot shift (if it was a Step, no reaction)"
+      },
+      "onyx": {
+        "title": "Onyx Dog",
+        "prompt": "Activate {name}'s figurine: summon a Guard Dog nearby (up to 6 hours)?",
+        "cooldown": "Less than a week since the last activation (days left: {days}).",
+        "yes": "Summon",
+        "no": "Cancel",
+        "noToken": "Onyx Dog: the owner has no token on the scene.",
+        "noSpot": "no free space next to the owner",
+        "summoned": "{name}: summoned {dog}. It reverts in 6 hours of game time.",
+        "dismiss": "Dismiss the dog"
+      },
+      "strike": {
+        "weapon": "Weapon",
+        "map": "Current multiple attack penalty (for the first Strike)",
+        "mapHint": "The system doesn't count attacks — pick the penalty your next Strike would have.",
+        "ok": "Attack",
+        "noMelee": "\"{name}\": no ready melee Strike."
+      },
+      "blade": {
+        "noWeapons": "\"{name}\": needs two different melee Strikes.",
+        "effect": "{name}: off-guard"
+      }
+    }
+  }
+}

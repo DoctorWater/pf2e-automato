@@ -1,0 +1,20 @@
+{
+  "PF2E_AUTOMATO": {
+    "saves": {
+      "dcUnknown": "The challenge DC is unknown: enter it in the message block.",
+      "noStatistic": "\"{name}\" has no statistic \"{stat}\": cannot roll.",
+      "changedAfterApply": "The \"{item}\" challenge result for \"{name}\" changed after it was applied (reroll). Press \"Undo\" or \"Apply\" in the block.",
+      "macroError": "Macro \"{name}\" failed: {error}",
+      "macroNotFound": "macro not found",
+      "macroNoPerm": "the GM lacks the MACRO_SCRIPT permission",
+      "macroTimeout": "timed out"
+    },
+    "apply": {
+      "immune": "\"{name}\" is immune to this effect — not applied.",
+      "alreadyImmune": "\"{name}\" is temporarily immune to this effect — not applied.",
+      "needEnemy": "\"{name}\": target exactly one enemy (for the mark) — effect not applied.",
+      "noChoice": "\"{name}\": no option chosen — effect not applied.",
+      "choose": "Choose"
+    }
+  }
+}

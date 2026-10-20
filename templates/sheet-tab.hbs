@@ -1,0 +1,183 @@
+{{!-- Поля без name: лист pf2e не должен отправлять их в item.update. Данные собирает sheet.mjs из data-f / data-r. --}}
+{{#*inline "afRow"}}
+<div class="af-row">
+  <select data-r="to">{{selectOptions @root.ch.to selected=to valueAttr="value" labelAttr="label"}}</select>
+  <select data-r="kind">{{selectOptions @root.ch.rowKind selected=kind valueAttr="value" labelAttr="label"}}</select>
+  <input type="text" data-r="text" value="{{text}}" placeholder="{{localize 'PF2E_AUTOMATO.sheet.row.placeholder'}}">
+  <input type="number" data-r="value" value="{{value}}" min="1" class="af-narrow" title="{{localize 'PF2E_AUTOMATO.sheet.row.value'}}">
+  <select data-r="policy" title="{{localize 'PF2E_AUTOMATO.sheet.row.policy'}}">{{selectOptions @root.ch.policy selected=policy valueAttr="value" labelAttr="label"}}</select>
+  <span class="af-dur" title="{{localize 'PF2E_AUTOMATO.sheet.duration'}}">
+    <input type="number" data-r="durValue" value="{{durValue}}" min="1" class="af-narrow" placeholder="{{localize 'PF2E_AUTOMATO.sheet.duration'}}">
+    <select data-r="durUnit">{{selectOptions @root.ch.durUnit selected=durUnit valueAttr="value" labelAttr="label"}}</select>
+    <select data-r="durExpiry">{{selectOptions @root.ch.expiry selected=durExpiry valueAttr="value" labelAttr="label"}}</select>
+    <select data-r="durOf">{{selectOptions @root.ch.durOf selected=durOf valueAttr="value" labelAttr="label"}}</select>
+  </span>
+  <a data-action="remove-row" title="{{localize 'PF2E_AUTOMATO.sheet.remove'}}"><i class="fa-solid fa-trash"></i></a>
+</div>
+{{/inline}}
+{{#*inline "afMacro"}}
+<div class="af-row">
+  <input type="text" data-r="uuid" value="{{uuid}}" placeholder="Macro.xxxxxxxx">
+  <select data-r="phase">{{selectOptions @root.ch.phase selected=phase valueAttr="value" labelAttr="label"}}</select>
+  <select data-r="degree">{{selectOptions @root.ch.degree selected=degree valueAttr="value" labelAttr="label"}}</select>
+  <a data-action="remove-row" title="{{localize 'PF2E_AUTOMATO.sheet.remove'}}"><i class="fa-solid fa-trash"></i></a>
+</div>
+{{/inline}}
+
+<section class="tab automato" data-tab="automato">
+  <div class="af-recognized">
+    <h3>{{localize "PF2E_AUTOMATO.sheet.recognized"}}</h3>
+    {{#if res}}
+      <p>{{localize "PF2E_AUTOMATO.sheet.source"}}: <b>{{res.source}}</b>
+        &middot; {{localize "PF2E_AUTOMATO.sheet.confidence"}}: <b class="af-conf-{{res.confidence}}">{{res.confidence}}</b></p>
+    {{else}}
+      <p>{{localize "PF2E_AUTOMATO.sheet.none"}}</p>
+    {{/if}}
+    <p class="af-meta">slug: <code>{{#if slug}}{{slug}}{{else}}&mdash;{{/if}}</code>
+      &middot; source: <code>{{#if sourceUuid}}{{sourceUuid}}{{else}}&mdash;{{/if}}</code></p>
+    {{#if covered}}
+      <p class="af-badge">{{localize "PF2E_AUTOMATO.sheet.automationsBadge"}}: {{#each groups}}{{this}}{{#unless @last}}, {{/unless}}{{/each}}</p>
+    {{/if}}
+    {{#if res}}
+      <details><summary>JSON</summary><pre>{{res.json}}</pre></details>
+      {{#if res.canAccept}}
+        <button type="button" data-action="accept" data-rule="{{res.ruleAttr}}" {{#if lockedFlag}}disabled{{/if}}>{{localize "PF2E_AUTOMATO.sheet.accept"}}</button>
+      {{/if}}
+    {{/if}}
+  </div>
+
+  <div class="af-form">
+    <p class="af-warn" data-covered="{{#if covered}}1{{/if}}" data-setting="{{#if settingYield}}1{{/if}}" hidden>
+      {{localize "PF2E_AUTOMATO.sheet.doubleWarn"}}{{#if covered}} &laquo;{{#each groups}}{{this}}{{#unless @last}}, {{/unless}}{{/each}}&raquo;{{/if}}
+    </p>
+
+    <div class="af-line">
+      <label>{{localize "PF2E_AUTOMATO.sheet.label"}} <input type="text" data-f="label" value="{{f.label}}"></label>
+      <label>{{localize "PF2E_AUTOMATO.sheet.yieldLabel"}} <select data-f="yield">{{selectOptions ch.yield selected=f.yield valueAttr="value" labelAttr="label"}}</select></label>
+      <label>{{localize "PF2E_AUTOMATO.sheet.kindLabel"}} <select data-f="kind">{{selectOptions ch.kind selected=f.kind valueAttr="value" labelAttr="label"}}</select></label>
+    </div>
+
+    <fieldset class="af-block" data-showif="kind=onUse">
+      <legend>{{localize "PF2E_AUTOMATO.sheet.area"}}</legend>
+      <div class="af-line">
+        <label>{{localize "PF2E_AUTOMATO.sheet.targetsLabel"}} <select data-f="targets">{{selectOptions ch.targets selected=f.targets valueAttr="value" labelAttr="label"}}</select></label>
+        <label data-showif="targets=area">{{localize "PF2E_AUTOMATO.sheet.excludeSelf"}} <select data-f="excludeSelf">{{selectOptions ch.tri selected=f.excludeSelf valueAttr="value" labelAttr="label"}}</select></label>
+      </div>
+    </fieldset>
+
+    <fieldset class="af-block" data-showif="kind=onUse">
+      <legend>{{localize "PF2E_AUTOMATO.sheet.apply"}}</legend>
+      <div class="af-rows" data-list="apply">{{#each f.apply}}{{> afRow}}{{/each}}</div>
+      <button type="button" data-action="add-row" data-list="apply" data-proto="row"><i class="fa-solid fa-plus"></i> {{localize "PF2E_AUTOMATO.sheet.add"}}</button>
+    </fieldset>
+
+    <fieldset class="af-block" data-showif="kind=onUse">
+      <legend>{{localize "PF2E_AUTOMATO.sheet.zone"}}</legend>
+      <div data-showif="targets=area">
+        <label><input type="checkbox" data-f="zone.on" {{checked f.zone.on}}> {{localize "PF2E_AUTOMATO.sheet.zoneOn"}}</label>
+        <div class="af-line" data-showif="zone.on=true">
+          <label>{{localize "PF2E_AUTOMATO.sheet.zoneCond"}} <input type="text" data-f="zone.cond" value="{{f.zone.cond}}" placeholder="concealed"></label>
+          <label>{{localize "PF2E_AUTOMATO.sheet.row.value"}} <input type="number" min="1" class="af-narrow" data-f="zone.condValue" value="{{f.zone.condValue}}"></label>
+          <label>{{localize "PF2E_AUTOMATO.sheet.zoneEffect"}} <input type="text" data-f="zone.effect" value="{{f.zone.effect}}" placeholder="Compendium..."></label>
+          <label>{{localize "PF2E_AUTOMATO.sheet.seconds"}} <input type="number" min="1" class="af-narrow" data-f="zone.seconds" value="{{f.zone.seconds}}"></label>
+          <label>{{localize "PF2E_AUTOMATO.sheet.rounds"}} <input type="number" min="1" class="af-narrow" data-f="zone.rounds" value="{{f.zone.rounds}}"></label>
+        </div>
+      </div>
+      <p class="af-meta" data-showif="targets=self|selected">{{localize "PF2E_AUTOMATO.sheet.zoneNeedsArea"}}</p>
+    </fieldset>
+
+    <fieldset class="af-block" data-showif="kind=onUse">
+      <legend>{{localize "PF2E_AUTOMATO.sheet.challenge"}}</legend>
+      <label><input type="checkbox" data-f="ch.on" {{checked f.ch.on}}> {{localize "PF2E_AUTOMATO.sheet.challengeOn"}}</label>
+      <div data-showif="ch.on=true">
+        <div class="af-line">
+          <label>{{localize "PF2E_AUTOMATO.sheet.statistic"}} <input type="text" data-f="ch.statistic" value="{{f.ch.statistic}}" list="af-stats"></label>
+          <datalist id="af-stats">{{#each ch.stat}}<option value="{{value}}">{{label}}</option>{{/each}}</datalist>
+          <label>{{localize "PF2E_AUTOMATO.sheet.dcLabel"}} <select data-f="ch.dcType">{{selectOptions ch.dcType selected=f.ch.dcType valueAttr="value" labelAttr="label"}}</select></label>
+          <input type="text" data-f="ch.dcText" value="{{f.ch.dcText}}" data-showif="ch.dcType=value|expr|against">
+          <label><input type="checkbox" data-f="ch.basic" {{checked f.ch.basic}}> {{localize "PF2E_AUTOMATO.sheet.basic"}}</label>
+        </div>
+        <div class="af-line">
+          <label>{{localize "PF2E_AUTOMATO.sheet.traits"}} <input type="text" data-f="ch.traits" value="{{f.ch.traits}}" placeholder="fear, mental"></label>
+          <label>{{localize "PF2E_AUTOMATO.sheet.options"}} <input type="text" data-f="ch.options" value="{{f.ch.options}}"></label>
+        </div>
+        {{#each degrees}}
+          <div class="af-degree">
+            <h5>{{label}}</h5>
+            <div class="af-rows" data-list="ch.deg.{{key}}">{{#each rows}}{{> afRow}}{{/each}}</div>
+            <button type="button" data-action="add-row" data-list="ch.deg.{{key}}" data-proto="row"><i class="fa-solid fa-plus"></i> {{localize "PF2E_AUTOMATO.sheet.add"}}</button>
+          </div>
+        {{/each}}
+      </div>
+    </fieldset>
+
+    <fieldset class="af-block" data-showif="kind=onUse">
+      <legend>{{localize "PF2E_AUTOMATO.sheet.check"}}</legend>
+      <label><input type="checkbox" data-f="ck.on" {{checked f.ck.on}}> {{localize "PF2E_AUTOMATO.sheet.checkOn"}}</label>
+      <div data-showif="ck.on=true">
+        <div class="af-line">
+          <label>{{localize "PF2E_AUTOMATO.sheet.checkStat"}} <input type="text" data-f="ck.statistic" value="{{f.ck.statistic}}" placeholder="athletics, acrobatics"></label>
+          <label>{{localize "PF2E_AUTOMATO.sheet.vsLabel"}} <select data-f="ck.vsType">{{selectOptions ch.vsType selected=f.ck.vsType valueAttr="value" labelAttr="label"}}</select></label>
+          <input type="text" data-f="ck.vsText" value="{{f.ck.vsText}}" list="af-defenses">
+          <datalist id="af-defenses">{{#each ch.defense}}<option value="{{this}}">{{/each}}</datalist>
+          <label>{{localize "PF2E_AUTOMATO.sheet.map"}} <select data-f="ck.map">{{selectOptions ch.map selected=f.ck.map valueAttr="value" labelAttr="label"}}</select></label>
+        </div>
+        <div class="af-line">
+          <label>{{localize "PF2E_AUTOMATO.sheet.traits"}} <input type="text" data-f="ck.traits" value="{{f.ck.traits}}" placeholder="auditory, mental"></label>
+          <label>{{localize "PF2E_AUTOMATO.sheet.options"}} <input type="text" data-f="ck.options" value="{{f.ck.options}}" placeholder="action:demoralize"></label>
+        </div>
+        <div class="af-line">
+          <label><input type="checkbox" data-f="ck.imm.on" {{checked f.ck.imm.on}}> {{localize "PF2E_AUTOMATO.sheet.immunity"}}</label>
+          <span data-showif="ck.imm.on=true">
+            <input type="text" data-f="ck.imm.slug" value="{{f.ck.imm.slug}}" placeholder="slug">
+            <input type="text" data-f="ck.imm.label" value="{{f.ck.imm.label}}" placeholder="{{localize 'PF2E_AUTOMATO.sheet.label'}}">
+            <input type="text" data-f="ck.imm.uuid" value="{{f.ck.imm.uuid}}" placeholder="UUID">
+            <input type="number" min="1" class="af-narrow" data-f="ck.imm.value" value="{{f.ck.imm.value}}">
+            <select data-f="ck.imm.unit">{{selectOptions ch.immUnit selected=f.ck.imm.unit valueAttr="value" labelAttr="label"}}</select>
+          </span>
+        </div>
+        {{#each ckDegrees}}
+          <div class="af-degree">
+            <h5>{{label}}</h5>
+            <div class="af-rows" data-list="ck.deg.{{key}}">{{#each rows}}{{> afRow}}{{/each}}</div>
+            <button type="button" data-action="add-row" data-list="ck.deg.{{key}}" data-proto="row"><i class="fa-solid fa-plus"></i> {{localize "PF2E_AUTOMATO.sheet.add"}}</button>
+          </div>
+        {{/each}}
+      </div>
+    </fieldset>
+
+    <fieldset class="af-block" data-showif="kind=onAttacked">
+      <legend>{{localize "PF2E_AUTOMATO.sheet.reaction"}}</legend>
+      <div class="af-line">
+        <label>{{localize "PF2E_AUTOMATO.sheet.acBonus"}} <input type="text" data-f="react.type" value="{{f.react.type}}" list="af-btypes"></label>
+        <datalist id="af-btypes"><option value="circumstance"><option value="status"><option value="item"><option value="untyped"></datalist>
+        <input type="number" class="af-narrow" data-f="react.value" value="{{f.react.value}}">
+        <label><input type="checkbox" data-f="react.owner" {{checked f.react.owner}}> {{localize "PF2E_AUTOMATO.sheet.notifyOwner"}}</label>
+        <label><input type="checkbox" data-f="react.gm" {{checked f.react.gm}}> {{localize "PF2E_AUTOMATO.sheet.notifyGM"}}</label>
+      </div>
+    </fieldset>
+
+    <fieldset class="af-block">
+      <legend>{{localize "PF2E_AUTOMATO.sheet.macros"}}</legend>
+      <div class="af-rows" data-list="macros">{{#each f.macros}}{{> afMacro}}{{/each}}</div>
+      <button type="button" data-action="add-row" data-list="macros" data-proto="macro"><i class="fa-solid fa-plus"></i> {{localize "PF2E_AUTOMATO.sheet.add"}}</button>
+    </fieldset>
+
+    <template data-proto="row">{{> afRow blankRow}}</template>
+    <template data-proto="macro">{{> afMacro blankMacro}}</template>
+
+    <ul class="af-errors"></ul>
+
+    <div class="af-buttons">
+      <button type="button" data-action="save-flag" {{#if lockedFlag}}disabled{{/if}}>{{localize "PF2E_AUTOMATO.sheet.saveFlag"}}</button>
+      <button type="button" data-action="reset-flag" {{#if lockedFlag}}disabled{{/if}}>{{localize "PF2E_AUTOMATO.sheet.resetFlag"}}</button>
+      <button type="button" data-action="save-world" data-scope="source" {{#if noSource}}disabled{{/if}}>{{localize "PF2E_AUTOMATO.sheet.worldSource"}}</button>
+      <button type="button" data-action="save-world" data-scope="slug" {{#if noSlug}}disabled{{/if}}>{{localize "PF2E_AUTOMATO.sheet.worldSlug"}}</button>
+      {{#if isWorld}}
+        <button type="button" data-action="delete-world" data-scope="source" {{#if noSource}}disabled{{/if}}>{{localize "PF2E_AUTOMATO.sheet.delWorldSource"}}</button>
+        <button type="button" data-action="delete-world" data-scope="slug" {{#if noSlug}}disabled{{/if}}>{{localize "PF2E_AUTOMATO.sheet.delWorldSlug"}}</button>
+      {{/if}}
+    </div>
+    {{#if lockedFlag}}<p class="af-meta">{{localize "PF2E_AUTOMATO.sheet.locked"}}</p>{{/if}}
+  </div>
+</section>

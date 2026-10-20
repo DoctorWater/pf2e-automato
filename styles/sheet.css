@@ -1,0 +1,16 @@
+.tab.automato { padding: 0.5rem; overflow-y: auto; }
+.tab.automato [hidden] { display: none !important; }
+.tab.automato .af-line { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; margin: 0.25rem 0; }
+.tab.automato .af-row { display: flex; gap: 0.25rem; align-items: center; margin: 0.15rem 0; }
+.tab.automato .af-row [data-r="text"], .tab.automato .af-row [data-r="uuid"] { flex: 1; min-width: 6rem; }
+.tab.automato .af-narrow { width: 4rem; flex: none; }
+.tab.automato .af-block { margin: 0.5rem 0; }
+.tab.automato .af-degree h5 { margin: 0.4rem 0 0.1rem; }
+.tab.automato .af-meta { font-size: 0.85em; opacity: 0.8; word-break: break-all; }
+.tab.automato .af-badge { font-weight: bold; }
+.tab.automato .af-warn { color: #fff; background: #a01818; padding: 0.4rem 0.6rem; border-radius: 3px; }
+.tab.automato .af-conf-low { color: #b86b00; }
+.tab.automato .af-errors { color: #a01818; margin: 0.25rem 0; padding-left: 1.2rem; }
+.tab.automato .af-buttons { display: flex; flex-wrap: wrap; gap: 0.25rem; }
+.tab.automato .af-buttons button { width: auto; flex: none; }
+.tab.automato details pre { max-height: 14rem; overflow: auto; font-size: 0.8em; }

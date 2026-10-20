@@ -1,0 +1,21 @@
+{
+  "PF2E_AUTOMATO": {
+    "checks": {
+      "head": "Check: {stat} vs {vs}",
+      "ac": "AC",
+      "immune": "immune",
+      "noTargets": "Target a creature before using it.",
+      "immunityPlan": "immunity: {name}",
+      "immunityName": "Immunity: {name}",
+      "immuneNote": "\"{name}\" is immune: no roll needed.",
+      "dcUnknown": "Defense DC of \"{name}\" is unknown: cannot roll.",
+      "immuneSkipped": "immune: effects not applied",
+      "noTargetRoll": "No target: effects not applied.",
+      "mapTitle": "Multiple attack penalty",
+      "mapPrompt": "Which attack of the turn is this maneuver? (MAP)",
+      "mapOption0": "First attack: no penalty",
+      "mapOption1": "Second attack: MAP",
+      "mapOption2": "Third or later: MAP"
+    }
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "AFP1.Mode": "Autoflow mode",
+  "AFP1.ModeHint": "How automation results are applied (zones are always automatic).",
+  "AFP1.ModeButton": "Offer Apply button",
+  "AFP1.ModeAuto": "Apply immediately",
+  "AFP1.ModeOff": "Off",
+  "AFP1.Apply": "Apply",
+  "AFP1.ApplyAll": "Apply all",
+  "AFP1.Applied": "applied",
+  "AFP1.Save": "{stat} save, DC {dc}",
+  "AFP1.Targets": "No targets: target tokens first, or place the template.",
+  "AFP1.Zone": "Zone \"{name}\": creatures inside get {condition} for {seconds} s; removed on exit or expiry.",
+  "AFP1.ZoneBehavior": "Autoflow zone",
+  "AFP1.Reaction": "Reaction available: {name}",
+  "AFP1.ReactionAttack": "{target} is attacked ({total} vs AC {dc}).",
+  "AFP1.ReactionFlip": "+2 AC would change the outcome!",
+  "AFP1.ReactionUse": "Use reaction (+2 AC)",
+  "AFP1.EffectName": "Nimble Dodge (+2 AC)",
+  "AFP1.Item": "Effects of {name}"
+}

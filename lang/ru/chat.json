@@ -1,0 +1,56 @@
+{
+  "PF2E_AUTOMATO": {
+    "chat": {
+      "title": "Автоматизация",
+      "yielded": "Выполняет pf2e-automations",
+      "yieldWarn": "Группа «{name}» в pf2e-automations тоже сработает на этот бросок; отключите её или не снимайте уступку.",
+      "waiting": "Ожидает ГМа",
+      "resume": "Дозапустить",
+      "awaitingRegion": "Ожидает размещения области",
+      "challengeOff": "Испытания выполняет Toolbelt",
+      "dc": "СЛ {dc}",
+      "dcUnknown": "СЛ неизвестен",
+      "setDC": "Ввести СЛ",
+      "setDCTitle": "СЛ испытания",
+      "challenge": "Испытание: {stat}",
+      "basic": "базовое",
+      "noResult": "нет результата",
+      "result": "{degree} ({total})",
+      "multiplier": "урон ×{value}",
+      "changed": "результат изменён после применения",
+      "applied": "применено: {degree}",
+      "rollSave": "Бросить",
+      "apply": "Применить",
+      "applyAll": "Применить всё",
+      "undo": "Отменить",
+      "undoAll": "Отменить всё",
+      "applyUse": "Применить",
+      "applyDerived": "Применить (распознано)",
+      "applyDerivedTitle": "Распознано из описания: {text}",
+      "stepSelf": "{what} на себя",
+      "stepTarget": "{what} на цель",
+      "stepZone": "зона: {what}",
+      "applyDone": "Применено",
+      "zone": "Зона",
+      "zonePending": "ждёт создания",
+      "zoneActive": "действует",
+      "zoneClosed": "закрыта",
+      "zoneExpired": "истекла",
+      "createZone": "Создать зону",
+      "closeZone": "Закрыть зону",
+      "macroErrors": "Ошибки макросов",
+      "failed": "Не удалось: {reason}",
+      "degree": {
+        "criticalFailure": "Крит. провал",
+        "failure": "Провал",
+        "success": "Успех",
+        "criticalSuccess": "Крит. успех"
+      },
+      "reaction": {
+        "hint": "Реакция «{item}»: {before} → {after}",
+        "use": "Использовать",
+        "used": "использована"
+      }
+    }
+  }
+}

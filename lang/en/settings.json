@@ -1,0 +1,24 @@
+{
+  "PF2E_AUTOMATO": {
+    "settings": {
+      "mode": {
+        "zone": { "name": "Zones", "hint": "Live zones from area templates: automatic, on button, or off." },
+        "effect": { "name": "Effects on self and allies", "hint": "Apply effects and conditions when an item is used." },
+        "challenge": { "name": "Challenges", "hint": "Auto: NPCs roll immediately on the GM client, player characters by button." },
+        "apply": { "name": "Conditions by degree", "hint": "Apply conditions to targets by challenge result (default: GM button)." },
+        "reaction": { "name": "Reactions", "hint": "Auto: whisper a hint when a reaction changes the attack outcome." },
+        "macro": { "name": "Rule macros", "hint": "Run macros attached to rules, executed by the active GM." }
+      },
+      "yieldToAutomations": { "name": "Yield to pf2e-automations", "hint": "Do not run rules for items already covered by an active pf2e-automations group. A rule can override this with its yield field." },
+      "useToolbeltTargetHelper": { "name": "Use Toolbelt Target Helper", "hint": "If Target Helper is enabled, it makes the challenge rolls instead of this module." },
+      "challenge": {
+        "messageMode": { "name": "NPC roll visibility", "hint": "Public or GM only." }
+      },
+      "reaction": {
+        "onlyWhenChanges": { "name": "Reaction hint only when outcome changes", "hint": "Stay quiet if the reaction bonus does not change the attack result." }
+      },
+      "resumeMinutes": { "name": "Resume window (minutes)", "hint": "Messages older than this are not resumed automatically (1-1440)." },
+      "debug": { "name": "Debug", "hint": "Write verbose logs to the console (this client only)." }
+    }
+  }
+}

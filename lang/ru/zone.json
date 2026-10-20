@@ -1,0 +1,20 @@
+{
+  "PF2E_AUTOMATO": {
+    "zone": {
+      "label": "Зона pf2e-automato",
+      "hint": "Накладывает состояние/эффект на токены внутри области, снимает при выходе и по окончании срока.",
+      "name": "Зона",
+      "FIELDS": {
+        "condition": { "label": "Состояние (slug)" },
+        "conditionValue": { "label": "Значение состояния" },
+        "effectUuid": { "label": "UUID эффекта" },
+        "expiresAt": { "label": "Истекает (мировое время, с)" },
+        "roundsLeft": { "label": "Осталось раундов" },
+        "originUuid": { "label": "Источник (UUID предмета)" },
+        "originActor": { "label": "Автор (UUID актёра)" },
+        "messageId": { "label": "Сообщение чата" },
+        "closed": { "label": "Закрыта" }
+      }
+    }
+  }
+}

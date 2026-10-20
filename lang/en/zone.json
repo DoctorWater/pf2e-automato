@@ -1,0 +1,20 @@
+{
+  "PF2E_AUTOMATO": {
+    "zone": {
+      "label": "pf2e-automato Zone",
+      "hint": "Applies a condition/effect to tokens inside the area, removes it on exit and when the duration ends.",
+      "name": "Zone",
+      "FIELDS": {
+        "condition": { "label": "Condition (slug)" },
+        "conditionValue": { "label": "Condition value" },
+        "effectUuid": { "label": "Effect UUID" },
+        "expiresAt": { "label": "Expires at (world time, s)" },
+        "roundsLeft": { "label": "Rounds left" },
+        "originUuid": { "label": "Source (item UUID)" },
+        "originActor": { "label": "Author (actor UUID)" },
+        "messageId": { "label": "Chat message" },
+        "closed": { "label": "Closed" }
+      }
+    }
+  }
+}

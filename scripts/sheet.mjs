@@ -1,8 +1,11 @@
 // K6: вкладка «Автоматизация» в листе предмета (AppV1, plan.md §6). Только ГМ.
-import { MOD, L, DEGREES, callGM, forcedReplace } from "./util.mjs";
+import { MOD, L, DEGREES, callGM, forcedReplace, sluggify } from "./util.mjs";
 import { S } from "./settings.mjs";
 import { validateRule, resolveRule, slugOf, sourceOf } from "./rules.mjs";
 import { automationsGroups } from "./compat.mjs";
+import { resolveDC, safeUuid } from "./saves.mjs";
+import { defenseDc, pickStatistic, hasImmunity } from "./checks.mjs";
+import { stepText } from "./chat.mjs";
 
 const DENY = new Set(["condition", "effect", "ancestry", "heritage", "background", "class", "deity", "kit", "lore", "campaignFeature", "affliction", "melee"]);
 const TEMPLATE = `modules/${MOD}/templates/sheet-tab.hbs`;
@@ -133,6 +136,77 @@ export function formToRule(f) {
   return rule;
 }
 
+/* ---------- Чистая часть: бросок на форму, пробный запуск ---------- */
+
+/** Что значит брошенное: data — drag-данные Foundry, doc — документ по uuid (для Item). -> {kind,text} | {macro} | null. */
+export function dropSpec(data, doc) {
+  if (data?.type === "Macro" && data.uuid) return { macro: data.uuid };
+  if (data?.type !== "Item" || !data.uuid || !doc) return null;
+  if (doc.type === "condition") return { kind: "condition", text: doc.system?.slug ?? sluggify(doc.name) };
+  if (doc.type === "effect") {
+    if (!doc.parent) return { kind: "effect", text: data.uuid };
+    // вложенный эффект: его UUID временный, берём источник (компендиум)
+    const src = doc._stats?.compendiumSource ?? doc.sourceId;
+    return src ? { kind: "effect", text: src } : { temp: true };
+  }
+  return null;
+}
+
+/** Все UUID правила (эффекты, иммунитет, зона, макросы) — для предварительного разрешения имён. */
+export function ruleUuids(rule) {
+  const u = rule.onUse, ch = u?.challenge, ck = u?.check, z = u?.zone;
+  const steps = [...(u?.apply ?? []), ...DEGREES.flatMap((d) => [...(ch?.byDegree?.[d] ?? []), ...(ck?.byDegree?.[d] ?? [])])];
+  return [...new Set([...steps.map((a) => a.effect?.uuid), z?.effect?.uuid, ck?.immunity?.uuid, ...(rule.macros ?? []).map((m) => m.uuid)].filter(Boolean))];
+}
+
+const signed = (n) => (n >= 0 ? `+${n}` : String(n));
+const modOf = (st) => st?.check?.mod ?? st?.mod ?? 0;
+
+/**
+ * Отчёт пробного запуска, без записи в документы. rule — валидное правило, tokens — [{name, actor}].
+ * env: {t, dc (СЛ испытания|null), author (Actor|null), statLabel, conditionLabel, conditionKnown(slug), uuidName(uuid) — по готовой карте}.
+ * -> {problems: [], apply: [], tokens: [{name, lines: [], problems: []}]}
+ */
+export function buildReport(rule, tokens, env) {
+  const { t } = env, u = rule.onUse, ch = u?.challenge, ck = u?.check;
+  const problems = new Set();
+  const step = (a) => stepText(a, env, "target");
+  const slugCheck = (slug) => { if (!env.conditionKnown(slug)) problems.add(t("sheet.test.badSlug", { slug })); };
+  const uuidCheck = (uuid) => { if (!env.uuidName(uuid)) problems.add(t("sheet.test.badUuid", { uuid })); };
+  const byDeg = (bd) => DEGREES.slice().reverse().filter((d) => bd?.[d]?.length).map((d) => `${t(`sheet.degree.${d}`)}: ${bd[d].map(step).join("; ")}`);
+  const steps = [...(u?.apply ?? []), ...DEGREES.flatMap((d) => [...(ch?.byDegree?.[d] ?? []), ...(ck?.byDegree?.[d] ?? [])])];
+  for (const a of steps) { if (a.condition) slugCheck(a.condition.slug); if (a.effect) uuidCheck(a.effect.uuid); }
+  const z = u?.zone;
+  if (z?.condition) slugCheck(z.condition.slug);
+  if (z?.effect) uuidCheck(z.effect.uuid);
+  if (ck?.immunity?.uuid) uuidCheck(ck.immunity.uuid);
+  for (const m of rule.macros ?? []) uuidCheck(m.uuid);
+
+  const authorStat = ck && env.author ? pickStatistic(env.author, ck.statistic) : null;
+  if (ck && !env.author) problems.add(t("sheet.test.noOwner"));
+  else if (ck && !authorStat) problems.add(t("sheet.test.noAuthorStat", { stat: [ck.statistic].flat().join("/") }));
+  if (ch && env.dc == null) problems.add(t("sheet.test.dcUnknown"));
+
+  const out = (tokens ?? []).map(({ name, actor }) => {
+    const lines = [], tp = [];
+    if (ch) {
+      const st = pickStatistic(actor, ch.statistic);
+      if (!st) tp.push(t("saves.noStatistic", { name, stat: ch.statistic }));
+      else lines.push(t("sheet.test.challenge", { stat: env.statLabel(ch.statistic), mod: signed(modOf(st)), dc: env.dc ?? "?" }));
+      lines.push(...byDeg(ch.byDegree));
+    }
+    if (ck) {
+      const dc = defenseDc(actor, ck.vs);
+      if (dc == null) tp.push(t("checks.dcUnknown", { name }));
+      if (authorStat) lines.push(t("sheet.test.check", { stat: env.statLabel(authorStat.slug ?? ck.statistic), mod: signed(modOf(authorStat)), dc: dc ?? "?" }));
+      if (hasImmunity(actor, ck.immunity, env.author?.uuid)) lines.push(t("sheet.test.immune"));
+      lines.push(...byDeg(ck.byDegree));
+    }
+    return { name, lines, problems: tp };
+  });
+  return { problems: [...problems], apply: (u?.apply ?? []).map(step), tokens: out };
+}
+
 /* ---------- DOM ---------- */
 
 const getPath = (o, p) => p.split(".").reduce((x, k) => x?.[k], o);
@@ -162,6 +236,31 @@ function syncUi(root) {
   }
   const warn = root.querySelector(".af-warn");
   if (warn) warn.hidden = !(warn.dataset.covered === "1" && (f.yield === "no" || (f.yield === "auto" && warn.dataset.setting !== "1")));
+}
+
+/** Пробный запуск формы на целях/выделенных токенах: только чтение, диалог с отчётом. */
+async function testRun(item, rule) {
+  const picked = game.user.targets.size ? [...game.user.targets] : canvas.tokens?.controlled ?? [];
+  const tokens = picked.filter((t) => t.actor).map((t) => ({ name: t.name, actor: t.actor }));
+  if (!tokens.length) return ui.notifications.warn(L("sheet.test.noTokens"));
+  const author = item.actor ?? null;
+  const dc = rule.onUse?.challenge ? await resolveDC({ rule }, { item, actor: author }) : null;
+  const known = (slug) => !!CONFIG.PF2E.conditionTypes?.[slug];
+  // fromUuidSync бросает на вложенных UUID компендиев — разрешаем заранее асинхронно
+  const names = Object.fromEntries(await Promise.all(ruleUuids(rule).map(async (u) => [u, (await safeUuid(u))?.name ?? null])));
+  const rep = buildReport(rule, tokens, {
+    t: L, dc, author,
+    statLabel: (s) => { const k = CONFIG.PF2E.saves?.[s] ?? CONFIG.PF2E.skills?.[s]?.label ?? CONFIG.PF2E.attributes?.[s]; return k ? game.i18n.localize(k) : s; },
+    conditionLabel: (slug) => (known(slug) ? game.i18n.localize(CONFIG.PF2E.conditionTypes[slug]) : slug),
+    conditionKnown: known, uuidName: (uuid) => names[uuid] ?? null
+  });
+  const esc = foundry.utils.escapeHTML, ul = (a) => `<ul>${a.map((x) => `<li>${esc(x)}</li>`).join("")}</ul>`;
+  const content = [
+    rep.problems.length && `<p><b>${L("sheet.test.problems")}</b></p>${ul(rep.problems)}`,
+    rep.apply.length && `<p><b>${L("sheet.apply")}</b></p>${ul(rep.apply)}`,
+    ...rep.tokens.map((t) => `<h4>${esc(t.name)}</h4>${ul([...t.problems, ...t.lines])}`)
+  ].filter(Boolean).join("");
+  await foundry.applications.api.DialogV2.prompt({ window: { title: L("sheet.test.title") }, content: `<div class="af-test">${content}</div>`, rejectClose: false });
 }
 
 const choices = (o) => Object.entries(o).map(([value, label]) => ({ value, label }));
@@ -235,6 +334,28 @@ async function inject(app, $html) {
   const toast = (res) => (res?.ok ? ui.notifications.info(L("sheet.saved")) : ui.notifications.error(`${L("sheet.failed")}: ${res?.error ?? res?.reason ?? "?"}`));
   const worldKey = (scope) => (scope === "source" ? { source: sourceOf(null, item) } : { slug: slugOf(null, item) });
 
+  // Бросок в нашу вкладку: глотаем событие, чтобы не дошло до drop-обработчиков листа pf2e (они навешены через ondrop на предков)
+  sec.addEventListener("dragover", (ev) => { ev.preventDefault(); ev.stopPropagation(); });
+  sec.addEventListener("drop", async (ev) => {
+    const data = foundry.applications.ux.TextEditor.implementation.getDragEventData(ev);
+    if (!data?.type) return;   // обычный текст — штатное поведение полей
+    ev.preventDefault(); ev.stopPropagation();
+    const spec = dropSpec(data, data?.type === "Item" ? await safeUuid(data.uuid) : null);
+    const field = ev.target.closest("[data-drop]");
+    const list = ev.target.closest(".af-rows") ?? ev.target.closest(".af-degree, .af-block")?.querySelector(":scope > .af-rows");
+    if (spec?.temp) return ui.notifications.warn(L("sheet.dropTemp"));
+    if (spec && field && spec.kind === (field.dataset.drop === "slug" ? "condition" : "effect")) field.value = spec.text;
+    else if (spec && !field && list && !spec.macro === (list.dataset.list !== "macros")) {
+      let row = ev.target.closest(".af-row");
+      if (!row || !list.contains(row)) {
+        list.append(sec.querySelector(`template[data-proto="${spec.macro ? "macro" : "row"}"]`).content.cloneNode(true));
+        row = list.lastElementChild;
+      }
+      if (spec.macro) row.querySelector('[data-r="uuid"]').value = spec.macro;
+      else { row.querySelector('[data-r="kind"]').value = spec.kind; row.querySelector('[data-r="text"]').value = spec.text; }
+    } else return ui.notifications.warn(L("sheet.dropBad"));
+    draft();
+  });
   sec.addEventListener("input", draft);
   sec.addEventListener("change", draft);
   sec.addEventListener("click", async (ev) => {
@@ -247,7 +368,8 @@ async function inject(app, $html) {
     }
     if (act === "remove-row") { b.closest(".af-row").remove(); return draft(); }
     try {
-      if (act === "save-flag") { const r = build(); if (r) { app._afDraft = null; await item.update(forcedReplace(`flags.${MOD}.rule`, r)); ui.notifications.info(L("sheet.saved")); } }
+      if (act === "test") { const r = build(); if (r) await testRun(item, r); }
+      else if (act === "save-flag") { const r = build(); if (r) { app._afDraft = null; await item.update(forcedReplace(`flags.${MOD}.rule`, r)); ui.notifications.info(L("sheet.saved")); } }
       else if (act === "reset-flag") { app._afDraft = null; await item.unsetFlag(MOD, "rule"); }
       else if (act === "accept") { app._afDraft = null; await item.update(forcedReplace(`flags.${MOD}.rule`, JSON.parse(b.dataset.rule))); }
       else if (act === "save-world") { const r = build(); if (r) toast(await callGM("saveCatalogRule", worldKey(b.dataset.scope), r)); }

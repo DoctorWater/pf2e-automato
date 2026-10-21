@@ -70,7 +70,10 @@
       "worldSlug": "For all with this slug",
       "delWorldSource": "Remove from world catalog (source)",
       "delWorldSlug": "Remove from world catalog (slug)",
-      "locked": "Item is in a locked compendium: saving to the item is unavailable, use \"For all...\"."
+      "locked": "Item is in a locked compendium: saving to the item is unavailable, use \"For all...\".",
+      "dropBad": "Drop a condition, effect or macro here.",
+      "dropTemp": "This effect lives on an actor and will vanish: drop it from a compendium or an item instead.",
+      "test": {"noOwner": "The item has no owner: the author's check cannot be evaluated.", "button": "Test on selected", "title": "Rule test", "noTokens": "No targets or selected tokens.", "problems": "Problems", "badSlug": "Unknown condition: {slug}", "badUuid": "UUID not found: {uuid}", "dcUnknown": "Cannot determine the challenge DC (needs the item's owner or a number).", "noAuthorStat": "The author (item owner) has no statistic {stat}.", "challenge": "Challenge {stat} {mod} vs DC {dc}", "check": "Author check {stat} {mod} vs DC {dc}", "immune": "Immune: the action will not take effect"}
     }
   }
 }

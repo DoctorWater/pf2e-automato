@@ -149,3 +149,41 @@ test("подсказка реакции: владелец/ГМ, used скрыв�
   assert.equal(buildReactionViewModel(msg(true), gm, env).canUse, false);
   assert.equal(buildReactionViewModel({ flags: {} }, gm, env), null);
 });
+
+test("метаигра pf2e: ГМ видит всё; игрок без dcs/results не видит СЛ и степень; число броска — только своей цели", () => {
+  const state = { challenge: { results: { a: { degree: 1, total: 12 }, b: { degree: 2, total: 22 } }, applied: {} } };
+  const hide = mkEnv({ env: { metagame: { dcs: false, results: false } } });
+  const g = buildViewModel(mkMsg({ state }), gm, hide).challenge;
+  assert.match(g.dc, /20/);
+  assert.deepEqual(g.rows.map((r) => r.total), [12, 22]);
+  const p = buildViewModel(mkMsg({ state }), pl, hide).challenge;   // pl владеет b
+  assert.equal(p.dc, null);
+  assert.equal(p.dcUnknown, null);
+  assert.deepEqual(p.rows.map((r) => [r.total, r.degree]), [[null, "none"], [22, "none"]]);   // у владельца b число есть, степени нет
+  assert.equal(p.rows[1].label, "chat.resultHidden");
+  assert.equal(p.rows[1].multiplier, null);
+  assert.equal(p.rows[0].label, "chat.resultHidden");
+  assert.deepEqual(p.rows[0].plan, []);
+  const open = buildViewModel(mkMsg({ state }), other, mkEnv()).challenge;   // настройки включены
+  assert.match(open.dc, /20/);
+  assert.deepEqual(open.rows.map((r) => r.total), [12, 22]);
+});
+
+test("метаигра: СЛ check скрыта у игрока (в шапке и в строке PC-цели), если фиксированная; СЛ защиты PC — видна; СЛ PC-актёра в шапке видна", () => {
+  const fixed = { v: 1, onUse: { targets: "selected", check: { statistic: "will", vs: { dc: 22 }, byDegree: {} } } };
+  const def = { v: 1, onUse: { targets: "selected", check: { statistic: "will", vs: { defense: "will" }, byDegree: {} } } };
+  const env = (e) => mkEnv({ env: { metagame: { dcs: false, results: true }, checkDc: (k, use) => use.rule.onUse.check.vs.dc ?? 19, isPc: (k) => k === "b", ...e } });
+  let vm = buildViewModel(mkMsg({ rule: fixed }), other, env()).challenge;
+  assert.match(vm.stat, /chat\.dcHidden/);
+  assert.deepEqual(vm.rows.map((r) => r.dc), [null, null]);
+  assert.match(buildViewModel(mkMsg({ rule: fixed }), gm, env()).challenge.stat, /22/);
+  vm = buildViewModel(mkMsg({ rule: def }), other, env()).challenge;
+  assert.deepEqual([vm.rows[0].dc, /19/.test(vm.rows[1].dc)], [null, true]);
+  vm = buildViewModel(mkMsg({ rule: fixed }), other, env({ isActorPc: () => true })).challenge;
+  assert.match(vm.stat, /22/);
+});
+
+test("заголовок равный названию предмета не выводится", () => {
+  assert.equal(buildViewModel(mkMsg({}), gm, mkEnv()).title, null);
+  assert.equal(buildViewModel(mkMsg({ rule: { ...fear, label: "Boo" } }), gm, mkEnv()).title, "Boo");
+});

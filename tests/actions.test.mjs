@@ -138,7 +138,7 @@ test("onRollMessage: иммунная цель (Demoralize) — результа
   assert.equal(m.flags[MOD].use.state.challenge.results.orc.degree, 3);
   assert.equal(m.flags[MOD].use.state.challenge.applied, undefined);
   const row = buildViewModel(m, GM, env({ immune: () => true })).challenge.rows[0];
-  assert.match(row.result, /immuneSkipped/);
+  assert.match(row.note, /immuneSkipped/);
   assert.equal(row.canApply, false);
   assert.deepEqual(await applyByDegree("R1", "orc"), []);
 });

@@ -1,53 +1,75 @@
 <div class="pf2e-automato">
 {{#if vm}}
-  <header class="paf-title">{{vm.title}}</header>
+  {{#if (or vm.title vm.challenge)}}
+  <header class="paf-top">
+    {{#if vm.title}}<span class="paf-title">{{vm.title}}</span>{{/if}}
+    {{#if vm.challenge}}
+      <span class="paf-head">{{vm.challenge.stat}}{{#if vm.challenge.dc}} · {{vm.challenge.dc}}{{/if}}{{#if vm.challenge.basic}} · {{vm.challenge.basic}}{{/if}}
+        {{#if vm.challenge.dcUnknown}} · <em>{{vm.challenge.dcUnknown}}</em>{{/if}}
+        {{#if vm.challenge.canSetDC}}<button type="button" class="paf-primary" data-action="set-dc">{{localize "PF2E_AUTOMATO.chat.setDC"}}</button>{{/if}}</span>
+    {{/if}}
+  </header>
+  {{/if}}
   {{#if vm.yielded}}<p class="paf-note paf-yielded">{{vm.yielded}}</p>{{/if}}
   {{#each vm.warnings}}<p class="paf-note paf-warning"><i class="fa-solid fa-triangle-exclamation"></i> {{this}}</p>{{/each}}
   {{#if vm.awaitingRegion}}<p class="paf-note">{{vm.awaitingRegion}}</p>{{/if}}
   {{#if vm.waiting}}
     <p class="paf-note">{{vm.waiting.text}}
-      {{#if vm.waiting.canResume}}<button type="button" data-action="resume">{{localize "PF2E_AUTOMATO.chat.resume"}}</button>{{/if}}</p>
+      {{#if vm.waiting.canResume}}<button type="button" class="paf-primary" data-action="resume">{{localize "PF2E_AUTOMATO.chat.resume"}}</button>{{/if}}</p>
   {{/if}}
   {{#if vm.zone}}
     <p class="paf-note">{{vm.zone.text}}
-      {{#if vm.zone.canCreate}}<button type="button" data-action="create-zone" data-region="{{vm.zone.regionUuid}}">{{localize "PF2E_AUTOMATO.chat.createZone"}}</button>{{/if}}
+      {{#if vm.zone.canCreate}}<button type="button" class="paf-primary" data-action="create-zone" data-region="{{vm.zone.regionUuid}}">{{localize "PF2E_AUTOMATO.chat.createZone"}}</button>{{/if}}
       {{#if vm.zone.canClose}}<button type="button" data-action="close-zone" data-region="{{vm.zone.regionUuid}}">{{localize "PF2E_AUTOMATO.chat.closeZone"}}</button>{{/if}}</p>
   {{/if}}
   {{#if vm.challenge}}
     <div class="paf-challenge">
-      <p class="paf-head">{{vm.challenge.stat}}{{#if vm.challenge.dc}} · {{vm.challenge.dc}}{{/if}}{{#if vm.challenge.basic}} · {{vm.challenge.basic}}{{/if}}
-        {{#if vm.challenge.dcUnknown}} · <em>{{vm.challenge.dcUnknown}}</em>{{/if}}
-        {{#if vm.challenge.canSetDC}}<button type="button" data-action="set-dc">{{localize "PF2E_AUTOMATO.chat.setDC"}}</button>{{/if}}</p>
       {{#if vm.challenge.toolbelt}}<p class="paf-note">{{vm.challenge.toolbelt}}</p>{{/if}}
+      {{#if vm.challenge.rows.length}}
       <ul class="paf-rows">
+        <li class="paf-row paf-cols" aria-hidden="true">
+          <span class="paf-name">{{localize "PF2E_AUTOMATO.chat.cols.target"}}</span>
+          <span class="paf-total">{{localize "PF2E_AUTOMATO.chat.cols.total"}}</span>
+          <span class="paf-result">{{localize "PF2E_AUTOMATO.chat.cols.result"}}</span>
+        </li>
       {{#each vm.challenge.rows}}
-        <li class="paf-row">
-          <span class="paf-name">{{name}}</span>
-          {{#if dc}}<span class="paf-dc">{{dc}}</span>{{/if}}
-          <span class="paf-result paf-{{degree}}">{{result}}</span>
-          {{#if multiplier}}<span class="paf-mult">{{multiplier}}</span>{{/if}}
-          {{#if applied}}<span class="paf-applied">{{applied}}</span>{{/if}}
-          {{#if changed}}<span class="paf-changed">{{changed}}</span>{{/if}}
-          {{#each plan}}<span class="paf-plan">{{this}}</span>{{/each}}
-          {{#if canRoll}}<button type="button" data-action="roll-save" data-token="{{key}}">{{localize "PF2E_AUTOMATO.chat.rollSave"}}</button>{{/if}}
-          {{#if canApply}}<button type="button" data-action="apply" data-token="{{key}}">{{localize "PF2E_AUTOMATO.chat.apply"}}</button>{{/if}}
-          {{#if canUndo}}<button type="button" data-action="undo" data-token="{{key}}">{{localize "PF2E_AUTOMATO.chat.undo"}}</button>{{/if}}
+        <li class="paf-row paf-{{degree}}">
+          <span class="paf-name" title="{{name}}" data-token="{{key}}">{{name}}</span>
+          <span class="paf-total">{{total}}</span>
+          <span class="paf-result">{{label}}</span>
+          <span class="paf-info">
+            {{#if applied}}<span class="paf-applied">{{applied}}</span>{{else}}{{#each plan}}<span class="paf-plan">{{this}}</span>{{/each}}{{/if}}
+            {{#if dc}}<span class="paf-dc">{{dc}}</span>{{/if}}
+            {{#if multiplier}}<span class="paf-mult">{{multiplier}}</span>{{/if}}
+            {{#if note}}<span class="paf-changed">{{note}}</span>{{/if}}
+            {{#if changed}}<span class="paf-changed">{{changed}}</span>{{/if}}
+          </span>
+          <span class="paf-acts">
+            {{#if canRoll}}<button type="button" class="paf-primary" data-action="roll-save" data-token="{{key}}"><i class="fa-solid fa-dice-d20"></i> {{localize "PF2E_AUTOMATO.chat.rollSave"}}</button>{{/if}}
+            {{#if canApply}}<button type="button" class="paf-primary" data-action="apply" data-token="{{key}}"><i class="fa-solid fa-check"></i> {{localize "PF2E_AUTOMATO.chat.apply"}}</button>{{/if}}
+            {{#if canUndo}}<button type="button" class="paf-ghost" data-action="undo" data-token="{{key}}">{{localize "PF2E_AUTOMATO.chat.undo"}}</button>{{/if}}
+          </span>
         </li>
       {{/each}}
       </ul>
-      {{#if vm.challenge.canApplyAll}}<button type="button" data-action="apply" data-token="all">{{localize "PF2E_AUTOMATO.chat.applyAll"}}</button>{{/if}}
-      {{#if vm.challenge.canUndoAll}}<button type="button" data-action="undo" data-token="all">{{localize "PF2E_AUTOMATO.chat.undoAll"}}</button>{{/if}}
+      {{/if}}
+      {{#if (or vm.challenge.canApplyAll vm.challenge.canUndoAll)}}
+      <div class="paf-bulk">
+        {{#if vm.challenge.canApplyAll}}<button type="button" class="paf-primary" data-action="apply" data-token="all"><i class="fa-solid fa-check-double"></i> {{localize "PF2E_AUTOMATO.chat.applyAll"}}</button>{{/if}}
+        {{#if vm.challenge.canUndoAll}}<button type="button" class="paf-ghost" data-action="undo" data-token="all">{{localize "PF2E_AUTOMATO.chat.undoAll"}}</button>{{/if}}
+      </div>
+      {{/if}}
     </div>
   {{/if}}
   {{#if vm.useApply}}
     <p class="paf-note">{{#each vm.useApply.plan}}<span class="paf-plan">{{this}}</span>{{/each}}
       {{#if vm.useApply.done}}<span class="paf-applied">{{vm.useApply.done}}</span>{{/if}}
-      {{#if vm.useApply.noTargets}}<span class="paf-warn">{{vm.useApply.noTargets}}</span>{{/if}}
-      {{#if vm.useApply.canApply}}<button type="button" data-action="apply-use">{{localize "PF2E_AUTOMATO.chat.applyUse"}}</button>{{/if}}</p>
+      {{#if vm.useApply.noTargets}}<span class="paf-warning">{{vm.useApply.noTargets}}</span>{{/if}}
+      {{#if vm.useApply.canApply}}<button type="button" class="paf-primary" data-action="apply-use">{{localize "PF2E_AUTOMATO.chat.applyUse"}}</button>{{/if}}</p>
   {{/if}}
   {{#each vm.derived}}
     <p class="paf-note paf-derived"><span class="paf-plan">{{text}}</span>
-      {{#if canApply}}<button type="button" data-action="apply-derived" data-step="{{key}}" title="{{title}}">{{localize "PF2E_AUTOMATO.chat.applyDerived"}}</button>{{/if}}</p>
+      {{#if canApply}}<button type="button" class="paf-primary" data-action="apply-derived" data-step="{{key}}" title="{{title}}">{{localize "PF2E_AUTOMATO.chat.applyDerived"}}</button>{{/if}}</p>
   {{/each}}
   {{#if vm.macroErrors.length}}
     <details class="paf-errors"><summary>{{localize "PF2E_AUTOMATO.chat.macroErrors"}}</summary>
@@ -57,6 +79,6 @@
 {{#if reaction}}
   <p class="paf-note paf-reaction">{{reaction.text}}
     {{#if reaction.used}}<span class="paf-applied">{{reaction.used}}</span>{{/if}}
-    {{#if reaction.canUse}}<button type="button" data-action="use-reaction">{{localize "PF2E_AUTOMATO.chat.reaction.use"}}</button>{{/if}}</p>
+    {{#if reaction.canUse}}<button type="button" class="paf-primary" data-action="use-reaction">{{localize "PF2E_AUTOMATO.chat.reaction.use"}}</button>{{/if}}</p>
 {{/if}}
 </div>

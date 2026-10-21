@@ -1,33 +1,75 @@
+/* «Тихий журнал»: цвет только в полосе степени и слове итога; основная кнопка — контур, отмена — ссылка.
+   Оттенки считаются от currentColor -> одинаково работают в светлой и тёмной теме. */
+.pf2e-automato, .tab.automato {
+  --paf-line: color-mix(in srgb, currentColor 28%, transparent);
+  --paf-mute: color-mix(in srgb, currentColor 62%, transparent);
+  --paf-cs: #2f9e55; --paf-s: #3d7fe0; --paf-f: #e07020; --paf-cf: #d83a30;
+}
 .pf2e-automato {
   margin-top: 0.4em;
-  padding: 0.3em 0.5em;
-  border: 1px solid var(--color-border-light-tertiary, #bbb);
-  border-radius: 3px;
-  background: color-mix(in srgb, currentColor 5%, transparent);   /* работает в светлой и тёмной теме */
+  padding-top: 0.3em;
+  border-top: 1px solid var(--paf-line);
   font-size: var(--font-size-12, 12px);
-}
-.pf2e-automato .paf-title {
-  font-family: var(--font-heading, inherit);
-  font-weight: bold;
-  border-bottom: 1px solid var(--color-border-light-tertiary, #bbb);
-  margin-bottom: 0.2em;
+  line-height: 1.35;
 }
 .pf2e-automato p { margin: 0.2em 0; }
+.pf2e-automato .paf-top { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 0.6em; }
+.pf2e-automato .paf-title { flex: 1 1 auto; font-weight: 600; font-size: var(--font-size-14, 14px); }
+.pf2e-automato .paf-head { margin-left: auto; color: var(--paf-mute); font-size: 11px; font-variant-numeric: tabular-nums; }
 .pf2e-automato .paf-warning { color: var(--color-level-warning, #c76a00); }
-.pf2e-automato .paf-yielded { font-style: italic; opacity: 0.8; }
-.pf2e-automato .paf-rows { list-style: none; margin: 0.2em 0; padding: 0; }
-.pf2e-automato .paf-row {
-  display: flex; flex-wrap: wrap; align-items: center; gap: 0 0.5em;
-  padding: 0.1em 0; border-bottom: 1px dotted var(--color-border-light-tertiary, #bbb);
-}
-.pf2e-automato .paf-name { font-weight: bold; flex: 1 1 8em; }
-.pf2e-automato .paf-criticalSuccess { color: var(--color-level-success, #1b7a2a); font-weight: bold; }
-.pf2e-automato .paf-success { color: var(--color-level-success, #1b7a2a); }
-.pf2e-automato .paf-failure { color: var(--color-level-error, #b3261e); }
-.pf2e-automato .paf-criticalFailure { color: var(--color-level-error, #b3261e); font-weight: bold; }
-.pf2e-automato .paf-none { opacity: 0.6; }
+.pf2e-automato .paf-yielded { font-style: italic; color: var(--paf-mute); }
 .pf2e-automato .paf-changed { color: var(--color-level-warning, #c76a00); }
-.pf2e-automato .paf-plan, .pf2e-automato .paf-mult { opacity: 0.85; }
+.pf2e-automato .paf-applied { color: color-mix(in srgb, var(--paf-cs) 70%, currentColor); }
+.pf2e-automato .paf-applied::before { content: "✓ "; }
 .pf2e-automato .paf-plan + .paf-plan::before { content: ", "; }
-.pf2e-automato button { width: auto; height: auto; line-height: 1.3; padding: 0 0.6em; margin: 0.1em 0; font-size: inherit; }
+.pf2e-automato .paf-note button { margin-left: 0.4em; vertical-align: middle; }
 .pf2e-automato .paf-errors { color: var(--color-level-error, #b3261e); }
+
+/* таблица целей: строка 1 — цель | бросок | итог, строка 2 — что применится | следующее действие */
+.pf2e-automato .paf-rows { list-style: none; margin: 0.3em 0 0; padding: 0; }
+.pf2e-automato .paf-row {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(6.4em, auto);
+  grid-template-areas: "name total result" "info acts acts";
+  gap: 2px 6px; align-items: center;
+  padding: 4px 4px 5px 7px;
+  border-left: 2px solid var(--dc, var(--paf-line));
+  border-bottom: 1px dotted var(--paf-line);
+}
+.pf2e-automato .paf-criticalSuccess { --dc: var(--paf-cs); }
+.pf2e-automato .paf-success { --dc: var(--paf-s); }
+.pf2e-automato .paf-failure { --dc: var(--paf-f); }
+.pf2e-automato .paf-criticalFailure { --dc: var(--paf-cf); }
+.pf2e-automato .paf-none { border-left-style: dashed; }
+.pf2e-automato .paf-row.paf-cols {
+  grid-template-areas: "name total result";
+  padding-block: 2px; border-left-color: transparent; border-bottom-style: solid;
+  font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--paf-mute);
+}
+.pf2e-automato .paf-name { grid-area: name; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+.pf2e-automato .paf-total { grid-area: total; text-align: right; font-family: var(--font-mono, monospace); font-weight: 600; font-variant-numeric: tabular-nums; }
+.pf2e-automato .paf-result { grid-area: result; text-align: right; white-space: nowrap; color: color-mix(in srgb, var(--dc, currentColor) 70%, currentColor); }
+.pf2e-automato .paf-cols > span { font: inherit; color: inherit; }
+.pf2e-automato .paf-none .paf-result { color: var(--paf-mute); }
+.pf2e-automato .paf-criticalSuccess .paf-result, .pf2e-automato .paf-criticalFailure .paf-result { font-weight: 600; }
+.pf2e-automato .paf-info { grid-area: info; min-width: 0; font-size: 11px; color: var(--paf-mute); }
+.pf2e-automato .paf-info > span:not(:first-child):not(.paf-plan + .paf-plan)::before { content: " · "; }
+.pf2e-automato .paf-acts { grid-area: acts; justify-self: end; display: flex; gap: 4px; }
+.pf2e-automato .paf-bulk { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+
+/* кнопки модуля — в чате и во вкладке листа */
+.pf2e-automato button, .tab.automato button {
+  display: inline-flex; align-items: center; justify-content: center; gap: 0.35em;
+  width: auto; height: 22px; min-height: 0; margin: 0; padding: 0 8px;
+  font: inherit; font-weight: 500; line-height: 1; color: inherit; white-space: nowrap;
+  background: transparent; border: 1px solid var(--paf-line); border-radius: 4px; box-shadow: none;
+  cursor: pointer;
+}
+.pf2e-automato button i, .tab.automato button i { font-size: 0.9em; }
+.pf2e-automato button:hover:not(:disabled), .tab.automato button:hover:not(:disabled) { background: color-mix(in srgb, currentColor 10%, transparent); }
+.pf2e-automato button:focus-visible, .tab.automato button:focus-visible { outline: 2px solid currentColor; outline-offset: 1px; }
+.pf2e-automato button:disabled, .tab.automato button:disabled { opacity: 0.45; cursor: not-allowed; }
+.pf2e-automato .paf-primary, .tab.automato .paf-primary { border-color: color-mix(in srgb, currentColor 55%, transparent); }
+.pf2e-automato .paf-ghost, .tab.automato .paf-ghost { border-color: transparent; color: var(--paf-mute); padding: 0 4px; font-weight: 400; }
+.pf2e-automato .paf-ghost:hover:not(:disabled), .tab.automato .paf-ghost:hover:not(:disabled) { background: transparent; color: inherit; text-decoration: underline; }
+.pf2e-automato .paf-name[data-token] { cursor: pointer; }
+.pf2e-automato .paf-name[data-token]:hover { text-decoration: underline; }

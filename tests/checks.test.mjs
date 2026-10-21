@@ -119,7 +119,7 @@ test("чат check: заголовок, СЛ цели, иммунная цель
   const [a, b] = vm.challenge.rows;
   assert.match(a.dc, /chat\.dc.*19/);
   assert.equal(a.canRoll, true);
-  assert.equal(b.result, "checks.immune");
+  assert.equal(b.label, "checks.immune");
   assert.equal(b.canRoll, false);
   assert.equal(buildViewModel(mkMsg(), author, mkEnv()).challenge.rows[0].canRoll, true);
   assert.equal(buildViewModel(mkMsg(), other, mkEnv()).challenge.rows[0].canRoll, false);

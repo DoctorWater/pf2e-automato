@@ -41,7 +41,7 @@
     {{#if res}}
       <details><summary>JSON</summary><pre>{{res.json}}</pre></details>
       {{#if res.canAccept}}
-        <button type="button" data-action="accept" data-rule="{{res.ruleAttr}}" {{#if lockedFlag}}disabled{{/if}}>{{localize "PF2E_AUTOMATO.sheet.accept"}}</button>
+        <button type="button" class="paf-primary" data-action="accept" data-rule="{{res.ruleAttr}}" {{#if lockedFlag}}disabled{{/if}}>{{localize "PF2E_AUTOMATO.sheet.accept"}}</button>
       {{/if}}
     {{/if}}
   </div>
@@ -76,9 +76,9 @@
       <div data-showif="targets=area">
         <label><input type="checkbox" data-f="zone.on" {{checked f.zone.on}}> {{localize "PF2E_AUTOMATO.sheet.zoneOn"}}</label>
         <div class="af-line" data-showif="zone.on=true">
-          <label>{{localize "PF2E_AUTOMATO.sheet.zoneCond"}} <input type="text" data-f="zone.cond" value="{{f.zone.cond}}" placeholder="concealed"></label>
+          <label>{{localize "PF2E_AUTOMATO.sheet.zoneCond"}} <input type="text" data-f="zone.cond" data-drop="slug" value="{{f.zone.cond}}" placeholder="concealed"></label>
           <label>{{localize "PF2E_AUTOMATO.sheet.row.value"}} <input type="number" min="1" class="af-narrow" data-f="zone.condValue" value="{{f.zone.condValue}}"></label>
-          <label>{{localize "PF2E_AUTOMATO.sheet.zoneEffect"}} <input type="text" data-f="zone.effect" value="{{f.zone.effect}}" placeholder="Compendium..."></label>
+          <label>{{localize "PF2E_AUTOMATO.sheet.zoneEffect"}} <input type="text" data-f="zone.effect" data-drop="uuid" value="{{f.zone.effect}}" placeholder="Compendium..."></label>
           <label>{{localize "PF2E_AUTOMATO.sheet.seconds"}} <input type="number" min="1" class="af-narrow" data-f="zone.seconds" value="{{f.zone.seconds}}"></label>
           <label>{{localize "PF2E_AUTOMATO.sheet.rounds"}} <input type="number" min="1" class="af-narrow" data-f="zone.rounds" value="{{f.zone.rounds}}"></label>
         </div>
@@ -131,7 +131,7 @@
           <span data-showif="ck.imm.on=true">
             <input type="text" data-f="ck.imm.slug" value="{{f.ck.imm.slug}}" placeholder="slug">
             <input type="text" data-f="ck.imm.label" value="{{f.ck.imm.label}}" placeholder="{{localize 'PF2E_AUTOMATO.sheet.label'}}">
-            <input type="text" data-f="ck.imm.uuid" value="{{f.ck.imm.uuid}}" placeholder="UUID">
+            <input type="text" data-f="ck.imm.uuid" data-drop="uuid" value="{{f.ck.imm.uuid}}" placeholder="UUID">
             <input type="number" min="1" class="af-narrow" data-f="ck.imm.value" value="{{f.ck.imm.value}}">
             <select data-f="ck.imm.unit">{{selectOptions ch.immUnit selected=f.ck.imm.unit valueAttr="value" labelAttr="label"}}</select>
           </span>
@@ -169,8 +169,9 @@
     <ul class="af-errors"></ul>
 
     <div class="af-buttons">
-      <button type="button" data-action="save-flag" {{#if lockedFlag}}disabled{{/if}}>{{localize "PF2E_AUTOMATO.sheet.saveFlag"}}</button>
-      <button type="button" data-action="reset-flag" {{#if lockedFlag}}disabled{{/if}}>{{localize "PF2E_AUTOMATO.sheet.resetFlag"}}</button>
+      <button type="button" class="paf-primary" data-action="save-flag" {{#if lockedFlag}}disabled{{/if}}>{{localize "PF2E_AUTOMATO.sheet.saveFlag"}}</button>
+      <button type="button" data-action="test">{{localize "PF2E_AUTOMATO.sheet.test.button"}}</button>
+      <button type="button" class="paf-ghost" data-action="reset-flag" {{#if lockedFlag}}disabled{{/if}}>{{localize "PF2E_AUTOMATO.sheet.resetFlag"}}</button>
       <button type="button" data-action="save-world" data-scope="source" {{#if noSource}}disabled{{/if}}>{{localize "PF2E_AUTOMATO.sheet.worldSource"}}</button>
       <button type="button" data-action="save-world" data-scope="slug" {{#if noSlug}}disabled{{/if}}>{{localize "PF2E_AUTOMATO.sheet.worldSlug"}}</button>
       {{#if isWorld}}

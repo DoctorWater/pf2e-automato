@@ -26,6 +26,12 @@ const tokenDocOf = (key, use) => {
   const sceneId = use.state?.area?.regionUuid?.match(/^Scene\.([^.]+)/)?.[1];
   return game.scenes.get(sceneId)?.tokens.get(key) ?? null;
 };
+// токен цели на ТЕКУЩЕЙ сцене и видимый пользователю (как pf2e для заголовков сообщений); иначе null
+const visibleToken = (key, use) => {
+  const doc = tokenDocOf(key, use);
+  const obj = doc?.parent === canvas.scene ? doc.object : null;
+  return obj?.isVisible ? obj : null;
+};
 const nameOfUuid = (uuid) => { try { return fromUuidSync(uuid)?.name; } catch { return null; } };
 
 const defaultEnv = () => ({
@@ -36,6 +42,9 @@ const defaultEnv = () => ({
   groups: automationsGroups,
   toolbelt: (() => { const th = toolbeltTargetHelper(); return th.enabled && th.checks && S.get("useToolbeltTargetHelper"); })(),
   tokenName: (key, use) => tokenDocOf(key, use)?.name ?? key,
+  metagame: { dcs: !!game.pf2e?.settings?.metagame?.dcs, results: !!game.pf2e?.settings?.metagame?.results },
+  isActorPc: (uuid) => !!fromUuidSync(uuid)?.hasPlayerOwner,
+  isPc: (key, use) => !!tokenDocOf(key, use)?.actor?.hasPlayerOwner,
   isOwner: (key, use, user) => !!tokenDocOf(key, use)?.actor?.testUserPermission(user, "OWNER"),
   isActorOwner: (uuid, user) => !!fromUuidSync(uuid)?.testUserPermission?.(user, "OWNER"),
   statLabel: (s) => {
@@ -57,7 +66,7 @@ const mult = saves.damageMultiplier;
 const isEmpty = (o) => !o || !Object.keys(o).length;
 const authorId = (m) => m.author?.id ?? m.author ?? m.user?.id;
 
-function stepText(a, env, defTo) {
+export function stepText(a, env, defTo) {
   const t = env.t;
   if (a.note) return a.note;
   const what = a.condition
@@ -82,7 +91,7 @@ function describeStep(rule, stepKey, env) {
   return a ? stepText(a, env, "target") : stepKey;
 }
 
-const vsLabel = (vs, env) => vs.dc != null ? env.t("chat.dc", { dc: vs.dc })
+const vsLabel = (vs, env, showDc) => vs.dc != null ? (showDc ? env.t("chat.dc", { dc: vs.dc }) : env.t("chat.dcHidden"))
   : vs.defense === "ac" ? env.t("checks.ac") : env.statLabel(vs.defense ?? vs.against);
 
 /** Чистая: (сообщение, пользователь[, env]) -> модель блока | null. env подменяет доступ к Foundry (тесты). */
@@ -93,11 +102,17 @@ export function buildViewModel(message, user, env = null) {
   const t = env.t, rule = use.rule, on = rule.onUse ?? {}, state = use.state ?? {};
   const isGM = !!user.isGM;
   const canAct = isGM || authorId(message) === user.id;
+  // метаигра pf2e (game.pf2e.settings.metagame): ГМ видит всё; игрок — СЛ по dcs (СЛ PC видна всегда), итоги по results (владельцу — только число броска)
+  const meta = env.metagame ?? { dcs: true, results: true };
+  const showDc = isGM || meta.dcs || !!env.isActorPc?.(use.actor);   // СЛ предмета PC видна всегда (pf2e :18900)
   const vm = {
     messageId: message.id, title: rule.label || use.item?.name || t("chat.title"), isGM,
     yielded: null, warnings: [], waiting: null, awaitingRegion: null, zone: null, challenge: null,
     useApply: null, derived: [], macroErrors: [], empty: false
   };
+
+  // карточка pf2e над блоком уже показывает название предмета
+  if (vm.title === use.item?.name) vm.title = null;
 
   if (state.yielded) {
     vm.yielded = t("chat.yielded");
@@ -146,32 +161,35 @@ export function buildViewModel(message, user, env = null) {
       const steps = r ? (ch.byDegree?.[DEGREES[r.degree]] ?? []) : [];
       const m = r ? mult(r.degree, ch.basic) : null;
       const immune = !!ck && !ap && !!ck.immunity && env.immune(key, use);
-      const dcN = ck ? (r?.dc ?? env.checkDc(key, use)) : null;
-      const plan = steps.map((a) => stepText(a, env, "target"));
+      const dcN = ck && (isGM || meta.dcs || (ck.vs?.dc == null && env.isPc?.(key, use))) ? (r?.dc ?? env.checkDc(key, use)) : null;
+      const seen = !r || isGM || meta.results;   // степень и всё, что её выдаёт (pf2e скрывает и от владельца)
+      const seenTotal = seen || env.isOwner(key, use, user);   // бросок публичный: владельцу число оставляем
+      const plan = seen ? steps.map((a) => stepText(a, env, "target")) : [];
       if (ck?.immunity && r) plan.push(t("checks.immunityPlan", { name: ck.immunity.label ?? ck.immunity.slug }));
       return {
         key,
         name: use.targets?.find((x) => x.key === key)?.name ?? env.tokenName(key, use),
         dc: dcN != null ? t("chat.dc", { dc: dcN }) : null,
-        result: r ? t("chat.result", { degree: t(`chat.degree.${DEGREES[r.degree]}`), total: r.total }) + (immune ? ` — ${t("checks.immuneSkipped")}` : "")
-          : immune ? t("checks.immune") : t("chat.noResult"),
-        degree: r ? DEGREES[r.degree] : "none",
-        multiplier: m == null ? null : t("chat.multiplier", { value: m === 0.5 ? "½" : m }),
+        total: seenTotal ? r?.total ?? null : null,
+        label: r ? (seen ? t(`chat.degree.${DEGREES[r.degree]}`) : t("chat.resultHidden")) : immune ? t("checks.immune") : t("chat.noResult"),
+        note: r && immune ? t("checks.immuneSkipped") : null,
+        degree: r && seen ? DEGREES[r.degree] : "none",
+        multiplier: m == null || !seen ? null : t("chat.multiplier", { value: m === 0.5 ? "½" : m }),
         changed: r?.changedAfterApply ? t("chat.changed") : null,
-        applied: ap ? t("chat.applied", { degree: t(`chat.degree.${DEGREES[ap.degree]}`) }) : null,
+        applied: ap && seen ? t("chat.applied", { degree: t(`chat.degree.${DEGREES[ap.degree]}`) }) : null,
         plan,
         canRoll: !r && !immune && modeChallenge !== "off" && ck?.roll !== "system" && (ck ? (isGM || env.isActorOwner(use.actor, user)) : !env.toolbelt && (isGM || env.isOwner(key, use, user))),
         canApply: isGM && !!r && !ap && !immune && (steps.some((a) => a.condition || a.effect) || !!ck?.immunity) && modeApply !== "off",
         canUndo: isGM && !!ap
       };
     });
-    const dcKnown = ck ? null : use.dc ?? ch.dc?.value ?? null;
+    const dcKnown = ck || !showDc ? null : use.dc ?? ch.dc?.value ?? null;
     vm.challenge = {
-      stat: ck ? t("checks.head", { stat: [ck.statistic].flat().map(env.statLabel).join(" / "), vs: vsLabel(ck.vs, env) })
+      stat: ck ? t("checks.head", { stat: [ck.statistic].flat().map(env.statLabel).join(" / "), vs: vsLabel(ck.vs, env, showDc) })
         : t("chat.challenge", { stat: env.statLabel(ch.statistic) }),
       basic: ch.basic ? t("chat.basic") : null,
       dc: dcKnown != null ? t("chat.dc", { dc: dcKnown }) : null,
-      dcUnknown: !ck && dcKnown == null ? t("chat.dcUnknown") : null,
+      dcUnknown: !ck && showDc && dcKnown == null ? t("chat.dcUnknown") : null,
       canSetDC: !ck && isGM && dcKnown == null && isEmpty(state.challenge?.results),
       toolbelt: ck ? (rows.length || !(isUse || isRoll) ? null : t(isRoll ? "checks.noTargetRoll" : "checks.noTargets")) : env.toolbelt ? t("chat.challengeOff") : null,
       rows,
@@ -235,7 +253,19 @@ async function renderBlock(message, html) {
   template ??= await foundry.applications.handlebars.getTemplate(TEMPLATE);   // до ready() (F5) шаблона ещё нет
   root.querySelector(":scope > .pf2e-automato")?.remove();
   const block = foundry.utils.parseHTML(template({ vm: showVm ? vm : null, reaction }));
-  block.addEventListener("click", (ev) => onClick(ev, message.id));   // новый элемент на каждый рендер -> слушатели не копятся
+  block.addEventListener("click", (ev) => onClick(ev, message.id));
+  const tokenOf = (ev) => {
+    const el = ev.target.closest?.(".paf-name[data-token]");
+    return el && canvas.ready ? visibleToken(el.dataset.token, message.flags[MOD].use) : null;
+  };
+  block.addEventListener("mouseover", (ev) => { const o = tokenOf(ev); if (o && !o.controlled) o.emitHoverIn(ev); });
+  block.addEventListener("mouseout", (ev) => tokenOf(ev)?.emitHoverOut(ev));
+  block.addEventListener("click", (ev) => {
+    const o = tokenOf(ev);
+    if (!o) return;
+    if (o.document.isOwner) o.control({ releaseOthers: !ev.shiftKey });
+    canvas.animatePan({ ...o.center, duration: 250 });
+  });   // новый элемент на каждый рендер -> слушатели не копятся
   root.append(block);
 }
 

@@ -1,6 +1,7 @@
 // Испытания: бросок, приём результата (любой saving-throw), применение по степеням. plan.md §2 saves, §3.C, §3.F.
 import { MOD, L, DEGREES, flagPath, queue, degreeFromTotal, debug, callGM, isActiveGM } from "./util.mjs";
 import { S, modeOf } from "./settings.mjs";
+import { card } from "./card.mjs";
 import { toolbeltTargetHelper, toolbeltMessageTargets } from "./compat.mjs";
 import { applyOps } from "./apply.mjs";
 import { runMacros } from "./macros.mjs";
@@ -157,6 +158,9 @@ export async function rollSave(actor, challenge, ctx = {}) {
   return { degree: roll.degreeOfSuccess ?? degreeFromTotal(roll.total, dc, die), total: roll.total, rollMessage };
 }
 
+/** Отметка «автоматика уже пробовала» (state.challenge.<kind>[key]): чат возвращает кнопку, если автоматика не сработала/откатана. */
+export const markTried = (messageId, kind, key) => game.messages.get(messageId)?.update({ [flagPath("use", "state", "challenge", kind, key)]: true }).catch(() => {});
+
 /** ГМ: бросает NPC-целей (auto) либо только `only` (кнопка). PC — только кнопкой игрока. */
 export async function runChallenge(message, { only } = {}) {
   const use = useOf(message), ch = challengeOf(use);
@@ -178,10 +182,10 @@ export async function runChallenge(message, { only } = {}) {
     rolling.add(rk);
     try {
       const r = await rollSave(actor, ch, { message, tokenKey: key, token, dc, skipDialog: true, messageMode: S.get("challenge.messageMode") });
-      if (!r) continue;
+      if (!r) { if (!only) await markTried(message.id, "rollTried", key); continue; }
       await recordResult(message.id, key, { degree: r.degree, total: r.total, by: game.user.id, rollMessageId: r.rollMessage?.id ?? null, src: "own" });
       done.push(key);
-    } catch (e) { console.error(`${MOD} | runChallenge ${key}`, e); }
+    } catch (e) { console.error(`${MOD} | runChallenge ${key}`, e); if (!only) await markTried(message.id, "rollTried", key); }
     finally { rolling.delete(rk); }
   }
   return done;
@@ -279,7 +283,7 @@ export async function recordResult(messageId, tokenKey, result) {
     });
     if (changed) {
       const name = (await challengeTargets(message)).find((t) => t.key === tokenKey)?.token.name ?? tokenKey;
-      await ChatMessage.create({ content: L("saves.changedAfterApply", { name, item: use.item?.name ?? "" }), whisper: ChatMessage.getWhisperRecipients("GM").map((u) => u.id) });
+      await ChatMessage.create({ content: card(L("saves.changedAfterApply", { name, item: use.item?.name ?? "" })), whisper: ChatMessage.getWhisperRecipients("GM").map((u) => u.id) });
     }
     return { ok: true, changed };
   });
@@ -297,6 +301,7 @@ async function afterRecord(messageId, tokenKey) {
     if (apply === "auto" && (hasSteps || hasMacros)) await applyByDegree(messageId, tokenKey);
     if (await allResolved(message)) await afterChallenge(message);
   } catch (e) { console.error(`${MOD} | afterRecord`, e); }
+  if (modeOf("apply") === "auto") await markTried(messageId, "autoTried", tokenKey);
 }
 
 export async function afterChallenge(message) {

@@ -1,5 +1,5 @@
 // K4: блок автоматизации в сообщении чата. Контракт — plan.md §2 chat.mjs, §1.4, §3.G, §5.
-import { MOD, L, DEGREES, callGM } from "./util.mjs";
+import { MOD, L, DEGREES, callGM, damageLabel } from "./util.mjs";
 import { modeOf, S } from "./settings.mjs";
 import { automationsGroups, toolbeltTargetHelper } from "./compat.mjs";
 import * as saves from "./saves.mjs";
@@ -63,6 +63,7 @@ const defaultEnv = () => ({
     return k ? game.i18n.localize(k) : slug;
   },
   uuidName: nameOfUuid,
+  damageLabel,
   checkDc: (key, use) => checks.defenseDc(tokenDocOf(key, use)?.actor, use.rule.onUse.check.vs),
   immune: (key, use) => checks.hasImmunity(tokenDocOf(key, use)?.actor, use.rule.onUse.check.immunity, use.actor)
 });
@@ -73,6 +74,13 @@ const mult = saves.damageMultiplier;
 const isEmpty = (o) => !o || !Object.keys(o).length;
 const authorId = (m) => m.author?.id ?? m.author ?? m.user?.id;
 
+// «(@item.rank)d4» -> «1d4 за круг»; прочие переменные — словами
+function persFormulaText(f, t) {
+  const m = /^\(@item\.rank\)d(\d+)$/.exec(f);
+  if (m) return t("chat.perRank", { dice: `1d${m[1]}` });
+  return f.replace(/@item\.rank/g, t("chat.varRank")).replace(/@item\.level/g, t("chat.varItemLevel")).replace(/@actor\.level/g, t("chat.varActorLevel"));
+}
+
 export function stepText(a, env, defTo) {
   const t = env.t;
   if (a.note) return a.note;
@@ -81,7 +89,9 @@ export function stepText(a, env, defTo) {
     const text = t((a.to ?? defTo) === "self" ? "chat.stepVisSelf" : "chat.stepVisTarget", { level: t(`chat.visLevel.${v.level}`), until: until ? ` (${until})` : "" });
     return env.vision?.() === false ? `${text} ${t("chat.visManual")}` : text;
   }
-  const what = a.condition
+  const p = a.persistent;
+  const what = p ? t("chat.stepPersistent", { formula: persFormulaText(p.formula, t), type: env.damageLabel?.(p.damageType) ?? p.damageType }) + (p.dc && p.dc !== 15 ? ` (${t("chat.dc", { dc: p.dc })})` : "")
+    : a.condition
     ? `${env.conditionLabel(a.condition.slug)}${a.condition.value ? ` ${a.condition.value}` : ""}`
     : (env.uuidName(a.effect?.uuid) ?? a.effect?.uuid ?? "?");
   return (a.to ?? defTo) === "self" ? t("chat.stepSelf", { what }) : t("chat.stepTarget", { what });
@@ -200,11 +210,11 @@ export function buildViewModel(message, user, env = null) {
         changed: r?.changedAfterApply ? t("chat.changed") : null,
         applied: ap && seen ? t("chat.applied", { degree: t(`chat.degree.${DEGREES[ap.degree]}`) }) : null,
         plan,
-        canRoll: !r && !immune && modeChallenge !== "off" && ck?.roll !== "system" && (ck ? (isGM || env.isActorOwner(use.actor, user)) : !env.toolbelt && (isGM || env.isOwner(key, use, user))),
-        canApply: isGM && !!r && !ap && !immune && (steps.some((a) => a.condition || a.effect || (a.visibility && env.vision?.() !== false)) || !!ck?.immunity) && modeApply !== "off",
+        canRoll: !r && !immune && modeChallenge !== "off" && !(modeChallenge === "auto" && !state.challenge?.rollTried?.[key] && (ck ? env.isActorPc && !env.isActorPc(use.actor) : env.isPc && !env.isPc(key, use))) && ck?.roll !== "system" && (ck ? (isGM || env.isActorOwner(use.actor, user)) : !env.toolbelt && (isGM || env.isOwner(key, use, user))),
+        canApply: isGM && !!r && !ap && !immune && (steps.some((a) => a.condition || a.effect || a.persistent || (a.visibility && env.vision?.() !== false)) || !!ck?.immunity) && (modeApply === "button" || (modeApply === "auto" && !!state.challenge?.autoTried?.[key])),   // auto применяет сам; после попытки (сбой, «Отменить») кнопка возвращается
         canUndo: isGM && !!ap,
         // применять больше нечего: иммунная цель отработана без броска; при apply=off применение не требуем
-        settled: immune || (!!r && (!!ap || modeApply === "off" || !(steps.some((a) => a.condition || a.effect || (a.visibility && env.vision?.() !== false)) || !!ck?.immunity)))
+        settled: immune || (!!r && (!!ap || modeApply === "off" || !(steps.some((a) => a.condition || a.effect || a.persistent || (a.visibility && env.vision?.() !== false)) || !!ck?.immunity)))
       };
     });
     const dcKnown = ck || !showDc ? null : use.dc ?? ch.dc?.value ?? null;
@@ -234,7 +244,7 @@ export function buildViewModel(message, user, env = null) {
       plan: on.apply.map((a) => stepText(a, env, "self")),
       done: done ? t("chat.applyDone") : null,
       noTargets: !done && on.targets === "selected" && on.apply.some((a) => a.to === "target") && !(use.targets?.length) ? t("checks.noTargets") : null,
-      canApply: canAct && !done && env.mode("effect") === "button"
+      canApply: canAct && !done && (env.mode("effect") === "button" || (env.mode("effect") === "auto" && !!state.done && (on.targets !== "area" || !!state.area)))   // auto: после попытки (state.done) кнопка на случай сбоя
     };
   }
 
@@ -349,7 +359,7 @@ async function dispatch(d, id) {
     case "apply-derived": return callGM("applyDerived", id, d.step);
     case "set-dc": {
       const out = await foundry.applications.api.DialogV2.input({
-        window: { title: L("chat.setDCTitle") },
+        window: { title: L("chat.setDCTitle") }, classes: ["paf-dialog"],
         content: `<input type="number" name="dc" step="1" autofocus>`,
         ok: { label: L("chat.setDC") }
       });

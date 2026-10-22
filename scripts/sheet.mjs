@@ -1,7 +1,7 @@
 // K6: вкладка «Автоматизация» в листе предмета (AppV1, plan.md §6). Только ГМ.
-import { MOD, L, errText, DEGREES, callGM, forcedReplace, sluggify } from "./util.mjs";
+import { MOD, L, errText, DEGREES, callGM, forcedReplace, sluggify, damageLabel } from "./util.mjs";
 import { S } from "./settings.mjs";
-import { validateRule, resolveRule, slugOf, sourceOf } from "./rules.mjs";
+import { validateRule, resolveRule, slugOf, sourceOf, DAMAGE_TYPES } from "./rules.mjs";
 import { automationsGroups } from "./compat.mjs";
 import { hintsView, hintList } from "./hints.mjs";
 import { resolveDC, safeUuid } from "./saves.mjs";
@@ -24,7 +24,8 @@ const csv = (s) => String(s ?? "").split(",").map((x) => x.trim()).filter(Boolea
 
 const DUR_BLANK = { durValue: "", durUnit: "rounds", durExpiry: "turn-start", durOf: "origin" };
 const VIS_BLANK = { visLevel: "hidden", visOf: "self", visUntil: "" };
-export const blankRow = () => ({ to: "target", kind: "condition", text: "", value: "", policy: "max", keep: "", ...DUR_BLANK, ...VIS_BLANK });
+const PERS_BLANK = { pType: "fire" };   // продолжительный урон: формула — text, СЛ очистки — value
+export const blankRow = () => ({ to: "target", kind: "condition", text: "", value: "", policy: "max", keep: "", ...DUR_BLANK, ...VIS_BLANK, ...PERS_BLANK });
 
 // поля шага, которых нет в форме (who/mark/choice/unlessEffect): едут в строке JSON-ом и разворачиваются обратно в applyOf
 const KEEP = ["who", "mark", "choice", "unlessEffect"];
@@ -33,10 +34,11 @@ const keepOf = (a) => { const k = Object.fromEntries(KEEP.filter((n) => a[n] != 
 function rowOf(a) {
   const keep = keepOf(a), d = a.duration;
   const dur = d ? { durValue: d.value, durUnit: d.unit, durExpiry: d.expiry ?? "", durOf: d.of ?? "origin" } : DUR_BLANK;
-  if (a.condition) return { to: a.to, kind: "condition", text: a.condition.slug, value: a.condition.value ?? "", policy: a.condition.policy ?? "max", keep, ...dur, ...VIS_BLANK };
-  if (a.effect) return { to: a.to, kind: "effect", text: a.effect.uuid, value: "", policy: "max", keep, ...DUR_BLANK, ...VIS_BLANK };
-  if (a.visibility) return { to: a.to, kind: "visibility", text: "", value: "", policy: "max", keep, ...DUR_BLANK, visLevel: a.visibility.level, visOf: a.visibility.of, visUntil: (a.visibility.until ?? []).join(", ") };
-  return { to: a.to, kind: "note", text: a.note ?? "", value: "", policy: "max", keep, ...DUR_BLANK, ...VIS_BLANK };
+  if (a.condition) return { to: a.to, kind: "condition", text: a.condition.slug, value: a.condition.value ?? "", policy: a.condition.policy ?? "max", keep, ...dur, ...VIS_BLANK, ...PERS_BLANK };
+  if (a.effect) return { to: a.to, kind: "effect", text: a.effect.uuid, value: "", policy: "max", keep, ...DUR_BLANK, ...VIS_BLANK, ...PERS_BLANK };
+  if (a.visibility) return { to: a.to, kind: "visibility", text: "", value: "", policy: "max", keep, ...DUR_BLANK, visLevel: a.visibility.level, visOf: a.visibility.of, visUntil: (a.visibility.until ?? []).join(", "), ...PERS_BLANK };
+  if (a.persistent) return { to: a.to, kind: "persistent", text: a.persistent.formula, value: a.persistent.dc ?? "", policy: "max", keep, ...DUR_BLANK, ...VIS_BLANK, pType: a.persistent.damageType };
+  return { to: a.to, kind: "note", text: a.note ?? "", value: "", policy: "max", keep, ...DUR_BLANK, ...VIS_BLANK, ...PERS_BLANK };
 }
 
 export function applyOf(r) {
@@ -57,6 +59,7 @@ function applyCore(r) {
   }
   if (!text) return null;
   if (r.kind === "effect") return { to, effect: { uuid: text } };
+  if (r.kind === "persistent") { const dc = num(r.value); return { to, persistent: { formula: text, damageType: r.pType, ...(dc !== undefined && { dc }) } }; }
   if (r.kind === "note") return { to, note: text };
   const value = num(r.value);
   const dv = num(r.durValue);
@@ -275,7 +278,7 @@ export async function reportEnv(item, rule, names = null) {
     t: L, dc, author,
     statLabel: (s) => { const k = CONFIG.PF2E.saves?.[s] ?? CONFIG.PF2E.skills?.[s]?.label ?? CONFIG.PF2E.attributes?.[s]; return k ? game.i18n.localize(k) : s; },
     conditionLabel: (slug) => (known(slug) ? game.i18n.localize(CONFIG.PF2E.conditionTypes[slug]) : slug),
-    conditionKnown: known, uuidName: (uuid) => names[uuid] ?? null
+    damageLabel, conditionKnown: known, uuidName: (uuid) => names[uuid] ?? null
   };
 }
 
@@ -290,7 +293,7 @@ async function testRun(item, rule) {
     rep.apply.length && `<p><b>${L("sheet.apply")}</b></p>${ul(rep.apply)}`,
     ...rep.tokens.map((t) => `<h4>${esc(t.name)}</h4>${ul([...t.problems, ...t.lines])}`)
   ].filter(Boolean).join("");
-  await foundry.applications.api.DialogV2.prompt({ window: { title: L("sheet.test.title") }, content: `<div class="af-test">${content}</div>`, rejectClose: false,
+  await foundry.applications.api.DialogV2.prompt({ window: { title: L("sheet.test.title") }, classes: ["paf-dialog"], content: `<div class="af-test">${content}</div>`, rejectClose: false,
     ok: { label: L("sheet.test.close"), icon: "fa-solid fa-xmark" } });   // пробный запуск ничего не применяет — не «Применить»
 }
 
@@ -333,7 +336,8 @@ function buildContext(item, draft) {
       map: ["", "0", "1", "2"].map((v) => ({ value: v, label: v || "-" })),
       stat: choices(keys("stat", ["reflex", "fortitude", "will", "perception", "flat"])),
       to: choices(keys("to", ["self", "target"])),
-      rowKind: choices(keys("row", ["condition", "effect", "note", "visibility"])),
+      rowKind: choices(keys("row", ["condition", "effect", "note", "visibility", "persistent"])),
+      dmgType: DAMAGE_TYPES.map((v) => ({ value: v, label: damageLabel(v) })),
       visLevel: choices(keys("vis.level", ["concealed", "hidden", "undetected", "unnoticed"])),
       visOf: choices(keys("vis.of", ["self", "target"])),
       policy: choices(keys("policy", ["max", "add"])),

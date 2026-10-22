@@ -16,6 +16,64 @@ const isNum = (x) => typeof x === "number" && Number.isFinite(x);
 const VIS_LEVELS = ["concealed", "hidden", "undetected", "unnoticed"];
 const VIS_UNTIL = ["turn-end", "next-turn-end", "attack"];
 const APPLY_UNITS = ["rounds", "minutes", "hours", "days"];
+// типы урона pf2e (CONFIG.PF2E.damageTypes); apply.mjs перед созданием сверяет с живым CONFIG
+export const DAMAGE_TYPES = ["acid", "bleed", "bludgeoning", "cold", "electricity", "fire", "force", "mental", "piercing", "poison", "slashing", "sonic", "spirit", "untyped", "vitality", "void"];
+// формула продолжительного урона: кости и числа через +/-, как «1d6», «2d6+3» (глубже проверяет pf2e при создании)
+const DICE = /^\d+(?:d\d+)?(?:\s*[+-]\s*\d+(?:d\d+)?)*$/i;
+export const isDice = (s) => typeof s === "string" && DICE.test(s.trim());
+
+// переменные pf2e в формуле продолжительного урона: «(@item.rank)d4», «(floor(@item.rank/2))d8»; хранятся как есть, подставляются при применении
+export const hasVars = (s) => typeof s === "string" && s.includes("@");
+
+// безопасный вычислитель группы: числа, + - * /, скобки, floor/ceil/round/min/max
+function calc(src) {
+  const t = src.match(/\d+(?:\.\d+)?|[a-z]+|[-+*/(),]|\S/g) ?? [];
+  let i = 0;
+  const bad = () => { throw new Error("calc"); };
+  const FN = { floor: Math.floor, ceil: Math.ceil, round: Math.round, max: Math.max, min: Math.min };
+  const expr = () => { let v = term(); while (t[i] === "+" || t[i] === "-") v = t[i++] === "+" ? v + term() : v - term(); return v; };
+  const term = () => { let v = atom(); while (t[i] === "*" || t[i] === "/") v = t[i++] === "*" ? v * atom() : v / atom(); return v; };
+  const atom = () => {
+    const x = t[i++];
+    if (x === "-") return -atom();
+    if (x === "(") { const v = expr(); if (t[i++] !== ")") bad(); return v; }
+    if (/^\d/.test(x ?? "")) return +x;
+    if (Object.hasOwn(FN, x) && t[i++] === "(") { const a = [expr()]; while (t[i] === ",") { i++; a.push(expr()); } if (t[i++] !== ")") bad(); return FN[x](...a); }
+    return bad();
+  };
+  const v = expr();
+  if (i !== t.length || !Number.isFinite(v)) bad();
+  return v;
+}
+
+/**
+ * Подставляет @item.rank / @item.level / @actor.level и вычисляет группы в скобках: «(@item.rank)d4» -> «2d4».
+ * -> строка или null (неизвестная переменная, группа не считается, отрицательное число).
+ */
+export function resolveFormula(f, { rank = 1, level = rank, actorLevel = level } = {}) {
+  const s = String(f).replace(/\s+/g, "").replace(/@item\.rank(?![\w.])/g, rank).replace(/@item\.level(?![\w.])/g, level).replace(/@actor\.level(?![\w.])/g, actorLevel);
+  if (s.includes("@")) return null;
+  try {
+    let out = "";
+    for (let i = 0; i < s.length;) {
+      if (s[i] !== "(") { out += s[i++]; continue; }
+      let depth = 0, j = i;
+      do { depth += s[j] === "(" ? 1 : s[j] === ")" ? -1 : 0; j++; } while (depth && j < s.length);
+      if (depth) return null;
+      const v = calc(s.slice(i + 1, j - 1));
+      if (v < 0) return null;
+      out += Math.floor(v);
+      i = j;
+    }
+    return out;
+  } catch { return null; }
+}
+/** Формула после подстановки равна нулю («0», «0d8»): шага нет (Oil Fire на 1 уровне: floor(1/2)). */
+export const isZeroFormula = (s) => typeof s === "string" && /^0(?:d\d+)?$/i.test(s.trim());
+/** Формула продолжительного урона: кубы, либо кубы с переменными pf2e (проверка при rank = level = 1). */
+export const isPersFormula = (s) => isDice(s) || (hasVars(s) && isDice(resolveFormula(s)));
+// шаг, если формула ненулевая хоть на каком-то уровне/ранге (floor(rank/2) на 1 — ноль, применение пропустит); константа «0» — не шаг
+const isPersStep = (s) => isPersFormula(s) && (!hasVars(s) ? !isZeroFormula(s) : Array.from({ length: 20 }, (_, i) => resolveFormula(s, { rank: i + 1 })).some((f) => f && !isZeroFormula(f)));
 
 /** Ошибка валидатора: key -> PF2E_AUTOMATO.rules.err.<key>, data -> подстановки ({path}, ...); текст получает потребитель (errText в util.mjs). */
 const E = (key, path, more) => ({ key, data: { path, ...more }, toString() { return `${key} (${path})`; } });
@@ -24,7 +82,7 @@ function vApply(a, path, defTo, err) {
   if (!isObj(a)) { err.push(E("notObj", path)); return null; }
   const out = { to: a.to ?? defTo };
   if (!["self", "target"].includes(out.to)) err.push(E("apply.to", `${path}.to`));
-  const kinds = ["condition", "effect", "note", "visibility"].filter((k) => a[k] != null);
+  const kinds = ["condition", "effect", "note", "visibility", "persistent"].filter((k) => a[k] != null);
   if (kinds.length !== 1) err.push(E("apply.kind", path));
   if (a.condition != null) {
     const c = a.condition;
@@ -56,6 +114,13 @@ function vApply(a, path, defTo, err) {
     else if (v.of === out.to) err.push(E("vis.same", `${path}.visibility.of`));
     else if (v.until != null && !(Array.isArray(v.until) && v.until.every((u) => VIS_UNTIL.includes(u)))) err.push(E("vis.until", `${path}.visibility.until`));
     else out.visibility = { level: v.level, of: v.of, ...(v.until?.length && { until: [...new Set(v.until)] }) };
+  }
+  if (a.persistent != null) {
+    const p = a.persistent;
+    if (!isObj(p) || !isPersFormula(p.formula)) err.push(E("pers.formula", `${path}.persistent.formula`));
+    else if (!DAMAGE_TYPES.includes(p.damageType)) err.push(E("pers.type", `${path}.persistent.damageType`));
+    else if (p.dc != null && !(isInt(p.dc) && p.dc >= 1)) err.push(E("pers.dc", `${path}.persistent.dc`));
+    else out.persistent = { formula: p.formula.trim().replace(/\s+/g, ""), damageType: p.damageType, ...(p.dc != null && { dc: p.dc }) };
   }
   // who — только союзникам/врагам автора (по disposition токенов); mark — метка TokenMark эффекта на вражескую цель из целей;
   // unlessEffect — пропустить, если у получателя уже есть этот эффект (иммунитет вида «Наставление: невосприимчивость 1 ч»)
@@ -487,6 +552,83 @@ function addPlainConds(text, conds, terms, linkedAll) {
   return possible;
 }
 
+/* ---------- продолжительный урон в блоке степени ---------- */
+
+// основы названий типов урона (ru: «огненного», «урона огнём»; en: slug) -> тип pf2e
+const TYPE_STEMS = [["огн", "fire"], ["холод", "cold"], ["кислот", "acid"], ["электр", "electricity"], ["ментал", "mental"], ["яд", "poison"], ["дух", "spirit"], ["жизн", "vitality"], ["пустот", "void"], ["звук", "sonic"], ["сил", "force"], ["негатив", "void"], ["позитив", "vitality"], ["кровотеч", "bleed"],
+  ["колющ", "piercing"], ["дроб", "bludgeoning"], ["рубящ", "slashing"], ...DAMAGE_TYPES.filter((x) => x !== "untyped").map((x) => [x.slice(0, 6), x]), ["pierc", "piercing"], ["bludgeon", "bludgeoning"], ["electr", "electricity"]];
+const typeOfWord = (w) => TYPE_STEMS.find(([stem]) => w?.startsWith(stem))?.[1] ?? null;
+const DICE_SRC = String.raw`\d+(?:[dдк]\d+)?(?:\s*[+-]\s*\d+)?`;
+const PERS_RU = new RegExp(String.raw`(${DICE_SRC})\s+продолжительн\p{L}*\s+(?:(\p{L}+)\s+)?урон\p{L}*(?:\s+(?:от\s+)?(\p{L}+))?`, "gu");
+const PERS_EN = new RegExp(String.raw`(${DICE_SRC})\s+persistent\s+(\p{L}+)\s+damage`, "gu");
+// скобки убираем, если нет переменных: «(2d4)» -> «2d4»; «(@item.rank)d4» остаётся как есть
+const diceOf = (s) => s.replace(/[дк]/g, "d").replace(/\s/g, "").replace(/[()]/g, (c) => (s.includes("@") ? c : ""));
+// условие вне самого урона: «всякий раз, когда…», «пока остаётся в ауре»; урон предмету
+const COND = /(?<!\p{L})(?:всякий раз|каждый раз|пока|whenever|each time|every time|as long as|while)(?![\p{L}])/u;
+const RESTRICT = /(?<!\p{L})(?:creatures?|targets?|существ\p{L}*)\s[^.]{0,40}?(?:(?:has|have|with|с)\s[^.]{0,30}?(?:trait|черт\p{L}*|дескриптор\p{L}*))/iu;
+const ITEM_DMG = /(?<!\p{L})(?:shoddy|items?|objects?|предмет\p{L}*|объект\p{L}*)(?![\p{L}])/u;
+
+/**
+ * Продолжительный урон блока степени: @Damage[1d6[persistent,fire]] и «1d6 продолжительного огненного урона» / «1d6 persistent fire damage».
+ * Текст отбирается теми же правилами, что и состояния простым текстом: стоп-слова перед, «вы/you» в начале фразы, «вместо/if/если» после.
+ * «или/or» рядом, неизвестный тип и нечисловая формула (@item.rank) — не шаг, а possible=true (подсказка ГМу).
+ * -> { steps: [{formula, damageType}], possible }
+ */
+export function persistentOf(text, { outside = "", html = "" } = {}) {
+  const steps = [];
+  let possible = false;
+  // урон только существам с чертой («Any creature that has the plant trait») — условие вне блоков; тип урона выбирает игрок — тот же дайс с разными типами в описании
+  const restricted = RESTRICT.test(outside.replace(/<[^>]*>/g, " "));
+  const types = new Map();
+  for (const m of html.matchAll(/@Damage\[([^\[\],|]+?)\[([^\]]*)\]/g)) {
+    const fl = m[2].split(",").map((x) => x.trim()), ty = fl.find((x) => DAMAGE_TYPES.includes(x));
+    if (ty && fl.includes("persistent")) types.set(diceOf(m[1]), new Set([...(types.get(diceOf(m[1])) ?? []), ty]));
+  }
+  const add = (formula, damageType, dc) => {
+    if (restricted || (types.get(formula)?.size ?? 0) > 1 || !isPersStep(formula) || !DAMAGE_TYPES.includes(damageType)) { possible = true; return; }
+    if (!steps.some((p) => p.formula === formula && p.damageType === damageType)) steps.push({ formula, damageType, ...(dc && { dc }) });
+  };
+  // позиции совпадают с text: ссылки, теги и &nbsp; затёрты пробелами той же длины
+  const flat = text.replace(/@UUID\[[^\]]*\](?:\{[^}]*\})?|<[^>]*>|&nbsp;/g, blank).replace(/@Damage\[(?:[^\[\]]|\[[^\]]*\])*\](?:\{[^}]*\})?/g, blank).toLowerCase().replace(/ё/g, "е");
+  const bounds = [...flat.matchAll(/[.;!?](?=\s|$)/g)].map((m) => m.index);
+  const sentStart = (i) => (bounds.filter((b) => b < i).pop() ?? -1) + 1;
+  const sentEnd = (i) => bounds.find((b) => b >= i) ?? flat.length;
+  // СЛ очистки: «СЛ … 17» / «DC 17» в предложении с упоминанием продолжительного урона
+  const dcAt = (i) => {
+    const from = flat.lastIndexOf(". ", i) + 1, to = flat.indexOf(". ", i), sent = flat.slice(from, to < 0 ? flat.length : to);   // предложение целиком, без деления по «;»
+    return /продолжительн|persistent/.test(sent) ? +/(?<!\p{L})(?:сл|dc)(?![\p{L}:])[^.\d]{0,60}?(\d+)/u.exec(sent)?.[1] || undefined : undefined;
+  };
+  // true, если упоминание в позиции [i, end) не шаг: стоп-слова/«вы» перед, «вместо/если» и условия после, урон предмету
+  // условие, не относящееся к самому урону («as long as they remain in the aura»), но не «as long as it takes this persistent damage»
+  const condIn = (s) => { const c = COND.exec(s); return !!c && !/persistent|продолжительн|damage|урон/.test(s.slice(c.index)); };
+  // link: у ссылок «вы» — только в начале фразы («You take @Damage»), не «…convinced you know … and takes @Damage»
+  const skip = (i, end, link) => {
+    const before = flat.slice(Math.max(sentStart(i), i - 40), i).split(",").pop(), prefix = flat.slice(sentStart(i), i);
+    const tail = flat.slice(end, Math.min(sentEnd(end), end + 40)).split(",")[0], frag = prefix.split(",").pop();
+    return STOP.test(before) || /(?:вместо|instead of)\s*$/u.test(before) || (link ? /^[^\p{L}]*(?:вы|you)(?![\p{L}])/u : AUTHOR).test(frag) || ALT.test(tail)
+      || condIn(prefix) || condIn(flat.slice(end, sentEnd(end))) || ITEM_DMG.test(prefix) || ITEM_DMG.test(tail);
+  };
+  const isOr = (i, end) => /^\s*(?:или|либо|or)(?!\p{L})/u.test(flat.slice(end, Math.min(sentEnd(end), end + 40)).split(",")[0]) || /(?<!\p{L})(?:или|либо|or|either)\s*$/u.test(flat.slice(Math.max(sentStart(i), i - 40), i).split(",").pop());
+  for (const m of text.matchAll(/@Damage\[((?:[^\[\]]|\[[^\]]*\])*)\](?:\{[^}]*\})?/g)) {
+    const terms = [...m[1].matchAll(/([^\[\],|]+?)\[([^\]]*)\]/g)].map((t) => [t[1], t[2].split(",").map((f) => f.trim())]).filter(([, fl]) => fl.includes("persistent") || fl.includes("bleed"));
+    if (!terms.length) continue;
+    const end = m.index + m[0].length;
+    if (skip(m.index, end, true)) continue;
+    if (isOr(m.index, end)) { possible = true; continue; }
+    for (const [f, fl] of terms) add(diceOf(f), fl.find((x) => DAMAGE_TYPES.includes(x)) ?? "untyped", dcAt(m.index));
+  }
+  for (const re of [PERS_RU, PERS_EN]) {
+    for (const m of flat.matchAll(re)) {
+      const end = m.index + m[0].length;
+      if (skip(m.index, end)) continue;
+      const damageType = re === PERS_EN ? typeOfWord(m[2]) : typeOfWord(m[2]) ?? typeOfWord(m[3]);
+      if (isOr(m.index, end)) { possible = true; continue; }
+      add(diceOf(m[1]), damageType, dcAt(m.index));
+    }
+  }
+  return { steps, possible };
+}
+
 /** [термин, slug] для простого текста: имена от вызывающего + подписи ссылок на состояния этого описания. */
 function plainTerms(html, condNames, condSlug) {
   const out = new Map();
@@ -564,7 +706,9 @@ export function deriveFromMarkup(itemLike, labels, conditionSlugByUuid, condName
       const { conds, effects, timed } = linksOf(text, condSlug, hints);
       for (const slug of [...timed, ...addPlainConds(text, conds, terms, linkedAll)]) if (!hints.possible.includes(`${deg}:${slug}`)) hints.possible.push(`${deg}:${slug}`);   // имя без ссылки и значения — только подсказка
       for (const c of conds) if (NOT_ON_TARGET.has(c.slug)) hints.excluded.push(`${deg}:${c.slug}`);
-      const list = [...conds.filter((c) => !NOT_ON_TARGET.has(c.slug)).map((c) => condApply(c, "target")), ...effects.map((uuid) => ({ to: "target", effect: { uuid } }))];
+      const pers = persistentOf(text, { outside, html });
+      if (pers.possible && !hints.possible.includes(`${deg}:persistent-damage`)) hints.possible.push(`${deg}:persistent-damage`);
+      const list = [...conds.filter((c) => !NOT_ON_TARGET.has(c.slug)).map((c) => condApply(c, "target")), ...effects.map((uuid) => ({ to: "target", effect: { uuid } })), ...pers.steps.map((p) => ({ to: "target", persistent: p }))];
       if (list.length) challenge.byDegree[deg] = list;
     }
     return mk({ targets: targetsOf(), excludeSelf: null, zone: null, challenge, apply: [] }, "high");

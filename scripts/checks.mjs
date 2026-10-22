@@ -2,7 +2,7 @@
 // Чистые функции (defenseDc, hasImmunity, ...) не трогают Foundry — tests/checks.test.mjs.
 import { MOD, L, flagPath, degreeFromTotal, isActiveGM } from "./util.mjs";
 import { S } from "./settings.mjs";
-import { useOf, safeUuid, marker, isPcActor, challengeOf, challengeTargets, recordResult } from "./saves.mjs";
+import { useOf, safeUuid, marker, isPcActor, challengeOf, challengeTargets, recordResult, markTried } from "./saves.mjs";
 import { applyEffect } from "./apply.mjs";
 import { effectSource, addEffect, ask } from "./builtin/lib.mjs";
 
@@ -124,10 +124,10 @@ export async function runCheck(message, { only } = {}) {
     rolling.add(rk);
     try {
       const r = await rollCheck(author, ck, { message, tokenKey: key, target: token, skipDialog: true, askMap: !!only, messageMode: S.get("challenge.messageMode") });
-      if (!r) continue;
+      if (!r) { if (!only) await markTried(message.id, "rollTried", key); continue; }
       await recordResult(message.id, key, { degree: r.degree, total: r.total, dc: r.dc, by: game.user.id, rollMessageId: r.rollMessage?.id ?? null, src: "own" });
       done.push(key);
-    } catch (e) { console.error(`${MOD} | runCheck ${key}`, e); }
+    } catch (e) { console.error(`${MOD} | runCheck ${key}`, e); if (!only) await markTried(message.id, "rollTried", key); }
     finally { rolling.delete(rk); }
   }
   return done;

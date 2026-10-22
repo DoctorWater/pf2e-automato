@@ -39,6 +39,13 @@
         "effect": "One Shot, One Kill: ready",
         "hint": "<p><b>One Shot, One Kill</b>: {name} rolled Stealth for initiative. Interact to draw a firearm or crossbow; the first Strike with it deals extra precision damage.</p>"
       },
+      "shieldBlock": {
+        "hint": "<p><b>{name}</b>: Shield Block? Hardness {hardness}.</p>",
+        "button": "Shield Block",
+        "gone": "Damage message or target is gone.",
+        "lowered": "The shield is no longer raised: no block, reaction not spent.",
+        "applied": "Damage from this message was already applied to this target."
+      },
       "reactive": {
         "hint": "<p><b>Reactive Strike</b>: {source} uses a {trigger} within {holder}'s reach. Reaction: @UUID[{item}]</p>",
         "manipulate": "manipulate action",
@@ -70,6 +77,14 @@
       "blade": {
         "noWeapons": "\"{name}\": needs two different melee Strikes.",
         "effect": "{name}: off-guard"
+      },
+      "cast": {
+        "prompt": "\"{name}\": how many actions did you spend casting? (the slot is already spent once - do not cast again)",
+        "actions": "{n} action(s)",
+        "split": "Missiles: {total}. Split them among the targets (the sum must be {total}).",
+        "roll": "Roll damage",
+        "splitBad": "The missile counts must add up to {total}.",
+        "volley": "{n} missile(s) → {target}"
       }
     }
   }

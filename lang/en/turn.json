@@ -1,0 +1,10 @@
+{
+  "PF2E_AUTOMATO": {
+    "turn": {
+      "sickened": "{name}: sickened {value}, DC {dc}. Retching is 1 action, Fortitude: success -1, critical success -2.",
+      "retch": "Retch (reduce sickened)",
+      "dc": "DC",
+      "needDC": "Enter the DC of the sickened source"
+    }
+  }
+}

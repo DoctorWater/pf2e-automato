@@ -24,3 +24,5 @@
 .paf-mark:hover { opacity: 0.85; }
 .paf-mark-yield { opacity: 0.2; }
 .tab.automato .af-ws-open { width: auto; flex: none; float: right; font-size: 0.75em; }
+/* тип урона — только у шага «Продолжительный урон» */
+.tab.automato .af-row:not(:has([data-r="kind"] option[value="persistent"]:checked)) [data-r="pType"] { display: none; }

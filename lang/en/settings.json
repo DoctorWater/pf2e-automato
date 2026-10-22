@@ -7,7 +7,11 @@
         "challenge": { "name": "Challenges", "hint": "Auto: NPCs roll immediately on the GM client, player characters by button." },
         "apply": { "name": "Conditions by degree", "hint": "Apply conditions to targets by challenge result (default: GM button)." },
         "reaction": { "name": "Reactions", "hint": "Auto: whisper a hint when a reaction changes the attack outcome." },
-        "macro": { "name": "Rule macros", "hint": "Run macros attached to rules, executed by the active GM." }
+        "macro": { "name": "Rule macros", "hint": "Run macros attached to rules, executed by the active GM." },
+        "shieldBlock": { "name": "Shield Block reminder", "hint": "Auto: whisper a Shield Block button when damage targets a creature with a raised shield and a free reaction; after a block the Shield spell ends." },
+        "frightened": { "name": "Frightened each turn", "hint": "Auto: frightened drops by 1 at the end of the creature's turn (pf2e does not do it). Yields when the Workbench setting decreaseFrightenedConditionEachTurn is on." },
+        "sickened": { "name": "Sickened each turn", "hint": "Auto: at the start of a sickened creature's turn, a whisper to the owner and GM with a Retch button (Fortitude vs the source DC)." },
+        "damageGate": { "name": "Damage by attack outcome", "hint": "Auto: after an attack roll only the matching damage button stays (hit - Damage, critical hit - Critical); misses get none. Strike buttons on the sheet are not covered." }
       },
       "yieldToAutomations": { "name": "Yield to pf2e-automations", "hint": "Do not run rules for items already covered by an active pf2e-automations group. A rule can override this with its yield field." },
       "useToolbeltTargetHelper": { "name": "Use Toolbelt Target Helper", "hint": "If Target Helper is enabled, it makes the challenge rolls instead of this module." },

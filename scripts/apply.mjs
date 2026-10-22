@@ -4,6 +4,7 @@
 import { MOD, L, flagPath, sluggify, queue, forcedDelete, socket, ENDS_EARLY, sharedDialog } from "./util.mjs";
 import { runMacros } from "./macros.mjs";
 import { effectSource } from "./builtin/lib.mjs";
+import { resolveFormula, isZeroFormula } from "./rules.mjs";
 import { setSource, dropSource, visionActive } from "./vision.mjs";
 
 const metaOf = (item) => item?.flags?.[MOD]?.meta;
@@ -79,6 +80,24 @@ export function applyCondition(actor, spec /* {slug,value,policy,duration?} */, 
     withMeta(data, meta);
     const [item] = await actor.createEmbeddedDocuments("Item", [data]);
     return item ? { op: "created", item } : { op: "skipped" };   // pf2e выкинул документ (иммунитет к состоянию)
+  });
+}
+
+/** Продолжительный урон как у pf2e (applyDamage / PersistentDamageEditor): состояние persistent-damage с system.persistent; иммунитеты и сопротивления учтёт pf2e при броске. */
+/** vars: {rank, level, actorLevel} — для формул с @item.rank / @item.level / @actor.level (подставляются и считаются здесь, в состояние уходит готовая формула). */
+export function applyPersistent(actor, spec /* {formula,damageType,dc?} */, meta = {}, vars = {}) {
+  return queue(`actor:${actor.uuid}`, async () => {
+    if (findByKey(actor, meta.key)) return { op: "skipped" };
+    if (!(spec.damageType in (CONFIG.PF2E?.damageTypes ?? {}))) throw new Error(`applyPersistent: неизвестный тип урона "${spec.damageType}"`);
+    const base = game.pf2e.ConditionManager.getCondition("persistent-damage");
+    if (!base) throw new Error("applyPersistent: нет состояния persistent-damage");
+    const formula = spec.formula.includes("@") ? resolveFormula(spec.formula, vars) : spec.formula;
+    if (!formula) throw new Error(`applyPersistent: формула "${spec.formula}" не считается`);
+    if (isZeroFormula(formula)) { notify("apply.zeroPersistent", { name: actor.name }); return { op: "skipped", reason: "zero" }; }
+    const data = foundry.utils.mergeObject(base.toObject(), { system: { persistent: { formula, damageType: spec.damageType, dc: spec.dc ?? 15 } } });
+    withMeta(data, meta);
+    const [item] = await actor.createEmbeddedDocuments("Item", [data]);
+    return item ? { op: "created", item } : { op: "skipped" };   // pf2e выкинул документ (иммунитет к типу урона)
   });
 }
 
@@ -169,7 +188,7 @@ const choiceHtml = (prompt, choices) => {
 export async function pickChoice({ title, prompt, choices }) {
   if (!game.users.get(this?.socketdata?.userId)?.isGM) return null;
   const res = await foundry.applications.api.DialogV2.wait({
-    window: { title }, rejectClose: false,
+    window: { title }, classes: ["paf-dialog"], rejectClose: false,
     content: choiceHtml(prompt, choices),
     buttons: [{ action: "ok", label: L("apply.choose"), default: true, callback: (_e, b) => Number(b.form.elements.choice.value) }]
   });
@@ -208,12 +227,15 @@ export async function applyOps(message, tokenKey, steps, ctx = {}) {
     castRank: originItem?.type === "spell" ? (message.flags?.pf2e?.origin?.castRank ?? originItem.rank ?? null) : null,
     chooser: chooserOf(message, selfActor) };
   const traits = originItem?.system?.traits?.value ?? [];
+  // переменные формул: круг (при сотворении — поднятый), уровень предмета (у заклинания это круг), уровень автора
+  const rank = message.flags?.pf2e?.origin?.castRank ?? originItem?.rank ?? originItem?.level ?? 1;
+  const persVars = { rank, level: originItem?.type === "spell" ? rank : originItem?.level ?? rank, actorLevel: selfActor?.level ?? 1 };
   const myDisp = originToken?.disposition ?? 1;
   const ops = [];
 
   for (const [i, step] of steps.entries()) {
     const actor = step.to === "self" ? selfActor : actorOf(targetDoc);
-    if (!actor || (!step.condition && !step.effect && !step.visibility)) continue;   // note — только текст в блоке
+    if (!actor || (!step.condition && !step.effect && !step.visibility && !step.persistent)) continue;   // note — только текст в блоке
     if (step.visibility && !visionActive()) continue;   // без PF2e Vision — заметка (текст «вручную» даёт чат)
     if (step.to !== "self") {
       const hostile = opposed(myDisp, targetDoc?.disposition ?? 0);
@@ -253,7 +275,8 @@ export async function applyOps(message, tokenKey, steps, ctx = {}) {
       ops.push(skip ? { op: "vis", skipped: skip, key: sourceKey } : { op: "vis", scene: scene.id, key: sourceKey });
       continue;
     }
-    const r = step.condition
+    const r = step.persistent ? await applyPersistent(actor, step.persistent, meta, persVars)
+      : step.condition
       ? await applyCondition(actor, step.duration ? { ...step.condition, duration: step.duration } : step.condition, meta, { ...ectx, target: step.to === "self" ? null : targetDoc })
       : await applyEffect(actor, step.effect, meta, { ...ectx, markUuid, choice: step.choice, target: step.to === "self" ? null : targetDoc });
     if (r.reason === "vision") ops.push({ op: "vis", skipped: "marks", key: meta.key });   // видимость — метками: строка отработана

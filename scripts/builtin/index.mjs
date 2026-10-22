@@ -13,6 +13,8 @@ import * as fakeOut from "./fake-out.mjs";
 import * as intimidatingStrike from "./intimidating-strike.mjs";
 import * as bladeDance from "./blade-dance.mjs";
 import * as oneShot from "./one-shot-one-kill.mjs";
+import * as shieldBlock from "./shield-block.mjs";
+import * as variableCast from "./variable-cast.mjs";
 
 const DIALOG_MS = 180000;
 
@@ -23,6 +25,8 @@ export const BUILTIN = {
   "blade-dance": { run: bladeDance.run, timeoutMs: DIALOG_MS },
   "fake-out": { run: fakeOut.run, finish: fakeOut.finish, player: true, timeoutMs: DIALOG_MS },
   "intimidating-strike": { run: intimidatingStrike.run, finish: intimidatingStrike.finish, player: true, timeoutMs: DIALOG_MS },
+  // окно «Магии крови» у игрока-заклинателя: ГМ шлёт сюда runPlayerBuiltin (blood-magic.mjs onMessage), выбор возвращается ГМу
+  "blood-magic-pick": { run: bloodMagic.pick, player: true, timeoutMs: DIALOG_MS },
   // тот же обработчик, что и в хуке, но по правилу на заклинании (scope.message — карточка каста)
   "blood-magic-aberrant": { run: (scope) => scope.message && bloodMagic.onMessage(scope.message), timeoutMs: DIALOG_MS }
 };
@@ -32,11 +36,19 @@ const MESSAGE_HOOKS = [["blood-magic", bloodMagic.onMessage], ["reactive-strike"
 
 export function initBuiltinHooks() {
   if (!globalThis.Hooks) return;   // node-тесты
+  // число действий переменного заклинания спрашивает автор сообщения (игрок у себя, ГМ у себя), не ГМ-исполнитель
+  Hooks.on("createChatMessage", (message) => {
+    if (modeOf("macro") === "off") return;
+    variableCast.onMessage(message).catch((e) => console.error(`${MOD} | builtin variable-cast`, e));
+  });
   Hooks.on("createChatMessage", async (message) => {
     if (!isActiveGM() || modeOf("macro") === "off") return;
     for (const [id, fn] of MESSAGE_HOOKS) {
       try { await fn(message); } catch (e) { console.error(`${MOD} | builtin ${id}`, e); }
     }
+  });
+  Hooks.on("createChatMessage", (message) => {   // свой хук: не зависит от mode.macro (mode.shieldBlock проверяет onMessage)
+    if (isActiveGM()) shieldBlock.onMessage(message).catch((e) => console.error(`${MOD} | builtin shield-block`, e));
   });
   Hooks.on("updateWorldTime", (t) => { if (isActiveGM()) onyxDog.expire(t).catch((e) => console.error(`${MOD} | onyx expire`, e)); });
   Hooks.on("deleteCombat", (combat) => {
@@ -49,6 +61,10 @@ export function initBuiltinHooks() {
   Hooks.on("updateItem", migrate(oneShot.migrateItem));
   Hooks.on("renderChatMessageHTML", onyxDog.bindDismiss);
   Hooks.on("renderChatMessageHTML", reactiveStrike.bindStrike);
+  Hooks.on("renderChatMessageHTML", shieldBlock.bindBlock);
+  Hooks.on("renderChatMessageHTML", shieldBlock.trackApplyClicks);
+  Hooks.on("createChatMessage", shieldBlock.onDamageTaken);
+  Hooks.once("ready", shieldBlock.wrapApplyDamage);
   Hooks.on("moveToken", (doc, movement) => {
     if (!isActiveGM() || modeOf("macro") === "off") return;
     reactiveStrike.onMove(doc, movement).catch((e) => console.error(`${MOD} | builtin reactive-strike move`, e));

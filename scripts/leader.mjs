@@ -57,7 +57,7 @@ const dlgId = (id) => `pf2e-automato-dlg-${id}`;
 async function show(id, spec) {
   if (finished.has(id)) return null;
   const res = await foundry.applications.api.DialogV2.wait({
-    id: dlgId(id), window: { title: spec.title }, content: spec.content, rejectClose: false,
+    id: dlgId(id), classes: ["paf-dialog"], window: { title: spec.title }, content: spec.content, rejectClose: false,
     render: (_e, dlg) => { if (finished.has(id)) dlg.close(); },   // «готово» пришло, пока окно открывалось
     buttons: spec.buttons.map((b, i) => ({ action: b.action, label: b.label, default: i === 0, callback: (_e, btn) => ({ action: b.action, form: formOf(btn.form) }) }))
   });

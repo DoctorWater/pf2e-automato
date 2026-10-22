@@ -8,7 +8,7 @@ import { itemUseKind, wantsSnapshot } from "./use.mjs";
 
 /* ---------- Чистая часть: текст подсказки (node-тесты) ---------- */
 
-const hasSteps = (list) => (list ?? []).some((a) => a.condition || a.effect || a.visibility);
+const hasSteps = (list) => (list ?? []).some((a) => a.condition || a.effect || a.visibility || a.persistent);
 const byDegSteps = (c) => Object.values(c?.byDegree ?? {}).some(hasSteps);
 
 /** Короткие части описания правила: «испытание Воли», «состояния», «зона»... t(key, data) = L. */

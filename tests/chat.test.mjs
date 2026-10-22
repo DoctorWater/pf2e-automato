@@ -259,3 +259,33 @@ test("подсказки разметки: только ГМу и только �
   assert.equal(vm(other).hints, undefined);   // посторонний
   assert.equal(vm(gm, { src: "flag" }).hints, undefined);
 });
+
+test("auto: кнопки «Бросить» у NPC-цели нет (бросает модуль), у PC — есть", () => {
+  const e = mkEnv({ env: { isPc: (k) => k === "b" } });
+  assert.deepEqual(buildViewModel(mkMsg({}), gm, e).challenge.rows.map((r) => r.canRoll), [false, true]);
+});
+
+test("auto challenge: NPC-цель без кнопки, пока автоброс впереди; после неудачной попытки (rollTried) кнопка возвращается", () => {
+  const e = mkEnv({ env: { isPc: (k) => k === "b" } });
+  const rows = (challenge) => buildViewModel(mkMsg({ state: { challenge } }), gm, e).challenge.rows.map((r) => r.canRoll);
+  assert.deepEqual(rows({}), [false, true]);
+  assert.deepEqual(rows({ rollTried: { a: true } }), [true, true]);
+});
+
+test("apply=auto: «Применить» появляется после попытки автоприменения (откат/переброс/сбой)", () => {
+  const e = mkEnv({ modes: { apply: "auto" } });
+  const res = { a: { degree: 1, total: 15 } };
+  const row = (state, user = gm) => buildViewModel(mkMsg({ state: { challenge: { results: res, ...state } } }), user, e).challenge.rows[0];
+  assert.equal(row({}).canApply, false);                                  // автоприменение ещё впереди
+  assert.equal(row({ autoTried: { a: true } }).canApply, true);           // попытка была, applied нет -> кнопка
+  assert.equal(row({ autoTried: { a: true }, applied: { a: { degree: 1, ops: [] } } }).canApply, false);   // применено — «Отменить»
+  assert.equal(row({ autoTried: { a: true } }, pl).canApply, false);
+});
+
+test("onUse.apply при effect=auto: кнопка только после попытки (state.done) без результата", () => {
+  const rule = { v: 1, yield: null, onUse: { targets: "selected", apply: [{ to: "target", condition: { slug: "frightened", value: 1 } }] } };
+  const vmOf = (state) => buildViewModel(mkMsg({ rule, state }), gm, mkEnv()).useApply.canApply;
+  assert.equal(vmOf({}), false);
+  assert.equal(vmOf({ done: true }), true);
+  assert.equal(vmOf({ done: true, apply: { self: { ops: [{}] } } }), false);
+});

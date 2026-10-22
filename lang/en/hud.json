@@ -1,0 +1,11 @@
+{
+  "PF2E_AUTOMATO": {
+    "hud": {
+      "cover": { "standard": "In Cover", "greater": "In Greater Cover" },
+      "reload": "Reload",
+      "loaded": "loaded {n}/{max}",
+      "noAmmo": "no ammo",
+      "noCover": "Effect: Cover not found in pf2e.other-effects"
+    }
+  }
+}

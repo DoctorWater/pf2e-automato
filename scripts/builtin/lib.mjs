@@ -1,5 +1,7 @@
 // Общие помощники встроенных обработчиков. Чистые функции не трогают foundry (юнит-тесты, tests/builtin.test.mjs).
 import { MOD, queue, sharedDialog } from "../util.mjs";
+import { card } from "../card.mjs";
+export { card, cardButton } from "../card.mjs";
 
 export const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 
@@ -48,8 +50,19 @@ export async function addCondition(actor, spec, key) {
 export const ask = async (title, content, buttons) =>
   (await sharedDialog({ title, content, buttons: buttons.map((b) => ({ action: b.id, label: b.label })) }))?.action ?? null;
 
-/** Шёпот ГМам и владельцам актёра. */
-export function whisper(actor, content, tag, extra = {}) {
+/** Диалог автору: игроку — у него; ГМу — общее окно всех вкладок ГМа (первый ответ побеждает). -> { action, form } | null (закрыт). */
+export async function askHere(title, content, buttons) {
+  if (game.user.isGM) return (await sharedDialog({ title, content, buttons: buttons.map((b) => ({ action: b.id, label: b.label })) })) ?? null;
+  const res = await foundry.applications.api.DialogV2.wait({
+    window: { title }, classes: ["paf-dialog"], content, rejectClose: false,
+    buttons: buttons.map((b, i) => ({ action: b.id, label: b.label, default: i === 0, callback: (_e, btn) => ({ action: b.id, form: btn.form ? Object.fromEntries(new FormData(btn.form)) : {} }) }))
+  });
+  return res ?? null;
+}
+
+/** Шёпот ГМам и владельцам актёра: text — текст, buttons — готовые cardButton(...). */
+export function whisper(actor, text, tag, extra = {}, buttons = "") {
+  const content = card(text, buttons);
   const ids = new Set(game.users.filter((u) => u.isGM).map((u) => u.id));
   for (const u of game.users) if (!u.isGM && actor?.testUserPermission?.(u, "OWNER")) ids.add(u.id);
   return ChatMessage.create({ content, whisper: [...ids], flags: { [MOD]: { builtin: tag, ...extra } } });

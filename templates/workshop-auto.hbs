@@ -39,6 +39,7 @@
         <div class="ws-pick-h" data-q="">{{localize "PF2E_AUTOMATO.workshop.au.pickKinds"}}</div>
         <button type="button" data-action="addStep" data-list="{{list}}" data-kind="effect" name="addk-effect-{{list}}" data-q="">{{localize "PF2E_AUTOMATO.workshop.au.kindEffect"}}</button>
         <button type="button" data-action="addStep" data-list="{{list}}" data-kind="visibility" name="addk-vis-{{list}}" data-q="">{{localize "PF2E_AUTOMATO.workshop.au.kindVisibility"}}</button>
+        <button type="button" data-action="addStep" data-list="{{list}}" data-kind="persistent" name="addk-pers-{{list}}" data-q="">{{localize "PF2E_AUTOMATO.workshop.au.kindPersistent"}}</button>
         <button type="button" data-action="addStep" data-list="{{list}}" data-kind="note" name="addk-note-{{list}}" data-q="">{{localize "PF2E_AUTOMATO.workshop.au.kindNote"}}</button>
         <div class="ws-pick-h" data-q="">{{localize "PF2E_AUTOMATO.workshop.au.pickConds"}}</div>
         {{#each @root.conds}}<button type="button" data-action="addStep" data-list="{{../list}}" data-slug="{{slug}}" name="addc-{{slug}}-{{../list}}" data-q="{{q}}">{{label}}</button>{{/each}}

@@ -18,6 +18,7 @@
     <select data-r="visOf">{{selectOptions @root.ch.visOf selected=visOf valueAttr="value" labelAttr="label"}}</select>
     <input type="text" data-r="visUntil" value="{{visUntil}}" placeholder="{{localize 'PF2E_AUTOMATO.sheet.row.until'}}">
   </span>
+  <select data-r="pType" title="{{localize 'PF2E_AUTOMATO.sheet.row.pType'}}">{{selectOptions @root.ch.dmgType selected=pType valueAttr="value" labelAttr="label"}}</select>
   <a data-action="remove-row" title="{{localize 'PF2E_AUTOMATO.sheet.remove'}}"><i class="fa-solid fa-trash"></i></a>
 </div>
 {{/inline}}

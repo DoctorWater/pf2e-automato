@@ -322,6 +322,9 @@
         "stepKind": "Step",
         "condition": "Condition",
         "effectUuid": "Effect UUID",
+        "persFormula": "Formula",
+        "persType": "Damage type",
+        "persDc": "Recovery DC (default 15)",
         "noteText": "Note text",
         "unit": "Unit",
         "durOf": "Turn of",
@@ -382,6 +385,7 @@
         "pickConds": "Conditions",
         "kindEffect": "Effect",
         "kindVisibility": "Visibility",
+        "kindPersistent": "Persistent damage",
         "kindNote": "Note",
         "probeOnlyUse": "The test run is only for the “On use” event.",
         "keep": {

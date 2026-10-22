@@ -1,7 +1,7 @@
 // X1. Кровная магия аберрантного наследия (Eerie Veil): сотворил заклинание крови — «+2 статус Воле себе» или «−1 Воле одной цели».
 // Эффект один (feat-effects UQ7vZgmfK0VSFS8A): знак зависит от того, совпадает ли автор эффекта с владельцем (предикат self:signature).
-import { L } from "../util.mjs";
-import { ask, castOrigin, docOf } from "./lib.mjs";
+import { L, MOD, socket } from "../util.mjs";
+import { ask, askHere, castOrigin, docOf, esc } from "./lib.mjs";
 
 export const EFFECT = "Compendium.pf2e.feat-effects.Item.UQ7vZgmfK0VSFS8A";
 export const BLOODLINE_SLUG = "bloodline-aberrant";
@@ -25,19 +25,41 @@ export function bloodChoice(id, targets) {
 }
 
 const done = new Set();
+const text = (o) => (o.id === "self" ? L("builtin.blood.self") : o.id === "skip" ? L("builtin.blood.skip") : L("builtin.blood.target", { name: o.name }));
+const buttons = (opts) => opts.map((o) => ({ id: o.id, label: text(o) }));
 
+/** Игрок-автор онлайн и владелец актёра -> пользователь, иначе null (тогда окно у ГМа). */
+const playerOf = (message, actor) => {
+  const u = message.author;
+  return u && !u.isGM && u.active && u.id !== game.user.id && actor.testUserPermission?.(u, "OWNER") ? u : null;
+};
+
+/** У игрока (runPlayerBuiltin): окно выбора по снимку целей от ГМа (scope.targets — uuid; нет — текущие) -> id варианта | null. */
+export async function pick(scope) {
+  const targets = (scope.targets ? scope.targets.map((u) => fromUuidSync(u)) : [...(game.user.targets ?? [])]).map(docOf).filter((t) => t?.actor);
+  const res = await askHere(L("builtin.blood.title"), `<p>${L("builtin.blood.prompt", { name: esc(scope.actor?.name) })}</p>`, buttons(bloodOptions(targets)));
+  return res?.action ?? null;
+}
+
+// Ровно один раз за сотворение: claim по id сообщения ставится синхронно, до первого await (хук и правило-ссылка приходят одновременно).
 export async function onMessage(message) {
   const origin = castOrigin(message);
   if (!isBloodSpell(origin) || done.has(message.id)) return;
+  done.add(message.id);
   const actor = await fromUuid(origin.actor);
   if (!actor?.items.some((i) => i.slug === BLOODLINE_SLUG)) return;
-  done.add(message.id);
-  // User#targets чужого пользователя синхронизируется ядром (user.mjs, userActivity.targets)
-  const targets = [...(message.author?.targets ?? [])].map(docOf).filter((t) => t?.actor);
+  // снимок целей сообщения; иначе User#targets автора (ядро синхронизирует их между клиентами, user.mjs userActivity.targets)
+  const snap = message.flags?.[MOD]?.use?.targets;
+  const targets = (snap ? snap.map((t) => fromUuidSync(t.uuid)) : [...(message.author?.targets ?? [])]).map(docOf).filter((t) => t?.actor);
   const opts = bloodOptions(targets);
-  const id = await ask(L("builtin.blood.title"), `<p>${L("builtin.blood.prompt", { name: actor.name })}</p>`, opts.map((o) => ({
-    id: o.id, label: o.id === "self" ? L("builtin.blood.self") : o.id === "skip" ? L("builtin.blood.skip") : L("builtin.blood.target", { name: o.name })
-  })));
+  const player = playerOf(message, actor);
+  let id;
+  if (player) {
+    const token = message.speaker?.scene && message.speaker?.token ? game.scenes.get(message.speaker.scene)?.tokens.get(message.speaker.token) : null;
+    try { id = await Promise.race([socket.executeAsUser("runPlayerBuiltin", player.id, "blood-magic-pick", { actor: actor.uuid, token: token?.uuid ?? null, item: origin.uuid, message: message.id, targets: targets.map((t) => t.uuid) }), new Promise((_, r) => setTimeout(() => r(new Error("timeout")), 180000))]); }
+    catch (e) { console.warn(`${MOD} | blood-magic: окно у игрока не вышло, спрашиваем ГМа`, e); id = undefined; }
+  }
+  if (id === undefined) id = await ask(L("builtin.blood.title"), `<p>${L("builtin.blood.prompt", { name: esc(actor.name) })}</p>`, buttons(opts));
   const choice = bloodChoice(id, targets);
   if (!choice) return;
   const spell = await fromUuid(origin.uuid);

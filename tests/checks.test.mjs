@@ -127,16 +127,28 @@ test("чат check: заголовок, СЛ цели, иммунная цель
 
 test("чат check: результат -> степень, СЛ из результата, план + иммунитет, кнопка Применить даже при пустом плане", () => {
   const r = { degree: 3, total: 30, dc: 19 };
-  const vm = buildViewModel(mkMsg({ challenge: { results: { a: r } } }), gm, mkEnv());
+  const btn = mkEnv({ mode: () => "button" });
+  const vm = buildViewModel(mkMsg({ challenge: { results: { a: r } } }), gm, btn);
   const row = vm.challenge.rows[0];
+  assert.equal(buildViewModel(mkMsg({ challenge: { results: { a: r } } }), gm, mkEnv()).challenge.rows[0].canApply, false);   // apply=auto: модуль применяет сам — кнопки нет
+  const auto = mkEnv({ mode: () => "auto" });
+  assert.equal(buildViewModel(mkMsg({ challenge: { results: { a: r }, autoTried: { a: true } } }), gm, auto).challenge.rows[0].canApply, true);   // попытка была, не применено -> кнопка
   assert.equal(row.degree, "criticalSuccess");
   assert.match(row.dc, /19/);
   assert.equal(row.plan.length, 2);
   assert.match(row.plan[0], /frightened/);
   assert.match(row.plan[1], /immunityPlan/);
   assert.equal(row.canApply, true);
-  const noSteps = buildViewModel(mkMsg({ challenge: { results: { a: { degree: 0, total: 3, dc: 19 } } } }), gm, mkEnv()).challenge.rows[0];
+  const noSteps = buildViewModel(mkMsg({ challenge: { results: { a: { degree: 0, total: 3, dc: 19 } } } }), gm, btn).challenge.rows[0];
   assert.equal(noSteps.canApply, true);   // иммунитет применяется при любой степени
+});
+
+test("чат check: «Бросить» по автору — автор-PC бросает сам, автор-NPC бросает модуль (кнопка после сбоя)", () => {
+  const roll = (env, user, state) => buildViewModel(mkMsg(state), user, mkEnv(env)).challenge.rows[0].canRoll;
+  assert.equal(roll({ isActorPc: () => true }, author), true);   // игрок -> NPC: модуль не бросает, кнопка у автора
+  assert.equal(roll({ isActorPc: () => true }, gm), true);
+  assert.equal(roll({ isActorPc: () => false }, gm), false);     // автор-NPC: модуль бросит сам
+  assert.equal(roll({ isActorPc: () => false }, gm, { challenge: { rollTried: { a: true } } }), true);
 });
 
 test("чат check: нет целей -> подсказка", () => {

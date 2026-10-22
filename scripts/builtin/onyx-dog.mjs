@@ -3,7 +3,7 @@
 // ИЗМЕНЕНИЕ МИРА: создаётся актёр Guard Dog (flags.pf2e-automato.summon); удаляется вместе с токеном при отзыве (кнопка у ГМа,
 // истечение 6 ч игрового времени, dismiss()).
 import { MOD, L } from "../util.mjs";
-import { ask, castOrigin, whisper, esc } from "./lib.mjs";
+import { ask, castOrigin, whisper, esc, cardButton } from "./lib.mjs";
 
 export const FIGURINE = "Compendium.pf2e.equipment-srd.Item.BANLXq8FhwqsDu0v";
 export const GUARD_DOG = "Compendium.pf2e.pathfinder-monster-core.Actor.KHTYbQgR5hnFZdGL";
@@ -62,7 +62,7 @@ export async function summon(owner, item, ownerToken, scene) {
     delete tdata._id;
     const [token] = await scene.createEmbeddedDocuments("Token", [{ ...tdata, x: spot.x * g, y: spot.y * g }]);
     await item.setFlag(MOD, "summonedAt", game.time.worldTime);
-    await whisper(owner, `<p>${L("builtin.onyx.summoned", { name: esc(owner.name), dog: esc(token.name) })}</p><button type="button" data-af-dismiss="${dog.id}">${L("builtin.onyx.dismiss")}</button>`, "onyx-dog");
+    await whisper(owner, L("builtin.onyx.summoned", { name: esc(owner.name), dog: esc(token.name) }), "onyx-dog", {}, cardButton(`data-af-dismiss="${dog.id}"`, L("builtin.onyx.dismiss")));
     return { dog, token };
   } catch (e) { await dog.delete(); throw e; }
 }

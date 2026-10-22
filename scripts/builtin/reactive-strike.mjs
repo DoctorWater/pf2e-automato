@@ -2,7 +2,7 @@
 // по сообщениям чата — владельцу и ГМу шёпот с кнопкой «Ударить»: тратить ли реакцию, решает он; кнопка бросает Удар ближнего боя
 // по спровоцировавшему (Удар входит в реакцию по правилам). Перемещение ловится хуком moveToken (v14): путь прошёл через досягаемость.
 import { L, MOD, callGM } from "../util.mjs";
-import { esc, whisper } from "./lib.mjs";
+import { esc, whisper, cardButton } from "./lib.mjs";
 import { isHit, meleeCandidates, askStrikes, rollStrike, rollDamage } from "./strikes.mjs";
 
 export const SLUG = "reactive-strike";
@@ -33,8 +33,9 @@ const canReact = (holder, src) => holder !== src && holder.actor?.hitPoints?.val
   && holder.distanceTo(src) <= (holder.actor.getReach?.({ action: "attack" }) ?? 5);
 
 const hint = (holder, src, item, trigger) => whisper(holder.actor,
-  `${L("builtin.reactive.hint", { holder: esc(holder.actor.name), source: esc(src.name), trigger: esc(trigger), item: item.uuid })}<p><button type="button" data-af-react-strike>${L("builtin.reactive.strike")}</button></p>`,
-  "reactive-strike", { strike: { actor: holder.actor.uuid, target: src.document.uuid, item: item.name } });
+  L("builtin.reactive.hint", { holder: esc(holder.actor.name), source: esc(src.name), trigger: esc(trigger), item: item.uuid }),
+  "reactive-strike", { strike: { actor: holder.actor.uuid, target: src.document.uuid, item: item.name } },
+  cardButton("data-af-react-strike", L("builtin.reactive.strike")));
 
 /** Чистая: расстояние в футах между прямоугольниками токенов (в клетках) по правилу pf2e — каждая 2-я диагональ 10 фт; соседние — 5. */
 export function gapFeet(a, b, unit = 5) {

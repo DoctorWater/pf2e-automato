@@ -322,6 +322,9 @@
         "stepKind": "Шаг",
         "condition": "Состояние",
         "effectUuid": "UUID эффекта",
+        "persFormula": "Формула",
+        "persType": "Тип урона",
+        "persDc": "СЛ очистки (по умолчанию 15)",
         "noteText": "Текст заметки",
         "unit": "Единица",
         "durOf": "Ход",
@@ -382,6 +385,7 @@
         "pickConds": "Состояния",
         "kindEffect": "Эффект",
         "kindVisibility": "Видимость",
+        "kindPersistent": "Продолжительный урон",
         "kindNote": "Заметка",
         "probeOnlyUse": "Пробный запуск — только для «При использовании».",
         "keep": {

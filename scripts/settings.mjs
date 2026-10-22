@@ -2,9 +2,9 @@ import { MOD } from "./util.mjs";
 
 const MODES = {
   "mode.zone": "auto", "mode.effect": "auto", "mode.challenge": "auto",
-  "mode.apply": "button", "mode.reaction": "auto", "mode.macro": "auto"
+  "mode.apply": "button", "mode.reaction": "auto", "mode.macro": "auto", "mode.shieldBlock": "auto", "mode.damageGate": "auto", "mode.frightened": "auto", "mode.sickened": "auto"
 };
-const TWO_STATE = new Set(["mode.reaction", "mode.macro"]);   // auto | off
+const TWO_STATE = new Set(["mode.reaction", "mode.macro", "mode.damageGate", "mode.shieldBlock", "mode.frightened", "mode.sickened"]);   // auto | off
 
 export const S = {
   get: (key) => game.settings.get(MOD, key),

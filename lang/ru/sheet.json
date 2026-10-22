@@ -59,7 +59,7 @@
       "degree": { "criticalSuccess": "Критический успех", "success": "Успех", "failure": "Провал", "criticalFailure": "Критический провал" },
       "anyDegree": "любая степень",
       "to": { "self": "себе", "target": "цели" },
-      "row": { "condition": "состояние", "effect": "эффект", "note": "заметка", "visibility": "видимость", "until": "до: turn-end, next-turn-end, attack", "placeholder": "slug / UUID / текст", "value": "Значение", "policy": "Политика состояния" },
+      "row": { "condition": "состояние", "effect": "эффект", "note": "заметка", "visibility": "видимость", "persistent": "продолжительный урон", "until": "до: turn-end, next-turn-end, attack", "placeholder": "slug / UUID / текст / формула", "value": "Значение (у продолжительного урона — СЛ)", "pType": "Тип продолжительного урона", "policy": "Политика состояния" },
       "vis": { "level": { "concealed": "скрыт", "hidden": "спрятан", "undetected": "необнаружим", "unnoticed": "не замечен" }, "of": { "self": "субъект: автор", "target": "субъект: цель" } },
       "policy": { "max": "поднять до значения", "add": "добавить" },
       "add": "Добавить",

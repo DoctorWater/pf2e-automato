@@ -29,7 +29,7 @@
         },
         "apply": {
           "to": "Step: choose who it applies to — self or target ({path})",
-          "kind": "A step must do exactly one thing: apply a condition, grant an effect, show a note or change visibility ({path})",
+          "kind": "A step must do exactly one thing: apply a condition, grant an effect, show a note, change visibility or deal persistent damage ({path})",
           "who": "Step: \"who\" can only be allies or enemies ({path})",
           "mark": "Step: the mark can only be \"enemy\" and only together with an effect ({path})",
           "choice": "Step: an effect choice needs a value and only works together with an effect ({path})",
@@ -39,6 +39,11 @@
           "slug": "The condition is not chosen or unknown — pick a condition from the list ({path})",
           "value": "The condition value must be a whole number from 1 ({path})",
           "policy": "Condition stacking must be \"highest\" or \"add\" ({path})"
+        },
+        "pers": {
+          "formula": "Persistent damage: the formula is dice and numbers, e.g. 1d6 or 2d6+3 ({path})",
+          "type": "Persistent damage: choose a damage type from the list ({path})",
+          "dc": "Persistent damage: the recovery DC is a whole number from 1 ({path})"
         },
         "effect": {
           "uuid": "The effect is not chosen or unknown — pick an effect ({path})"

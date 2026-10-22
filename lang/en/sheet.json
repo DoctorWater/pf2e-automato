@@ -59,7 +59,7 @@
       "degree": { "criticalSuccess": "Critical success", "success": "Success", "failure": "Failure", "criticalFailure": "Critical failure" },
       "anyDegree": "any degree",
       "to": { "self": "self", "target": "target" },
-      "row": { "condition": "condition", "effect": "effect", "note": "note", "visibility": "visibility", "until": "until: turn-end, next-turn-end, attack", "placeholder": "slug / UUID / text", "value": "Value", "policy": "Condition policy" },
+      "row": { "condition": "condition", "effect": "effect", "note": "note", "visibility": "visibility", "persistent": "persistent damage", "until": "until: turn-end, next-turn-end, attack", "placeholder": "slug / UUID / text / formula", "value": "Value (DC for persistent damage)", "pType": "Persistent damage type", "policy": "Condition policy" },
       "vis": { "level": { "concealed": "concealed", "hidden": "hidden", "undetected": "undetected", "unnoticed": "unnoticed" }, "of": { "self": "subject: author", "target": "subject: target" } },
       "policy": { "max": "raise to value", "add": "add" },
       "add": "Add",

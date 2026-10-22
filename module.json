@@ -35,6 +35,8 @@
     { "lang": "ru", "name": "Русский", "path": "lang/ru/builtin.json" },
     { "lang": "ru", "name": "Русский", "path": "lang/ru/workshop.json" },
     { "lang": "ru", "name": "Русский", "path": "lang/ru/rules.json" },
+    { "lang": "ru", "name": "Русский", "path": "lang/ru/hud.json" },
+    { "lang": "ru", "name": "Русский", "path": "lang/ru/turn.json" },
     { "lang": "en", "name": "English", "path": "lang/en/common.json" },
     { "lang": "en", "name": "English", "path": "lang/en/settings.json" },
     { "lang": "en", "name": "English", "path": "lang/en/zone.json" },
@@ -46,6 +48,8 @@
     { "lang": "en", "name": "English", "path": "lang/en/sheet.json" },
     { "lang": "en", "name": "English", "path": "lang/en/builtin.json" },
     { "lang": "en", "name": "English", "path": "lang/en/workshop.json" },
-    { "lang": "en", "name": "English", "path": "lang/en/rules.json" }
+    { "lang": "en", "name": "English", "path": "lang/en/rules.json" },
+    { "lang": "en", "name": "English", "path": "lang/en/hud.json" },
+    { "lang": "en", "name": "English", "path": "lang/en/turn.json" }
   ]
 }

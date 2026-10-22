@@ -48,7 +48,7 @@ function showReactionWindow(message) {
   const { DialogV2 } = foundry.applications.api;
   const app = new DialogV2({
     window: { title: L("chat.reaction.windowTitle"), minimizable: false },
-    classes: ["paf-reaction-window"],
+    classes: ["paf-dialog"],
     position: { width: 340, left: Math.max(0, innerWidth - 340 - 320), top: Math.max(0, innerHeight - 190 - 120 * windows.size) },   // не накладывать друг на друга
     modal: false,
     content: `<p>${esc(text)}</p>`,
@@ -170,6 +170,7 @@ export function useReaction(hintMessageId) {
     const { before, after } = recalcWithBonus(attack, h.bonus);
     const next = { ...h, before, after, used: true };
     await msg.update({ content: content(next), [`flags.${MOD}.reaction`]: next });
+    await attack.update({ [`flags.${MOD}.gate`]: { degree: after } });   // кнопки урона у стреляющего: damage-gate читает это при перерисовке
 
     const item = await fromUuid(h.item);
     // Трекер списывает реакцию по карточке предмета (system.time.value === "reaction")

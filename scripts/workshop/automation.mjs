@@ -88,6 +88,7 @@ export function plate(row, env) {
     };
   }
   if (row.kind === "effect") return { ...base, name: row.text ? env.uuidName(row.text) ?? row.text : "?" };
+  if (row.kind === "persistent") return { ...base, name: `${String(row.text ?? "").trim() || "?"} · ${env.damageLabel?.(row.pType) ?? row.pType}` };
   if (row.kind === "visibility") return { ...base, name: t(`chat.visLevel.${row.visLevel}`) };
   return { ...base, name: String(row.text ?? "").trim() || "?" };
 }

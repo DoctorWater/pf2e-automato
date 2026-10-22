@@ -14,6 +14,7 @@
       "alreadyImmune": "\"{name}\" is temporarily immune to this effect — not applied.",
       "needEnemy": "\"{name}\": target exactly one enemy (for the mark) — effect not applied.",
       "noChoice": "\"{name}\": no option chosen — effect not applied.",
+      "zeroPersistent": "\"{name}\": persistent damage is 0 at this level — not applied.",
       "choose": "Choose"
     }
   }

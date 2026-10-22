@@ -3,6 +3,7 @@
 // Всё пишет только активный ГМ, по сцене — через queue. Чистые функции вынесены и покрыты tests/vision.test.mjs.
 import { MOD, L, callGM, isActiveGM, flagPath, forcedReplace, forcedDelete, queue } from "./util.mjs";
 import { S } from "./settings.mjs";
+import { card, cardButton } from "./card.mjs";
 
 export const LEVELS = ["observed", "concealed", "hidden", "undetected", "unnoticed"];   // индекс = ранг, больше — хуже видно
 const rank = (l) => LEVELS.indexOf(l);
@@ -324,7 +325,7 @@ async function notifyCond(item, slug) {
     const n = countSourceCells(readVis(scene), key), name = foundry.utils.escapeHTML(item.actor.name);
     await ChatMessage.create({
       whisper: gmIds(), speaker: { alias: "pf2e-automato" }, flags: { [MOD]: { visCard: { key, scene: scene.id } } },
-      content: `<div class="paf-card"><div class="pf2e-automato"><p>${L("vision.card", { name, state: L(`vision.${slug}`), n })}</p><button type="button" class="paf-primary" data-automato-vis-dismiss>${L("vision.dismiss")}</button></div></div>`   // вложенный .pf2e-automato: стили кнопок модуля; не прямой потомок — renderBlock его не удалит
+      content: card(L("vision.card", { name, state: L(`vision.${slug}`), n }), cardButton("data-automato-vis-dismiss", L("vision.dismiss")))
     });
     return;
   }

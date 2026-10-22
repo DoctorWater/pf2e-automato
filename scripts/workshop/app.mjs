@@ -1,10 +1,10 @@
 // Мастерская: окно ГМа (ApplicationV2). Режимы: «Эффект» (effect.mjs) и «Автоматизация» предмета (automation.mjs).
 // Чистая часть — effect.mjs / automation.mjs; здесь только DOM, Foundry и запись в документы.
 // Части окна у обоих режимов одни и те же (id), шаблоны подставляются по режиму в _configureRenderParts.
-import { MOD, L, errText, DEGREES, callGM, forcedReplace, forcedDelete, flagPath } from "../util.mjs";
+import { MOD, L, errText, DEGREES, callGM, forcedReplace, forcedDelete, flagPath, damageLabel } from "../util.mjs";
 import { modeOf } from "../settings.mjs";
 import { DENY, dropSpec, ruleToForm, formToRule, blankRow, reportEnv, pickedTokens, ruleUuids, buildReport } from "../sheet.mjs";
-import { validateRule, resolveRule, slugOf, sourceOf } from "../rules.mjs";
+import { validateRule, resolveRule, slugOf, sourceOf, DAMAGE_TYPES } from "../rules.mjs";
 import { automationsGroups } from "../compat.mjs";
 import { safeUuid } from "../saves.mjs";
 import * as fx from "./effect.mjs";
@@ -64,7 +64,7 @@ const triSeg = (path, label, cur) => F.seg(path, label, cur, TRI.map((k) => [k, 
 function stepFields(row, p, names) {
   const out = [
     F.seg(`${p}.to`, t("workshop.au.stepTo"), row.to, ["target", "self"].map((k) => [k, t(`sheet.to.${k}`)])),
-    F.sel(`${p}.kind`, t("workshop.au.stepKind"), row.kind, sheetChoices("row", ["condition", "effect", "note", "visibility"]))
+    F.sel(`${p}.kind`, t("workshop.au.stepKind"), row.kind, sheetChoices("row", ["condition", "effect", "note", "visibility", "persistent"]))
   ];
   if (row.kind === "condition") {
     out.push(
@@ -78,6 +78,11 @@ function stepFields(row, p, names) {
     );
   } else if (row.kind === "effect") out.push(F.text(`${p}.text`, t("workshop.au.effectUuid"), row.text, { drop: "effect", cls: "ws-grow", hint: names.get(row.text) ?? "" }));
   else if (row.kind === "note") out.push(F.text(`${p}.text`, t("workshop.au.noteText"), row.text, { cls: "ws-grow" }));
+  else if (row.kind === "persistent") out.push(
+    F.text(`${p}.text`, t("workshop.au.persFormula"), row.text, { placeholder: "1d6" }),
+    F.sel(`${p}.pType`, t("workshop.au.persType"), row.pType, DAMAGE_TYPES.map((v) => [v, damageLabel(v)])),
+    F.num(`${p}.value`, t("workshop.au.persDc"), row.value, { min: 1, placeholder: "15" })
+  );
   else out.push(
     F.sel(`${p}.visLevel`, t("workshop.au.visLevel"), row.visLevel, sheetChoices("vis.level", ["concealed", "hidden", "undetected", "unnoticed"])),
     F.sel(`${p}.visOf`, t("workshop.au.visOf"), row.visOf, sheetChoices("vis.of", ["self", "target"])),
@@ -251,7 +256,7 @@ export class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
     const m = /^(.*)\.(kind|text)$/.exec(path);
     const row = m && m[1] !== "f" && m[1] !== "f.zone" ? foundry.utils.getProperty(a, m[1]) : null;
     if (row && "durOf" in row) {   // строка шага: смена вида сбрасывает текст, выбор состояния подставляет значение
-      if (m[2] === "kind") Object.assign(row, { text: "", value: "" });
+      if (m[2] === "kind") Object.assign(row, { text: v === "persistent" ? "1d6" : "", value: "" });
       else if (row.kind === "condition") row.value = condValued(v) ? row.value || "1" : "";
     }
     if (path === "f.targets" && v === "self") a.sel = null;
@@ -260,6 +265,7 @@ export class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
   #addStep(list, { kind, text }) {
     const a = this.#au, rows = foundry.utils.getProperty(a, list), row = { ...blankRow(), kind, text, to: a.f.targets === "self" ? "self" : "target" };
     if (kind === "condition" && condValued(text)) row.value = "1";
+    if (kind === "persistent") row.text = "1d6";
     rows.push(row);
     a.sel = `${list}.${rows.length - 1}`;
     a.picker = null;
@@ -716,7 +722,7 @@ export class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
     const raw = im.ruleOf(m), v = raw && validateRule(raw);
     let sums = null;
     if (v?.ok) {
-      const s = au.summaries(ruleToForm(v.rule), { t, statLabel: (x) => x, conditionLabel: condLabel, uuidName: (u) => (m.effect?.uuid === u ? m.effect.name : null), valued: condValued, area: au.DEFAULT_AREA });
+      const s = au.summaries(ruleToForm(v.rule), { t, statLabel: (x) => x, conditionLabel: condLabel, damageLabel, uuidName: (u) => (m.effect?.uuid === u ? m.effect.name : null), valued: condValued, area: au.DEFAULT_AREA });
       sums = ["when", "targets", "roll", "outcome"].map((k) => ({ label: t(`workshop.au.row.${k}`), text: s[k] }));
     }
     const autoNote = type === "consumable" ? t(m.auto ? "workshop.item.autoNone" : "workshop.item.autoOff") : t(`workshop.item.autoNote.${isAbility ? "ability" : "rules"}`);

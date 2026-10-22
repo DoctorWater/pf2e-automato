@@ -85,11 +85,13 @@
   .pf2e-automato .paf-flash { animation: paf-flash 1.4s ease-out; }
 }
 
-/* окно реакции (немодальное): тот же тихий вид, основная кнопка — контур */
-.paf-reaction-window { --paf-line: color-mix(in srgb, currentColor 22%, transparent); --paf-mute: color-mix(in srgb, currentColor 62%, transparent); }
-.paf-reaction-window .dialog-content { padding: 4px 0; }
-.paf-reaction-window .dialog-content p { margin: 0; }
-.paf-reaction-window .form-footer button { height: 24px; background: transparent; border: 1px solid var(--paf-line); box-shadow: none; }
-.paf-reaction-window .form-footer .paf-primary { border-color: color-mix(in srgb, currentColor 55%, transparent); }
-.paf-reaction-window .form-footer .paf-ghost { border-color: transparent; color: var(--paf-mute); }
+/* окна модуля (DialogV2, classes: paf-dialog; окно реакции — тоже): тот же тихий вид кнопок, главная — контур */
+.paf-dialog { --paf-line: color-mix(in srgb, currentColor 22%, transparent); --paf-mute: color-mix(in srgb, currentColor 62%, transparent); }
+.paf-dialog .dialog-content { padding: 4px 0; }
+.paf-dialog .dialog-content p { margin: 0 0 0.4em; }
+.paf-dialog .dialog-content .hint { font-size: 11px; color: var(--paf-mute); }
+.paf-dialog .form-footer button { height: 24px; background: transparent; border: 1px solid var(--paf-line); box-shadow: none; }
+.paf-dialog .form-footer button.default, .paf-dialog .form-footer .paf-primary { border-color: color-mix(in srgb, currentColor 55%, transparent); }
+.paf-dialog .form-footer .paf-ghost { border-color: transparent; color: var(--paf-mute); }
+.pf2e-automato .paf-dc-input { width: 5em; height: 22px; margin-left: 0.4em; vertical-align: middle; }
 .pf2e-automato .paf-hint { font-style: italic; opacity: 0.75; }

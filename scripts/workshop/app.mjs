@@ -9,6 +9,7 @@ import { automationsGroups } from "../compat.mjs";
 import { safeUuid } from "../saves.mjs";
 import * as fx from "./effect.mjs";
 import * as au from "./automation.mjs";
+import * as im from "./item.mjs";
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
 const TPL = (n) => `modules/${MOD}/templates/workshop-${n}.hbs`;
@@ -33,13 +34,13 @@ const grantable = () => Object.keys(CONFIG.PF2E.conditionTypes ?? {}).filter((s)
 const TRAIT_SETS = ["spellTraits", "actionTraits", "featTraits", "consumableTraits", "equipmentTraits", "weaponTraits", "npcAttackTraits"];
 const traitLabel = (s) => { for (const k of TRAIT_SETS) { const v = CONFIG.PF2E[k]?.[s]; if (v) return game.i18n.localize(v); } return s; };
 
-/** Мировая папка Item «AuTOMATO / Эффекты»: ищем по флагу (имя переводится), затем по имени; нет — создаём. */
-async function effectsFolder() {
-  const name = t("workshop.folder");
-  return game.folders.find((f) => f.type === "Item" && f.getFlag(MOD, "workshop"))
-    ?? game.folders.find((f) => f.type === "Item" && f.name === name && !f.folder)
-    ?? await Folder.create({ name, type: "Item", flags: { [MOD]: { workshop: true } } });
-}
+/** Мировые папки Item мастерской: ищем по флагу (имя переводится), затем по имени. Эффекты — флаг true, предметы — "item". */
+const FOLDERS = { effect: { flag: true, key: "workshop.folder" }, item: { flag: "item", key: "workshop.item.folder" } };
+const findFolder = (kind) => {
+  const { flag, key } = FOLDERS[kind], name = t(key);
+  return game.folders.find((f) => f.type === "Item" && f.getFlag(MOD, "workshop") === flag) ?? game.folders.find((f) => f.type === "Item" && f.name === name && !f.folder) ?? null;
+};
+const workshopFolder = async (kind) => findFolder(kind) ?? await Folder.create({ name: t(FOLDERS[kind].key), type: "Item", flags: { [MOD]: { workshop: FOLDERS[kind].flag } } });
 
 /* ---------- поля режима «Автоматизация»: описатели для шаблона (одна разметка на все виды) ---------- */
 
@@ -96,6 +97,9 @@ export class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
   #typing = false;   // идёт ввод: имена документов не запрашиваем на каждую букву, догоняем по паузе
   #settle = foundry.utils.debounce(async () => { this.#typing = false; await this.render({ parts: ["aside", "footer"] }); this.#paint(); }, 500);
   #live = null;      // сводки/плашки последней подготовки — для правки текста на месте без перерисовки полей
+  #wiz = { m: im.blankItem(), step: 0, q: "", found: [], seq: 0, picked: null, picker: false, done: null };   // режим «Предмет»
+  #back = null;      // "item": эффект создаём для мастера предмета — после «Создать» вернёмся туда
+  #find = foundry.utils.debounce(() => this.#search(), 300);
   model = fx.blankModel();
 
   static DEFAULT_OPTIONS = {
@@ -105,7 +109,7 @@ export class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
     window: { title: "PF2E_AUTOMATO.workshop.title", icon: "fa-solid fa-hammer", resizable: true },
     actions: {
       addBlock(_e, el) { this.#add(el.dataset.kind); },
-      removeBlock(_e, el) { this.model.blocks = this.model.blocks.filter((b) => b.id !== Number(el.dataset.block)); this.#redraw(); },
+      removeBlock(_e, el) { const o = this.#owner(); o.blocks = o.blocks.filter((b) => b.id !== Number(el.dataset.block)); this.#redraw(); },
       toggleBlock(_e, el) { const id = Number(el.dataset.block); this.#sel = this.#sel === id ? null : id; this.#redraw(); },
       pick(_e, el) { this.#set(el, el.dataset.v); this.#redraw(); },
       pickImg() {
@@ -113,7 +117,21 @@ export class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
       },
       create() { return this.#create(false); },
       createOpen() { return this.#create(true); },
-      setMode(_e, el) { this.#mode = el.dataset.mode; this.render({ window: { title: this.title } }); },
+      setMode(_e, el) { this.#mode = el.dataset.mode; this.#back = null; this.#wiz.picker = false; this.render({ window: { title: this.title } }); },
+      goStep(_e, el) { this.#wiz.step = Number(el.dataset.n); this.#wiz.picker = false; this.#redraw(); },
+      pickBase(_e, el) { return this.#guard(() => this.#pickBase(el.dataset.uuid)); },
+      dropBase() { const w = this.#wiz; w.m = this.#fresh(w.m.type, w.m); w.picked = null; this.#redraw(); },
+      pickItemImg() {
+        new foundry.applications.apps.FilePicker.implementation({ type: "image", current: this.#wiz.m.img, callback: (path) => { this.#wiz.m.img = path; this.render(); } }).render({ force: true });
+      },
+      toggleTraits() { this.#wiz.picker = !this.#wiz.picker; this.#redraw(); },
+      addTrait(_e, el) { const w = this.#wiz; if (!w.m.traits.includes(el.dataset.slug)) w.m.traits.push(el.dataset.slug); w.picker = false; this.#redraw(); },
+      removeTrait(_e, el) { const m = this.#wiz.m; m.traits = m.traits.filter((x) => x !== el.dataset.slug); this.#redraw(); },
+      newEffect() { this.#back = "item"; this.#mode = "effect"; if (!this.model.name.trim()) this.model.name = this.#wiz.m.name; this.render({ window: { title: this.title } }); },
+      createItem() { return this.#guard(() => this.#createItem()); },
+      openPipe() { return this.#guard(() => this.#openPipe()); },
+      async openDone() { (await safeUuid(this.#wiz.done?.uuid))?.sheet.render(true); },
+      newItem() { this.#wiz = { m: im.blankItem(), step: 0, q: "", found: [], seq: 0, picked: null, picker: false, done: null }; this.render(); },
       toggleRow(_e, el) { const o = this.#au.open; o[el.dataset.row] = !o[el.dataset.row]; this.#redraw(); },
       toggleStep(_e, el) { const a = this.#au; a.sel = a.sel === el.dataset.path ? null : el.dataset.path; this.#redraw(); },
       togglePicker(_e, el) { const a = this.#au; a.picker = a.picker === el.dataset.list ? null : el.dataset.list; this.#redraw(); },
@@ -144,18 +162,19 @@ export class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
   static PARTS = {
     header: { template: TPL("header") },
     tabs: { template: TPL("tabs") },
-    main: { template: TPL("effect"), scrollable: [""] },
+    main: { template: TPL("effect"), templates: [TPL("blocks")], scrollable: [""] },
     aside: { template: TPL("aside"), scrollable: ["", "pre"] },
     footer: { template: TPL("footer") }
   };
 
   _configureRenderParts(options) {
     const parts = super._configureRenderParts(options);
-    if (this.#mode === "automation") {
-      parts.header.template = TPL("auto-head");
-      parts.main.template = TPL("auto");
-      parts.aside.template = TPL("auto-aside");
-      parts.footer.template = TPL("auto-footer");
+    const mode = { automation: "auto", item: "item" }[this.#mode];
+    if (mode) {
+      parts.header.template = TPL(`${mode}-head`);
+      parts.main.template = TPL(mode);
+      parts.aside.template = TPL(`${mode}-aside`);
+      parts.footer.template = TPL(`${mode}-footer`);
     }
     return parts;
   }
@@ -166,7 +185,7 @@ export class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
     if (typeof item === "string") item = await safeUuid(item);
     if (item && DENY.has(item.type)) { ui.notifications.warn(t("workshop.au.denied")); item = null; }
     const app = (Workshop.#instance ??= new Workshop());
-    if (!(item && !(await app.#setItem(item)))) app.#mode = (mode ?? (item ? "automation" : app.#mode)) === "automation" && app.#item ? "automation" : "effect";
+    if (!(item && !(await app.#setItem(item)))) app.#mode = ((m) => (m === "automation" && app.#item ? "automation" : m === "item" ? "item" : "effect"))(mode ?? (item ? "automation" : app.#mode));
     return app.render({ force: true, window: { title: app.title } });
   }
 
@@ -186,6 +205,11 @@ export class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
   async close(options = {}) {
     if (!options.force && this.#mode === "automation" && this.#dirty()) {
       const ok = await foundry.applications.api.DialogV2.confirm({ window: { title: t("workshop.au.switchTitle") }, content: `<p>${foundry.utils.escapeHTML(t("workshop.au.closeAsk", { name: this.#item.name }))}</p>`, rejectClose: false });
+      if (!ok) return this;
+    }
+    const w = this.#wiz;
+    if (!options.force && !w.done && JSON.stringify(w.m) !== JSON.stringify(im.blankItem(w.m.type))) {
+      const ok = await foundry.applications.api.DialogV2.confirm({ window: { title: t("workshop.au.switchTitle") }, content: `<p>${foundry.utils.escapeHTML(t("workshop.item.closeAsk"))}</p>`, rejectClose: false });
       if (!ok) return this;
     }
     return super.close(options);
@@ -280,21 +304,25 @@ export class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
   /* ---------- общее ---------- */
 
   #ctx() { return { t, uuidOf: condUuid, condLabel, resistKnown: (k) => k in CONFIG.PF2E.resistanceTypes, ruleKnown: (k) => k in game.pf2e.RuleElements.all }; }
-  #block(id) { return this.model.blocks.find((b) => b.id === Number(id)); }
+  #owner() { return this.#mode === "item" ? this.#wiz.m : this.model; }   // чьи кубики правим: эффекта или предмета
+  #block(id) { return this.#owner().blocks.find((b) => b.id === Number(id)); }
   #add(kind, patch = {}) {
     const b = { id: ++this.#id, ...fx.blankBlock(kind), ...patch };
-    this.model.blocks.push(b);
+    this.#owner().blocks.push(b);
     this.#sel = b.id;
     this.#redraw();
     return b;
   }
-  #redraw() { this.#typing = false; return this.render({ parts: ["main", "aside", "footer"] }); }
+  #redraw() { this.#typing = false; return this.render({ parts: this.#mode === "item" ? ["header", "main", "aside", "footer"] : ["main", "aside", "footer"] }); }
   #set(el, v) {
+    if (el.dataset.i !== undefined) return this.#setIt(el.dataset.i, v);
     if (el.dataset.a !== undefined) return this.#setAuto(el.dataset.a, v);
     const f = el.dataset.f;
     if (el.dataset.block) this.#block(el.dataset.block)[f] = v;
     else foundry.utils.setProperty(this.model, f, v);
   }
+
+  #text(b, ctx = this.#ctx()) { return this.#mode === "item" ? im.blockText(this.#wiz.m.type, b, ctx) : fx.textOf(b, ctx); }
 
   #view(b, ctx) {
     const c = {
@@ -304,7 +332,7 @@ export class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
       cond: { "": b.uuid ? b.name : t("workshop.condNone"), ...Object.fromEntries(grantable().map((c) => [c.slug, c.label])) }
     };
     return {
-      ...b, c, open: this.#sel === b.id, kindLabel: t(`workshop.kind.${b.kind}`), text: fx.textOf(b, ctx),
+      ...b, c, open: this.#sel === b.id, kindLabel: t(`workshop.kind.${b.kind}`), summary: this.#text(b, ctx),
       isSigned: b.kind === "bonus" || b.kind === "speed", isBonus: b.kind === "bonus", isSpeed: b.kind === "speed",
       plus: Number(b.sign) > 0, types: picks(fx.BONUS_TYPES, "btype", b.type),
       showAcuity: b.kind === "sense" && !fx.PRECISE.has(b.sense), showRange: b.kind === "sense" && !fx.NO_RANGE.has(b.sense),
@@ -315,8 +343,10 @@ export class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
   async _prepareContext() {
     const modes = [{ key: "effect", label: t("workshop.mode.effect"), on: this.#mode === "effect" }];
     if (this.#item) modes.unshift({ key: "automation", label: t("workshop.mode.automation"), on: this.#mode === "automation" });
+    modes.push({ key: "item", label: t("workshop.mode.item"), on: this.#mode === "item" });
     const common = { modes, multi: modes.length > 1 };
     if (this.#mode === "automation") return { ...common, ...await this.#autoCtx() };
+    if (this.#mode === "item") return { ...common, ...this.#itemCtx() };
     const m = this.model, ctx = this.#ctx(), errors = fx.validate(m, ctx);
     const rules = m.blocks.flatMap((b) => fx.rulesOf(b, ctx)), dur = fx.durationText(m.dur, t);
     return {
@@ -326,7 +356,7 @@ export class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
       blocks: m.blocks.map((b) => this.#view(b, ctx)),
       palette: fx.KINDS.map((kind) => ({ kind, icon: ICONS[kind], label: t(`workshop.kind.${kind}`) })),
       preview: { durShort: dur.short, durLong: dur.long, count: rules.length, json: JSON.stringify(rules, null, 2) },
-      desc: fx.descriptionText(m.blocks, ctx),
+      desc: fx.descriptionText(m.blocks, ctx), hint: t(this.#back ? "workshop.item.returnHint" : "workshop.footHint"),
       errors, error: errors[0] ? errors[0] + (errors.length > 1 ? ` ${t("workshop.err.more", { n: errors.length - 1 })}` : "") : ""
     };
   }
@@ -486,18 +516,19 @@ export class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
         for (const b of ev.target.closest(".ws-pick").querySelectorAll("[data-q]")) b.hidden = !b.dataset.q.includes(q);
         return;
       }
-      const f = ev.target.closest("[data-f],[data-a]");
+      const f = ev.target.closest("[data-f],[data-a],[data-i]");
       if (!f || f.tagName === "SELECT" || f.type === "checkbox") return;
       this.#set(f, f.value);
+      if (f.dataset.i === "q") return this.#find();
       if (f.dataset.a === "probeDc") return;   // пересчёт по change (Enter/уход из поля): перерисовка панели сбила бы курсор
       if (this.#mode === "automation") { this.#typing = true; await this.render({ parts: ["aside", "footer"] }); this.#paint(); this.#settle(); return; }
       this.render({ parts: ["aside", "footer"] });
       const id = f.dataset.block;
-      if (id) { const row = el.querySelector(`.ws-text[data-block="${id}"]`); if (row) row.textContent = fx.textOf(this.#block(id), this.#ctx()); }
+      if (id) { const row = el.querySelector(`.ws-text[data-block="${id}"]`); if (row) row.textContent = this.#text(this.#block(id)); }
     });
     // Выбор из списка и флажки: могут менять набор полей — перерисовываем форму
     el.addEventListener("change", (ev) => {
-      const f = ev.target.closest("[data-f],[data-a]");
+      const f = ev.target.closest("[data-f],[data-a],[data-i]");
       if (f?.dataset.a === "probeDc") { this.#set(f, f.value); this.render({ parts: ["aside"] }); return; }
       if (!f || !(f.tagName === "SELECT" || f.type === "checkbox")) return;
       const v = f.type === "checkbox" ? f.checked : f.value;
@@ -508,9 +539,10 @@ export class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
     // Список состояний закрывается кликом мимо
     el.addEventListener("click", (ev) => {
       if (this.#au?.picker && !ev.target.closest(".ws-pick, [data-action=togglePicker]")) { this.#au.picker = null; this.#redraw(); }
+      if (this.#mode === "item" && this.#wiz.picker && !ev.target.closest(".ws-pick, [data-action=toggleTraits]")) { this.#wiz.picker = false; this.#redraw(); }
     });
     el.addEventListener("dragover", (ev) => ev.preventDefault());
-    el.addEventListener("drop", (ev) => (this.#mode === "automation" ? this.#dropAuto(ev) : this.#drop(ev)).catch((e) => console.error(`${MOD} | workshop`, e)));
+    el.addEventListener("drop", (ev) => ({ automation: () => this.#dropAuto(ev), item: () => this.#dropItem(ev) }[this.#mode] ?? (() => this.#drop(ev)))().catch((e) => console.error(`${MOD} | workshop`, e)));
   }
 
   /** Бросок состояния/эффекта из компендиума: в выбранный кубик «состояние» или в новый. */
@@ -553,25 +585,203 @@ export class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
     this.#addStep(list, spec);
   }
 
+  /* ---------- режим «Предмет» ---------- */
+
+  #actor() { return canvas.tokens?.controlled[0]?.actor ?? null; }
+
+  /** Новая основа типа type; название, описание, цена, редкость, эффект и выбор «куда» переносим с прежней. */
+  #fresh(type, old) {
+    const m = im.blankItem(type);
+    return { ...m, name: old.name, desc: old.desc, price: old.price, rarity: old.rarity, effect: old.effect, to: old.to, auto: old.auto, dest: old.dest,
+      blocks: ["equipment", "weapon"].includes(type) && ["equipment", "weapon"].includes(old.type) ? old.blocks : [],
+      level: type === "feat" ? Math.max(1, Number(old.level) || 1) : old.level, img: old.img.startsWith(im.DEFAULT_DIR) ? m.img : old.img };
+  }
+
+  #setEffect(e) {
+    const m = this.#wiz.m;
+    if (im.linksEffect(m.type)) m.desc = im.withEffectLink(m.desc, m.effect, e);
+    m.effect = e;
+  }
+
+  #setIt(path, v) {
+    const w = this.#wiz, m = w.m;
+    if (path === "type") {
+      if (v === m.type) return;
+      const on = im.linksEffect(v);
+      if (m.effect && on !== im.linksEffect(m.type)) m.desc = im.withEffectLink(m.desc, on ? null : m.effect, on ? m.effect : null);
+      w.m = this.#fresh(v, m);
+      w.picked = null;
+      if (w.q.trim()) this.#find();
+    } else if (path === "effectUuid") {
+      const found = game.items.get(String(v).replace(/^Item\./, ""));
+      this.#setEffect(v ? { uuid: v, name: found?.name ?? (m.effect?.uuid === v ? m.effect.name : v) } : null);
+    } else if (path === "q") w.q = v;
+    else foundry.utils.setProperty(m, path, v);
+  }
+
+  async #search() {
+    const w = this.#wiz, q = w.q.trim().toLowerCase(), seq = ++w.seq;
+    let found = [];
+    if (q.length >= 2) {
+      const index = await game.packs.get(im.PACKS[w.m.type])?.getIndex({ fields: ["system.level.value"] });
+      found = (index?.contents ?? []).filter((e) => e.type === w.m.type && e.name.toLowerCase().includes(q)).sort((a, z) => a.name.localeCompare(z.name)).slice(0, 30)
+        .map((e) => ({ uuid: e.uuid, name: e.name, lvl: e.system?.level?.value != null ? `${t("workshop.level")} ${e.system.level.value}` : "" }));
+    }
+    if (seq !== w.seq) return;   // ответ устарел: ввод ушёл дальше
+    w.found = found;
+    const el = this.element?.querySelector('[name="i-q"]'), sel = el && document.activeElement === el ? [el.selectionStart, el.selectionEnd] : null;
+    await this.render({ parts: ["main"] });
+    if (sel) this.element.querySelector('[name="i-q"]')?.setSelectionRange(...sel);   // ядро возвращает фокус, но не каретку
+  }
+
+  async #pickBase(uuid) {
+    const doc = await safeUuid(uuid), w = this.#wiz;
+    if (!doc) return;
+    const keep = w.m;
+    w.m = { ...im.modelFromSource(doc.toObject()), to: keep.to, auto: keep.auto, dest: keep.dest };
+    w.picked = uuid;
+    if (im.linksEffect(w.m.type)) w.m.effect = keep.type === w.m.type ? keep.effect : null;
+    this.#redraw();
+  }
+
+  /** Бросок эффекта на режим «Предмет»: в выбор эффекта (расходник, непассивное действие/черта). */
+  async #dropItem(ev) {
+    const data = foundry.applications.ux.TextEditor.implementation.getDragEventData(ev);
+    if (!data?.type) return;
+    ev.preventDefault();
+    const doc = data.type === "Item" ? await safeUuid(data.uuid) : null, spec = dropSpec(data, doc), m = this.#wiz.m;
+    if (spec?.temp) return ui.notifications.warn(L("sheet.dropTemp"));
+    if (spec?.kind === "condition" && (m.type === "equipment" || m.type === "weapon")) return this.#drop(ev);   // состояние — в кубик «Состояние»
+    if (spec?.kind !== "effect") return ui.notifications.warn(t("workshop.item.dropBad"));
+    if (!(m.type === "consumable" || ((m.type === "action" || m.type === "feat") && m.act.type !== "passive"))) return ui.notifications.warn(t("workshop.item.dropNo"));
+    this.#setEffect({ uuid: spec.text, name: doc.name });
+    this.#redraw();
+  }
+
+  async #createItem() {
+    const w = this.#wiz, m = w.m, ctx = this.#ctx(), actor = m.dest === "actor" ? this.#actor() : null;
+    if (w.done || im.validate(m, ctx).length || (m.dest === "actor" && (!actor || !actor.allowedItemTypes.includes(im.PHYSICAL.has(m.type) ? "physical" : m.type)))) return;
+    const folder = await workshopFolder("item");
+    const item = await Item.create({ ...im.buildItem(m, ctx), folder: folder.id });
+    w.done = { uuid: item.uuid, name: item.name }; w.doneSnap = JSON.stringify(m);   // сразу: сбой копии на актёре не должен приводить ко второму мировому предмету
+    ui.notifications.info(t("workshop.item.created", { name: item.name, folder: folder.name }));
+    if (actor) {
+      const d = item.toObject();
+      for (const k of ["_id", "folder", "sort", "ownership", "_stats"]) delete d[k];
+      const [copy] = await actor.createEmbeddedDocuments("Item", [d]);
+      if (copy) w.done = { uuid: copy.uuid, name: copy.name };   // правило работает у копии на актёре — её и открываем в конвейере
+    }
+    this.render({ parts: ["main", "footer"] });
+  }
+
+  async #openPipe() {
+    const doc = await safeUuid(this.#wiz.done?.uuid);
+    if (!doc || !(await this.#setItem(doc))) return;
+    this.#mode = "automation";
+    await this.render({ window: { title: this.title } });
+  }
+
+  /** Контекст режима «Предмет»: шаги, поля по типу, карточка предпросмотра, подвал. */
+  #itemCtx() {
+    const w = this.#wiz, m = w.m, ctx = this.#ctx(), type = m.type, pf = CONFIG.PF2E;
+    const physical = im.PHYSICAL.has(type), isAbility = type === "action" || type === "feat", passive = isAbility && m.act.type === "passive";
+    const actor = this.#actor(), loc = (o) => Object.fromEntries(Object.entries(o).map(([k, v]) => [k, game.i18n.localize(v?.label ?? v)]));
+    const sorted = (o) => Object.fromEntries(Object.entries(loc(o)).sort((a, z) => a[1].localeCompare(z[1])));
+    const seg = (list, cur, label) => list.map((v) => ({ value: String(v), label: label(v), on: String(cur) === String(v) }));
+    const actorOk = !actor || actor.allowedItemTypes.includes(physical ? "physical" : type);   // NPC не принимает черты, лут и транспорт — действия и черты
+    const errors = [...im.validate(m, ctx), ...(m.dest === "actor" ? (!actor ? [t("workshop.item.err.noActor")] : !actorOk ? [t("workshop.item.err.actorType", { name: actor.name, type: game.i18n.localize(`TYPES.Item.${type}`) })] : []) : [])];
+    const stale = !!w.done && JSON.stringify(m) !== w.doneSnap;
+    const typeName = game.i18n.localize(`TYPES.Item.${type}`), kind = [typeName, type === "action" ? null : m.level].filter((x) => x !== null && x !== "").join(" ");
+
+    // эффекты папки мастерской + текущий (брошенный из компендиума)
+    const folder = findFolder("effect"), effects = { "": t("workshop.item.noEffect") };
+    for (const e of game.items.filter((i) => i.type === "effect" && folder && i.folder?.id === folder.id).sort((a, z) => a.name.localeCompare(z.name))) effects[e.uuid] = e.name;
+    if (m.effect && !(m.effect.uuid in effects)) effects[m.effect.uuid] = m.effect.name;
+
+    const dict = pf[{ consumable: "consumableTraits", equipment: "equipmentTraits", weapon: "weaponTraits", action: "actionTraits", feat: "featTraits" }[type]] ?? {};
+    const label = (s) => (dict[s] ? game.i18n.localize(dict[s]) : traitLabel(s));
+    const traitList = Object.keys(dict).filter((s) => !(s in pf.rarityTraits) && !m.traits.includes(s)).map((s) => ({ slug: s, label: label(s) }))
+      .sort((a, z) => a.label.localeCompare(z.label)).map((x) => ({ ...x, q: `${x.label} ${x.slug}`.toLowerCase() }));
+    const category = type === "consumable" ? sorted(pf.consumableCategories) : type === "feat" ? sorted(pf.featCategories) : type === "action" ? { "": "—", ...sorted(pf.actionCategories) } : {};
+    const bulkOpts = [...im.BULKS, ...(im.BULKS.includes(Number(m.bulk)) ? [] : [Number(m.bulk)])].map((b) => ({ value: b, label: im.bulkText(b, t), on: Number(m.bulk) === b }));
+
+    // шаг «Автоматизация»: сводка правила тем же языком, что конвейер
+    const raw = im.ruleOf(m), v = raw && validateRule(raw);
+    let sums = null;
+    if (v?.ok) {
+      const s = au.summaries(ruleToForm(v.rule), { t, statLabel: (x) => x, conditionLabel: condLabel, uuidName: (u) => (m.effect?.uuid === u ? m.effect.name : null), valued: condValued, area: au.DEFAULT_AREA });
+      sums = ["when", "targets", "roll", "outcome"].map((k) => ({ label: t(`workshop.au.row.${k}`), text: s[k] }));
+    }
+    const autoNote = type === "consumable" ? t(m.auto ? "workshop.item.autoNone" : "workshop.item.autoOff") : t(`workshop.item.autoNote.${isAbility ? "ability" : "rules"}`);
+    const rules = im.rulesOf(m, ctx), hasEffect = m.effect && (type === "consumable" || (isAbility && !passive));
+    const plan = [
+      t("workshop.item.plan.item", { name: m.name.trim() || "…", folder: t("workshop.item.folder") }),
+      hasEffect && t("workshop.item.plan.effect", { name: m.effect.name }), rules.length && t("workshop.item.plan.rules", { n: rules.length }), sums && t("workshop.item.plan.rule"),
+      m.dest === "actor" && actor && t("workshop.item.plan.actor", { name: actor.name })
+    ].filter(Boolean);
+
+    const keys = ["base", "general", "does", "auto", "done"];
+    const steps = keys.map((k, i) => ({ i, n: i + 1, label: t(`workshop.item.step.${k}`), on: w.step === i, done: i < w.step, last: i === 4 }));
+    const rar = pf.rarityTraits, blocksText = rules.length ? m.blocks.map((b) => this.#text(b, ctx)).join("; ") : "";
+    const eff = hasEffect ? t(m.to === "self" || isAbility ? "workshop.item.note.effectSelf" : "workshop.item.note.effectTarget", { name: m.effect.name }) : "";
+    return {
+      head: { img: m.img, kind, sub: m.base ? t("workshop.item.headCopy", { name: m.base }) : t("workshop.item.headNew", { type: typeName, folder: t("workshop.item.folder") }) },
+      steps, s0: w.step === 0, s1: w.step === 1, s2: w.step === 2, s3: w.step === 3, s4: w.step === 4,
+      types: im.TYPES.map((key) => ({ key, name: t(`workshop.item.type.${key}`), hint: t(`workshop.item.typeHint.${key}`), on: key === type })),
+      q: w.q, found: w.found.map((f) => ({ ...f, on: f.uuid === w.picked })), packLabel: t(`workshop.item.pack.${im.PACK_LABEL[type]}`),
+      findNote: w.q.trim().length < 2 ? t("workshop.item.searchHint") : w.found.length ? "" : t("workshop.item.noFound"),
+      m, physical, isConsumable: type === "consumable", isEquipment: type === "equipment", isWeapon: type === "weapon", isAbility, passive,
+      hasLevel: type !== "action", minLevel: type === "feat" ? 1 : 0, hasRarity: type !== "action", hasCategory: type !== "equipment" && type !== "weapon",
+      categoryLabel: type === "equipment" || type === "weapon" ? "" : t(`workshop.item.category.${type}`), rarities: seg(im.RARITIES, m.rarity, (k) => game.i18n.localize(rar[k])),
+      c: { category, usage: sorted(Object.fromEntries([...new Set([...im.USAGES, m.usage])].map((u) => [u, pf.usages?.[u] ?? u]))), effects, wCategory: sorted(pf.weaponCategories), wGroup: { "": "—", ...sorted(pf.weaponGroups) }, die: Object.fromEntries(fx.DICE.map((d) => [d, d])), dmgType: choices(fx.DAMAGE_TYPES, "dtype") },
+      bulkOpts, traits: m.traits.map((s) => ({ slug: s, label: label(s) })), picker: w.picker, traitList, linkNote: im.linksEffect(type),
+      effectUuid: m.effect?.uuid ?? "", tos: seg(["self", "target"], m.to, (k) => t(`workshop.item.to_${k}`)),
+      actTypes: seg(im.ACT_TYPES, m.act.type, (k) => t(`workshop.item.actType_${k}`)), actions: seg([1, 2, 3], m.act.actions, (k) => t(`workshop.item.act.n${k}`)), showActions: m.act.type === "action",
+      kinds: seg(["melee", "ranged"], m.weapon.kind, (k) => t(`workshop.item.kind_${k}`)), ranged: m.weapon.kind === "ranged",
+      hands: seg(["held-in-one-hand", "held-in-two-hands"], m.usage, (k) => t(`workshop.item.hands_${k}`)),
+      hasActivation: type === "consumable" || type === "equipment", activations: seg(im.ACTIVATIONS, m.activation, (k) => t(`workshop.item.act.${k === "" ? "none" : /^\d$/.test(k) ? `n${k}` : k}`)),
+      hasBlocks: type === "equipment" || type === "weapon", doesNote: t(`workshop.item.does.${type}`),
+      blocks: m.blocks.map((b) => this.#view(b, ctx)), palette: fx.KINDS.map((kd) => ({ kind: kd, icon: ICONS[kd], label: t(`workshop.kind.${kd}`) })),
+      canAuto: type === "consumable", sums, autoNote, plan, done: w.done,
+      dests: [{ value: "world", label: t("workshop.item.dest.world"), on: m.dest === "world" }, { value: "actor", label: actor ? t("workshop.item.dest.actor", { name: actor.name }) : t("workshop.item.dest.actorNone"), on: m.dest === "actor", disabled: !actorOk }],
+      // карточка предпросмотра и подвал
+      img: m.img, name: m.name.trim(), kind, rarity: type !== "action" && m.rarity !== "common" ? { key: m.rarity, label: game.i18n.localize(rar[m.rarity]) } : null,
+      cardTraits: m.traits.map(label), facts: im.facts(m, t), descHtml: im.descPreview(m.desc),
+      notes: [eff, blocksText && t("workshop.item.note.blocks", { list: blocksText }), sums && t("workshop.item.note.rule", { text: sums[3].text })].filter(Boolean),
+      errors, error: errors[0] ? errors[0] + (errors.length > 1 ? ` ${t("workshop.err.more", { n: errors.length - 1 })}` : "") : "",
+      hint: t(stale ? "workshop.item.stale" : "workshop.item.footHint"),
+      canBack: w.step > 0, canNext: w.step < 4, back: w.step - 1, next: w.step + 1, nextLabel: t(`workshop.item.step.${keys[Math.min(4, w.step + 1)]}`).toLowerCase()
+    };
+  }
+
   async #create(open) {
     if (!game.user.isGM || this.#busy) return;
     const ctx = this.#ctx();
     if (fx.validate(this.model, ctx).length) return;
     this.#busy = true;
+    let back = false;
     try {
-      const folder = await effectsFolder();
+      const folder = await workshopFolder("effect");
       const item = await Item.create({ ...fx.buildEffect(this.model, ctx), folder: folder.id });
       ui.notifications.info(t("workshop.created", { name: item.name, folder: folder.name }));
       if (open) item.sheet.render(true);
+      if (this.#back) {   // эффект делали для предмета: подставляем его и возвращаемся
+        this.#mode = "item"; this.#back = null; this.#wiz.step = 2; this.#sel = null;
+        this.#setEffect({ uuid: item.uuid, name: item.name });
+        this.model = fx.blankModel();
+        back = true;
+      }
     } catch (e) {
       console.error(`${MOD} | workshop`, e);
       ui.notifications.error(`${t("workshop.createFailed")}: ${e?.message ?? e}`);
     } finally { this.#busy = false; }
+    if (back) this.render({ window: { title: this.title } });
   }
 
   /** Цели/выделение изменились или предмет обновили извне: пробный запуск и (без правок) форма — заново. */
   static refresh({ item = null } = {}) {
     const app = Workshop.#instance;
+    if (app?.rendered && app.#mode === "item" && !item && app.#wiz.step === 4) return app.render({ parts: ["main", "footer"] });   // «выдать актёру» зависит от выделенного токена
     if (!app?.rendered || app.#mode !== "automation") return;
     if (item) {
       if (app.#item?.uuid !== item.uuid) return;

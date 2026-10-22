@@ -1,0 +1,204 @@
+<div class="ws-wiz">
+<ol class="ws-steps" aria-label="{{localize "PF2E_AUTOMATO.workshop.item.steps"}}">
+  {{#each steps}}
+  <li>
+    <button type="button" class="ws-step {{#if done}}is-done{{/if}}" data-action="goStep" data-n="{{i}}" aria-current="{{#if on}}step{{else}}false{{/if}}" name="step-{{i}}"><span class="ws-sn">{{n}}</span>{{label}}</button>
+    {{#unless last}}<span class="ws-steps-sep" aria-hidden="true"></span>{{/unless}}
+  </li>
+  {{/each}}
+</ol>
+
+{{#if s0}}
+<section class="ws-sec">
+  <h2 class="ws-h">{{localize "PF2E_AUTOMATO.workshop.item.s0"}}</h2>
+  <div class="ws-tiles">
+    {{#each types}}
+    <button type="button" class="ws-tile" data-action="pick" data-i="type" data-v="{{key}}" aria-pressed="{{on}}" name="type-{{key}}"><b>{{name}}</b><span>{{hint}}</span></button>
+    {{/each}}
+  </div>
+  <div class="ws-fld">
+    <span class="ws-lbl">{{localize "PF2E_AUTOMATO.workshop.item.copyLabel"}}</span>
+    <div class="ws-find">
+      <div class="ws-find-q">
+        <i class="fa-solid fa-magnifying-glass" inert></i>
+        <input type="search" data-i="q" value="{{q}}" name="i-q" placeholder="{{localize "PF2E_AUTOMATO.workshop.item.search"}}" aria-label="{{localize "PF2E_AUTOMATO.workshop.item.search"}}">
+        <span class="ws-sub">{{packLabel}}</span>
+      </div>
+      {{#each found}}
+      <button type="button" class="ws-res" data-action="pickBase" data-uuid="{{uuid}}" aria-pressed="{{on}}" name="res-{{@index}}"><span class="ws-grow">{{name}}</span><span class="ws-lbl ws-accent">{{lvl}}</span></button>
+      {{/each}}
+      {{#if findNote}}<div class="ws-find-note">{{findNote}}</div>{{/if}}
+    </div>
+    {{#if m.base}}
+    <div class="ws-base"><span>{{localize "PF2E_AUTOMATO.workshop.item.baseIs" name=m.base}}</span><button type="button" class="ws-btn ws-btn-g" data-action="dropBase" name="dropBase">{{localize "PF2E_AUTOMATO.workshop.item.dropBase"}}</button></div>
+    {{/if}}
+    <span class="ws-note">{{localize "PF2E_AUTOMATO.workshop.item.copyHint"}}</span>
+  </div>
+</section>
+{{/if}}
+
+{{#if s1}}
+<section class="ws-sec">
+  <h2 class="ws-h">{{localize "PF2E_AUTOMATO.workshop.item.s1"}}</h2>
+  <div class="ws-frow">
+    <button type="button" class="ws-icon" data-action="pickItemImg" data-tooltip="PF2E_AUTOMATO.workshop.pickImg" aria-label="{{localize "PF2E_AUTOMATO.workshop.pickImg"}}" name="pickItemImg"><img src="{{m.img}}" alt=""></button>
+    <label class="ws-fld ws-grow"><span class="ws-lbl">{{localize "PF2E_AUTOMATO.workshop.item.name"}}</span><input class="ws-inp" type="text" data-i="name" value="{{m.name}}" name="i-name"></label>
+    {{#if hasLevel}}<label class="ws-fld"><span class="ws-lbl">{{localize "PF2E_AUTOMATO.workshop.level"}}</span><input class="ws-inp ws-num" type="number" min="{{minLevel}}" max="30" data-i="level" value="{{m.level}}" name="i-level"></label>{{/if}}
+    {{#if physical}}<label class="ws-fld"><span class="ws-lbl">{{localize "PF2E_AUTOMATO.workshop.item.price"}}</span><input class="ws-inp ws-num" type="number" min="0" step="any" data-i="price" value="{{m.price}}" name="i-price"></label>{{/if}}
+    {{#if physical}}<label class="ws-fld"><span class="ws-lbl">{{localize "PF2E_AUTOMATO.workshop.item.bulk"}}</span><select class="ws-inp" data-i="bulk" name="i-bulk">{{#each bulkOpts}}<option value="{{value}}" {{#if on}}selected{{/if}}>{{label}}</option>{{/each}}</select></label>{{/if}}
+  </div>
+  <div class="ws-frow">
+    {{#if hasRarity}}
+    <div class="ws-fld"><span class="ws-lbl">{{localize "PF2E_AUTOMATO.workshop.item.rarity"}}</span>
+      <div class="ws-seg">{{#each rarities}}<button type="button" data-action="pick" data-i="rarity" data-v="{{value}}" aria-pressed="{{on}}" name="i-rarity-{{value}}">{{label}}</button>{{/each}}</div>
+    </div>
+    {{/if}}
+    {{#if hasCategory}}<label class="ws-fld"><span class="ws-lbl">{{categoryLabel}}</span><select class="ws-inp" data-i="category" name="i-category">{{selectOptions c.category selected=m.category}}</select></label>{{/if}}
+    {{#if isConsumable}}<label class="ws-fld"><span class="ws-lbl">{{localize "PF2E_AUTOMATO.workshop.item.uses"}}</span><input class="ws-inp ws-num" type="number" min="1" data-i="uses" value="{{m.uses}}" name="i-uses"></label>{{/if}}
+    {{#if isEquipment}}<label class="ws-fld"><span class="ws-lbl">{{localize "PF2E_AUTOMATO.workshop.item.usage"}}</span><select class="ws-inp" data-i="usage" name="i-usage">{{selectOptions c.usage selected=m.usage}}</select></label>{{/if}}
+  </div>
+  <div class="ws-fld ws-trf"><span class="ws-lbl">{{localize "PF2E_AUTOMATO.workshop.item.traits"}}</span>
+    <div class="ws-traits">
+      {{#each traits}}<span class="ws-tag">{{label}}<button type="button" class="ws-tag-x" data-action="removeTrait" data-slug="{{slug}}" aria-label="{{localize "PF2E_AUTOMATO.workshop.remove"}}" name="rmt-{{slug}}"><i class="fa-solid fa-xmark" inert></i></button></span>{{/each}}
+      <div class="ws-padd">
+        <button type="button" class="ws-add" data-action="toggleTraits" name="addTrait" aria-expanded="{{picker}}"><i class="fa-solid fa-plus" inert></i> {{localize "PF2E_AUTOMATO.workshop.item.addTrait"}}</button>
+        {{#if picker}}
+        <div class="ws-pick">
+          <input type="search" data-filter name="i-trait-q" placeholder="{{localize "PF2E_AUTOMATO.workshop.au.search"}}" aria-label="{{localize "PF2E_AUTOMATO.workshop.au.search"}}">
+          <div class="ws-pick-list">
+            {{#each traitList}}<button type="button" data-action="addTrait" data-slug="{{slug}}" data-q="{{q}}" name="at-{{slug}}">{{label}}</button>{{/each}}
+          </div>
+        </div>
+        {{/if}}
+      </div>
+    </div>
+  </div>
+  <label class="ws-fld"><span class="ws-lbl">{{localize "PF2E_AUTOMATO.workshop.item.desc"}}</span><textarea class="ws-inp ws-area ws-tall" data-i="desc" name="i-desc">{{m.desc}}</textarea></label>
+  {{#if linkNote}}<span class="ws-note ws-wrap">{{localize "PF2E_AUTOMATO.workshop.item.linkNote"}}</span>{{/if}}
+</section>
+{{/if}}
+
+{{#if s2}}
+<section class="ws-sec">
+  <h2 class="ws-h">{{localize "PF2E_AUTOMATO.workshop.item.s2"}}</h2>
+
+  {{#if isConsumable}}
+  <div class="ws-card-box" data-drop="effect">
+    <div class="ws-sentence">
+      <span>{{localize "PF2E_AUTOMATO.workshop.item.onUse"}}</span>
+      <select class="ws-inp" data-i="effectUuid" name="i-effect" aria-label="{{localize "PF2E_AUTOMATO.workshop.item.effect"}}">{{selectOptions c.effects selected=effectUuid}}</select>
+      <span>{{localize "PF2E_AUTOMATO.workshop.item.to"}}</span>
+      <div class="ws-seg">{{#each tos}}<button type="button" data-action="pick" data-i="to" data-v="{{value}}" aria-pressed="{{on}}" name="i-to-{{value}}">{{label}}</button>{{/each}}</div>
+    </div>
+    <div class="ws-row2">
+      <button type="button" class="ws-btn" data-action="newEffect" name="newEffect"><i class="fa-solid fa-plus" inert></i> {{localize "PF2E_AUTOMATO.workshop.item.newEffect"}}</button>
+      <span class="ws-note">{{localize "PF2E_AUTOMATO.workshop.item.dropEffect"}}</span>
+    </div>
+  </div>
+  {{/if}}
+
+  {{#if isAbility}}
+  <div class="ws-card-box" data-drop="effect">
+    <div class="ws-frow">
+      <div class="ws-fld"><span class="ws-lbl">{{localize "PF2E_AUTOMATO.workshop.item.actType"}}</span>
+        <div class="ws-seg">{{#each actTypes}}<button type="button" data-action="pick" data-i="act.type" data-v="{{value}}" aria-pressed="{{on}}" name="i-act-type-{{value}}">{{label}}</button>{{/each}}</div>
+      </div>
+      {{#if showActions}}
+      <div class="ws-fld"><span class="ws-lbl">{{localize "PF2E_AUTOMATO.workshop.item.actions"}}</span>
+        <div class="ws-seg">{{#each actions}}<button type="button" data-action="pick" data-i="act.actions" data-v="{{value}}" aria-pressed="{{on}}" name="i-act-actions-{{value}}">{{label}}</button>{{/each}}</div>
+      </div>
+      {{/if}}
+    </div>
+    {{#if passive}}
+    <span class="ws-note ws-wrap">{{localize "PF2E_AUTOMATO.workshop.item.passiveNote"}}</span>
+    {{else}}
+    <div class="ws-sentence">
+      <span>{{localize "PF2E_AUTOMATO.workshop.item.selfEffect"}}</span>
+      <select class="ws-inp" data-i="effectUuid" name="i-effect" aria-label="{{localize "PF2E_AUTOMATO.workshop.item.effect"}}">{{selectOptions c.effects selected=effectUuid}}</select>
+    </div>
+    <div class="ws-row2">
+      <button type="button" class="ws-btn" data-action="newEffect" name="newEffect"><i class="fa-solid fa-plus" inert></i> {{localize "PF2E_AUTOMATO.workshop.item.newEffect"}}</button>
+      <span class="ws-note">{{localize "PF2E_AUTOMATO.workshop.item.dropEffect"}}</span>
+    </div>
+    {{/if}}
+  </div>
+  {{/if}}
+
+  {{#if isWeapon}}
+  <div class="ws-card-box">
+    <div class="ws-frow">
+      <label class="ws-fld"><span class="ws-lbl">{{localize "PF2E_AUTOMATO.workshop.item.wCategory"}}</span><select class="ws-inp" data-i="weapon.category" name="i-w-category">{{selectOptions c.wCategory selected=m.weapon.category}}</select></label>
+      <label class="ws-fld"><span class="ws-lbl">{{localize "PF2E_AUTOMATO.workshop.item.wGroup"}}</span><select class="ws-inp" data-i="weapon.group" name="i-w-group">{{selectOptions c.wGroup selected=m.weapon.group}}</select></label>
+      <label class="ws-fld"><span class="ws-lbl">{{localize "PF2E_AUTOMATO.workshop.dice"}}</span><input class="ws-inp ws-num" type="number" min="1" data-i="weapon.dice" value="{{m.weapon.dice}}" name="i-w-dice"></label>
+      <label class="ws-fld"><span class="ws-lbl">{{localize "PF2E_AUTOMATO.workshop.die"}}</span><select class="ws-inp" data-i="weapon.die" name="i-w-die">{{selectOptions c.die selected=m.weapon.die}}</select></label>
+      <label class="ws-fld"><span class="ws-lbl">{{localize "PF2E_AUTOMATO.workshop.damage"}}</span><select class="ws-inp" data-i="weapon.dmgType" name="i-w-dmgType">{{selectOptions c.dmgType selected=m.weapon.dmgType}}</select></label>
+    </div>
+    <div class="ws-frow">
+      <div class="ws-fld"><span class="ws-lbl">{{localize "PF2E_AUTOMATO.workshop.item.wKind"}}</span>
+        <div class="ws-seg">{{#each kinds}}<button type="button" data-action="pick" data-i="weapon.kind" data-v="{{value}}" aria-pressed="{{on}}" name="i-w-kind-{{value}}">{{label}}</button>{{/each}}</div>
+      </div>
+      {{#if ranged}}<label class="ws-fld"><span class="ws-lbl">{{localize "PF2E_AUTOMATO.workshop.item.wRange"}}</span><input class="ws-inp ws-num" type="number" min="5" step="5" data-i="weapon.range" value="{{m.weapon.range}}" name="i-w-range"></label>{{/if}}
+      <div class="ws-fld"><span class="ws-lbl">{{localize "PF2E_AUTOMATO.workshop.item.wHands"}}</span>
+        <div class="ws-seg">{{#each hands}}<button type="button" data-action="pick" data-i="usage" data-v="{{value}}" aria-pressed="{{on}}" name="i-usage-{{value}}">{{label}}</button>{{/each}}</div>
+      </div>
+    </div>
+  </div>
+  {{/if}}
+
+  {{#if hasActivation}}
+  <div class="ws-fld"><span class="ws-lbl">{{localize "PF2E_AUTOMATO.workshop.item.activate"}}</span>
+    <div class="ws-seg">{{#each activations}}<button type="button" data-action="pick" data-i="activation" data-v="{{value}}" aria-pressed="{{on}}" name="i-act-{{value}}">{{label}}</button>{{/each}}</div>
+  </div>
+  {{/if}}
+
+  {{#if hasBlocks}}
+  <p class="ws-note ws-wrap">{{localize "PF2E_AUTOMATO.workshop.item.blocksNote"}}</p>
+  {{> "modules/pf2e-automato/templates/workshop-blocks.hbs"}}
+  {{/if}}
+
+  <p class="ws-note ws-wrap">{{doesNote}}</p>
+</section>
+{{/if}}
+
+{{#if s3}}
+<section class="ws-sec">
+  <h2 class="ws-h">{{localize "PF2E_AUTOMATO.workshop.item.s3"}}</h2>
+  {{#if canAuto}}
+  <label class="ws-check"><input type="checkbox" data-i="auto" {{checked m.auto}} name="i-auto"><span>{{localize "PF2E_AUTOMATO.workshop.item.autoBuild"}}</span></label>
+  {{/if}}
+  {{#if sums}}
+  <div class="ws-sumbox">
+    {{#each sums}}<div class="ws-sumrow"><span class="ws-lbl">{{label}}</span><span>{{text}}</span></div>{{/each}}
+  </div>
+  {{else}}
+  <p class="ws-note ws-wrap">{{autoNote}}</p>
+  {{/if}}
+  <div class="ws-row2">
+    <button type="button" class="ws-btn" data-action="openPipe" name="openPipe" {{#unless done}}disabled{{/unless}}>{{localize "PF2E_AUTOMATO.workshop.item.openPipe"}}</button>
+    {{#unless done}}<span class="ws-note">{{localize "PF2E_AUTOMATO.workshop.item.pipeAfter"}}</span>{{/unless}}
+  </div>
+</section>
+{{/if}}
+
+{{#if s4}}
+<section class="ws-sec">
+  <h2 class="ws-h">{{localize "PF2E_AUTOMATO.workshop.item.s4"}}</h2>
+  <div class="ws-oklist">
+    {{#each plan}}<div class="ws-ok"><i class="fa-solid fa-check" inert></i><span>{{this}}</span></div>{{/each}}
+  </div>
+  <div class="ws-fld"><span class="ws-lbl">{{localize "PF2E_AUTOMATO.workshop.item.where"}}</span>
+    <div class="ws-seg">{{#each dests}}<button type="button" data-action="pick" data-i="dest" data-v="{{value}}" aria-pressed="{{on}}" {{#if disabled}}disabled{{/if}} name="i-dest-{{value}}">{{label}}</button>{{/each}}</div>
+  </div>
+  {{#if done}}
+  <div class="ws-done">
+    <p class="ws-okmsg">{{localize "PF2E_AUTOMATO.workshop.item.doneMsg" name=done.name}}</p>
+    <div class="ws-row2">
+      <button type="button" class="ws-btn ws-btn-p" data-action="openPipe" name="openPipe2">{{localize "PF2E_AUTOMATO.workshop.item.openPipe"}}</button>
+      <button type="button" class="ws-btn" data-action="openDone" name="openDone">{{localize "PF2E_AUTOMATO.workshop.au.openSheet"}}</button>
+      <button type="button" class="ws-btn ws-btn-g" data-action="newItem" name="newItem">{{localize "PF2E_AUTOMATO.workshop.item.another"}}</button>
+    </div>
+  </div>
+  {{/if}}
+</section>
+{{/if}}
+</div>

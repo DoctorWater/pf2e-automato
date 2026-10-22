@@ -1,0 +1,20 @@
+<div class="ws-col">
+<h2 class="ws-h">{{localize "PF2E_AUTOMATO.workshop.item.card"}}</h2>
+<article class="ws-card">
+  <header class="ws-card-h">
+    <div class="ws-card-img"><img src="{{img}}" alt=""></div>
+    <h3 class="ws-card-name">{{#if name}}{{name}}{{else}}{{localize "PF2E_AUTOMATO.workshop.item.name"}}{{/if}}</h3>
+    <span class="ws-lbl ws-accent ws-card-kind">{{kind}}</span>
+  </header>
+  <div class="ws-card-b">
+    <div class="ws-traits">
+      {{#if rarity}}<span class="ws-tag ws-rar-{{rarity.key}}">{{rarity.label}}</span>{{/if}}
+      {{#each cardTraits}}<span class="ws-tag">{{this}}</span>{{/each}}
+    </div>
+    <div class="ws-facts">{{#each facts}}<b>{{label}}</b> {{text}}{{#unless @last}}; {{/unless}}{{/each}}</div>
+    <hr>
+    <div class="ws-card-desc">{{#if descHtml}}{{{descHtml}}}{{else}}<p class="ws-sub">{{localize "PF2E_AUTOMATO.workshop.item.descEmpty"}}</p>{{/if}}</div>
+  </div>
+</article>
+{{#each notes}}<p class="ws-note ws-wrap">{{this}}</p>{{/each}}
+</div>

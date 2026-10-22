@@ -1,0 +1,92 @@
+<div class="ws-bset">
+<section>
+  <h2 class="ws-h">{{localize "PF2E_AUTOMATO.workshop.gives"}}</h2>
+  <div class="ws-blocks">
+    {{#each blocks as |b|}}
+    <div class="ws-block {{#if b.open}}is-open{{/if}}">
+      <div class="ws-block-h">
+        <button type="button" class="ws-block-t" data-action="toggleBlock" data-block="{{b.id}}" aria-expanded="{{b.open}}">
+          <span class="ws-kind">{{b.kindLabel}}</span>
+          <span class="ws-text" data-block="{{b.id}}">{{b.summary}}</span>
+        </button>
+        <button type="button" class="ws-x" data-action="removeBlock" data-block="{{b.id}}" aria-label="{{localize "PF2E_AUTOMATO.workshop.remove"}}" data-tooltip="PF2E_AUTOMATO.workshop.remove"><i class="fa-solid fa-trash" inert></i></button>
+      </div>
+      {{#if b.open}}
+      <div class="ws-ed">
+        {{#if b.isSigned}}
+        <div class="ws-seg">
+          <button type="button" data-action="pick" data-block="{{b.id}}" data-f="sign" data-v="1" aria-pressed="{{b.plus}}" name="b{{b.id}}-sign-1">{{localize "PF2E_AUTOMATO.workshop.plus"}}</button>
+          <button type="button" data-action="pick" data-block="{{b.id}}" data-f="sign" data-v="-1" aria-pressed="{{not b.plus}}" name="b{{b.id}}-sign--1">{{localize "PF2E_AUTOMATO.workshop.minus"}}</button>
+        </div>
+        <label class="ws-fld"><span class="ws-lbl">{{localize "PF2E_AUTOMATO.workshop.size"}}</span><input class="ws-inp ws-num" type="number" min="1" data-block="{{b.id}}" data-f="value" value="{{b.value}}" name="b{{b.id}}-value"></label>
+        <div class="ws-fld"><span class="ws-lbl">{{localize "PF2E_AUTOMATO.workshop.type"}}</span>
+          <div class="ws-seg">{{#each b.types}}<button type="button" data-action="pick" data-block="{{b.id}}" data-f="type" data-v="{{value}}" aria-pressed="{{on}}" name="b{{b.id}}-type-{{value}}">{{label}}</button>{{/each}}</div>
+        </div>
+        {{#if b.isBonus}}<label class="ws-fld"><span class="ws-lbl">{{localize "PF2E_AUTOMATO.workshop.target"}}</span><select class="ws-inp" data-block="{{b.id}}" data-f="target" name="b{{b.id}}-target">{{selectOptions b.c.target selected=b.target}}</select></label>{{/if}}
+        {{#if b.isSpeed}}<span class="ws-note">{{localize "PF2E_AUTOMATO.workshop.feet"}}</span>{{/if}}
+        {{/if}}
+
+        {{#if b.is_resist}}
+        <label class="ws-fld"><span class="ws-lbl">{{localize "PF2E_AUTOMATO.workshop.damage"}}</span><select class="ws-inp" data-block="{{b.id}}" data-f="dmg" name="b{{b.id}}-dmg">{{selectOptions b.c.resist selected=b.dmg}}</select></label>
+        <label class="ws-fld"><span class="ws-lbl">{{localize "PF2E_AUTOMATO.workshop.value"}}</span><input class="ws-inp ws-num" type="number" min="1" data-block="{{b.id}}" data-f="value" value="{{b.value}}" name="b{{b.id}}-value"></label>
+        <label class="ws-fld"><span class="ws-lbl">{{localize "PF2E_AUTOMATO.workshop.except"}}</span><input class="ws-inp ws-wide" type="text" data-block="{{b.id}}" data-f="except" value="{{b.except}}" placeholder="{{localize "PF2E_AUTOMATO.workshop.exceptHint"}}" name="b{{b.id}}-except"></label>
+        {{/if}}
+
+        {{#if b.is_temphp}}<label class="ws-fld"><span class="ws-lbl">{{localize "PF2E_AUTOMATO.workshop.value"}}</span><input class="ws-inp ws-num" type="number" min="1" data-block="{{b.id}}" data-f="value" value="{{b.value}}" name="b{{b.id}}-value"></label>{{/if}}
+        {{#if b.is_fastheal}}<label class="ws-fld"><span class="ws-lbl">{{localize "PF2E_AUTOMATO.workshop.value"}}</span><input class="ws-inp ws-num" type="number" min="1" data-block="{{b.id}}" data-f="value" value="{{b.value}}" name="b{{b.id}}-value"></label>{{/if}}
+
+        {{#if b.is_dmg}}
+        <label class="ws-fld"><span class="ws-lbl">{{localize "PF2E_AUTOMATO.workshop.dice"}}</span><input class="ws-inp ws-num" type="number" min="1" data-block="{{b.id}}" data-f="number" value="{{b.number}}" name="b{{b.id}}-number"></label>
+        <label class="ws-fld"><span class="ws-lbl">{{localize "PF2E_AUTOMATO.workshop.die"}}</span><select class="ws-inp" data-block="{{b.id}}" data-f="die" name="b{{b.id}}-die">{{selectOptions b.c.die selected=b.die}}</select></label>
+        <label class="ws-fld"><span class="ws-lbl">{{localize "PF2E_AUTOMATO.workshop.damage"}}</span><select class="ws-inp" data-block="{{b.id}}" data-f="dmgType" name="b{{b.id}}-dmgType">{{selectOptions b.c.dmgType selected=b.dmgType}}</select></label>
+        <span class="ws-note">{{localize "PF2E_AUTOMATO.workshop.strikesOnly"}}</span>
+        {{/if}}
+
+        {{#if b.is_sense}}
+        <label class="ws-fld"><span class="ws-lbl">{{localize "PF2E_AUTOMATO.workshop.sense"}}</span><select class="ws-inp" data-block="{{b.id}}" data-f="sense" name="b{{b.id}}-sense">{{selectOptions b.c.sense selected=b.sense}}</select></label>
+        {{#if b.showAcuity}}<label class="ws-fld"><span class="ws-lbl">{{localize "PF2E_AUTOMATO.workshop.acuity"}}</span><select class="ws-inp" data-block="{{b.id}}" data-f="acuity" name="b{{b.id}}-acuity">{{selectOptions b.c.acuity selected=b.acuity}}</select></label>{{/if}}
+        {{#if b.showRange}}<label class="ws-fld"><span class="ws-lbl">{{localize "PF2E_AUTOMATO.workshop.range"}}</span><input class="ws-inp ws-num" type="number" min="1" data-block="{{b.id}}" data-f="range" value="{{b.range}}" name="b{{b.id}}-range"></label>{{/if}}
+        {{/if}}
+
+        {{#if b.is_cond}}
+        <label class="ws-fld"><span class="ws-lbl">{{localize "PF2E_AUTOMATO.workshop.condition"}}</span><select class="ws-inp" data-block="{{b.id}}" data-f="slug" name="b{{b.id}}-slug">{{selectOptions b.c.cond selected=b.slug}}</select></label>
+        {{#if b.valued}}<label class="ws-fld"><span class="ws-lbl">{{localize "PF2E_AUTOMATO.workshop.value"}}</span><input class="ws-inp ws-num" type="number" min="1" data-block="{{b.id}}" data-f="value" value="{{b.value}}" name="b{{b.id}}-value"></label>{{/if}}
+        <span class="ws-note">{{localize "PF2E_AUTOMATO.workshop.dropHint"}}</span>
+        {{/if}}
+
+        {{#if b.is_note}}
+        <label class="ws-fld"><span class="ws-lbl">{{localize "PF2E_AUTOMATO.workshop.target"}}</span><select class="ws-inp" data-block="{{b.id}}" data-f="target" name="b{{b.id}}-target">{{selectOptions b.c.noteTarget selected=b.target}}</select></label>
+        <label class="ws-fld"><span class="ws-lbl">{{localize "PF2E_AUTOMATO.workshop.noteTitle"}}</span><input class="ws-inp" type="text" data-block="{{b.id}}" data-f="title" value="{{b.title}}" name="b{{b.id}}-title"></label>
+        <label class="ws-fld ws-full"><span class="ws-lbl">{{localize "PF2E_AUTOMATO.workshop.noteText"}}</span><textarea class="ws-inp ws-area" data-block="{{b.id}}" data-f="text" name="b{{b.id}}-text">{{b.text}}</textarea></label>
+        {{/if}}
+
+        {{#if b.is_aura}}
+        <label class="ws-fld"><span class="ws-lbl">{{localize "PF2E_AUTOMATO.workshop.slug"}}</span><input class="ws-inp" type="text" data-block="{{b.id}}" data-f="slug" value="{{b.slug}}" name="b{{b.id}}-slug"></label>
+        <label class="ws-fld"><span class="ws-lbl">{{localize "PF2E_AUTOMATO.workshop.radius"}}</span><input class="ws-inp ws-num" type="number" min="5" step="5" data-block="{{b.id}}" data-f="radius" value="{{b.radius}}" name="b{{b.id}}-radius"></label>
+        <span class="ws-note">{{localize "PF2E_AUTOMATO.workshop.auraNote"}}</span>
+        {{/if}}
+
+        {{#if b.is_light}}
+        <label class="ws-fld"><span class="ws-lbl">{{localize "PF2E_AUTOMATO.workshop.bright"}}</span><input class="ws-inp ws-num" type="number" min="0" data-block="{{b.id}}" data-f="bright" value="{{b.bright}}" name="b{{b.id}}-bright"></label>
+        <label class="ws-fld"><span class="ws-lbl">{{localize "PF2E_AUTOMATO.workshop.dim"}}</span><input class="ws-inp ws-num" type="number" min="0" data-block="{{b.id}}" data-f="dim" value="{{b.dim}}" name="b{{b.id}}-dim"></label>
+        {{/if}}
+
+        {{#if b.is_raw}}
+        <label class="ws-fld ws-full"><span class="ws-lbl">{{localize "PF2E_AUTOMATO.workshop.rawJson"}}</span><textarea class="ws-inp ws-area ws-mono" spellcheck="false" data-block="{{b.id}}" data-f="json" name="b{{b.id}}-json">{{b.json}}</textarea></label>
+        {{/if}}
+      </div>
+      {{/if}}
+    </div>
+    {{else}}
+    <div class="ws-empty">{{localize "PF2E_AUTOMATO.workshop.noBlocks"}}</div>
+    {{/each}}
+  </div>
+</section>
+
+<section>
+  <span class="ws-lbl">{{localize "PF2E_AUTOMATO.workshop.add"}}</span>
+  <div class="ws-pal">
+    {{#each palette}}<button type="button" data-action="addBlock" data-kind="{{kind}}"><i class="fa-solid fa-{{icon}}" inert></i>{{label}}</button>{{/each}}
+  </div>
+</section>
+</div>

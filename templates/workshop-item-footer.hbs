@@ -1,0 +1,6 @@
+<div class="ws-foot">
+  <span class="ws-foot-msg {{#if errors.length}}ws-err{{/if}}">{{#if error}}{{error}}{{else}}{{hint}}{{/if}}</span>
+  {{#if canBack}}<button type="button" class="ws-btn ws-btn-g" data-action="goStep" data-n="{{back}}" name="stepBack">{{localize "PF2E_AUTOMATO.workshop.item.back"}}</button>{{/if}}
+  {{#if canNext}}<button type="button" class="ws-btn ws-btn-p" data-action="goStep" data-n="{{next}}" name="stepNext">{{localize "PF2E_AUTOMATO.workshop.item.next" label=nextLabel}}</button>{{/if}}
+  {{#unless canNext}}<button type="button" class="ws-btn ws-btn-p" data-action="createItem" name="createItem" {{#if errors.length}}disabled{{else if done}}disabled{{/if}}>{{localize "PF2E_AUTOMATO.workshop.item.create"}}</button>{{/unless}}
+</div>

@@ -222,3 +222,83 @@
 
 .pf2e-automato-workshop .ws-plate-nw { display: flex; flex-direction: column; min-width: 0; }
 .pf2e-automato-workshop .ws-plate-sub { font-size: 11px; color: #786452; }
+
+/* Режим «Предмет»: шаги, плитки типа, поиск основы, карточка предпросмотра */
+.pf2e-automato-workshop .ws-bset { display: contents; }   /* общий блок кубиков: секции остаются детьми своей колонки */
+.pf2e-automato-workshop .ws-wiz { display: flex; flex-direction: column; gap: 20px; min-width: 0; }
+.pf2e-automato-workshop .ws-wiz .ws-sec { gap: 16px; min-width: 0; }
+.pf2e-automato-workshop .ws-wiz .ws-h { margin: 0; font-size: 20px; }
+.pf2e-automato-workshop .ws-wrap { max-width: 64ch; line-height: 1.5; margin: 0; padding: 0; }
+
+.pf2e-automato-workshop .ws-steps { position: sticky; top: 0; z-index: 3; margin: -16px -20px 0; padding: 4px 20px; list-style: none; display: flex; flex-wrap: wrap; align-items: center; gap: 2px 6px; background: #f8f4f1; border-bottom: 1px solid #ddd2c0; }
+.pf2e-automato-workshop .ws-steps li { display: flex; align-items: center; gap: 6px; margin: 0; }
+.pf2e-automato-workshop .ws-step { width: auto; height: 40px; margin: 0; padding: 0 4px; display: flex; align-items: center; gap: 8px; font-size: 13px; color: #5b5048; background: transparent; border: 0; border-radius: 0; box-shadow: none; cursor: pointer; }
+.pf2e-automato-workshop .ws-step:hover { color: #2a2420; }
+.pf2e-automato-workshop .ws-sn { flex: none; width: 22px; height: 22px; display: inline-flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums; background: #fffdf9; border: 1.5px solid #baa991; border-radius: 11px; }
+.pf2e-automato-workshop .ws-step.is-done .ws-sn { color: #fff; background: #443730; border-color: #443730; }
+.pf2e-automato-workshop .ws-step[aria-current="step"] { color: #2a2420; font-weight: 500; }
+.pf2e-automato-workshop .ws-step[aria-current="step"] .ws-sn { color: #fff; background: #5e0000; border-color: #5e0000; }
+.pf2e-automato-workshop .ws-steps-sep { flex: none; width: 24px; height: 1px; background: #baa991; }
+
+.pf2e-automato-workshop .ws-tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.pf2e-automato-workshop .ws-tile { width: auto; height: auto; margin: 0; padding: 12px; display: flex; flex-direction: column; align-items: flex-start; gap: 4px; text-align: left; line-height: 1.35; background: #fffdf9; border: 1px solid #ddd2c0; border-radius: 4px; box-shadow: none; cursor: pointer; transition: border-color .15s, background-color .15s; }
+.pf2e-automato-workshop .ws-tile b { font-size: 14px; font-weight: 500; }
+.pf2e-automato-workshop .ws-tile span { font-size: 12px; color: #5b5048; }
+.pf2e-automato-workshop .ws-tile:hover { background: #fff; border-color: #786452; }
+.pf2e-automato-workshop .ws-tile[aria-pressed="true"] { background: #fff; border-color: #5e0000; box-shadow: inset 0 0 0 1px #5e0000; }
+
+.pf2e-automato-workshop .ws-find { overflow: hidden; background: #fffdf9; border: 1px solid #ddd2c0; border-radius: 4px; }
+.pf2e-automato-workshop .ws-find-q { display: flex; align-items: center; gap: 8px; height: 40px; padding: 0 12px; color: #786452; }
+.pf2e-automato-workshop .ws-find-q input[type="search"] { flex: 1; min-width: 0; height: 38px; padding: 0; font: inherit; color: #2a2420; background: transparent; border: 0; box-shadow: none; }
+.pf2e-automato-workshop .ws-res { width: 100%; height: 40px; margin: 0; padding: 0 12px; display: flex; align-items: center; gap: 10px; text-align: left; font-size: 13px; background: transparent; border: 0; border-top: 1px solid #ddd2c0; border-radius: 0; box-shadow: none; cursor: pointer; }
+.pf2e-automato-workshop .ws-res:hover { background: #fff; }
+.pf2e-automato-workshop .ws-res[aria-pressed="true"] { background: #fff; font-weight: 500; }
+.pf2e-automato-workshop .ws-find-note { padding: 10px 12px; font-size: 12px; color: #5b5048; border-top: 1px solid #ddd2c0; }
+.pf2e-automato-workshop .ws-base { display: flex; align-items: center; gap: 8px; }
+
+.pf2e-automato-workshop .ws-frow { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 16px; }
+.pf2e-automato-workshop .ws-frow .ws-grow { flex: 1 1 220px; }
+.pf2e-automato-workshop .ws-frow .ws-inp:not(.ws-num) { max-width: 100%; }
+.pf2e-automato-workshop .ws-frow .ws-icon { cursor: pointer; }
+.pf2e-automato-workshop .ws-tall { height: 120px; line-height: 1.5; }
+.pf2e-automato-workshop .ws-row2 { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.pf2e-automato-workshop .ws-row2 .ws-note { padding: 0; }
+.pf2e-automato-workshop .ws-card-box { display: flex; flex-direction: column; gap: 14px; padding: 14px 16px; background: #fffdf9; border: 1px solid #ddd2c0; border-radius: 4px; }
+.pf2e-automato-workshop .ws-sentence { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 14px; }
+.pf2e-automato-workshop .ws-sentence .ws-inp { max-width: 100%; }
+.pf2e-automato-workshop .ws-sumbox { background: #fffdf9; border: 1px solid #ddd2c0; border-radius: 4px; }
+.pf2e-automato-workshop .ws-sumrow { display: flex; gap: 12px; padding: 10px 14px; }
+.pf2e-automato-workshop .ws-sumrow + .ws-sumrow { border-top: 1px solid #ddd2c0; }
+.pf2e-automato-workshop .ws-sumrow .ws-lbl { flex: none; width: 80px; padding-top: 2px; }
+.pf2e-automato-workshop .ws-oklist { display: flex; flex-direction: column; gap: 10px; }
+.pf2e-automato-workshop .ws-ok { display: flex; align-items: flex-start; gap: 10px; line-height: 1.45; }
+.pf2e-automato-workshop .ws-ok i { flex: none; margin-top: 3px; color: #1d5a1d; }
+.pf2e-automato-workshop .ws-done { display: flex; flex-direction: column; gap: 10px; padding: 12px 14px; background: #fffdf9; border: 1px solid #1d5a1d; border-radius: 4px; }
+.pf2e-automato-workshop .ws-okmsg { margin: 0; color: #1d5a1d; font-weight: 500; }
+
+/* Черты: плашки с крестиком, список выбора раскрывается под всей строкой (не вылезает за край части) */
+.pf2e-automato-workshop .ws-trf { position: relative; }
+.pf2e-automato-workshop .ws-trf .ws-padd { position: static; }
+.pf2e-automato-workshop .ws-trf .ws-pick { top: 100%; left: 0; width: min(280px, 100%); }
+.pf2e-automato-workshop .ws-tag-x { width: 16px; height: 16px; margin: 0 0 0 4px; padding: 0; display: inline-flex; align-items: center; justify-content: center; font-size: 10px; color: inherit; background: transparent; border: 0; border-radius: 2px; box-shadow: none; cursor: pointer; vertical-align: top; }
+.pf2e-automato-workshop .ws-tag-x:hover { background: rgba(255, 255, 255, .25); }
+.pf2e-automato-workshop .ws-rar-uncommon { background: #98513d; }
+.pf2e-automato-workshop .ws-rar-rare { background: #002664; }
+.pf2e-automato-workshop .ws-rar-unique { background: #54166e; }
+
+/* Карточка предмета в стиле карточки чата pf2e */
+.pf2e-automato-workshop .ws-card { background: #f8f4f1; border: 1px solid #baa991; border-radius: 3px; box-shadow: 0 2px 6px rgba(43, 39, 36, .18); }
+.pf2e-automato-workshop .ws-card-h { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-bottom: 2px solid #5e0000; }
+.pf2e-automato-workshop .ws-card-img { flex: none; width: 36px; height: 36px; background: #443730; border: 1px solid #d8c384; }
+.pf2e-automato-workshop .ws-card-img img { width: 100%; height: 100%; object-fit: cover; border: 0; }
+.pf2e-automato-workshop .ws-card-name { flex: 1; min-width: 0; margin: 0; padding: 0; border: 0; font: 600 17px/1.15 Eczar, Georgia, serif; color: #2a2420; overflow-wrap: anywhere; }
+.pf2e-automato-workshop .ws-card-kind { white-space: nowrap; }
+.pf2e-automato-workshop .ws-card-b { display: flex; flex-direction: column; gap: 8px; padding: 8px 10px 10px; }
+.pf2e-automato-workshop .ws-card-b .ws-traits { gap: 3px; }
+.pf2e-automato-workshop .ws-card-b hr { margin: 0; border: 0; border-top: 1px solid #baa991; }
+.pf2e-automato-workshop .ws-facts { font-size: 12.5px; line-height: 1.5; }
+.pf2e-automato-workshop .ws-facts:empty { display: none; }
+.pf2e-automato-workshop .ws-card-desc { font: 13px/1.5 Gelasio, Georgia, serif; overflow-wrap: anywhere; }
+.pf2e-automato-workshop .ws-card-desc p { margin: 0 0 6px; }
+.pf2e-automato-workshop .ws-card-desc p:last-child { margin: 0; }
+.pf2e-automato-workshop .ws-ref { padding: 0 4px; background: #ddd2c0; border-radius: 2px; }

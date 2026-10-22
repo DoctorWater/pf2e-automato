@@ -23,6 +23,8 @@ test("degreeFromTotal: пороги ±10, нат.20/нат.1, клэмп", () =>
 test("sluggify (локальная копия)", () => {
   assert.equal(sluggify("Nimble Dodge"), "nimble-dodge");
   assert.equal(sluggify("Bravo's Brew"), "bravos-brew");
+  assert.equal(sluggify("Зелье Ржавого Корня"), "зелье-ржавого-корня");   // как pf2e: юникодные буквы сохраняются
+  assert.equal(sluggify("NimbleDodge"), "nimble-dodge");
 });
 
 test("queue: сериализует по ключу, переживает ошибку, разные ключи параллельны", async () => {

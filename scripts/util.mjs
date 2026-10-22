@@ -2,13 +2,16 @@ export const MOD = "pf2e-automato";
 export const L = (key, data) => data ? game.i18n.format(`PF2E_AUTOMATO.${key}`, data) : game.i18n.localize(`PF2E_AUTOMATO.${key}`);
 export const DEGREES = ["criticalFailure", "failure", "success", "criticalSuccess"];   // индекс = pf2e degreeOfSuccess 0..3
 
-// Как pf2e sluggify (pf2e.mjs:210, camel=null); своя копия — чтобы чистые модули работали под node.
+// Как pf2e sluggify (pf2e.mjs:209-213, camel=null, юникодные классы — кириллица сохраняется); своя копия — чтобы чистые модули работали под node.
+const WORD = String.raw`[\p{Alphabetic}\p{Mark}\p{Decimal_Number}\p{Join_Control}]`;
+const NON_WORD = new RegExp(String.raw`[^\p{Alphabetic}\p{Mark}\p{Decimal_Number}\p{Join_Control}]`, "gu");
+const CAMEL = new RegExp(String.raw`(\p{Lowercase_Letter})(\p{Uppercase_Letter}(?=^|$|${WORD}))`, "gu");
 export const sluggify = (s) => {
   s = String(s ?? "");
   const f = globalThis.game?.pf2e?.system?.sluggify;
   if (f) return f(s);
-  return s.replace(/([a-z])([A-Z])/g, "$1-$2").toLowerCase().replace(/['’]/g, "")
-    .replace(/[^a-z0-9]+/g, " ").trim().replace(/[-\s]+/g, "-");
+  if (s === "-") return s;
+  return s.replace(CAMEL, "$1-$2").toLowerCase().replace(/['’]/g, "").replace(NON_WORD, " ").trim().replace(/[-\s]+/g, "-");
 };
 export const isActiveGM = () => game.user.isActiveGM;
 export const flagPath = (...p) => ["flags", MOD, ...p].join(".");

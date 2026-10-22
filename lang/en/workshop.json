@@ -205,7 +205,8 @@
       },
       "mode": {
         "effect": "Effect",
-        "automation": "Automation"
+        "automation": "Automation",
+        "item": "Item"
       },
       "modes": "Workshop mode",
       "au": {
@@ -385,6 +386,178 @@
           "unless": "unless already has the effect",
           "mark": "mark on the enemy",
           "choice": "choice: {v}"
+        }
+      },
+      "item": {
+        "folder": "AuTOMATO / Items",
+        "title": "New item",
+        "headNew": "{type} · will be created in the folder “{folder}”",
+        "headCopy": "Copy of “{name}” · becomes a new item",
+        "steps": "Steps",
+        "step": {
+          "base": "Base",
+          "general": "General",
+          "does": "What it does",
+          "auto": "Automation",
+          "done": "Done"
+        },
+        "s0": "Where to start",
+        "s1": "General",
+        "s2": "What it does",
+        "s3": "Automation",
+        "s4": "To be created",
+        "type": {
+          "consumable": "Consumable",
+          "equipment": "Equipment",
+          "weapon": "Weapon",
+          "action": "Action",
+          "feat": "Feat"
+        },
+        "typeHint": {
+          "consumable": "Potion, elixir, scroll — used up when activated",
+          "equipment": "Passive properties while worn or invested",
+          "weapon": "Damage die and type, group; extra properties as blocks",
+          "action": "An ability with an effect on yourself",
+          "feat": "Passive or action with an effect on yourself"
+        },
+        "copyLabel": "Or copy a base from a compendium",
+        "search": "Search by name",
+        "searchHint": "Type at least two letters of the name.",
+        "noFound": "Nothing found.",
+        "pack": {
+          "equipment": "pf2e Equipment",
+          "actions": "pf2e Actions",
+          "feats": "pf2e Feats"
+        },
+        "baseIs": "Base: “{name}” (a copy — a new item, not linked to the original)",
+        "dropBase": "Remove base",
+        "copyHint": "The copy keeps the other pf2e fields — change only what differs. The original and its automation rules are untouched.",
+        "name": "Item name",
+        "price": "Price, gp",
+        "bulk": "Bulk",
+        "bulkL": "L",
+        "rarity": "Rarity",
+        "uses": "Charges",
+        "usage": "Usage",
+        "traits": "Traits",
+        "addTrait": "Trait",
+        "desc": "Description",
+        "category": {
+          "consumable": "Category",
+          "feat": "Feat type",
+          "action": "Action type"
+        },
+        "linkNote": "A link to the chosen effect is appended to the description automatically — pf2e shows it in chat.",
+        "onUse": "On use, apply",
+        "effect": "Effect",
+        "to": "to",
+        "to_self": "self",
+        "to_target": "target",
+        "noEffect": "— no effect —",
+        "newEffect": "New effect…",
+        "dropEffect": "Or drag an effect from a compendium or the world onto this frame.",
+        "actType": "Type",
+        "actType_action": "Action",
+        "actType_reaction": "Reaction",
+        "actType_free": "Free",
+        "actType_passive": "Passive",
+        "actions": "Number of actions",
+        "selfEffect": "Effect on self:",
+        "passiveNote": "A passive ability cannot have an effect on self — pf2e clears it. Pick another type.",
+        "wCategory": "Category",
+        "wGroup": "Group",
+        "wKind": "Range type",
+        "wRange": "Range increment, ft",
+        "wHands": "Grip",
+        "kind_melee": "Melee",
+        "kind_ranged": "Ranged",
+        "hands_held-in-one-hand": "One hand",
+        "hands_held-in-two-hands": "Two hands",
+        "activate": "Activate",
+        "act": {
+          "none": "None",
+          "n1": "1 action",
+          "n2": "2 actions",
+          "n3": "3 actions",
+          "reaction": "Reaction",
+          "free": "Free action",
+          "passive": "Passive"
+        },
+        "blocksNote": "Properties while the item is worn — the same blocks as in Effect mode; written straight into the item.",
+        "does": {
+          "consumable": "The automation rule applies the chosen effect when the consumable is used — to the user or to the selected target.",
+          "equipment": "Rule Elements work while the item is worn (for an item with the Invested trait — while invested too): no extra conditions needed, pf2e requires this itself.",
+          "weapon": "The blocks affect this weapon while it is held (or worn): “all Strikes” is narrowed to the weapon itself.",
+          "action": "The effect is written into pf2e’s native “effect on self” field: the system draws the card button itself.",
+          "feat": "The effect is written into pf2e’s native “effect on self” field: the system draws the card button itself."
+        },
+        "autoBuild": "Build the rule automatically",
+        "autoNone": "No rule yet: pick an effect on the “What it does” step.",
+        "autoOff": "Auto-build is off — no rule will be written; the effect is applied by hand from the description.",
+        "autoNote": {
+          "rules": "This type needs no automation rule: the properties are written into the item and work through pf2e.",
+          "ability": "No automation rule is built for this type: the effect on self is a native pf2e field. Fine-tune in the pipeline after creating."
+        },
+        "openPipe": "Open in the pipeline",
+        "pipeAfter": "Available after the item is created.",
+        "plan": {
+          "item": "Item “{name}” in the world folder “{folder}”",
+          "effect": "Effect “{name}” — already exists, will be linked to the item",
+          "rules": "Rule Elements in the item: {n}",
+          "rule": "Automation rule in the item flag",
+          "actor": "A copy will be given to the actor “{name}”"
+        },
+        "where": "Where to",
+        "dest": {
+          "world": "World only",
+          "actor": "World and give to the selected ({name})",
+          "actorNone": "World and give to the selected (no token)"
+        },
+        "create": "Create item",
+        "created": "Item “{name}” created in the folder “{folder}”.",
+        "doneMsg": "Item “{name}” has been created.",
+        "another": "Create another",
+        "back": "Back",
+        "next": "Next: {label}",
+        "footHint": "Steps can be done in any order.",
+        "returnHint": "Create the effect — and you return to the item with the effect filled in.",
+        "card": "Chat card",
+        "descEmpty": "The description appears once you write it.",
+        "fPrice": "Price",
+        "fBulk": "Bulk",
+        "fDamage": "Damage",
+        "fRange": "Range",
+        "gp": "{n} gp",
+        "ft": "{n} ft",
+        "note": {
+          "effectSelf": "Effect: “{name}” is applied to the user.",
+          "effectTarget": "Effect: “{name}” is applied to the selected target.",
+          "blocks": "Properties: {list}.",
+          "rule": "Automation: {text}."
+        },
+        "dropBad": "Drop an effect or a condition here.",
+        "stale": "The item is already created: further changes will not reach it.",
+        "closeAsk": "The item draft has not been created. Close and discard it?",
+        "fActions": "Actions",
+        "wText": {
+          "dmg": "+{number}{die} damage ({type}) with this weapon",
+          "attack": "Attacks with this weapon: {amount} {kind}",
+          "damage": "Damage with this weapon: {amount} {kind}"
+        },
+        "dropNo": "An effect can be set on a consumable or a non-passive action/feat.",
+        "err": {
+          "name": "Enter the item name.",
+          "level": "Level is a whole number from 0 to 30.",
+          "levelFeat": "Feat level is a whole number from 1 to 30.",
+          "price": "Price is a number not less than zero.",
+          "uses": "Charges is a whole number above zero.",
+          "dice": "Number of damage dice is a whole number above zero.",
+          "range": "Range increment is a whole number from 5 ft.",
+          "rule": "The automation rule could not be built: {error}",
+          "rawGrant": "A GrantItem in an item works only with inMemoryOnly:true and a pf2e condition UUID (Compendium.….conditionitems.Item.…).",
+          "actorType": "Actor “{name}” does not accept items of type “{type}” — choose “World only”.",
+          "condEffect": "equipment and weapons only support pf2e conditions, not effects — pick a condition.",
+          "noActor": "Select an actor’s token or choose “World only”."
         }
       }
     }

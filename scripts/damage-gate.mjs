@@ -41,8 +41,9 @@ export function init() {
   Hooks.on("renderChatMessageHTML", (message, html) => {
     if (!isPersistentCard(message)) return;
     const hide = persistentHide(workbench());
-    if (hide.damage) html.querySelectorAll(".damage-application").forEach((e) => e.remove());
-    if (hide.recovery) html.querySelectorAll(".persistent-damage-recovery").forEach((e) => e.remove());
+    // классом, а не remove(): pf2e дорисовывает эти кнопки асинхронно, уже после хука
+    html.classList.toggle("paf-hide-pdamage", hide.damage);
+    html.classList.toggle("paf-hide-precovery", hide.recovery);
   });
   Hooks.on("renderChatMessageHTML", (message, html) => {
     if (modeOf("damageGate") === "off") return;

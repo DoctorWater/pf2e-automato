@@ -30,7 +30,7 @@ export function scaleFormula(formula, n) {
   return Array(n).fill(f).join(" + ");
 }
 
-const askActions = (name, choices) => askHere(name, `<p>${L("builtin.cast.prompt", { name: esc(name) })}</p>`, choices.map((n) => ({ id: String(n), label: L("builtin.cast.actions", { n }) })));
+const askActions = (name, choices) => askHere(name, `<p>${L("builtin.cast.prompt", { name: esc(name) })}</p>`, choices.map((n) => ({ id: String(n), label: L(`builtin.cast.act.${n}`) })));
 
 async function askSplit(name, targets, total) {
   let counts = evenSplit(total, targets.length);
@@ -46,33 +46,56 @@ async function askSplit(name, targets, total) {
   return evenSplit(total, targets.length);
 }
 
-/** Один бросок урона заклинания с подменённой (в памяти, сразу восстанавливается) формулой: pf2e читает её синхронно в начале rollDamage.
+/** Чистая: правка ещё не созданного сообщения урона — цель в контексте и подпись снарядов. pf2e для не-атак цель в контекст не кладёт
+ *  (pf2e.mjs:18420), а читает её ChatMessagePF2e.target (pf2e.mjs:29357: flags.pf2e.context.target.token = UUID токена) и pf2e-toolbelt. */
+export function targetPatch(msg, t, n) {
+  if (!t) return null;
+  const target = { actor: t.actor.uuid, token: t.uuid };
+  return {
+    flavor: `${msg.flavor ?? ""}<p>${L("builtin.cast.volley", { n, target: esc(t.name) })}</p>`,
+    ...(msg.flags?.pf2e?.context ? { "flags.pf2e.context.target": target, "flags.pf2e.target": target } : {}),
+    // toolbelt (targetHelper) уже записал сюда все цели пользователя и читает свой флаг раньше context.target
+    ...(msg.flags?.["pf2e-toolbelt"]?.targetHelper?.targets ? { "flags.pf2e-toolbelt.targetHelper.targets": [t.uuid] } : {})
+  };
+}
+
+/** Один бросок урона заклинания с подменённой (в памяти) формулой. spell.rollDamage возвращает DamageRoll, а сообщение pf2e создаёт само
+ *  внутри (DamagePF2e.roll) -> подписываем его в preCreateChatMessage. Формулу pf2e разбирает синхронно (loadVariant / getDamage до первого await),
+ *  поэтому возвращаем её сразу после вызова: подмена не переживёт prepareData актёра и не наложится на соседний бросок.
  *  Умножается только system.damage; добавка усиления (heightening.damage) не масштабируется — см. rollMissiles (при ней бросаем по одному). */
-async function rollScaled(spell, castRank, n) {
+async function rollScaled(spell, castRank, n, target) {
   const sets = [spell.system.damage, spell._source?.system?.damage].filter(Boolean);   // variant строится из _source (loadVariant -> toObject)
   const saved = sets.map((d) => Object.fromEntries(Object.entries(d).map(([k, v]) => [k, v.formula])));
   for (const d of sets) for (const v of Object.values(d)) v.formula = scaleFormula(v.formula, n);
   const el = document.createElement("div");
   el.dataset.castRank = String(castRank);
-  let p;
-  try { p = spell.rollDamage({ target: el }); }
+  const sign = (msg) => {
+    const pf = msg.flags?.pf2e;
+    if (!msg.isAuthor || pf?.context?.type !== "damage-roll" || pf.origin?.uuid !== spell.uuid) return;
+    Hooks.off("preCreateChatMessage", sign);
+    const patch = targetPatch(msg, target, n);
+    if (patch) msg.updateSource(patch);
+  };
+  Hooks.on("preCreateChatMessage", sign);
+  let roll;
+  try { roll = spell.rollDamage({ target: el }); }
   finally { sets.forEach((d, i) => { for (const [k, f] of Object.entries(saved[i])) d[k].formula = f; }); }
-  return p;
+  try { return await roll; }
+  finally { Hooks.off("preCreateChatMessage", sign); }
 }
 
-/** Подписать сообщение урона целью. pf2e для не-атак цель в контекст не кладёт (pf2e.mjs:53114), а читает её ChatMessagePF2e.target
- *  (pf2e.mjs:29357: flags.pf2e.context.target.token = UUID токена) и pf2e-toolbelt (flags.pf2e.context.target.token). */
-export async function signTarget(msg, t, n) {
-  if (!msg?.update || !t) return;
-  const ctx = msg.flags?.pf2e?.context;
-  await msg.update({
-    flavor: `${msg.flavor ?? ""}<p>${L("builtin.cast.volley", { n, target: esc(t.name) })}</p>`,
-    ...(ctx ? { "flags.pf2e.context.target": { actor: t.actor.uuid, token: t.uuid } } : {})
-  });
+/** preCreateChatMessage (только на вкладке, создающей сообщение): снимок целей каста. Исполняет лидер вкладок ГМа —
+ *  у него свои (пустые) цели, поэтому без снимка снаряды ушли бы без цели. */
+export function snapTargets(message) {
+  const origin = castOrigin(message);
+  if (origin?.type !== "spell" || !actionChoices(fromUuidSync(origin.uuid ?? "")?.system?.time?.value)) return;
+  message.updateSource({ [flagPath("castTargets")]: [...(game.user.targets ?? [])].map((t) => (t.document ?? t).uuid) });
 }
 
-/** Цели каста: снимок use.targets, записанный клиентом автора в момент каста (scripts/use.mjs); нет снимка — текущие цели автора. */
+/** Цели каста: снимок castTargets, затем use.targets (scripts/use.mjs); нет снимка — текущие цели. */
 async function missileTargets(message) {
+  const own = message.flags?.[MOD]?.castTargets;
+  if (own) return (await Promise.all(own.map((u) => fromUuid(u)))).filter((d) => d?.actor);   // пустой снимок — сотворили без целей
   const snap = message.flags?.[MOD]?.use?.targets ?? [];
   const docs = snap.length ? await Promise.all(snap.map((t) => fromUuid(t.uuid))) : [...(game.user.targets ?? [])].map((t) => t.document ?? t);
   return docs.filter((d) => d?.actor);
@@ -91,7 +114,7 @@ async function rollMissiles(message, spell, actions) {
   }
   const heightened = Object.keys(spell.system.heightening?.damage ?? {}).length > 0;   // добавка усиления не умножается -> по одному снаряду
   for (const [t, n] of plan) {
-    for (const k of heightened ? Array(n).fill(1) : [n]) await signTarget(await rollScaled(spell, castRank, k), t, k);
+    for (const k of heightened ? Array(n).fill(1) : [n]) await rollScaled(spell, castRank, k, t);
   }
 }
 

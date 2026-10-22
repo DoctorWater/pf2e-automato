@@ -171,12 +171,12 @@ export function onDamageTaken(message) {
   if (scene && token) callGM("markDamageApplied", from, `Scene.${scene}.Token.${token}`).catch((e) => console.error(`${MOD} | markDamageApplied`, e));
 }
 
-/** Обёртка Actor#applyDamage: после применения урона с блоком просит ГМа снять щит заклинания. */
+const APPLY = "CONFIG.Actor.documentClass.prototype.applyDamage";
+
+/** Обёртка Actor#applyDamage: после применения урона с блоком просит ГМа снять щит заклинания.
+ *  Есть libWrapper — регистрируем через него (иначе конфликт-предупреждения с другими модулями), нет — ручная подмена. */
 export function wrapApplyDamage() {
-  const proto = CONFIG.Actor.documentClass?.prototype;
-  if (!proto?.applyDamage || proto.applyDamage.__afShield) return;
-  const orig = proto.applyDamage;
-  proto.applyDamage = async function (opts, ...rest) {
+  const wrap = async function (orig, opts, ...rest) {
     const shield = this.attributes?.shield ? { ...this.attributes.shield } : null;
     const fx = modeOf("shieldBlock") !== "off" && blockHappened({ request: opts?.shieldBlockRequest, damage: opts?.damage, shield }) ? spellShieldEffect(shield, this.items, this.rollOptions?.all) : null;
     const from = clicked && Date.now() - clicked.at < CLICK_MS ? clicked.id : null;
@@ -186,5 +186,13 @@ export function wrapApplyDamage() {
     if (from && opts?.token?.uuid) callGM("markDamageApplied", from, opts.token.uuid).catch((e) => console.error(`${MOD} | markDamageApplied`, e));
     return res;
   };
+  if (globalThis.game?.modules?.get("lib-wrapper")?.active && globalThis.libWrapper) {
+    libWrapper.register(MOD, APPLY, wrap, "WRAPPER");
+    return;
+  }
+  const proto = CONFIG.Actor.documentClass?.prototype;
+  if (!proto?.applyDamage || proto.applyDamage.__afShield) return;
+  const orig = proto.applyDamage;
+  proto.applyDamage = function (...a) { return wrap.call(this, orig, ...a); };
   proto.applyDamage.__afShield = true;
 }

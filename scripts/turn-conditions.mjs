@@ -92,13 +92,23 @@ async function retch(h, dcInput) {
   if (!res?.ok || res.result?.ok === false) ui.notifications.warn(L("chat.failed", { reason: res?.result?.error ?? res?.reason }));
 }
 
+const retching = new Set();   // id сообщений с броском в полёте: избавляться можно несколько раз за ход, но не двойным кликом
+
 function bind(message, html) {
   const h = message.flags?.[MOD]?.retch, root = html instanceof HTMLElement ? html : html?.[0];
   const btn = root?.querySelector?.("[data-af-retch]");
   if (!h || !btn) return;
   btn.addEventListener("click", async () => {
+    if (retching.has(message.id)) return;
+    retching.add(message.id);
     btn.disabled = true;
-    try { await retch(h, root.querySelector("[data-af-retch-dc]")?.valueAsNumber); } finally { btn.disabled = false; }
+    try { await retch(h, root.querySelector("[data-af-retch-dc]")?.valueAsNumber); }
+    catch (e) { console.error(`${MOD} | retch`, e); }
+    finally {   // сообщение могло перерисоваться (всплывающий чат) — включаем все копии кнопки
+      retching.delete(message.id);
+      document.querySelectorAll(`[data-message-id="${message.id}"] [data-af-retch]`).forEach((b) => { b.disabled = false; });
+      btn.disabled = false;
+    }
   });
 }
 

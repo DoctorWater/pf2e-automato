@@ -37,6 +37,7 @@ const MESSAGE_HOOKS = [["blood-magic", bloodMagic.onMessage], ["reactive-strike"
 export function initBuiltinHooks() {
   if (!globalThis.Hooks) return;   // node-тесты
   // число действий переменного заклинания спрашивает автор сообщения (игрок у себя, ГМ у себя), не ГМ-исполнитель
+  Hooks.on("preCreateChatMessage", (message) => { if (modeOf("macro") !== "off") variableCast.snapTargets(message); });
   Hooks.on("createChatMessage", (message) => {
     if (modeOf("macro") === "off") return;
     variableCast.onMessage(message).catch((e) => console.error(`${MOD} | builtin variable-cast`, e));

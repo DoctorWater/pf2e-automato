@@ -79,12 +79,12 @@
         "effect": "{name}: off-guard"
       },
       "cast": {
-        "prompt": "\"{name}\": how many actions did you spend casting? (the slot is already spent once - do not cast again)",
-        "actions": "{n} action(s)",
+        "prompt": "\"{name}\": how many actions did you spend casting?",
+        "act": { "1": "1 action", "2": "2 actions", "3": "3 actions" },
         "split": "Missiles: {total}. Split them among the targets (the sum must be {total}).",
-        "roll": "Roll damage",
+        "roll": "Done",
         "splitBad": "The missile counts must add up to {total}.",
-        "volley": "{n} missile(s) → {target}"
+        "volley": "Missiles: {n} → {target}"
       }
     }
   }

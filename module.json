@@ -12,6 +12,7 @@
       { "id": "socketlib", "type": "module" }
     ],
     "recommends": [
+      { "id": "lib-wrapper", "type": "module" },
       { "id": "pf2e-toolbelt", "type": "module" },
       { "id": "pf2e-automations", "type": "module" }
     ]
@@ -21,7 +22,7 @@
   },
   "socket": true,
   "esmodules": ["scripts/main.mjs"],
-  "styles": ["styles/chat.css", "styles/sheet.css", "styles/zone.css", "styles/workshop.css"],
+  "styles": ["styles/chat.css", "styles/dialog.css", "styles/sheet.css", "styles/zone.css", "styles/workshop.css"],
   "languages": [
     { "lang": "ru", "name": "Русский", "path": "lang/ru/common.json" },
     { "lang": "ru", "name": "Русский", "path": "lang/ru/settings.json" },

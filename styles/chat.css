@@ -85,13 +85,10 @@
   .pf2e-automato .paf-flash { animation: paf-flash 1.4s ease-out; }
 }
 
-/* окна модуля (DialogV2, classes: paf-dialog; окно реакции — тоже): тот же тихий вид кнопок, главная — контур */
-.paf-dialog { --paf-line: color-mix(in srgb, currentColor 22%, transparent); --paf-mute: color-mix(in srgb, currentColor 62%, transparent); }
-.paf-dialog .dialog-content { padding: 4px 0; }
-.paf-dialog .dialog-content p { margin: 0 0 0.4em; }
-.paf-dialog .dialog-content .hint { font-size: 11px; color: var(--paf-mute); }
-.paf-dialog .form-footer button { height: 24px; background: transparent; border: 1px solid var(--paf-line); box-shadow: none; }
-.paf-dialog .form-footer button.default, .paf-dialog .form-footer .paf-primary { border-color: color-mix(in srgb, currentColor 55%, transparent); }
-.paf-dialog .form-footer .paf-ghost { border-color: transparent; color: var(--paf-mute); }
+/* окна модуля (classes: paf-dialog) оформляются в styles/dialog.css */
 .pf2e-automato .paf-dc-input { width: 5em; height: 22px; margin-left: 0.4em; vertical-align: middle; }
 .pf2e-automato .paf-hint { font-style: italic; opacity: 0.75; }
+
+/* Карточка продолжительного урона: workbench сам применяет урон и бросает восстановление */
+.paf-hide-pdamage .damage-application,
+.paf-hide-precovery .persistent-damage-recovery { display: none !important; }

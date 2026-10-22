@@ -23,7 +23,7 @@ export function effectSource({ name, description = "", rules = [], duration = UN
       duration: { sustained: false, ...duration },
       context: {
         origin: { actor: origin.actor ?? null, token: origin.token ?? null, item: origin.item ?? null, spellcasting: null, rollOptions: [] },
-        target: { actor: target.actor ?? null, token: target.token ?? null },
+        target: target.actor ? { actor: target.actor, token: target.token ?? null } : null,   // pf2e: actor цели не может быть null, только вся цель
         roll: null
       }
     }

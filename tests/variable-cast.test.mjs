@@ -33,13 +33,14 @@ test("формула n снарядов в одну цель: кубики и м
   assert.equal(v.scaleFormula("2d6+1d4", 2), "2d6+1d4 + 2d6+1d4");
 });
 
-test("подпись цели: context.target = uuid актёра и токена, во flavor — цель", async () => {
-  let upd;
-  const msg = { flavor: "F", flags: { pf2e: { context: {} } }, update: async (d) => { upd = d; } };
-  await v.signTarget(msg, { name: "Орк", uuid: "Scene.s.Token.t", actor: { uuid: "Actor.a" } }, 2);
-  assert.deepEqual(upd["flags.pf2e.context.target"], { actor: "Actor.a", token: "Scene.s.Token.t" });
-  assert.ok(upd.flavor.startsWith("F"));
-  upd = null;
-  await v.signTarget(msg, null, 1);
-  assert.equal(upd, null);
+test("подпись цели: context.target = uuid актёра и токена, во flavor — цель", () => {
+  const msg = { flavor: "F", flags: { pf2e: { context: {} } } };
+  const p = v.targetPatch(msg, { name: "Орк", uuid: "Scene.s.Token.t", actor: { uuid: "Actor.a" } }, 2);
+  assert.deepEqual(p["flags.pf2e.context.target"], { actor: "Actor.a", token: "Scene.s.Token.t" });
+  assert.deepEqual(p["flags.pf2e.target"], p["flags.pf2e.context.target"]);
+  assert.ok(p.flavor.startsWith("F"));
+  assert.equal(v.targetPatch(msg, null, 1), null);
+  const tb = v.targetPatch({ flags: { pf2e: { context: {} }, "pf2e-toolbelt": { targetHelper: { targets: ["A", "B"] } } } }, { name: "x", uuid: "B", actor: { uuid: "a" } }, 1);
+  assert.deepEqual(tb["flags.pf2e-toolbelt.targetHelper.targets"], ["B"]);
+  assert.ok(!("flags.pf2e.context.target" in v.targetPatch({ flags: {} }, { name: "x", uuid: "u", actor: { uuid: "a" } }, 1)));
 });

@@ -17,7 +17,7 @@
     ]
   },
   "documentTypes": {
-    "RegionBehavior": { "zone": {} }
+    "RegionBehavior": { "zone": {}, "height": {} }
   },
   "socket": true,
   "esmodules": ["scripts/main.mjs"],

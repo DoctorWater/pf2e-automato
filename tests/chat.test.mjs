@@ -250,3 +250,12 @@ test("плюральная категория без ключа (two/zero) па�
   assert.match(vm.pending, /^chat\.pending\.(other|zero|one|two|few|many)/);
   assert.match(buildViewModel(mkMsg({ rule, state: { challenge: { results: { a: { degree: 1, total: 5 }, b: { degree: 1, total: 5 }, c: { degree: 1, total: 5 } }, applied: {} } } }), gm, mkEnv({ env: { lang: "ar" } })).challenge.pending, /pending\.few/);
 });
+
+test("подсказки разметки: только ГМу и только источник «разметка»", () => {
+  const hints = { possible: ["failure:blinded"], excluded: ["success:hidden"] };
+  const vm = (user, over = {}) => buildViewModel(mkMsg({ src: "markup", hints, ...over }), user, mkEnv());
+  assert.equal(vm(gm).hints.length, 2);
+  assert.equal(vm(pl).hints, undefined);      // автор-игрок
+  assert.equal(vm(other).hints, undefined);   // посторонний
+  assert.equal(vm(gm, { src: "flag" }).hints, undefined);
+});

@@ -37,7 +37,7 @@
     {{#if res}}
       <p>{{localize "PF2E_AUTOMATO.sheet.source"}}: <span class="paf-chip" data-src="{{res.src}}">{{res.source}}</span>
         {{#if res.low}}<span class="paf-chip paf-chip-low" data-tooltip="PF2E_AUTOMATO.sheet.confLowHint">{{localize "PF2E_AUTOMATO.sheet.confLow"}}</span>{{/if}}</p>
-      {{#if res.hints}}<p class="af-meta af-hints">{{#if res.hints.possible}}{{res.hints.possible}}{{/if}}{{#if res.hints.excluded}}{{#if res.hints.possible}}<br>{{/if}}{{res.hints.excluded}}{{/if}}</p>{{/if}}
+      {{#if res.hints}}<p class="af-hints">{{#if res.hints.possible}}{{res.hints.possible}}{{/if}}{{#if res.hints.excluded}}{{#if res.hints.possible}}<br>{{/if}}{{res.hints.excluded}}{{/if}}</p>{{/if}}
     {{else}}
       <p>{{localize "PF2E_AUTOMATO.sheet.none"}}</p>
     {{/if}}

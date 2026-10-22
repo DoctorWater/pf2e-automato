@@ -384,14 +384,14 @@ export class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
     const plates = {};
     const stepsOf = (path) => (foundry.utils.getProperty(a, path) ?? []).map((row, i) => {
       const p = `${path}.${i}`, pl = au.plate(row, env);
-      const text = pl.dur ? `${pl.name} · ${pl.dur}` : pl.name;
+      const text = pl.dur ? `${pl.name} · ${pl.dur.replace(/ /g, " ")}` : pl.name;
       plates[p] = { text, value: pl.value };
       return { path: p, ...pl, text, open: a.sel === p, stepper: pl.kind === "condition" && pl.valued };
     });
     const okGhost = new Set(grantable().map((c) => c.slug));
     const lst = (path, label, deg = "") => {
       const steps = stepsOf(path), have = new Set((foundry.utils.getProperty(a, path) ?? []).filter((r) => r.kind === "condition").map((r) => r.text));
-      const ghosts = deg && a.hints ? a.hints.possible.filter((h) => h.deg === deg && okGhost.has(h.slug) && !have.has(h.slug)).map((h) => ({ slug: h.slug, text: t("workshop.au.hintPossible", { name: h.label }) })) : [];
+      const ghosts = deg && a.hints ? a.hints.possible.filter((h) => h.deg === deg && okGhost.has(h.slug) && !have.has(h.slug)).map((h) => ({ slug: h.slug, timed: h.timed, text: t("workshop.au.hintPossible", { name: h.label }), tip: t(h.timed ? "workshop.au.hintTimedTip" : "workshop.au.hintPossibleTip", { name: h.label }) })) : [];
       return { list: path, label, deg, steps, ghosts, picker: a.picker === path };
     };
     let edit = null;

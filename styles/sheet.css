@@ -6,6 +6,7 @@
 .tab.automato .af-narrow { width: 4rem; flex: none; }
 .tab.automato .af-block { margin: 0.5rem 0; }
 .tab.automato .af-degree h5 { margin: 0.4rem 0 0.1rem; }
+.tab.automato .af-hints { font-size: 0.85em; opacity: 0.8; }
 .tab.automato .af-meta { font-size: 0.85em; opacity: 0.8; word-break: break-all; }
 .tab.automato .af-badge { font-weight: bold; }
 .tab.automato .af-warn { color: #fff; background: #a01818; padding: 0.4rem 0.6rem; border-radius: 3px; }

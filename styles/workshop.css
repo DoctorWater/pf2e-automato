@@ -196,7 +196,7 @@
 /* Плашка: имя целиком, управление под ним (узкая колонка) */
 .pf2e-automato-workshop .ws-plate { flex-wrap: wrap; }
 .pf2e-automato-workshop .ws-plate-t { height: auto; min-height: 28px; padding-block: 4px; }
-.pf2e-automato-workshop .ws-plate-n { overflow: visible; white-space: normal; overflow-wrap: anywhere; text-align: left; }
+.pf2e-automato-workshop .ws-plate-n { overflow: visible; white-space: normal; overflow-wrap: break-word; word-break: normal; hyphens: auto; text-align: left; }
 .pf2e-automato-workshop .ws-plate.has-stp .ws-plate-t { flex-basis: 100%; padding-bottom: 0; }
 .pf2e-automato-workshop .ws-plate.has-stp .ws-stp { margin: 0 0 3px 6px; }
 .pf2e-automato-workshop .ws-plate.has-stp .ws-x { margin: 0 0 3px auto; }
@@ -304,4 +304,6 @@
 .pf2e-automato-workshop .ws-ref { padding: 0 4px; background: #ddd2c0; border-radius: 2px; }
 .pf2e-automato-workshop .ws-ghost { display: block; width: 100%; min-height: 28px; margin: 0; padding: 0 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: left; font-size: 12px; font-style: italic; color: #5b5048; background: transparent; border: 1px dashed #baa991; border-radius: 3px; cursor: pointer; }
 .pf2e-automato-workshop .ws-ghost:hover { color: #2a2420; background: #fffdf9; border-color: #786452; }
+.pf2e-automato-workshop .ws-ghost.is-off { cursor: help; opacity: .7; }
+.pf2e-automato-workshop .ws-ghost.is-off:hover { color: #5b5048; background: transparent; border-color: #baa991; }
 .pf2e-automato-workshop .ws-hintx { padding-bottom: 0; font-style: italic; }

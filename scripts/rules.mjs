@@ -346,7 +346,8 @@ const BLOCK_STOP = /<hr|<\/p>|<\/li>|<br|<table/i;
 
 function parseBlocks(html, map) {
   const markers = [];
-  const tables = [...html.matchAll(/<table\b[\s\S]*?(?:<\/table>|$)/gi)].map((t) => [t.index, t.index + t[0].length]);
+  // закрытая таблица — целиком (в ячейках бывают <p>); незакрытая — до конца абзаца
+  const tables = [...html.matchAll(/<table\b[\s\S]*?<\/table>|<table\b[\s\S]*?(?=<\/p>|<hr|$)/gi)].map((t) => [t.index, t.index + t[0].length]);
   for (const m of html.matchAll(/<(strong|b)\b[^>]*>([\s\S]{1,60}?)<\/\1>/gi)) {
     const degree = map.get(normLabel(m[2]));
     // подпись внутри таблицы — заголовок колонки, не блок
@@ -409,9 +410,9 @@ const PLAIN_SKIP = new Set([...NOT_ON_TARGET, "persistent-damage", "friendly", "
 const DUR = /(?<!\p{L})(?:в течение|на|for)\s+(\d+)\s*(раунд|минут|час|дн|ден|round|minute|hour|day)/giu;
 const NEXT_TURN = /(?<!\p{L})(?:до|until)\s+(?:the\s+)?(начала|конца|start|end)\s+(?:of\s+)?(своего|его|ее|их|вашего|its|their|his|her|your)\s+(?:следующего|next)\s+(?:хода|turn)/giu;
 // pf2e допускает «stunned на срок» вместо значения; шагом правила это не выразить: createTimed даёт значение 1 (теряет 1 действие, а не все)
-const DURATION_ONLY = new Set(["stunned"]);
+export const DURATION_ONLY = new Set(["stunned"]);
 const durNext = (s) => [DUR, NEXT_TURN].some((re) => new RegExp("^\\s*(?:" + re.source + ")", "iu").test(s));
-const UNIT_OF ={ р: "rounds", r: "rounds", м: "minutes", m: "minutes", ч: "hours", h: "hours", д: "days", d: "days" };
+const UNIT_OF = { р: "rounds", r: "rounds", м: "minutes", m: "minutes", ч: "hours", h: "hours", д: "days", d: "days" };
 // перед состоянием без смысла «цель получает»: избавление, избегание, иммунитет, отрицание, условие
 const STOP = /(?<!\p{L})(?:из(?![\p{L}-])|без|уже|если|не|ни|избег\p{L}*|избав\p{L}*|тер(?:я|ет|ял)\p{L}*|утрач\p{L}*|высвобо\p{L}*|снима\p{L}*|снят\p{L}*|прекращ\p{L}*|иммун\p{L}*|невосприимч\p{L}*|no longer|not|can't|can’t|cannot|immune|if|unless|removes?|removed|free from|recovers? from)(?![\p{L}])|(?<!\p{L})от\s+(?:\p{L}+\s+)?$|(?<!\p{L})ends?(?![\p{L}])(?!\s+of\b)/iu;
 // получатель — автор («вы получаете…»), а не цель
@@ -449,8 +450,12 @@ function addPlainConds(text, conds, terms, linkedAll) {
         if (DURATION_ONLY.has(slug) && durNext(flat.slice(end)) && !possible.includes(slug)) possible.push(slug);
         continue;
       }
-      if (ALT.test(flat.slice(end + (after?.[0].length ?? 0), Math.min(sentEnd(end), end + 40)).split(",")[0])) continue;
+      const tail = flat.slice(end + (after?.[0].length ?? 0), Math.min(sentEnd(end), end + 40)).split(",")[0];
       const value = VALUED.has(slug) ? +after[1] : null;
+      // «шок 3 (вместо шока 1)»: замена того же состояния меньшим значением — не альтернатива; «испуг 1 вместо испуга 2» — по-прежнему максимум
+      const rep = new RegExp("^[\\s(]*(?:вместо|instead of)\\s+" + stem + "\\p{L}{0,3}(?![\\p{L}])\\s*(\\d+)?", "u").exec(tail);
+      const isRep = rep && (rep[1] == null || +rep[1] <= value);
+      if (ALT.test(isRep ? tail.slice(rep[0].length) : tail)) continue;   // условие после замены («… if undead») по-прежнему отсекает
       if (value == null && !linkedAll.has(slug)) { if (!possible.includes(slug)) possible.push(slug); continue; }
       const prev = conds.find((c) => c.slug === slug);
       if (!prev) conds.push({ slug, value, at: m.index, end: end + (after?.[0].length ?? 0), plain: true });

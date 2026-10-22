@@ -28,7 +28,7 @@
 {{#*inline "lst"}}
 <div class="ws-lst" data-list="{{list}}">
   {{#each steps}}{{> plate}}{{/each}}
-  {{#each ghosts}}<button type="button" class="ws-ghost" data-action="addStep" data-list="{{../list}}" data-slug="{{slug}}" name="ghost-{{slug}}-{{../list}}" data-tooltip="PF2E_AUTOMATO.workshop.au.hintPossibleTip">{{text}}</button>{{/each}}
+  {{#each ghosts}}{{#if timed}}<span class="ws-ghost is-off" data-tooltip="{{tip}}">{{text}}</span>{{else}}<button type="button" class="ws-ghost" data-action="addStep" data-list="{{../list}}" data-slug="{{slug}}" name="ghost-{{slug}}-{{../list}}" data-tooltip="{{tip}}">{{text}}</button>{{/if}}{{/each}}
   {{#unless steps.length}}{{#unless quiet}}<div class="ws-dnone">{{localize "PF2E_AUTOMATO.workshop.au.noEffects"}}</div>{{/unless}}{{/unless}}
   <div class="ws-padd">
     <button type="button" class="ws-add" data-action="togglePicker" data-list="{{list}}" name="add-{{list}}" aria-expanded="{{picker}}"><i class="fa-solid fa-plus" inert></i> {{#if quiet}}{{localize "PF2E_AUTOMATO.workshop.au.addImmediate"}}{{else}}{{localize "PF2E_AUTOMATO.workshop.au.add"}}{{/if}}</button>

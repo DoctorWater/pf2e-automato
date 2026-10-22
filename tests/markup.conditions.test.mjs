@@ -200,3 +200,24 @@ test("«шок N» простым текстом: 3 буквы — только 
   const d = d2(`<b>Провал:</b> цель получает шок 2.<br><b>Критический провал:</b> шоковое состояние и шока нет.`);
   assert.deepEqual(by(d), { failure: [["stunned", 2, undefined]] });
 });
+
+test("«шок 3 (вместо шока 1)»: замена того же состояния — берётся упоминание до «вместо»", () => {
+  const d = d2(`<b>Критический провал:</b> цель получает шок 3 (вместо шока 1).`);
+  assert.deepEqual(by(d), { criticalFailure: [["stunned", 3, undefined]] });
+  assert.deepEqual(bd("Failure", "frightened 2 instead of frightened 1."), { failure: [["frightened", 2, undefined]] });
+  assert.deepEqual(bd("Провал", "испуг 1 вместо испуга 2."), { failure: [["frightened", 2, undefined]] });   // прежнее: заменяет испуг 2 -> максимум
+});
+
+test("незакрытая <table> съедает только свой абзац", () => {
+  const d = d2(`<p>Таблица: <table><tr><td><b>Провал</b> x</td></p><p><b>Провал:</b> цель получает испуг 2.</p>`);
+  assert.deepEqual(by(d), { failure: [["frightened", 2, undefined]] });
+});
+
+test("закрытая <table> с <p> в ячейках отсекается целиком", () => {
+  const d = d2(`<p><b>Провал:</b> цель получает испуг 1.</p><table><tbody><tr><td><p>1</p></td><td><p><b>Провал:</b> испуг 4.</p></td></tr></tbody></table>`);
+  assert.deepEqual(by(d), { failure: [["frightened", 1, undefined]] });
+});
+
+test("замена «вместо» с условием после неё не берётся", () => {
+  assert.deepEqual(bd("Failure", "stunned 3 instead of stunned 1 if the target is undead."), {});
+});

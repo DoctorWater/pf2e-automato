@@ -1,3 +1,5 @@
+import { isLeader, callLeader, whenSettled, CALL_MS } from "./leader.mjs";
+export { whenSettled, sharedDialog } from "./leader.mjs";
 export const MOD = "pf2e-automato";
 /** Ошибка validateRule ({key, data}) -> текст на языке интерфейса; без Foundry — фолбэк toString(). */
 export const errText = (e) => (e?.key && globalThis.game?.i18n ? L(`rules.err.${e.key}`, e.data) : String(e));
@@ -17,7 +19,8 @@ export const sluggify = (s) => {
   if (s === "-") return s;
   return s.replace(CAMEL, "$1-$2").toLowerCase().replace(/['’]/g, "").replace(NON_WORD, " ").trim().replace(/[-\s]+/g, "-");
 };
-export const isActiveGM = () => game.user.isActiveGM;
+/** Активный ГМ И лидер своих сессий: один исполнитель, даже если ГМ открыт в нескольких вкладках (leader.mjs). */
+export const isActiveGM = () => !!game.user?.isActiveGM && isLeader();
 export const flagPath = (...p) => ["flags", MOD, ...p].join(".");
 export const tokenKey = (tokenDoc) => tokenDoc.id;
 
@@ -38,23 +41,22 @@ export function setSocket(s) { socket = s; }
 
 /** Все мутации — только активному ГМу (не executeAsGM: он исполнил бы на любом ГМе). */
 export async function callGM(name, ...args) {
-  for (let attempt = 0; attempt < 2; attempt++) {
-    const gm = game.users.activeGM;
-    if (!gm) {
-      ui.notifications.warn(L("noGM"));
-      return { ok: false, reason: "no-gm" };
-    }
-    let res;
-    try { res = await socket.executeAsUser(name, gm.id, ...args); }
-    catch (e) { console.error(`${MOD} | callGM ${name}`, e); return { ok: false, reason: "error", error: String(e?.message ?? e) }; }
-    if (res?.reason === "not-active-gm" && attempt === 0) continue;   // активный ГМ сменился — один повтор
-    return res;
+  await whenSettled();
+  const gm = game.users.activeGM;
+  if (!gm) {
+    ui.notifications.warn(L("noGM"));
+    return { ok: false, reason: "no-gm" };
   }
-  return { ok: false, reason: "not-active-gm" };
+  // Без автоповтора: ответ мог потеряться вместе с лидером, а повтор исполнил бы уже сделанное; кнопку нажмут снова (обработчики идемпотентны по состоянию).
+  let timer;
+  const timeout = new Promise((r) => { timer = setTimeout(() => r({ ok: false, reason: "timeout" }), CALL_MS); });
+  try { return await Promise.race([gm.id === game.user?.id && !isLeader() ? callLeader(name, args) : socket.executeAsUser(name, gm.id, ...args), timeout]); }
+  catch (e) { console.error(`${MOD} | callGM ${name}`, e); return { ok: false, reason: "error", error: String(e?.message ?? e) }; }
+  finally { clearTimeout(timer); }
 }
 
 /** Для обработчиков сокета: false — этот клиент не активный ГМ, вернуть { ok:false, reason:"not-active-gm" }. */
-export const guardActiveGM = () => !!game.user?.isActiveGM;
+export const guardActiveGM = isActiveGM;
 
 // Сериализатор на ОДНОМ клиенте: следующая задача по ключу стартует после завершения предыдущей (в т.ч. упавшей).
 // НЕ реентерабелен: queue(k, () => ... queue(k, ...)) повиснет — не вкладывать один ключ в себя.

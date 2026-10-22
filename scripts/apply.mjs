@@ -1,7 +1,7 @@
 // Исполняется ТОЛЬКО на клиенте активного ГМа. Записи на актёре сериализованы queue("actor:<uuid>").
 // ВАЖНО: queue не реентерабелен — вызывающий (zone.hold и т.п.) НЕ должен сам держать queue("actor:"+uuid)
 // вокруг applyCondition/applyEffect/removeByKey, иначе зависнет. Очередь "msg:<id>" apply не берёт (её держит вызывающий).
-import { MOD, L, flagPath, sluggify, queue, forcedDelete, socket, ENDS_EARLY } from "./util.mjs";
+import { MOD, L, flagPath, sluggify, queue, forcedDelete, socket, ENDS_EARLY, sharedDialog } from "./util.mjs";
 import { runMacros } from "./macros.mjs";
 import { effectSource } from "./builtin/lib.mjs";
 import { setSource, dropSource, visionActive } from "./vision.mjs";
@@ -127,17 +127,18 @@ export function applyEffect(actor, spec /* {uuid} */, meta = {}, ctx = {}) {
     // метка TokenMark: без uuid pf2e берёт цель/запрос у ГМа (pf2e.mjs TokenMarkRuleElement.preCreate) — подставляем выбранного автором врага
     if (ctx.markUuid) for (const r of data.system.rules ?? []) if (r.key === "TokenMark" && !r.uuid) r.uuid = ctx.markUuid;
     if (ctx.choice != null) { const cs = (data.system.rules ?? []).find((r) => r.key === "ChoiceSet" && r.selection == null); if (cs) cs.selection = ctx.choice; }
-    if (ctx.chooser && !(await chooseRemotely(actor, data, ctx.chooser))) { notify("apply.noChoice", { name: data.name }); return { op: "skipped" }; }
+    if (!(await chooseChoices(actor, data, ctx.chooser))) { notify("apply.noChoice", { name: data.name }); return { op: "skipped" }; }
     withMeta(data, meta);
     const [item] = await actor.createEmbeddedDocuments("Item", [data]);
     return item ? { op: "created", item } : { op: "skipped" };   // pf2e выкинул документ (иммунитет, отмена метки)
   });
 }
 
-/** ChoiceSet без выбора (напр. оружие для Рунного оружия) у автора-игрока: варианты считает pf2e на временном предмете (без окна),
- *  выбирает игрок у себя (сокет pickChoice), selection пишется в источник — pf2e при создании берёт её без запроса. false — отказ. */
+/** ChoiceSet без выбора (напр. оружие для Рунного оружия): варианты считает pf2e на временном предмете (без окна),
+ *  выбирает автор-игрок у себя (сокет pickChoice) либо, если игрока нет (user = null), ГМ — общим окном во всех своих вкладках;
+ *  selection пишется в источник — pf2e при создании берёт её без запроса. false — отказ. */
 const PICK_MS = 120000;
-async function chooseRemotely(actor, data, user) {
+async function chooseChoices(actor, data, user) {
   const idx = (data.system.rules ?? []).flatMap((r, i) => (r.key === "ChoiceSet" && r.selection == null ? [i] : []));
   if (!idx.length) return true;
   const temp = new CONFIG.Item.documentClass(foundry.utils.deepClone(data), { parent: actor });
@@ -146,10 +147,13 @@ async function chooseRemotely(actor, data, user) {
     const re = temp.prepareRuleElements({ suppressWarnings: true }).find((r) => r.sourceIndex === i);   // у временного предмета pf2e правил не готовит
     const choices = re?.inflateChoices ? await re.inflateChoices(opts, []) : [];
     if (!choices.length) continue;   // считать нечего — пусть решает pf2e как обычно
+    const prompt = re.prompt ? game.i18n.localize(re.prompt) : "";
+    const ask = user
+      ? socket.executeAsUser("pickChoice", user.id, { title: data.name, prompt, choices: choices.map((c) => ({ value: c.value, label: c.label })) })
+      : sharedDialog({ title: data.name, content: choiceHtml(prompt, choices), buttons: [{ action: "ok", label: L("apply.choose") }] })
+        .then((r) => (r?.form ? choices[Number(r.form.choice)]?.value ?? null : null));
     const value = choices.length === 1 ? choices[0].value
-      : await Promise.race([   // очередь актёра ждёт ответа игрока — не дольше PICK_MS
-        socket.executeAsUser("pickChoice", user.id, { title: data.name, prompt: re.prompt ? game.i18n.localize(re.prompt) : "", choices: choices.map((c) => ({ value: c.value, label: c.label })) }),
-        new Promise((r) => setTimeout(() => r(null), PICK_MS))]);
+      : await Promise.race([ask, new Promise((r) => setTimeout(() => r(null), PICK_MS))]);   // очередь актёра ждёт ответа — не дольше PICK_MS
     if (value == null || !choices.some((c) => c.value === value)) return false;
     data.system.rules[i].selection = value;
   }
@@ -157,12 +161,16 @@ async function chooseRemotely(actor, data, user) {
 }
 
 /** Сокет, у игрока: окно выбора варианта по запросу ГМа. -> value | null. */
+const choiceHtml = (prompt, choices) => {
+  const esc = (x) => foundry.utils.escapeHTML(String(x ?? ""));
+  return `${prompt ? `<p>${esc(prompt)}</p>` : ""}<select name="choice">${choices.map((c, i) => `<option value="${i}">${esc(c.label)}</option>`).join("")}</select>`;
+};
+
 export async function pickChoice({ title, prompt, choices }) {
   if (!game.users.get(this?.socketdata?.userId)?.isGM) return null;
-  const esc = (x) => foundry.utils.escapeHTML(String(x ?? ""));
   const res = await foundry.applications.api.DialogV2.wait({
     window: { title }, rejectClose: false,
-    content: `${prompt ? `<p>${esc(prompt)}</p>` : ""}<select name="choice">${choices.map((c, i) => `<option value="${i}">${esc(c.label)}</option>`).join("")}</select>`,
+    content: choiceHtml(prompt, choices),
     buttons: [{ action: "ok", label: L("apply.choose"), default: true, callback: (_e, b) => Number(b.form.elements.choice.value) }]
   });
   return Number.isInteger(res) ? choices[res]?.value ?? null : null;

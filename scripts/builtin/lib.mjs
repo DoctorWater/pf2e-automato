@@ -1,5 +1,5 @@
 // Общие помощники встроенных обработчиков. Чистые функции не трогают foundry (юнит-тесты, tests/builtin.test.mjs).
-import { MOD, queue } from "../util.mjs";
+import { MOD, queue, sharedDialog } from "../util.mjs";
 
 export const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 
@@ -45,10 +45,8 @@ export async function addCondition(actor, spec, key) {
 }
 
 /** Диалог выбора у активного ГМа. buttons: [{id, label}]; возвращает id или null (закрыт). */
-export const ask = (title, content, buttons) => foundry.applications.api.DialogV2.wait({
-  window: { title }, content, rejectClose: false,
-  buttons: buttons.map((b, i) => ({ action: b.id, label: b.label, default: i === 0 }))
-});
+export const ask = async (title, content, buttons) =>
+  (await sharedDialog({ title, content, buttons: buttons.map((b) => ({ action: b.id, label: b.label })) }))?.action ?? null;
 
 /** Шёпот ГМам и владельцам актёра. */
 export function whisper(actor, content, tag, extra = {}) {

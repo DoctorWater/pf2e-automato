@@ -1,5 +1,5 @@
 // Испытания: бросок, приём результата (любой saving-throw), применение по степеням. plan.md §2 saves, §3.C, §3.F.
-import { MOD, L, DEGREES, flagPath, queue, degreeFromTotal, debug, callGM } from "./util.mjs";
+import { MOD, L, DEGREES, flagPath, queue, degreeFromTotal, debug, callGM, isActiveGM } from "./util.mjs";
 import { S, modeOf } from "./settings.mjs";
 import { toolbeltTargetHelper, toolbeltMessageTargets } from "./compat.mjs";
 import { applyOps } from "./apply.mjs";
@@ -160,7 +160,7 @@ export async function rollSave(actor, challenge, ctx = {}) {
 /** ГМ: бросает NPC-целей (auto) либо только `only` (кнопка). PC — только кнопкой игрока. */
 export async function runChallenge(message, { only } = {}) {
   const use = useOf(message), ch = challengeOf(use);
-  if (!game.user.isActiveGM || !ch || use.state?.yielded) return [];
+  if (!isActiveGM() || !ch || use.state?.yielded) return [];
   const mode = modeOf("challenge");
   if (mode === "off" || (mode === "button" && !only) || (!isCheck(ch) && toolbeltRolls())) return [];
   if (isCheck(ch)) return runCheck(message, { only });
@@ -193,7 +193,7 @@ const CHECK_TYPES = new Set(["skill-check", "perception-check", "flat-check"]);
 
 /** ГМ: любое saving-throw-сообщение -> результат испытания (по маркеру либо по origin-предмету + токену цели). */
 export async function acceptSavingThrow(message) {
-  if (!game.user.isActiveGM) return null;
+  if (!isActiveGM()) return null;
   const pf2e = message.flags?.pf2e, ctx = pf2e?.context;
   const mk = parseMarker(ctx?.options);   // по маркеру принимаем и не-save статистики (навык, Восприятие)
   if (!mk && ctx?.type !== "saving-throw" && !CHECK_TYPES.has(ctx?.type)) return null;
@@ -231,7 +231,7 @@ export async function acceptToolbeltSave({ data, message, roll, target, isReroll
   const total = data?.value ?? roll?.total;
   if (!Number.isInteger(degree) || degree < 0 || degree > 3 || !Number.isFinite(total)) return null;
   const res = { degree, total, isReroll };
-  if (game.user.isActiveGM) return recordToolbeltResult(message.id, target.id, res);
+  if (isActiveGM()) return recordToolbeltResult(message.id, target.id, res);
   return callGM("recordToolbeltSave", message.id, target.id, res);
 }
 

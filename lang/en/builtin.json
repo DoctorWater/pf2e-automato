@@ -35,6 +35,10 @@
         "noGun": "\"{name}\": needs a firearm or crossbow.",
         "noAlly": "\"{name}\": no allies on the scene."
       },
+      "oneShot": {
+        "effect": "One Shot, One Kill: ready",
+        "hint": "<p><b>One Shot, One Kill</b>: {name} rolled Stealth for initiative. Interact to draw a firearm or crossbow; the first Strike with it deals extra precision damage.</p>"
+      },
       "reactive": {
         "hint": "<p><b>Reactive Strike</b>: {source} uses a {trigger} within {holder}'s reach. Reaction: @UUID[{item}]</p>",
         "manipulate": "manipulate action",

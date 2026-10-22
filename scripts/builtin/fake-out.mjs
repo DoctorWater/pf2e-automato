@@ -1,7 +1,7 @@
 // X6. Обманка: реакция — проверка атаки огнестрельным оружием/арбалетом, чтобы Помочь атаке союзника (СЛ 15, +1 обстоятельства,
 // если с начала прошлого хода наносили урон этому врагу этим оружием). Бросает игрок (диалог: оружие, союзник, +1); бонус по степени
 // ставит ГМ (finish) эффектом на союзника — pf2e снимает его после броска с этим бонусом (removeAfterRoll) или в конце хода.
-import { L } from "../util.mjs";
+import { L, sharedDialog } from "../util.mjs";
 import { esc, effectSource, UNTIL_TURN_END } from "./lib.mjs";
 
 export const AID_DC = 15;
@@ -31,15 +31,14 @@ export const aidEffect = (name, bonus, origin, target) => {
 
 async function ask(cands, allies) {
   const opt = (list, lab) => list.map((x, i) => `<option value="${i}">${esc(lab(x))}</option>`).join("");
-  const res = await foundry.applications.api.DialogV2.wait({
-    window: { title: L("builtin.fakeOut.title") }, rejectClose: false,
+  const res = await sharedDialog({
+    title: L("builtin.fakeOut.title"),
     content: `<div class="form-group"><label>${L("builtin.strike.weapon")}</label><select name="w">${opt(cands, (s) => s.item.name)}</select></div>
       <div class="form-group"><label>${L("builtin.fakeOut.ally")}</label><select name="a">${opt(allies, (t) => t.name)}</select></div>
       <div class="form-group"><label><input type="checkbox" name="hurt"> ${L("builtin.fakeOut.hurt")}</label></div>`,
-    buttons: [{ action: "ok", label: L("builtin.fakeOut.roll"), default: true,
-      callback: (_e, b) => ({ w: Number(b.form.elements.w.value), a: Number(b.form.elements.a.value), hurt: b.form.elements.hurt.checked }) }]
+    buttons: [{ action: "ok", label: L("builtin.fakeOut.roll") }]
   });
-  return res && typeof res === "object" ? res : null;
+  return res?.form ? { w: Number(res.form.w), a: Number(res.form.a), hurt: !!res.form.hurt } : null;
 }
 
 export async function run(scope) {

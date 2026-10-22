@@ -1,6 +1,6 @@
 // Общее для действий, в которые входит Удар (Двойной взмах, Двойной финт, Устрашающий удар): выбор оружия и MAP, броски атаки и урона.
 // ponytail: «текущий» MAP pf2e не хранит (его выбирает игрок вариантом Удара) — спрашиваем в диалоге; по умолчанию без штрафа.
-import { L } from "../util.mjs";
+import { L, sharedDialog } from "../util.mjs";
 import { esc } from "./lib.mjs";
 
 /** Чистая: 0..3 -> попал ли Удар. */
@@ -36,15 +36,13 @@ export async function askStrikes(cands, n, labels) {
   const picks = cands.length > n ? labels.picks.map((l, k) => `<div class="form-group"><label>${esc(l)}</label><select name="w${k}">${opt(k)}</select></div>`).join("") : "";
   const maxVar = Math.max(...cands.map((s) => s.variants.length)) - 1;
   const maps = [0, 1, 2].filter((i) => i <= maxVar).map((i) => `<option value="${i}">${esc(cands[0].variants[i]?.label ?? i)}</option>`).join("");
-  const res = await foundry.applications.api.DialogV2.wait({
-    window: { title: labels.title }, rejectClose: false,
+  const res = await sharedDialog({
+    title: labels.title,
     content: `${picks}<div class="form-group"><label>${esc(labels.map)}</label><select name="map">${maps}</select></div><p class="hint">${esc(labels.mapHint ?? L("builtin.strike.mapHint"))}</p>`,
-    buttons: [{ action: "ok", label: labels.ok ?? L("builtin.strike.ok"), default: true, callback: (_e, button) => {
-      const f = button.form.elements;
-      return { picks: Array.from({ length: n }, (_, k) => Number(f[`w${k}`]?.value ?? k)), map: Number(f.map.value) };
-    } }]
+    buttons: [{ action: "ok", label: labels.ok ?? L("builtin.strike.ok") }]
   });
-  return res && typeof res === "object" ? res : null;
+  const f = res?.form;
+  return f ? { picks: Array.from({ length: n }, (_, k) => Number(f[`w${k}`] ?? k)), map: Number(f.map) } : null;
 }
 
 /** Strike берём заново: после переключателя/временного эффекта актёр пересобран. */

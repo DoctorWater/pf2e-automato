@@ -3,6 +3,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync, existsSync } from "node:fs";
 import { degreeFromTotal, queue, MOD, sluggify, callGM, setSocket } from "../scripts/util.mjs";
+import { CALL_MS } from "../scripts/leader.mjs";
 import { buildAutomationsIndex, groupsCovering } from "../scripts/compat.mjs";
 import { applyCondition, applyEffect, hasEffect, applyOps, undoOps, removeByKey, findByKey } from "../scripts/apply.mjs";
 
@@ -37,7 +38,7 @@ test("queue: сериализует по ключу, переживает оши
   assert.deepEqual(log, ["s1", "other", "e1", "s2", "e2"]);
 });
 
-test("callGM: нет ГМа / повтор при not-active-gm", async () => {
+test("callGM: нет ГМа / без автоповтора / таймаут", async (t) => {
   globalThis.ui = { notifications: { warn: () => { globalThis.warned = (globalThis.warned ?? 0) + 1; } } };
   globalThis.game = { i18n: { localize: (k) => k }, users: { activeGM: null } };
   try {
@@ -46,10 +47,14 @@ test("callGM: нет ГМа / повтор при not-active-gm", async () => {
     const calls = [];
     game.users.activeGM = { id: "gm1" };
     setSocket({ executeAsUser: async (name, id, ...a) => { calls.push([name, id, ...a]); return calls.length === 1 ? { ok: false, reason: "not-active-gm" } : { ok: true }; } });
-    assert.deepEqual(await callGM("y", 1), { ok: true });
-    assert.equal(calls.length, 2);
-    setSocket({ executeAsUser: async () => ({ ok: false, reason: "not-active-gm" }) });
-    assert.equal((await callGM("y")).reason, "not-active-gm");   // ровно один повтор
+    assert.equal((await callGM("y", 1)).reason, "not-active-gm");
+    assert.equal(calls.length, 1);   // повтора нет
+    t.mock.timers.enable({ apis: ["setTimeout"] });
+    setSocket({ executeAsUser: () => new Promise(() => {}) });
+    const p = callGM("z");
+    await Promise.resolve(); await Promise.resolve();
+    t.mock.timers.tick(CALL_MS + 1);
+    assert.deepEqual(await p, { ok: false, reason: "timeout" });
   } finally { delete globalThis.game; delete globalThis.ui; delete globalThis.warned; setSocket(null); }
 });
 

@@ -1,6 +1,6 @@
 // Проверки автора против защиты цели (onUse.check, plan.md §1.1a): бросает АВТОР, результат принимает общий движок saves.mjs.
 // Чистые функции (defenseDc, hasImmunity, ...) не трогают Foundry — tests/checks.test.mjs.
-import { MOD, L, flagPath, degreeFromTotal } from "./util.mjs";
+import { MOD, L, flagPath, degreeFromTotal, isActiveGM } from "./util.mjs";
 import { S } from "./settings.mjs";
 import { useOf, safeUuid, marker, isPcActor, challengeOf, challengeTargets, recordResult } from "./saves.mjs";
 import { applyEffect } from "./apply.mjs";
@@ -112,7 +112,7 @@ const authorOf = async (use) => {
 /** ГМ: бросает за автора-NPC по всем целям (auto) либо только `only` (кнопка). Автор-PC — только кнопкой. */
 export async function runCheck(message, { only } = {}) {
   const use = useOf(message), ck = challengeOf(use);
-  if (!game.user.isActiveGM || !isCheck(ck) || ck.roll === "system" || use.state?.yielded) return [];
+  if (!isActiveGM() || !isCheck(ck) || ck.roll === "system" || use.state?.yielded) return [];
   const author = await authorOf(use);
   if (!author) return [];
   if (!only && isPcActor(author)) return [];

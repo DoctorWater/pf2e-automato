@@ -16,6 +16,7 @@ import * as vision from "./vision.mjs";
 import * as invis from "./invis.mjs";
 import * as actions from "./actions.mjs";
 import * as workshop from "./workshop/app.mjs";
+import * as leader from "./leader.mjs";
 
 const { S } = settings;
 
@@ -24,6 +25,7 @@ const { S } = settings;
 // Обработчики — обычные function (не стрелки): внутри доступен this.socketdata.userId.
 const gm = (name, fn, need = "gm", check = null) => ({
   [name]: async function (...args) {
+    if (game.user?.isActiveGM && !leader.isLeader()) return new Promise(() => {});   // не-лидер никогда не отвечает и не исполняет: результат пришлёт лидер (socketlib берёт первый ответ)
     if (!guardActiveGM()) return { ok: false, reason: "not-active-gm" };
     try {
       const user = game.users.get(this.socketdata?.userId);
@@ -84,10 +86,13 @@ export const HANDLERS = {
 Hooks.once("socketlib.ready", () => {
   const s = socketlib.registerModule(MOD);
   setSocket(s);
+  leader.register(s, HANDLERS);
   for (const [name, fn] of Object.entries(HANDLERS)) s.register(name, fn);
   s.register("runPlayerBuiltin", macros.runPlayerBuiltin);   // исполняется у игрока, не у ГМа (проверка отправителя внутри)
   s.register("pickChoice", apply.pickChoice);                // окно выбора ChoiceSet у игрока (проверка отправителя внутри)
 });
+
+Hooks.once("setup", () => leader.start());
 
 Hooks.once("init", () => {
   settings.init(); compat.init(); zone.init(); height.init(); saves.init(); use.init(); actions.init(); chat.init(); reactions.init(); sheet.init(); badge.init(); vision.init(); invis.init(); workshop.init();
@@ -113,10 +118,13 @@ Hooks.once("ready", async () => {
   const protos = game.modules.filter((m) => m.active && m.id.startsWith("pf2e-autoflow-proto"));
   if (protos.length) ui.notifications.warn(`${L("protoWarning")} (${protos.map((m) => m.id).join(", ")})`);
   await rules.ready(); await chat.ready(); compat.ready();
-  if (game.user.isActiveGM) {
+  // При каждом переходе в лидеры (первый — после ready, потом — когда прежний лидер закрыт/перезагружен): подхватить его работу.
+  leader.onLead(async () => {
+    if (!guardActiveGM()) return;
     for (const step of [() => zone.reconcileZones(), () => use.resumePending({ maxAgeMinutes: S.get("resumeMinutes") })]) {
       try { await step(); }
       catch (e) { if (String(e?.message).startsWith("not implemented")) debug(e.message); else console.error(`${MOD} | ready`, e); }   // пока куски не готовы — заглушки
     }
-  }
+  });
+  leader.markReady();
 });

@@ -1,7 +1,7 @@
 // Реестр встроенных обработчиков (ссылка в правиле: {phase, builtin:"<id>"}) и хуки обработчиков без правила.
 // run(scope) — тот же scope, что у макросов (macros.mjs buildScope). timeoutMs — вместо общих 30 с, если обработчик ждёт диалога.
 // player — бросать у автора сообщения, если это игрок онлайн и владелец актёра (macros.mjs); finish(result, scope) — затем у ГМа.
-import { MOD } from "../util.mjs";
+import { MOD, isActiveGM, whenSettled } from "../util.mjs";
 import { modeOf } from "../settings.mjs";
 import * as bloodMagic from "./blood-magic.mjs";
 import * as twinFeint from "./twin-feint.mjs";
@@ -12,6 +12,7 @@ import * as doubleSlice from "./double-slice.mjs";
 import * as fakeOut from "./fake-out.mjs";
 import * as intimidatingStrike from "./intimidating-strike.mjs";
 import * as bladeDance from "./blade-dance.mjs";
+import * as oneShot from "./one-shot-one-kill.mjs";
 
 const DIALOG_MS = 180000;
 
@@ -27,21 +28,29 @@ export const BUILTIN = {
 };
 
 // Обработчики по сообщениям чата без правила: кровь — тег заклинания, статуэтка — карточка предмета (kind "card" конвейер не исполняет).
-const MESSAGE_HOOKS = [["blood-magic", bloodMagic.onMessage], ["reactive-strike", reactiveStrike.onMessage], ["onyx-dog", onyxDog.onMessage]];
+const MESSAGE_HOOKS = [["blood-magic", bloodMagic.onMessage], ["reactive-strike", reactiveStrike.onMessage], ["onyx-dog", onyxDog.onMessage], ["one-shot-one-kill", oneShot.onMessage]];
 
 export function initBuiltinHooks() {
   if (!globalThis.Hooks) return;   // node-тесты
   Hooks.on("createChatMessage", async (message) => {
-    if (!game.user?.isActiveGM || modeOf("macro") === "off") return;
+    if (!isActiveGM() || modeOf("macro") === "off") return;
     for (const [id, fn] of MESSAGE_HOOKS) {
       try { await fn(message); } catch (e) { console.error(`${MOD} | builtin ${id}`, e); }
     }
   });
-  Hooks.on("updateWorldTime", (t) => { if (game.user?.isActiveGM) onyxDog.expire(t).catch((e) => console.error(`${MOD} | onyx expire`, e)); });
+  Hooks.on("updateWorldTime", (t) => { if (isActiveGM()) onyxDog.expire(t).catch((e) => console.error(`${MOD} | onyx expire`, e)); });
+  Hooks.on("deleteCombat", (combat) => {
+    if (!isActiveGM() || modeOf("macro") === "off") return;
+    oneShot.onCombatEnd(combat).catch((e) => console.error(`${MOD} | builtin one-shot-one-kill end`, e));
+  });
+  const migrate = (fn) => async (...a) => { await whenSettled(); if (isActiveGM() && modeOf("macro") !== "off") fn(...a).catch((e) => console.error(`${MOD} | builtin one-shot-one-kill migrate`, e)); };
+  Hooks.once("ready", migrate(oneShot.migrateAll));
+  Hooks.on("createItem", migrate(oneShot.migrateItem));
+  Hooks.on("updateItem", migrate(oneShot.migrateItem));
   Hooks.on("renderChatMessageHTML", onyxDog.bindDismiss);
   Hooks.on("renderChatMessageHTML", reactiveStrike.bindStrike);
   Hooks.on("moveToken", (doc, movement) => {
-    if (!game.user?.isActiveGM || modeOf("macro") === "off") return;
+    if (!isActiveGM() || modeOf("macro") === "off") return;
     reactiveStrike.onMove(doc, movement).catch((e) => console.error(`${MOD} | builtin reactive-strike move`, e));
   });
 }

@@ -255,7 +255,7 @@ test("rollCheck: askMap у атакующего манёвра спрашива�
   const m = mkRealMsg("M8", useFor({ rule: validateRule({ v: 1, onUse: { targets: "selected", check: { statistic: "intimidation", vs: { defense: "will" }, traits: ["attack"] } } }).rule }));
   const authorActor = uuids.get("Actor.o");
   let asked = 0, answer = "2";
-  globalThis.foundry = { applications: { api: { DialogV2: { wait: async () => { asked++; return answer; } } } } };
+  globalThis.foundry = { applications: { api: { DialogV2: { wait: async () => { asked++; return answer == null ? null : { action: answer }; } } } } };
   try {
     await rollCheck(authorActor, trip, { message: m, tokenKey: "t1", target: mkTarget(), askMap: true });
     assert.equal(rolls[0].attackNumber, 3); assert.equal(asked, 1);

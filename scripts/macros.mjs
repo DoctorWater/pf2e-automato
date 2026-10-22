@@ -1,5 +1,5 @@
 // Макросы правил (plan.md §1.1 «Контракт макросов»). Исполняет только активный ГМ.
-import { MOD, L, DEGREES, flagPath, queue, socket } from "./util.mjs";
+import { MOD, L, DEGREES, flagPath, queue, socket, isActiveGM } from "./util.mjs";
 import { modeOf } from "./settings.mjs";
 import { BUILTIN, initBuiltinHooks } from "./builtin/index.mjs";
 
@@ -94,7 +94,7 @@ async function buildScope(phase, ctx, use, rule) {
 
 /** ctx: {message?, rule?, region?, target?, targets?, degree?, results?, args?}. Возвращает [{key, ok, error?}]. */
 export async function runMacros(phase, ctx = {}) {
-  if (!game.user.isActiveGM || modeOf("macro") === "off") return [];
+  if (!isActiveGM() || modeOf("macro") === "off") return [];
   const { message } = ctx;
   const use = message?.flags?.[MOD]?.use;
   const rule = ctx.rule ?? use?.rule;

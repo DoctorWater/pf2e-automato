@@ -22,3 +22,4 @@
 .paf-mark { margin-left: 0.35em; font-size: 0.7em; opacity: 0.4; cursor: help; }
 .paf-mark:hover { opacity: 0.85; }
 .paf-mark-yield { opacity: 0.2; }
+.tab.automato .af-ws-open { width: auto; flex: none; float: right; font-size: 0.75em; }

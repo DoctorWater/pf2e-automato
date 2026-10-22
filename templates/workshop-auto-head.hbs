@@ -1,0 +1,19 @@
+<div class="ws-head">
+  <div class="ws-icon ws-static"><img src="{{head.img}}" alt=""></div>
+  <div class="ws-head-main">
+    <div class="ws-head-row">
+      <h1 class="ws-title ws-title-static">{{head.name}}</h1>
+      <span class="ws-lbl ws-accent">{{head.kind}}</span>
+      <span class="ws-grow"></span>
+      <span class="ws-sub">{{localize "PF2E_AUTOMATO.workshop.au.ruleSource"}}</span>
+      <span class="ws-pill">{{head.src.label}}</span>
+      {{#if head.src.low}}<span class="ws-pill ws-pill-warn" data-tooltip="PF2E_AUTOMATO.sheet.confLowHint">{{localize "PF2E_AUTOMATO.sheet.confLow"}}</span>{{/if}}
+      {{#if head.src.canAccept}}<button type="button" class="ws-btn ws-btn-p" data-action="accept" name="accept" {{#if head.src.locked}}disabled{{/if}}>{{localize "PF2E_AUTOMATO.sheet.accept"}}</button>{{/if}}
+      <button type="button" class="ws-btn" data-action="openSheet" name="openSheet">{{localize "PF2E_AUTOMATO.workshop.au.openSheet"}}</button>
+    </div>
+    <div class="ws-traits">
+      {{#each head.traits}}<span class="ws-tag">{{this}}</span>{{/each}}
+      {{#if head.covered}}<span class="ws-sub">{{localize "PF2E_AUTOMATO.sheet.automationsBadge"}}: {{head.covered}}</span>{{/if}}
+    </div>
+  </div>
+</div>

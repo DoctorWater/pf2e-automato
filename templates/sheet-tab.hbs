@@ -1,6 +1,7 @@
 {{!-- Поля без name: лист pf2e не должен отправлять их в item.update. Данные собирает sheet.mjs из data-f / data-r. --}}
 {{#*inline "afRow"}}
 <div class="af-row">
+  <input type="hidden" data-r="keep" value="{{keep}}">
   <select data-r="to">{{selectOptions @root.ch.to selected=to valueAttr="value" labelAttr="label"}}</select>
   <select data-r="kind">{{selectOptions @root.ch.rowKind selected=kind valueAttr="value" labelAttr="label"}}</select>
   <input type="text" data-r="text" value="{{text}}" placeholder="{{localize 'PF2E_AUTOMATO.sheet.row.placeholder'}}">
@@ -22,6 +23,7 @@
 {{/inline}}
 {{#*inline "afMacro"}}
 <div class="af-row">
+  <input type="hidden" data-r="form" value="{{form}}">
   <input type="text" data-r="uuid" value="{{uuid}}" placeholder="Macro.xxxxxxxx">
   <select data-r="phase">{{selectOptions @root.ch.phase selected=phase valueAttr="value" labelAttr="label"}}</select>
   <select data-r="degree">{{selectOptions @root.ch.degree selected=degree valueAttr="value" labelAttr="label"}}</select>
@@ -31,7 +33,7 @@
 
 <section class="tab automato" data-tab="automato">
   <div class="af-recognized">
-    <h3>{{localize "PF2E_AUTOMATO.sheet.recognized"}}</h3>
+    <h3>{{localize "PF2E_AUTOMATO.sheet.recognized"}} <button type="button" data-action="open-workshop" class="af-ws-open"><i class="fa-solid fa-hammer"></i> {{localize "PF2E_AUTOMATO.sheet.openWorkshop"}}</button></h3>
     {{#if res}}
       <p>{{localize "PF2E_AUTOMATO.sheet.source"}}: <span class="paf-chip" data-src="{{res.src}}">{{res.source}}</span>
         {{#if res.low}}<span class="paf-chip paf-chip-low" data-tooltip="PF2E_AUTOMATO.sheet.confLowHint">{{localize "PF2E_AUTOMATO.sheet.confLow"}}</span>{{/if}}</p>
@@ -52,6 +54,7 @@
   </div>
 
   <div class="af-form">
+    <input type="hidden" data-f="ck.roll" value="{{f.ck.roll}}">
     <p class="af-warn" data-covered="{{#if covered}}1{{/if}}" data-setting="{{#if settingYield}}1{{/if}}" hidden>
       {{localize "PF2E_AUTOMATO.sheet.doubleWarn"}}{{#if covered}} &laquo;{{#each groups}}{{this}}{{#unless @last}}, {{/unless}}{{/each}}&raquo;{{/if}}
     </p>

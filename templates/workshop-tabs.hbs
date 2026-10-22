@@ -1,0 +1,3 @@
+<nav class="ws-tabs" aria-label="{{localize "PF2E_AUTOMATO.workshop.modes"}}" {{#unless multi}}hidden{{/unless}}>
+  {{#each modes}}<button type="button" class="ws-tab" data-action="setMode" data-mode="{{key}}" aria-current="{{#if on}}page{{else}}false{{/if}}" name="mode-{{key}}">{{label}}</button>{{/each}}
+</nav>

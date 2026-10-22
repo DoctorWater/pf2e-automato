@@ -1,0 +1,101 @@
+<div class="ws-col">
+{{#*inline "fld"}}
+{{#if seg}}
+<div class="ws-fld"><span class="ws-lbl">{{label}}</span>
+  <div class="ws-seg">{{#each seg}}<button type="button" data-action="pick" data-a="{{../path}}" data-v="{{value}}" aria-pressed="{{on}}" name="{{../path}}-{{value}}">{{label}}</button>{{/each}}</div>
+</div>
+{{else if check}}
+<label class="ws-check"><input type="checkbox" data-a="{{path}}" name="{{path}}" {{checked value}}><span>{{label}}</span></label>
+{{else if options}}
+<label class="ws-fld"><span class="ws-lbl">{{label}}</span><select class="ws-inp" data-a="{{path}}" name="{{path}}" {{#if drop}}data-drop="{{drop}}"{{/if}}>{{selectOptions options selected=value valueAttr="value" labelAttr="label"}}</select></label>
+{{else}}
+<label class="ws-fld {{cls}}"><span class="ws-lbl">{{label}}</span><input class="ws-inp {{inpCls}}" type="{{type}}" data-a="{{path}}" name="{{path}}" value="{{value}}" {{#if drop}}data-drop="{{drop}}"{{/if}} {{#if list}}list="{{list}}"{{/if}} {{#if min}}min="{{min}}"{{/if}} {{#if step}}step="{{step}}"{{/if}} placeholder="{{placeholder}}">{{#if hint}}<span class="ws-note">{{hint}}</span>{{/if}}</label>
+{{/if}}
+{{/inline}}
+{{#*inline "plate"}}
+<div class="ws-plate {{#if open}}is-open{{/if}} {{#if stepper}}has-stp{{/if}}">
+  <button type="button" class="ws-plate-t" data-action="toggleStep" data-path="{{path}}" aria-expanded="{{open}}" name="plate-{{path}}">
+    {{#if self}}<i class="fa-solid fa-user" inert data-tooltip="PF2E_AUTOMATO.sheet.to.self"></i>{{/if}}<span class="ws-plate-nw"><span class="ws-plate-n" data-plate="{{path}}">{{text}}</span>{{#if note}}<small class="ws-plate-sub">{{note}}</small>{{/if}}</span>
+  </button>
+  {{#if stepper}}<span class="ws-stp">
+    <button type="button" data-action="stepVal" data-path="{{path}}" data-d="-1" name="dec-{{path}}" aria-label="{{localize "PF2E_AUTOMATO.workshop.au.dec" name=name}}"><i class="fa-solid fa-minus" inert></i></button>
+    <b data-pv="{{path}}">{{value}}</b>
+    <button type="button" data-action="stepVal" data-path="{{path}}" data-d="1" name="inc-{{path}}" aria-label="{{localize "PF2E_AUTOMATO.workshop.au.inc" name=name}}"><i class="fa-solid fa-plus" inert></i></button>
+  </span>{{/if}}
+  <button type="button" class="ws-x" data-action="removeStep" data-path="{{path}}" name="rm-{{path}}" aria-label="{{localize "PF2E_AUTOMATO.workshop.au.removeStep"}}"><i class="fa-solid fa-xmark" inert></i></button>
+</div>
+{{/inline}}
+{{#*inline "lst"}}
+<div class="ws-lst" data-list="{{list}}">
+  {{#each steps}}{{> plate}}{{/each}}
+  {{#unless steps.length}}{{#unless quiet}}<div class="ws-dnone">{{localize "PF2E_AUTOMATO.workshop.au.noEffects"}}</div>{{/unless}}{{/unless}}
+  <div class="ws-padd">
+    <button type="button" class="ws-add" data-action="togglePicker" data-list="{{list}}" name="add-{{list}}" aria-expanded="{{picker}}"><i class="fa-solid fa-plus" inert></i> {{#if quiet}}{{localize "PF2E_AUTOMATO.workshop.au.addImmediate"}}{{else}}{{localize "PF2E_AUTOMATO.workshop.au.add"}}{{/if}}</button>
+    {{#if picker}}
+    <div class="ws-pick">
+      <input type="search" data-filter name="filter-{{list}}" placeholder="{{localize "PF2E_AUTOMATO.workshop.au.search"}}" aria-label="{{localize "PF2E_AUTOMATO.workshop.au.search"}}">
+      <div class="ws-pick-list">
+        <div class="ws-pick-h" data-q="">{{localize "PF2E_AUTOMATO.workshop.au.pickKinds"}}</div>
+        <button type="button" data-action="addStep" data-list="{{list}}" data-kind="effect" name="addk-effect-{{list}}" data-q="">{{localize "PF2E_AUTOMATO.workshop.au.kindEffect"}}</button>
+        <button type="button" data-action="addStep" data-list="{{list}}" data-kind="visibility" name="addk-vis-{{list}}" data-q="">{{localize "PF2E_AUTOMATO.workshop.au.kindVisibility"}}</button>
+        <button type="button" data-action="addStep" data-list="{{list}}" data-kind="note" name="addk-note-{{list}}" data-q="">{{localize "PF2E_AUTOMATO.workshop.au.kindNote"}}</button>
+        <div class="ws-pick-h" data-q="">{{localize "PF2E_AUTOMATO.workshop.au.pickConds"}}</div>
+        {{#each @root.conds}}<button type="button" data-action="addStep" data-list="{{../list}}" data-slug="{{slug}}" name="addc-{{slug}}-{{../list}}" data-q="{{q}}">{{label}}</button>{{/each}}
+      </div>
+      <div class="ws-note">{{localize "PF2E_AUTOMATO.workshop.au.dragHint"}}</div>
+    </div>
+    {{/if}}
+  </div>
+</div>
+{{/inline}}
+<datalist id="ws-skills">{{#each skills}}<option value="{{this}}"></option>{{/each}}</datalist>
+{{#if doubleWarn}}<p class="ws-warn">{{doubleWarn}}</p>{{/if}}
+<h2 class="ws-h">{{localize "PF2E_AUTOMATO.workshop.au.pipeline"}}</h2>
+<div class="ws-pipe">
+  {{#each rows as |r|}}
+  <div class="ws-prow">
+    <div class="ws-prail"><span class="ws-pchip {{#if r.hot}}is-hot{{/if}}">{{r.label}}</span></div>
+    <div class="ws-pbody">
+      {{#if r.fold}}
+      <button type="button" class="ws-psum" data-action="toggleRow" data-row="{{r.key}}" aria-expanded="{{r.open}}" name="row-{{r.key}}"><span class="ws-sum" data-sum="{{r.key}}">{{r.sum}}</span><i class="fa-solid fa-chevron-down ws-chev" inert></i></button>
+      {{else}}
+      <div class="ws-psum ws-psum-static"><span class="ws-sum" data-sum="{{r.key}}">{{r.sum}}</span></div>
+      {{/if}}
+      {{#if r.open}}
+      <div class="ws-pfields">
+        {{#each r.fields}}{{> fld}}{{/each}}
+        {{#if r.area}}
+        <div class="ws-areanote ws-full"><i class="fa-solid fa-circle-info" inert></i><span>{{r.area.note}}</span>
+          {{#if r.area.insert}}<button type="button" class="ws-btn" data-action="insertTemplate" name="insertTemplate" {{#if r.area.locked}}disabled{{/if}}>{{localize "PF2E_AUTOMATO.workshop.au.insertTemplate"}}</button>{{/if}}
+        </div>
+        {{/if}}
+        {{#if r.is_outcome}}
+        {{#if r.cols}}<div class="ws-dgrid ws-full">{{#each r.cols}}<div class="ws-dcol"><div class="ws-lbl ws-dhead ws-d-{{deg}}">{{label}}</div>{{> lst}}</div>{{/each}}</div>{{/if}}
+        <div class="ws-dimm ws-full">{{#unless r.imm.quiet}}<div class="ws-lbl ws-dhead">{{r.imm.label}}</div>{{/unless}}{{> lst r.imm}}</div>
+        {{#if r.edit}}
+        <div class="ws-sted ws-full">
+          <div class="ws-lbl ws-accent">{{r.edit.title}}</div>
+          <div class="ws-sted-f">{{#each r.edit.fields}}{{> fld}}{{/each}}</div>
+        </div>
+        {{/if}}
+        {{/if}}
+        {{#if r.is_macros}}
+        <div class="ws-mlist ws-full">
+          {{#each r.macros}}
+          <div class="ws-mrow">
+            {{#each fields}}{{> fld}}{{/each}}
+            {{#if name}}<span class="ws-note">{{name}}</span>{{/if}}
+            <button type="button" class="ws-x" data-action="removeStep" data-path="{{path}}" name="rm-{{path}}" aria-label="{{localize "PF2E_AUTOMATO.workshop.au.removeMacro"}}"><i class="fa-solid fa-xmark" inert></i></button>
+          </div>
+          {{/each}}
+          <button type="button" class="ws-add" data-action="addMacro" name="addMacro"><i class="fa-solid fa-plus" inert></i> {{localize "PF2E_AUTOMATO.workshop.au.addMacro"}}</button>
+          <span class="ws-note">{{localize "PF2E_AUTOMATO.workshop.au.macrosHint"}}</span>
+        </div>
+        {{/if}}
+      </div>
+      {{/if}}
+    </div>
+  </div>
+  {{/each}}
+</div>
+</div>

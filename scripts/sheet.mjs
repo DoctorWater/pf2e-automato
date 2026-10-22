@@ -23,18 +23,31 @@ const csv = (s) => String(s ?? "").split(",").map((x) => x.trim()).filter(Boolea
 
 const DUR_BLANK = { durValue: "", durUnit: "rounds", durExpiry: "turn-start", durOf: "origin" };
 const VIS_BLANK = { visLevel: "hidden", visOf: "self", visUntil: "" };
-const blankRow = () => ({ to: "target", kind: "condition", text: "", value: "", policy: "max", ...DUR_BLANK, ...VIS_BLANK });
+export const blankRow = () => ({ to: "target", kind: "condition", text: "", value: "", policy: "max", keep: "", ...DUR_BLANK, ...VIS_BLANK });
+
+// поля шага, которых нет в форме (who/mark/choice/unlessEffect): едут в строке JSON-ом и разворачиваются обратно в applyOf
+const KEEP = ["who", "mark", "choice", "unlessEffect"];
+const keepOf = (a) => { const k = Object.fromEntries(KEEP.filter((n) => a[n] != null).map((n) => [n, a[n]])); return Object.keys(k).length ? JSON.stringify(k) : ""; };
 
 function rowOf(a) {
-  const d = a.duration;
+  const keep = keepOf(a), d = a.duration;
   const dur = d ? { durValue: d.value, durUnit: d.unit, durExpiry: d.expiry ?? "", durOf: d.of ?? "origin" } : DUR_BLANK;
-  if (a.condition) return { to: a.to, kind: "condition", text: a.condition.slug, value: a.condition.value ?? "", policy: a.condition.policy ?? "max", ...dur, ...VIS_BLANK };
-  if (a.effect) return { to: a.to, kind: "effect", text: a.effect.uuid, value: "", policy: "max", ...DUR_BLANK, ...VIS_BLANK };
-  if (a.visibility) return { to: a.to, kind: "visibility", text: "", value: "", policy: "max", ...DUR_BLANK, visLevel: a.visibility.level, visOf: a.visibility.of, visUntil: (a.visibility.until ?? []).join(", ") };
-  return { to: a.to, kind: "note", text: a.note ?? "", value: "", policy: "max", ...DUR_BLANK, ...VIS_BLANK };
+  if (a.condition) return { to: a.to, kind: "condition", text: a.condition.slug, value: a.condition.value ?? "", policy: a.condition.policy ?? "max", keep, ...dur, ...VIS_BLANK };
+  if (a.effect) return { to: a.to, kind: "effect", text: a.effect.uuid, value: "", policy: "max", keep, ...DUR_BLANK, ...VIS_BLANK };
+  if (a.visibility) return { to: a.to, kind: "visibility", text: "", value: "", policy: "max", keep, ...DUR_BLANK, visLevel: a.visibility.level, visOf: a.visibility.of, visUntil: (a.visibility.until ?? []).join(", ") };
+  return { to: a.to, kind: "note", text: a.note ?? "", value: "", policy: "max", keep, ...DUR_BLANK, ...VIS_BLANK };
 }
 
-function applyOf(r) {
+export function applyOf(r) {
+  const out = applyCore(r);
+  if (!out) return null;
+  let keep = {};
+  try { keep = r.keep ? JSON.parse(r.keep) : {}; } catch { /* битая строка: прочие поля не восстанавливаем */ }
+  for (const n of KEEP) if (keep[n] != null && !((n === "mark" || n === "choice") && !out.effect)) out[n] = keep[n];   // mark/choice валидны только у effect
+  return out;
+}
+
+function applyCore(r) {
   const text = String(r.text ?? "").trim();
   const to = r.to === "self" ? "self" : "target";
   if (r.kind === "visibility") {
@@ -78,13 +91,13 @@ export function ruleToForm(rule) {
     ck: {
       on: !!k, statistic: [k?.statistic ?? "athletics"].flat().join(", "),
       vsType: vs.dc != null ? "dc" : vs.against != null ? "against" : "defense", vsText: vs.defense ?? vs.dc ?? vs.against ?? "will",
-      traits: (k?.traits ?? []).join(", "), options: (k?.options ?? []).join(", "), map: String(k?.mapIncreases ?? ""),
+      traits: (k?.traits ?? []).join(", "), options: (k?.options ?? []).join(", "), map: String(k?.mapIncreases ?? ""), roll: k?.roll ?? "",
       imm: { on: !!im, slug: im?.slug ?? "", label: im?.label ?? "", uuid: im?.uuid ?? "", value: im?.duration?.value ?? "", unit: im?.duration?.unit ?? "minutes" },
       deg: degRows(k?.byDegree)
     },
     apply: (u?.apply ?? []).map(rowOf),
     react: { type: r?.bonus?.type ?? "circumstance", value: r?.bonus?.value ?? 2, owner: r ? r.notify.includes("owner") : true, gm: r ? r.notify.includes("gm") : true },
-    macros: (rule?.macros ?? []).map((m) => ({ uuid: m.uuid, phase: m.phase, degree: m.degree ?? "" }))
+    macros: (rule?.macros ?? []).map((m) => ({ uuid: m.uuid ?? `builtin:${m.builtin}`, phase: m.phase, degree: m.degree ?? "", form: m.builtin ? "builtin" : "" }))
   };
 }
 
@@ -120,7 +133,7 @@ export function formToRule(f) {
       u.check = {
         statistic: stats.length > 1 ? stats : stats[0] ?? "", vs, byDegree: degSteps(k.deg),
         ...(csv(k.traits).length && { traits: csv(k.traits) }), ...(csv(k.options).length && { options: csv(k.options) }),
-        ...(map !== undefined && { mapIncreases: map }),
+        ...(map !== undefined && { mapIncreases: map }), ...(k.roll === "system" && { roll: "system" }),
         ...(im.on && {
           immunity: {
             slug: String(im.slug ?? "").trim(),
@@ -138,7 +151,7 @@ export function formToRule(f) {
     };
   }
   rule.macros = (f.macros ?? []).filter((m) => String(m.uuid ?? "").trim())
-    .map((m) => ({ uuid: m.uuid.trim(), phase: m.phase, ...(m.phase === "onDegree" && m.degree && { degree: m.degree }) }));
+    .map((m) => ({ ...(m.form === "builtin" && m.uuid.trim().startsWith("builtin:") ? { builtin: m.uuid.trim().slice(8) } : { uuid: m.uuid.trim() }), phase: m.phase, ...(m.phase === "onDegree" && m.degree && { degree: m.degree }) }));
   return rule;
 }
 
@@ -162,11 +175,11 @@ export function dropSpec(data, doc) {
 export function ruleUuids(rule) {
   const u = rule.onUse, ch = u?.challenge, ck = u?.check, z = u?.zone;
   const steps = [...(u?.apply ?? []), ...DEGREES.flatMap((d) => [...(ch?.byDegree?.[d] ?? []), ...(ck?.byDegree?.[d] ?? [])])];
-  return [...new Set([...steps.map((a) => a.effect?.uuid), z?.effect?.uuid, ck?.immunity?.uuid, ...(rule.macros ?? []).map((m) => m.uuid)].filter(Boolean))];
+  return [...new Set([...steps.map((a) => a.effect?.uuid), z?.effect?.uuid, ck?.immunity?.uuid, ...(rule.macros ?? []).map((m) => m.uuid)].filter((u) => u && !u.startsWith("builtin:")))];
 }
 
 const signed = (n) => (n >= 0 ? `+${n}` : String(n));
-const modOf = (st) => st?.check?.mod ?? st?.mod ?? 0;
+export const modOf = (st) => st?.check?.mod ?? st?.mod ?? 0;
 
 /**
  * Отчёт пробного запуска, без записи в документы. rule — валидное правило, tokens — [{name, actor}].
@@ -186,7 +199,7 @@ export function buildReport(rule, tokens, env) {
   if (z?.condition) slugCheck(z.condition.slug);
   if (z?.effect) uuidCheck(z.effect.uuid);
   if (ck?.immunity?.uuid) uuidCheck(ck.immunity.uuid);
-  for (const m of rule.macros ?? []) uuidCheck(m.uuid);
+  for (const m of rule.macros ?? []) if (m.uuid && !m.uuid.startsWith("builtin:")) uuidCheck(m.uuid);   // builtin:<id> — встроенный обработчик, не UUID
 
   const authorStat = ck && env.author ? pickStatistic(env.author, ck.statistic) : null;
   if (ck && !env.author) problems.add(t("sheet.test.noOwner"));
@@ -244,22 +257,32 @@ function syncUi(root) {
   if (warn) warn.hidden = !(warn.dataset.covered === "1" && (f.yield === "no" || (f.yield === "auto" && warn.dataset.setting !== "1")));
 }
 
-/** Пробный запуск формы на целях/выделенных токенах: только чтение, диалог с отчётом. */
-async function testRun(item, rule) {
+/** Цели пробного запуска: целевые токены, иначе выделенные. */
+export function pickedTokens() {
   const picked = game.user.targets.size ? [...game.user.targets] : canvas.tokens?.controlled ?? [];
-  const tokens = picked.filter((t) => t.actor).map((t) => ({ name: t.name, actor: t.actor }));
-  if (!tokens.length) return ui.notifications.warn(L("sheet.test.noTokens"));
+  return picked.filter((t) => t.actor).map((t) => ({ name: t.name, actor: t.actor }));
+}
+
+/** Окружение для buildReport/stepText по живому миру. names — карта uuid -> имя, если уже разрешена (иначе разрешаем здесь). */
+export async function reportEnv(item, rule, names = null) {
   const author = item.actor ?? null;
-  const dc = rule.onUse?.challenge ? await resolveDC({ rule }, { item, actor: author }) : null;
+  const dc = rule.onUse?.challenge ? await resolveDC({ rule }, { item, actor: author }).catch(() => null) : null;
   const known = (slug) => !!CONFIG.PF2E.conditionTypes?.[slug];
   // fromUuidSync бросает на вложенных UUID компендиев — разрешаем заранее асинхронно
-  const names = Object.fromEntries(await Promise.all(ruleUuids(rule).map(async (u) => [u, (await safeUuid(u))?.name ?? null])));
-  const rep = buildReport(rule, tokens, {
+  names ??= Object.fromEntries(await Promise.all(ruleUuids(rule).map(async (u) => [u, (await safeUuid(u))?.name ?? null])));
+  return {
     t: L, dc, author,
     statLabel: (s) => { const k = CONFIG.PF2E.saves?.[s] ?? CONFIG.PF2E.skills?.[s]?.label ?? CONFIG.PF2E.attributes?.[s]; return k ? game.i18n.localize(k) : s; },
     conditionLabel: (slug) => (known(slug) ? game.i18n.localize(CONFIG.PF2E.conditionTypes[slug]) : slug),
     conditionKnown: known, uuidName: (uuid) => names[uuid] ?? null
-  });
+  };
+}
+
+/** Пробный запуск формы на целях/выделенных токенах: только чтение, диалог с отчётом. */
+async function testRun(item, rule) {
+  const tokens = pickedTokens();
+  if (!tokens.length) return ui.notifications.warn(L("sheet.test.noTokens"));
+  const rep = buildReport(rule, tokens, await reportEnv(item, rule));
   const esc = foundry.utils.escapeHTML, ul = (a) => `<ul>${a.map((x) => `<li>${esc(x)}</li>`).join("")}</ul>`;
   const content = [
     rep.problems.length && `<p><b>${L("sheet.test.problems")}</b></p>${ul(rep.problems)}`,
@@ -382,6 +405,7 @@ async function inject(app, $html) {
       else if (act === "reset-flag") { app._afDraft = null; await item.unsetFlag(MOD, "rule"); }
       else if (act === "accept") { app._afDraft = null; await item.update(forcedReplace(`flags.${MOD}.rule`, JSON.parse(b.dataset.rule))); }
       else if (act === "save-world") { const r = build(); if (r) toast(await callGM("saveCatalogRule", worldKey(b.dataset.scope), r)); }
+      else if (act === "open-workshop") await game.modules.get(MOD).api.openWorkshop({ item, mode: "automation" });
       else if (act === "delete-world") { toast(await callGM("saveCatalogRule", worldKey(b.dataset.scope), null)); app._afDraft = null; app.render(); }
     } catch (e) { console.error(`${MOD} | sheet`, e); ui.notifications.error(String(e?.message ?? e)); }
   });

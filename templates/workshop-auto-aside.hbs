@@ -1,0 +1,33 @@
+<div class="ws-col">
+  <section class="ws-sec">
+    <h2 class="ws-h">{{localize "PF2E_AUTOMATO.workshop.au.happens"}}</h2>
+    <p class="ws-desc">{{story.text}}</p>
+    {{#each story.degrees}}<div class="ws-sdeg"><span class="ws-lbl ws-d-{{deg}}">{{label}}</span><span>{{text}}</span></div>{{/each}}
+    {{#if applyNote}}<p class="ws-note">{{applyNote}}</p>{{/if}}
+  </section>
+  <section class="ws-sec">
+    <div class="ws-hrow">
+      <h2 class="ws-h ws-h2">{{localize "PF2E_AUTOMATO.workshop.au.probe"}}</h2>
+      {{#if probe}}<span class="ws-note">{{localize "PF2E_AUTOMATO.workshop.au.tokens" n=probe.count}}</span>{{/if}}
+    </div>
+    {{#unless probe}}<p class="ws-note">{{probeMsg}}</p>{{/unless}}
+    {{#if probe}}
+      {{#if probe.needDc}}<label class="ws-fld"><span class="ws-lbl">{{localize "PF2E_AUTOMATO.workshop.au.probeDc"}}</span><input class="ws-inp ws-num" type="number" data-a="probeDc" name="probeDc" value="{{probe.probeDc}}"><span class="ws-note">{{localize "PF2E_AUTOMATO.workshop.au.probeDcHint"}}</span></label>{{/if}}
+      {{#if probe.none}}<p class="ws-note">{{localize "PF2E_AUTOMATO.workshop.au.probeNone"}}</p>{{/if}}
+      {{#if probe.noTokens}}{{#unless probe.none}}<p class="ws-note">{{localize "PF2E_AUTOMATO.workshop.au.probeNoTokens"}}</p>{{/unless}}{{/if}}
+      {{#each probe.tokens}}
+      <div class="ws-tok">
+        <div class="ws-tok-h"><b>{{name}}</b><span class="ws-num-t">{{vs}}</span></div>
+        {{#if bar}}
+        <div class="ws-bar" role="img" aria-label="{{aria}}">{{#each bar}}<span class="ws-seg-d ws-bg-{{deg}}" style="width: {{pct}}%">{{#if show}}{{pct}}%{{/if}}</span>{{/each}}</div>
+        <span class="ws-note">{{likely}}</span>
+        {{/if}}
+        {{#each problems}}<span class="ws-bad">{{this}}</span>{{/each}}
+      </div>
+      {{/each}}
+      {{#if probe.tokens.length}}<div class="ws-legend">{{#each probe.legend}}<span><i class="ws-bg-{{deg}}"></i>{{label}}</span>{{/each}}</div>{{/if}}
+      {{#each probe.problems}}<p class="ws-bad">{{this}}</p>{{/each}}
+      {{#unless probe.problems.length}}{{#if probe.tokens.length}}<p class="ws-ok">{{localize "PF2E_AUTOMATO.workshop.au.allFound"}}</p>{{/if}}{{/unless}}
+    {{/if}}
+  </section>
+</div>

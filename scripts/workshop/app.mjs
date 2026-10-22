@@ -1,9 +1,14 @@
-// Мастерская: окно ГМа (ApplicationV2), режим «Эффект»; новые режимы — новые части PARTS.
-// Чистая часть (модель кубиков -> RE, валидация) — effect.mjs; здесь только DOM, Foundry и создание документов.
-import { MOD, L } from "../util.mjs";
-import { dropSpec } from "../sheet.mjs";
+// Мастерская: окно ГМа (ApplicationV2). Режимы: «Эффект» (effect.mjs) и «Автоматизация» предмета (automation.mjs).
+// Чистая часть — effect.mjs / automation.mjs; здесь только DOM, Foundry и запись в документы.
+// Части окна у обоих режимов одни и те же (id), шаблоны подставляются по режиму в _configureRenderParts.
+import { MOD, L, DEGREES, callGM, forcedReplace, forcedDelete, flagPath } from "../util.mjs";
+import { modeOf } from "../settings.mjs";
+import { DENY, dropSpec, ruleToForm, formToRule, blankRow, reportEnv, pickedTokens, ruleUuids, buildReport } from "../sheet.mjs";
+import { validateRule, resolveRule, slugOf, sourceOf } from "../rules.mjs";
+import { automationsGroups } from "../compat.mjs";
 import { safeUuid } from "../saves.mjs";
 import * as fx from "./effect.mjs";
+import * as au from "./automation.mjs";
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
 const TPL = (n) => `modules/${MOD}/templates/workshop-${n}.hbs`;
@@ -12,6 +17,7 @@ const ICONS = { bonus: "plus-minus", resist: "shield-halved", temphp: "heart", f
 const t = (key, data) => L(key, data);
 const choices = (list, prefix) => Object.fromEntries(list.map((k) => [k, t(`workshop.${prefix}.${k}`)]));
 const picks = (list, prefix, cur) => list.map((v) => ({ value: v, label: t(`workshop.${prefix}.${v}`), on: v === cur }));
+const sheetChoices = (prefix, list) => Object.fromEntries(list.map((k) => [k, t(`sheet.${prefix}.${k}`)]));
 
 /** Состояния pf2e: slug -> UUID компендиума берём в рантайме у ConditionManager (id в коде не зашиты). */
 const conditions = () => game.pf2e.ConditionManager.conditions;
@@ -20,6 +26,12 @@ const condValued = (slug) => !!conditions().get(slug)?.system?.value?.isValued;
 // persistent-damage требует формулу и тип; состояния зрения у модуля идут своей политикой (apply.mjs SIGHT_CONDITIONS)
 const NOT_GRANTABLE = new Set(["persistent-damage", "hidden", "undetected", "concealed", "observed", "unnoticed"]);
 const condLabel = (slug) => { const k = CONFIG.PF2E.conditionTypes?.[slug]; return k ? game.i18n.localize(k) : slug; };
+/** Состояния для быстрого выбора: [{slug,label}] по алфавиту (тот же отбор, что в режиме «Эффект»). */
+const grantable = () => Object.keys(CONFIG.PF2E.conditionTypes ?? {}).filter((s) => conditions().has(s) && !NOT_GRANTABLE.has(s))
+  .map((slug) => ({ slug, label: condLabel(slug) })).sort((a, z) => a.label.localeCompare(z.label));
+
+const TRAIT_SETS = ["spellTraits", "actionTraits", "featTraits", "consumableTraits", "equipmentTraits", "weaponTraits", "npcAttackTraits"];
+const traitLabel = (s) => { for (const k of TRAIT_SETS) { const v = CONFIG.PF2E[k]?.[s]; if (v) return game.i18n.localize(v); } return s; };
 
 /** Мировая папка Item «AuTOMATO / Эффекты»: ищем по флагу (имя переводится), затем по имени; нет — создаём. */
 async function effectsFolder() {
@@ -29,11 +41,61 @@ async function effectsFolder() {
     ?? await Folder.create({ name, type: "Item", flags: { [MOD]: { workshop: true } } });
 }
 
+/* ---------- поля режима «Автоматизация»: описатели для шаблона (одна разметка на все виды) ---------- */
+
+const withCur = (opts, cur) => {
+  const list = Array.isArray(opts) ? opts : Object.entries(opts);
+  const out = list.map(([value, label]) => ({ value, label }));
+  return cur === undefined || cur === null || out.some((o) => String(o.value) === String(cur)) ? out : [...out, { value: cur, label: String(cur) }];
+};
+const F = {
+  seg: (path, label, cur, opts) => ({ path, label, seg: opts.map(([value, l]) => ({ value, label: l, on: String(cur) === value })) }),
+  num: (path, label, value, extra = {}) => ({ path, label, type: "number", value, inpCls: "ws-num", ...extra }),
+  text: (path, label, value, extra = {}) => ({ path, label, type: "text", value, ...extra }),
+  sel: (path, label, value, opts, extra = {}) => ({ path, label, value, options: withCur(opts, value), ...extra }),
+  chk: (path, label, value) => ({ path, label, check: true, value })
+};
+const TRI = ["auto", "yes", "no"];
+const triSeg = (path, label, cur) => F.seg(path, label, cur, TRI.map((k) => [k, t(`workshop.au.tri.${k}`)]));
+
+/** Поля раскрытого шага (строка apply / степени). row — строка модели формы, p — её путь. */
+function stepFields(row, p, names) {
+  const out = [
+    F.seg(`${p}.to`, t("workshop.au.stepTo"), row.to, ["target", "self"].map((k) => [k, t(`sheet.to.${k}`)])),
+    F.sel(`${p}.kind`, t("workshop.au.stepKind"), row.kind, sheetChoices("row", ["condition", "effect", "note", "visibility"]))
+  ];
+  if (row.kind === "condition") {
+    out.push(
+      F.sel(`${p}.text`, t("workshop.au.condition"), row.text, { "": "—", ...Object.fromEntries(grantable().map((c) => [c.slug, c.label])) }),
+      F.num(`${p}.value`, t("sheet.row.value"), row.value, { min: 1 }),
+      F.sel(`${p}.policy`, t("sheet.row.policy"), row.policy, sheetChoices("policy", ["max", "add"])),
+      F.num(`${p}.durValue`, t("sheet.duration"), row.durValue, { min: 1 }),
+      F.sel(`${p}.durUnit`, t("workshop.au.unit"), row.durUnit, sheetChoices("unit", ["rounds", "minutes", "hours", "days"])),
+      F.sel(`${p}.durExpiry`, t("workshop.expires"), row.durExpiry, { "": t("sheet.expiry.none"), "turn-start": t("sheet.expiry.start"), "turn-end": t("sheet.expiry.end") }),
+      F.sel(`${p}.durOf`, t("workshop.au.durOf"), row.durOf, sheetChoices("of", ["origin", "target"]))
+    );
+  } else if (row.kind === "effect") out.push(F.text(`${p}.text`, t("workshop.au.effectUuid"), row.text, { drop: "effect", cls: "ws-grow", hint: names.get(row.text) ?? "" }));
+  else if (row.kind === "note") out.push(F.text(`${p}.text`, t("workshop.au.noteText"), row.text, { cls: "ws-grow" }));
+  else out.push(
+    F.sel(`${p}.visLevel`, t("workshop.au.visLevel"), row.visLevel, sheetChoices("vis.level", ["concealed", "hidden", "undetected", "unnoticed"])),
+    F.sel(`${p}.visOf`, t("workshop.au.visOf"), row.visOf, sheetChoices("vis.of", ["self", "target"])),
+    F.text(`${p}.visUntil`, t("workshop.au.visUntil"), row.visUntil, { placeholder: t("sheet.row.until") })
+  );
+  return out;
+}
+
 export class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
   static #instance = null;
   #id = 0;
-  #sel = null;       // id раскрытого кубика
+  #sel = null;       // id раскрытого кубика (режим «Эффект»)
   #busy = false;
+  #mode = "effect";
+  #item = null;
+  #au = null;        // состояние режима «Автоматизация»: { f, base, area, baseArea, open, sel, picker }
+  #names = new Map();   // uuid -> имя документа | null (разрешённые заранее: fromUuidSync на вложенных UUID бросает)
+  #typing = false;   // идёт ввод: имена документов не запрашиваем на каждую букву, догоняем по паузе
+  #settle = foundry.utils.debounce(async () => { this.#typing = false; await this.render({ parts: ["aside", "footer"] }); this.#paint(); }, 500);
+  #live = null;      // сводки/плашки последней подготовки — для правки текста на месте без перерисовки полей
   model = fx.blankModel();
 
   static DEFAULT_OPTIONS = {
@@ -50,24 +112,172 @@ export class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
         new foundry.applications.apps.FilePicker.implementation({ type: "image", current: this.model.img, callback: (path) => { this.model.img = path; this.render(); } }).render({ force: true });
       },
       create() { return this.#create(false); },
-      createOpen() { return this.#create(true); }
+      createOpen() { return this.#create(true); },
+      setMode(_e, el) { this.#mode = el.dataset.mode; this.render({ window: { title: this.title } }); },
+      toggleRow(_e, el) { const o = this.#au.open; o[el.dataset.row] = !o[el.dataset.row]; this.#redraw(); },
+      toggleStep(_e, el) { const a = this.#au; a.sel = a.sel === el.dataset.path ? null : el.dataset.path; this.#redraw(); },
+      togglePicker(_e, el) { const a = this.#au; a.picker = a.picker === el.dataset.list ? null : el.dataset.list; this.#redraw(); },
+      addStep(_e, el) { this.#addStep(el.dataset.list, { kind: el.dataset.kind ?? "condition", text: el.dataset.slug ?? "" }); },
+      removeStep(_e, el) {
+        const [list, i] = this.#split(el.dataset.path);
+        foundry.utils.getProperty(this.#au, list).splice(i, 1);
+        this.#au.sel = null;
+        this.#redraw();
+      },
+      stepVal(_e, el) {
+        const row = foundry.utils.getProperty(this.#au, el.dataset.path);
+        row.value = String(Math.max(1, (Number(row.value) || 0) + Number(el.dataset.d)));
+        this.#redraw();
+      },
+      addMacro() { this.#au.f.macros.push({ uuid: "", phase: "onUse", degree: "" }); this.#au.open.macros = true; this.#redraw(); },
+      insertTemplate() { return this.#guard(() => this.#insertTemplate()); },
+      openSheet() { this.#item?.sheet.render(true); },
+      saveItem() { return this.#guard(() => this.#saveItem()); },
+      resetDraft() { this.#loadAu(); this.render(); },
+      unsetRule() { return this.#guard(async () => { await this.#item.update(forcedDelete(flagPath("rule"))); this.#loadAu(); this.render(); }); },
+      accept() { return this.#guard(async () => { await this.#item.update(forcedReplace(flagPath("rule"), resolveRule(this.#item).rule)); this.#loadAu(); this.render(); }); },
+      worldSave(_e, el) { return this.#guard(() => this.#world(el.dataset.scope, true)); },
+      worldDel(_e, el) { return this.#guard(() => this.#world(el.dataset.scope, false)); }
     }
   };
 
   static PARTS = {
     header: { template: TPL("header") },
-    effect: { template: TPL("effect"), scrollable: [""] },
+    tabs: { template: TPL("tabs") },
+    main: { template: TPL("effect"), scrollable: [""] },
     aside: { template: TPL("aside"), scrollable: ["", "pre"] },
     footer: { template: TPL("footer") }
   };
 
-  /** Открыть (единственное окно). Только ГМ. */
-  static open() {
+  _configureRenderParts(options) {
+    const parts = super._configureRenderParts(options);
+    if (this.#mode === "automation") {
+      parts.header.template = TPL("auto-head");
+      parts.main.template = TPL("auto");
+      parts.aside.template = TPL("auto-aside");
+      parts.footer.template = TPL("auto-footer");
+    }
+    return parts;
+  }
+
+  /** Открыть (единственное окно). Только ГМ. item — Item или его UUID: включает режим «Автоматизация». */
+  static async open({ item = null, mode } = {}) {
     if (!game.user.isGM) return ui.notifications.warn(t("workshop.gmOnly"));
-    return (Workshop.#instance ??= new Workshop()).render({ force: true });
+    if (typeof item === "string") item = await safeUuid(item);
+    if (item && DENY.has(item.type)) { ui.notifications.warn(t("workshop.au.denied")); item = null; }
+    const app = (Workshop.#instance ??= new Workshop());
+    if (!(item && !(await app.#setItem(item)))) app.#mode = (mode ?? (item ? "automation" : app.#mode)) === "automation" && app.#item ? "automation" : "effect";
+    return app.render({ force: true, window: { title: app.title } });
+  }
+
+  /** Подгрузить предмет; при несохранённой правке другого предмета спрашиваем. false — пользователь отказался. */
+  async #setItem(item) {
+    const same = this.#item?.uuid === item.uuid;
+    if (this.#item && !same && this.#dirty()) {
+      const ok = await foundry.applications.api.DialogV2.confirm({ window: { title: t("workshop.au.switchTitle") }, content: `<p>${foundry.utils.escapeHTML(t("workshop.au.switch", { name: this.#item.name }))}</p>`, rejectClose: false });
+      if (!ok) return false;
+    }
+    this.#item = item;
+    if (!same || !this.#au) this.#loadAu();
+    return true;
+  }
+
+  /** Закрытие с несохранённой правкой — через подтверждение. */
+  async close(options = {}) {
+    if (!options.force && this.#mode === "automation" && this.#dirty()) {
+      const ok = await foundry.applications.api.DialogV2.confirm({ window: { title: t("workshop.au.switchTitle") }, content: `<p>${foundry.utils.escapeHTML(t("workshop.au.closeAsk", { name: this.#item.name }))}</p>`, rejectClose: false });
+      if (!ok) return this;
+    }
+    return super.close(options);
   }
 
   _onClose(options) { Workshop.#instance = null; return super._onClose(options); }
+
+  get title() { return this.#mode === "automation" && this.#item ? `${super.title} — ${this.#item.name}` : super.title; }
+
+  /* ---------- «Автоматизация»: состояние ---------- */
+
+  #loadAu(keepView = false) {
+    const item = this.#item, res = resolveRule(item), f = ruleToForm(res?.rule ?? null), prev = keepView ? this.#au : null;
+    if (!res) f.kind = "onUse";
+    const area = au.initialArea({ isSpell: item.type === "spell", area: item._source.system.area, description: item._source.system.description?.value });
+    this.#au = { f, base: JSON.stringify(f), area, baseArea: { ...area }, open: prev?.open ?? { when: false, targets: false, roll: true, outcome: true, zone: false, macros: false }, sel: prev?.sel ?? null, picker: null, probeDc: prev?.probeDc ?? "" };
+  }
+
+  #dirty() {
+    const a = this.#au;
+    return !!a && (JSON.stringify(a.f) !== a.base || (a.f.targets === "area" && (a.area.shape !== a.baseArea.shape || au.clampSize(a.area.size) !== au.clampSize(a.baseArea.size))));
+  }
+
+  #split(path) { const i = path.lastIndexOf("."); return [path.slice(0, i), Number(path.slice(i + 1))]; }
+
+  /** Записать значение поля: путь — от состояния окна (`f.ch.statistic`, `area.size`), особые пути — со связанными правками. */
+  #setAuto(path, v) {
+    const a = this.#au, f = a.f;
+    if (path === "roll") {
+      au.setRollMode(f, v);
+      if (v === "save" && f.ch.dcType === "value" && !String(f.ch.dcText ?? "").trim() && this.#item.type === "spell") f.ch.dcType = "source";   // как разбор разметки: СЛ заклинателя
+      if (v === "check" && f.targets === "self") f.targets = "selected";   // проверка автора против защиты цели: цель — не он сам
+      a.sel = null;
+      return;
+    }
+    foundry.utils.setProperty(a, path, v);
+    const m = /^(.*)\.(kind|text)$/.exec(path);
+    const row = m && m[1] !== "f" && m[1] !== "f.zone" ? foundry.utils.getProperty(a, m[1]) : null;
+    if (row && "durOf" in row) {   // строка шага: смена вида сбрасывает текст, выбор состояния подставляет значение
+      if (m[2] === "kind") Object.assign(row, { text: "", value: "" });
+      else if (row.kind === "condition") row.value = condValued(v) ? row.value || "1" : "";
+    }
+    if (path === "f.targets" && v === "self") a.sel = null;
+  }
+
+  #addStep(list, { kind, text }) {
+    const a = this.#au, rows = foundry.utils.getProperty(a, list), row = { ...blankRow(), kind, text, to: a.f.targets === "self" ? "self" : "target" };
+    if (kind === "condition" && condValued(text)) row.value = "1";
+    rows.push(row);
+    a.sel = `${list}.${rows.length - 1}`;
+    a.picker = null;
+    this.#redraw();
+  }
+
+  #areaSrc() { const i = this.#item; return { isSpell: i.type === "spell", srcArea: i._source.system.area, description: i._source.system.description?.value }; }
+
+  async #insertTemplate() {
+    const { area } = this.#au, item = this.#item;
+    await item.update({ "system.description.value": au.withTemplate(item._source.system.description?.value, area.shape, area.size) });
+    this.render();
+  }
+
+  /** Обёртка действий с записью: ошибки — уведомлением, повторный клик не запускает второй. */
+  async #guard(fn) {
+    if (this.#busy) return;
+    this.#busy = true;
+    try { await fn(); }
+    catch (e) { console.error(`${MOD} | workshop`, e); ui.notifications.error(String(e?.message ?? e)); }
+    finally { this.#busy = false; }
+  }
+
+  async #saveItem() {
+    const a = this.#au, item = this.#item, v = validateRule(formToRule(a.f));
+    if (!v.ok) return;
+    const patch = au.areaPatch(this.#areaSrc(), a.area, a.baseArea, a.f.targets);
+    await item.update({ ...forcedReplace(flagPath("rule"), v.rule), ...patch });
+    ui.notifications.info(t("sheet.saved"));
+    this.#loadAu();
+    this.render({ window: { title: this.title } });
+  }
+
+  async #world(scope, save) {
+    const item = this.#item, key = scope === "source" ? { source: sourceOf(null, item) } : { slug: slugOf(null, item) };
+    let rule = null;
+    if (save) { const v = validateRule(formToRule(this.#au.f)); if (!v.ok) return; rule = v.rule; }
+    const res = await callGM("saveCatalogRule", key, rule);
+    ui.notifications[res?.ok ? "info" : "error"](res?.ok ? t("sheet.saved") : `${t("sheet.failed")}: ${res?.error ?? res?.reason ?? "?"}`);
+    if (res?.ok && resolveRule(item)?.source !== "flag") this.#loadAu(true);   // действующее правило теперь из каталога — черновик больше не «несохранённый»
+    this.render();
+  }
+
+  /* ---------- общее ---------- */
 
   #ctx() { return { t, uuidOf: condUuid, condLabel, resistKnown: (k) => k in CONFIG.PF2E.resistanceTypes, ruleKnown: (k) => k in game.pf2e.RuleElements.all }; }
   #block(id) { return this.model.blocks.find((b) => b.id === Number(id)); }
@@ -78,8 +288,9 @@ export class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
     this.#redraw();
     return b;
   }
-  #redraw() { return this.render({ parts: ["effect", "aside", "footer"] }); }
+  #redraw() { this.#typing = false; return this.render({ parts: ["main", "aside", "footer"] }); }
   #set(el, v) {
+    if (el.dataset.a !== undefined) return this.#setAuto(el.dataset.a, v);
     const f = el.dataset.f;
     if (el.dataset.block) this.#block(el.dataset.block)[f] = v;
     else foundry.utils.setProperty(this.model, f, v);
@@ -90,7 +301,7 @@ export class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
       target: choices(fx.TARGETS, "targets"), noteTarget: choices(fx.TARGETS.filter((x) => x !== "ac"), "targets"),
       resist: choices(fx.RESIST_TYPES, "dtype"), dmgType: choices(fx.DAMAGE_TYPES, "dtype"), die: Object.fromEntries(fx.DICE.map((d) => [d, d])),
       sense: choices(fx.SENSES, "senses"), acuity: choices(fx.ACUITY, "acuities"),
-      cond: { "": b.uuid ? b.name : t("workshop.condNone"), ...Object.fromEntries([...Object.keys(CONFIG.PF2E.conditionTypes ?? {})].filter((s) => conditions().has(s) && !NOT_GRANTABLE.has(s)).sort((a, z) => condLabel(a).localeCompare(condLabel(z))).map((s) => [s, condLabel(s)])) }
+      cond: { "": b.uuid ? b.name : t("workshop.condNone"), ...Object.fromEntries(grantable().map((c) => [c.slug, c.label])) }
     };
     return {
       ...b, c, open: this.#sel === b.id, kindLabel: t(`workshop.kind.${b.kind}`), text: fx.textOf(b, ctx),
@@ -102,9 +313,14 @@ export class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
   }
 
   async _prepareContext() {
+    const modes = [{ key: "effect", label: t("workshop.mode.effect"), on: this.#mode === "effect" }];
+    if (this.#item) modes.unshift({ key: "automation", label: t("workshop.mode.automation"), on: this.#mode === "automation" });
+    const common = { modes, multi: modes.length > 1 };
+    if (this.#mode === "automation") return { ...common, ...await this.#autoCtx() };
     const m = this.model, ctx = this.#ctx(), errors = fx.validate(m, ctx);
     const rules = m.blocks.flatMap((b) => fx.rulesOf(b, ctx)), dur = fx.durationText(m.dur, t);
     return {
+      ...common,
       name: m.name, level: m.level, img: m.img, subtitle: t("workshop.subtitle", { folder: t("workshop.folder") }),
       dur: m.dur, units: picks(fx.UNITS, "unit", m.dur.unit), expiry: choices(fx.EXPIRY, "expiry"), unlimited: m.dur.unit === "unlimited",
       blocks: m.blocks.map((b) => this.#view(b, ctx)),
@@ -115,28 +331,186 @@ export class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
     };
   }
 
+  /** Контекст режима «Автоматизация»: плашки, поля строк, сводки, правая панель, подвал. */
+  async #autoCtx() {
+    const a = this.#au, item = this.#item, f = a.f, mode = au.rollMode(f);
+    const raw = formToRule(f), v = validateRule(raw), rule = v.ok ? v.rule : raw;
+    const need = this.#typing ? [] : ruleUuids(raw).filter((u) => !this.#names.has(u));
+    await Promise.all(need.map(async (u) => this.#names.set(u, (await safeUuid(u))?.name ?? null)));
+    const base = await reportEnv(item, rule, Object.fromEntries(this.#names));
+    const area = { shape: a.area.shape, size: au.clampSize(a.area.size) };
+    const env = { ...base, uuidName: (u) => this.#names.get(u) ?? null, valued: condValued, area };
+    const sums = au.summaries(f, env), story = au.story(f, env);
+    const probeDc = String(a.probeDc ?? "").trim(), needDc = mode === "save" && env.dc == null;
+    const penv = needDc && probeDc !== "" && Number.isFinite(Number(probeDc)) ? { ...env, dc: Number(probeDc) } : env;   // СЛ только для пробы, в правило не пишется
+    const res = resolveRule(item), slug = res?.slug ?? slugOf(null, item), sourceUuid = res?.sourceUuid ?? sourceOf(null, item);
+    const groups = automationsGroups({ slug, sourceUuid });
+    const setting = game.settings.get(MOD, "yieldToAutomations");
+    const sheetStat = ["reflex", "fortitude", "will", "perception", "flat"];
+
+    // шаги списка -> плашки; a.sel указывает раскрытый шаг
+    const plates = {};
+    const stepsOf = (path) => (foundry.utils.getProperty(a, path) ?? []).map((row, i) => {
+      const p = `${path}.${i}`, pl = au.plate(row, env);
+      const text = pl.dur ? `${pl.name} · ${pl.dur}` : pl.name;
+      plates[p] = { text, value: pl.value };
+      return { path: p, ...pl, text, open: a.sel === p, stepper: pl.kind === "condition" && pl.valued };
+    });
+    const lst = (path, label, deg = "") => ({ list: path, label, deg, steps: stepsOf(path), picker: a.picker === path });
+    let edit = null;
+    if (a.sel) {
+      const row = foundry.utils.getProperty(a, a.sel);
+      if (row) edit = { path: a.sel, title: au.plateText(au.plate(row, env)), fields: stepFields(row, a.sel, this.#names) };
+      else a.sel = null;
+    }
+
+    const whenFields = [
+      F.text("f.label", t("sheet.label"), f.label, { cls: "ws-grow" }),
+      F.seg("f.kind", t("workshop.au.event"), f.kind, ["onUse", "onAttacked", "none"].map((k) => [k, t(`workshop.au.kind.${k}`)])),
+      F.seg("f.yield", t("sheet.yieldLabel"), f.yield, [["auto", t("sheet.yield.auto")], ["yes", t("sheet.yes")], ["no", t("sheet.yield.no")]])
+    ];
+    if (f.kind === "onAttacked") whenFields.push(
+      F.sel("f.react.type", t("workshop.au.reactType"), f.react.type, choices(fx.BONUS_TYPES, "btype")), F.num("f.react.value", t("workshop.au.reactValue"), f.react.value),
+      F.chk("f.react.owner", t("sheet.notifyOwner"), f.react.owner), F.chk("f.react.gm", t("sheet.notifyGM"), f.react.gm)
+    );
+
+    const shapes = Object.fromEntries([...au.SHAPES, a.area.shape].map((s) => [s, t(`workshop.au.shape.${s}`)]));
+    const targetFields = [F.seg("f.targets", t("workshop.au.whoLabel"), f.targets, ["self", "selected", "area"].map((k) => [k, t(`workshop.au.targetsBtn.${k}`)]))];
+    if (f.targets === "area") targetFields.push(
+      F.seg("area.shape", t("workshop.au.shapeLabel"), a.area.shape, Object.entries(shapes)), F.num("area.size", t("workshop.au.sizeLabel"), a.area.size, { min: 5, step: 5 }),
+      triSeg("f.excludeSelf", t("workshop.au.authorIn"), f.excludeSelf)
+    );
+    const isSpell = item.type === "spell", html = item._source.system.description?.value, have = au.parseTemplate(html), tag = au.templateTag(area.shape, area.size);
+    const same = have && have.shape === area.shape && have.size === area.size, unparsed = au.templateState(html) === "unparsed";
+    const areaNote = f.targets !== "area" ? null : {
+      note: isSpell ? t("workshop.au.areaSpell", { shape: shapes[area.shape], size: area.size }) : unparsed ? t("workshop.au.areaUnparsed") : same ? t("workshop.au.areaHave", { tag }) : t("workshop.au.areaDesc", { tag }),
+      insert: !isSpell && !same && !unparsed, locked: !item.isOwner || !!item.compendium?.locked
+    };
+
+    const rollFields = [F.seg("roll", t("workshop.au.whoRolls"), mode, ["save", "check", "none"].map((k) => [k, t(`workshop.au.rollBtn.${k}`)]))];
+    if (mode === "save") {
+      const c = f.ch;
+      rollFields.push(
+        F.text("f.ch.statistic", t("sheet.statistic"), c.statistic, { list: "ws-skills" }), F.sel("f.ch.dcType", t("sheet.dcLabel"), c.dcType, sheetChoices("dc", ["value", "expr", "markup", "source", "against"]))
+      );
+      if (["value", "expr", "against"].includes(c.dcType)) rollFields.push(F.text("f.ch.dcText", t("workshop.au.dcValue"), c.dcText, { inpCls: "ws-num" }));
+      rollFields.push(F.chk("f.ch.basic", t("sheet.basic"), c.basic), F.text("f.ch.traits", t("sheet.traits"), c.traits), F.text("f.ch.options", t("sheet.options"), c.options));
+    } else if (mode === "check") {
+      const k = f.ck, defs = sheetChoices("stat", ["fortitude", "reflex", "will", "perception"]);
+      rollFields.push(
+        F.text("f.ck.statistic", t("workshop.au.checkStat"), k.statistic, { list: "ws-skills", placeholder: "athletics, acrobatics" }), F.sel("f.ck.vsType", t("sheet.vsLabel"), k.vsType, sheetChoices("vs", ["defense", "dc", "against"]))
+      );
+      if (k.vsType === "defense") rollFields.push(F.sel("f.ck.vsText", t("workshop.au.vsWhat"), k.vsText, { ac: t("checks.ac"), ...defs }));
+      else rollFields.push(F.text("f.ck.vsText", t("workshop.au.vsWhat"), k.vsText, { inpCls: "ws-num" }));
+      rollFields.push(
+        F.sel("f.ck.map", t("sheet.map"), k.map, [["", "—"], ["0", "0"], ["1", "1"], ["2", "2"]]), F.text("f.ck.traits", t("sheet.traits"), k.traits), F.text("f.ck.options", t("sheet.options"), k.options),
+        F.chk("f.ck.imm.on", t("workshop.au.immunity"), k.imm.on)
+      );
+      if (k.imm.on) rollFields.push(
+        F.text("f.ck.imm.slug", t("workshop.au.immSlug"), k.imm.slug), F.text("f.ck.imm.label", t("sheet.label"), k.imm.label), F.text("f.ck.imm.uuid", "UUID", k.imm.uuid, { drop: "effect" }),
+        F.num("f.ck.imm.value", t("sheet.duration"), k.imm.value, { min: 1 }), F.sel("f.ck.imm.unit", t("workshop.au.unit"), k.imm.unit, sheetChoices("unit", ["minutes", "hours", "days"]))
+      );
+    }
+
+    const allConds = Object.keys(CONFIG.PF2E.conditionTypes ?? {}).map((s) => [s, condLabel(s)]).sort((x, y) => x[1].localeCompare(y[1]));
+    const z = f.zone, zoneFields = f.targets !== "area" ? [] : [F.chk("f.zone.on", t("sheet.zoneOn"), z.on)];
+    if (f.targets === "area" && z.on) zoneFields.push(
+      F.sel("f.zone.cond", t("sheet.zoneCond"), z.cond, [["", "—"], ...allConds], { drop: "condition" }), F.num("f.zone.condValue", t("sheet.row.value"), z.condValue, { min: 1 }),
+      F.text("f.zone.effect", t("sheet.zoneEffect"), z.effect, { drop: "effect", cls: "ws-grow" }), F.num("f.zone.seconds", t("sheet.seconds"), z.seconds, { min: 1 }), F.num("f.zone.rounds", t("sheet.rounds"), z.rounds, { min: 1 })
+    );
+
+    const macros = f.macros.map((m, i) => ({
+      path: `f.macros.${i}`, name: m.form === "builtin" || m.uuid.startsWith("builtin:") ? "" : this.#names.get(m.uuid) ?? "",
+      fields: [F.text(`f.macros.${i}.uuid`, "UUID", m.uuid, { drop: "macro", cls: "ws-grow", placeholder: "Macro.xxxxxxxx" }), F.sel(`f.macros.${i}.phase`, t("workshop.au.phase"), m.phase, sheetChoices("phase", ["onUse", "afterChallenge", "onDegree", "zoneEnter", "zoneExit", "onReaction"])),
+        ...(m.phase === "onDegree" ? [F.sel(`f.macros.${i}.degree`, t("workshop.au.degree"), m.degree, { "": t("sheet.anyDegree"), ...sheetChoices("degree", DEGREES) })] : [])]
+    }));
+
+    const onUse = f.kind === "onUse", R = (key, o) => ({ key, label: t(`workshop.au.row.${key}`), fold: true, open: !!a.open[key], sum: sums[key], hot: key === "outcome", ...o });
+    const rows = [
+      R("when", { fields: whenFields }),
+      ...(onUse ? [
+        R("targets", { fields: targetFields, area: areaNote }),
+        R("roll", { fields: rollFields }),
+        R("outcome", { is_outcome: true, cols: mode === "none" ? null : au.COLS.map((d) => lst(`${au.degPath(mode)}.${d}`, t(`sheet.degree.${d}`), d)), imm: ((l) => ({ ...l, quiet: mode !== "none" && !l.steps.length && !l.picker }))(lst("f.apply", t(mode === "none" ? "workshop.au.immediate" : "workshop.au.immediateExtra"))), edit }),
+        R("zone", { fold: f.targets === "area", fields: zoneFields })
+      ] : []),
+      R("macros", { is_macros: true, macros })
+    ];
+    this.#live = { sums, plates };
+
+    // правая панель: связный текст, строка про режим применения, пробный запуск
+    const tokens = pickedTokens();
+    let probe = null;
+    if (v.ok && onUse) {
+      const rep = buildReport(v.rule, tokens, penv);
+      const rows2 = mode === "none" ? [] : au.tokenOdds(v.rule, tokens, penv).map((r) => {
+        const bar = r.counts ? au.bar(r.counts).map((s) => ({ ...s, label: t(`sheet.degree.${s.deg}`), show: s.pct >= 15 })) : null;
+        const best = r.best === null ? null : sums.degLists.find((x) => x.deg === DEGREES[r.best]);
+        return { ...r, bar, aria: bar?.map((s) => `${s.label} ${s.pct}%`).join(", "), likely: best ? t("workshop.au.likely", { degree: t(`sheet.degree.${best.deg}`).toLowerCase(), effects: best.text || t("workshop.au.noEffects") }) : "" };
+      });
+      probe = { needDc, probeDc: a.probeDc ?? "", tokens: rows2, count: tokens.length, none: mode === "none", noTokens: !tokens.length, problems: rep.problems, legend: au.COLS.map((d) => ({ deg: d, label: t(`sheet.degree.${d}`) })) };
+    }
+    const errors = v.errors, dirty = this.#dirty();
+    const lockedFlag = !item.isOwner || !!item.compendium?.locked;
+    return {
+      head: {
+        img: item.img, name: item.name, covered: groups.join(", "),
+        kind: [game.i18n.localize(`TYPES.Item.${item.type}`), isSpell ? item.rank : item.system.level?.value].filter((x) => x !== undefined && x !== null).join(" "),
+        traits: (item.system.traits?.value ?? []).map(traitLabel),
+        src: res ? { label: t(`sheet.src.${res.source}`), low: res.confidence === "low", canAccept: res.source !== "flag", locked: lockedFlag } : { label: t("workshop.au.noRule") }
+      },
+      skills: [...sheetStat, ...Object.keys(CONFIG.PF2E.skills ?? {})], conds: grantable().map((c) => ({ ...c, q: c.label.toLowerCase() })),
+      rows, doubleWarn: !!groups.length && (f.yield === "no" || (f.yield === "auto" && !setting)) ? t("sheet.doubleWarn") + ` «${groups.join(", ")}»` : "",
+      probeMsg: t(onUse ? "workshop.au.probeBlocked" : "workshop.au.probeOnlyUse"), story, applyNote: onUse ? t(`workshop.au.applyMode.${modeOf("apply")}`) : "", probe,
+      errors, error: errors[0] ? errors[0] + (errors.length > 1 ? ` ${t("workshop.err.more", { n: errors.length - 1 })}` : "") : "",
+      dirty, status: t(dirty ? "workshop.au.dirty" : res?.source === "flag" ? "workshop.au.savedState" : "workshop.au.notInItem"),
+      lockedFlag, noSource: !sourceUuid, noSlug: !slug, isWorld: res?.source === "world", canUnset: res?.source === "flag" && !lockedFlag
+    };
+  }
+
+  /** Сводки и плашки на месте: ввод текста не перерисовывает поля (иначе теряется фокус). */
+  #paint() {
+    const live = this.#live, el = this.element;
+    if (!live || !el) return;
+    for (const n of el.querySelectorAll("[data-sum]")) if (n.dataset.sum in live.sums) n.textContent = live.sums[n.dataset.sum];
+    for (const n of el.querySelectorAll("[data-plate]")) { const p = live.plates[n.dataset.plate]; if (p) n.textContent = p.text; }
+    for (const n of el.querySelectorAll("[data-pv]")) { const p = live.plates[n.dataset.pv]; if (p) n.textContent = p.value; }
+  }
+
   _onFirstRender() {
     const el = this.element;
     // Текст/числа: правим модель на лету и обновляем только предпросмотр — перерисовка форм сбила бы фокус
-    el.addEventListener("input", (ev) => {
-      const f = ev.target.closest("[data-f]");
+    el.addEventListener("input", async (ev) => {
+      if (ev.target.matches("[data-filter]")) {   // поиск в списке состояний: только прячем строки
+        const q = ev.target.value.trim().toLowerCase();
+        for (const b of ev.target.closest(".ws-pick").querySelectorAll("[data-q]")) b.hidden = !b.dataset.q.includes(q);
+        return;
+      }
+      const f = ev.target.closest("[data-f],[data-a]");
       if (!f || f.tagName === "SELECT" || f.type === "checkbox") return;
       this.#set(f, f.value);
+      if (f.dataset.a === "probeDc") return;   // пересчёт по change (Enter/уход из поля): перерисовка панели сбила бы курсор
+      if (this.#mode === "automation") { this.#typing = true; await this.render({ parts: ["aside", "footer"] }); this.#paint(); this.#settle(); return; }
       this.render({ parts: ["aside", "footer"] });
       const id = f.dataset.block;
       if (id) { const row = el.querySelector(`.ws-text[data-block="${id}"]`); if (row) row.textContent = fx.textOf(this.#block(id), this.#ctx()); }
     });
     // Выбор из списка и флажки: могут менять набор полей — перерисовываем форму
     el.addEventListener("change", (ev) => {
-      const f = ev.target.closest("[data-f]");
+      const f = ev.target.closest("[data-f],[data-a]");
+      if (f?.dataset.a === "probeDc") { this.#set(f, f.value); this.render({ parts: ["aside"] }); return; }
       if (!f || !(f.tagName === "SELECT" || f.type === "checkbox")) return;
       const v = f.type === "checkbox" ? f.checked : f.value;
       this.#set(f, v);
       if (f.dataset.f === "slug" && f.dataset.block && this.#block(f.dataset.block).kind === "cond") Object.assign(this.#block(f.dataset.block), { uuid: "", name: "", valued: condValued(v) });
       this.#redraw();
     });
+    // Список состояний закрывается кликом мимо
+    el.addEventListener("click", (ev) => {
+      if (this.#au?.picker && !ev.target.closest(".ws-pick, [data-action=togglePicker]")) { this.#au.picker = null; this.#redraw(); }
+    });
     el.addEventListener("dragover", (ev) => ev.preventDefault());
-    el.addEventListener("drop", (ev) => this.#drop(ev).catch((e) => console.error(`${MOD} | workshop`, e)));
+    el.addEventListener("drop", (ev) => (this.#mode === "automation" ? this.#dropAuto(ev) : this.#drop(ev)).catch((e) => console.error(`${MOD} | workshop`, e)));
   }
 
   /** Бросок состояния/эффекта из компендиума: в выбранный кубик «состояние» или в новый. */
@@ -157,6 +531,28 @@ export class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
     if (cur?.kind === "cond") { Object.assign(cur, patch); this.#redraw(); } else this.#add("cond", patch);
   }
 
+  /** Бросок на режим «Автоматизация»: макрос — в список макросов; состояние/эффект — в поле UUID под курсором или в колонку/список шагов. */
+  async #dropAuto(ev) {
+    const data = foundry.applications.ux.TextEditor.implementation.getDragEventData(ev);
+    if (!data?.type) return;   // обычный текст — штатное поведение полей
+    ev.preventDefault();
+    const a = this.#au, doc = data.type === "Item" ? await safeUuid(data.uuid) : null, spec = dropSpec(data, doc);
+    if (spec?.temp) return ui.notifications.warn(L("sheet.dropTemp"));
+    if (!spec) return ui.notifications.warn(t("workshop.au.dropBad"));
+    if (spec.macro) {
+      const field = ev.target.closest("[data-drop=macro]");
+      if (field) this.#setAuto(field.dataset.a, spec.macro);
+      else { a.f.macros.push({ uuid: spec.macro, phase: "onUse", degree: "" }); a.open.macros = true; }
+      return this.#redraw();
+    }
+    const field = ev.target.closest("[data-drop=effect], [data-drop=condition]");
+    if (field && spec.kind === field.dataset.drop) { this.#setAuto(field.dataset.a, spec.text); return this.#redraw(); }
+    if (spec.kind === "condition" && (!conditions().has(spec.text) || NOT_GRANTABLE.has(spec.text))) return ui.notifications.warn(t("workshop.dropBad"));
+    const list = ev.target.closest(".ws-dcol, .ws-dimm")?.querySelector("[data-list]")?.dataset.list ?? (au.rollMode(a.f) === "none" && a.f.kind === "onUse" ? "f.apply" : null);
+    if (!list) return ui.notifications.warn(t("workshop.au.dropColumn"));
+    this.#addStep(list, spec);
+  }
+
   async #create(open) {
     if (!game.user.isGM || this.#busy) return;
     const ctx = this.#ctx();
@@ -172,6 +568,18 @@ export class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
       ui.notifications.error(`${t("workshop.createFailed")}: ${e?.message ?? e}`);
     } finally { this.#busy = false; }
   }
+
+  /** Цели/выделение изменились или предмет обновили извне: пробный запуск и (без правок) форма — заново. */
+  static refresh({ item = null } = {}) {
+    const app = Workshop.#instance;
+    if (!app?.rendered || app.#mode !== "automation") return;
+    if (item) {
+      if (app.#item?.uuid !== item.uuid) return;
+      if (!app.#dirty()) app.#loadAu(true);
+      return app.render({ window: { title: app.title } });
+    }
+    app.render({ parts: ["aside"] });
+  }
 }
 
 /** Кнопка в шапке вкладки Items боковой панели (только ГМ). */
@@ -184,4 +592,7 @@ export function init() {
     b.addEventListener("click", () => Workshop.open());
     bar.append(b);
   });
+  const probe = foundry.utils.debounce(() => Workshop.refresh(), 100);   // выделение рамкой шлёт controlToken на каждый токен
+  for (const hook of ["targetToken", "controlToken"]) Hooks.on(hook, (user) => { if (hook !== "targetToken" || user?.id === game.user.id) probe(); });
+  Hooks.on("updateItem", (item) => Workshop.refresh({ item }));
 }

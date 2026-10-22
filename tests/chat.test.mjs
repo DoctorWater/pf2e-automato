@@ -289,3 +289,13 @@ test("onUse.apply при effect=auto: кнопка только после по�
   assert.equal(vmOf({ done: true }), true);
   assert.equal(vmOf({ done: true, apply: { self: { ops: [{}] } } }), false);
 });
+
+test("все цели вне дальности: пометка есть, СЛ ставить и «нет целей» не нужно", () => {
+  const far = { d: 40, r: 30 };
+  const vm = buildViewModel(mkMsg({ targets: [{ key: "a", name: "Orc", far }], dc: null, rule: { ...fear, onUse: { ...fear.onUse, challenge: { ...fear.onUse.challenge, dc: { source: "spell" } } } } }), gm, mkEnv());
+  assert.ok(vm.warnings.some((w) => w.startsWith("chat.outOfRange")));
+  assert.equal(vm.challenge.rows.length, 0);
+  assert.equal(vm.challenge.canSetDC, false);
+  const near = buildViewModel(mkMsg({ targets: [{ key: "a", name: "Orc", far }, { key: "b", name: "Bob" }] }), gm, mkEnv());
+  assert.deepEqual(near.challenge.rows.map((r) => r.key), ["b"]);
+});

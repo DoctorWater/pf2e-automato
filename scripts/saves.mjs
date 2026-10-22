@@ -3,6 +3,7 @@ import { MOD, L, DEGREES, flagPath, queue, degreeFromTotal, debug, callGM, isAct
 import { S, modeOf } from "./settings.mjs";
 import { card } from "./card.mjs";
 import { headOf } from "./builtin/lib.mjs";
+import { inRange } from "./range.mjs";
 import { toolbeltTargetHelper, toolbeltMessageTargets } from "./compat.mjs";
 import { applyOps } from "./apply.mjs";
 import { runMacros } from "./macros.mjs";
@@ -100,14 +101,15 @@ export async function challengeTargets(message) {
   if (!use) return [];
   if (S.get("useToolbeltTargetHelper")) {
     const tb = toolbeltMessageTargets(message);
-    if (tb) return tb.map((t) => ({ key: t.id, token: t }));
+    const far = new Set((use.targets ?? []).filter((t) => t.far).map((t) => t.key));   // цели Toolbelt берутся из его списка — вне дальности отсеиваем по снимку
+    if (tb) return tb.filter((t) => !far.has(t.id)).map((t) => ({ key: t.id, token: t }));
   }
   if (use.rule?.onUse?.targets === "area") {
     const area = use.state?.area;
     const scene = (safeSync(area?.regionUuid)?.parent) ?? canvas?.scene;
     return (area?.keys ?? []).map((k) => scene?.tokens.get(k)).filter(Boolean).map((t) => ({ key: t.id, token: t }));
   }
-  return (use.targets ?? []).map((t) => safeSync(t.uuid)).filter(Boolean).map((t) => ({ key: t.id, token: t }));
+  return inRange(use.targets).map((t) => safeSync(t.uuid)).filter(Boolean).map((t) => ({ key: t.id, token: t }));
 }
 
 const toolbeltRolls = () => S.get("useToolbeltTargetHelper") && toolbeltTargetHelper().checks;

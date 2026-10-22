@@ -153,6 +153,10 @@ export function buildViewModel(message, user, env = null) {
     for (const name of env.groups({ slug: use.slug, sourceUuid: use.sourceUuid })) vm.warnings.push(t("chat.yieldWarn", { name }));
   }
 
+  // все цели вне дальности: проверять и применять не к кому — хватает пометки выше (без «нет целей» и без кнопки СЛ)
+  const allFar = on.targets !== "area" && !!use.targets?.length && use.targets.every((x) => x.far);
+  if (on.targets !== "area") for (const x of use.targets ?? []) if (x.far) vm.warnings.push(t("chat.outOfRange", { name: x.name, d: x.far.d, r: x.far.r }));
+
   const isUse = use.kind === "use", isRoll = use.kind === "roll";   // roll — бросок действия из листа: результат уже есть
   const hasState = ["zone", "area", "challenge", "apply", "derived", "macros"].some((k) => !isEmpty(state[k]));
   // awaitingRegion — до проверки done: runUse ставит done и у расходника, ждущего область
@@ -183,7 +187,7 @@ export function buildViewModel(message, user, env = null) {
   if (ch) {
     const modeApply = env.mode("apply"), modeChallenge = env.mode("challenge");
     const keys = [...new Set([
-      ...(state.area?.keys ?? (on.targets === "area" ? [] : (use.targets ?? []).map((x) => x.key))),
+      ...(state.area?.keys ?? (on.targets === "area" ? [] : (use.targets ?? []).filter((x) => !x.far).map((x) => x.key))),
       ...Object.keys(state.challenge?.results ?? {})
     ])];
     const resultsSeen = isGM || meta.results;
@@ -224,8 +228,8 @@ export function buildViewModel(message, user, env = null) {
       basic: ch.basic ? t("chat.basic") : null,
       dc: dcKnown != null ? t("chat.dc", { dc: dcKnown }) : null,
       dcUnknown: !ck && showDc && dcKnown == null ? t("chat.dcUnknown") : null,
-      canSetDC: !ck && isGM && dcKnown == null && isEmpty(state.challenge?.results),
-      toolbelt: ck ? (rows.length || !(isUse || isRoll) ? null : t(isRoll ? "checks.noTargetRoll" : "checks.noTargets")) : env.toolbelt ? t("chat.challengeOff") : null,
+      canSetDC: !ck && isGM && !allFar && dcKnown == null && isEmpty(state.challenge?.results),
+      toolbelt: ck ? (rows.length || allFar || !(isUse || isRoll) ? null : t(isRoll ? "checks.noTargetRoll" : "checks.noTargets")) : env.toolbelt ? t("chat.challengeOff") : null,
       rows,
       canApplyAll: rows.some((r) => r.canApply),
       canUndoAll: rows.some((r) => r.canUndo),
@@ -240,11 +244,12 @@ export function buildViewModel(message, user, env = null) {
   // onUse.apply (режим effect=button), только high
   if (on.apply?.length && use.confidence !== "low" && isUse) {
     const done = !isEmpty(state.apply);
+    const noneToApply = allFar && on.apply.every((a) => a.to === "target");   // шаги только на цели — применять нечего, кнопку не показываем
     vm.useApply = {
       plan: on.apply.map((a) => stepText(a, env, "self")),
       done: done ? t("chat.applyDone") : null,
       noTargets: !done && on.targets === "selected" && on.apply.some((a) => a.to === "target") && !(use.targets?.length) ? t("checks.noTargets") : null,
-      canApply: canAct && !done && (env.mode("effect") === "button" || (env.mode("effect") === "auto" && !!state.done && (on.targets !== "area" || !!state.area)))   // auto: после попытки (state.done) кнопка на случай сбоя
+      canApply: canAct && !done && !noneToApply && (env.mode("effect") === "button" || (env.mode("effect") === "auto" && !!state.done && (on.targets !== "area" || !!state.area)))   // auto: после попытки (state.done) кнопка на случай сбоя
     };
   }
 

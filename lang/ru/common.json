@@ -1,6 +1,6 @@
 {
   "PF2E_AUTOMATO": {
-    "card": {"blade-dance": "Танец клинков", "double-slice": "Двойной взмах", "one-shot-one-kill": "Один выстрел, один труп", "onyx-dog": "Ониксовая собака", "reactive-strike": "Внеочередная атака", "shield-block": "Блок щитом", "surprise-attack": "Внезапная атака", "escape": "Освобождение", "retch": "Тошнота", "invis": "Невидимость", "saves": "Испытание", "vision": "Видимость"},
+    "card": {"spellshape": "Метамагия", "blade-dance": "Танец клинков", "double-slice": "Двойной взмах", "one-shot-one-kill": "Один выстрел, один труп", "onyx-dog": "Ониксовая собака", "reactive-strike": "Внеочередная атака", "shield-block": "Блок щитом", "surprise-attack": "Внезапная атака", "escape": "Освобождение", "retch": "Тошнота", "invis": "Невидимость", "saves": "Испытание", "vision": "Видимость"},
     "noGM": "Нет активного ведущего: действие не выполнено.",
     "protoWarning": "Активен прототип pf2e-autoflow-proto-*: отключите его, иначе работа модуля pf2e-automato даст двойные срабатывания.",
     "mode": { "auto": "Автоматически", "button": "По кнопке", "off": "Выключено" },

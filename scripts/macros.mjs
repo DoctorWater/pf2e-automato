@@ -1,6 +1,7 @@
 // Макросы правил (plan.md §1.1 «Контракт макросов»). Исполняет только активный ГМ.
 import { MOD, L, DEGREES, flagPath, queue, socket, isActiveGM } from "./util.mjs";
 import { modeOf } from "./settings.mjs";
+import { inRange } from "./range.mjs";
 import { BUILTIN, initBuiltinHooks } from "./builtin/index.mjs";
 
 const TIMEOUT_MS = 30000;
@@ -17,7 +18,7 @@ function targetsOf(use) {
     const scene = safeSync(area.regionUuid)?.parent;
     if (scene) return area.keys.map((k) => scene.tokens.get(k)).filter(Boolean);
   }
-  return (use?.targets ?? []).map((t) => safeSync(t.uuid)).filter(Boolean);
+  return inRange(use?.targets).map((t) => safeSync(t.uuid)).filter(Boolean);
 }
 
 /** id встроенного обработчика: {builtin:"id"} или (форма, проходящая validateRule до его правки) {uuid:"builtin:id"}. */

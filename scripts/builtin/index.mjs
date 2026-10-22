@@ -16,6 +16,8 @@ import * as bladeDance from "./blade-dance.mjs";
 import * as oneShot from "./one-shot-one-kill.mjs";
 import * as shieldBlock from "./shield-block.mjs";
 import * as surprise from "./surprise-attack.mjs";
+import * as tentacles from "./tentacular-limbs.mjs";
+import * as spellshape from "./spellshape.mjs";
 import * as variableCast from "./variable-cast.mjs";
 
 const DIALOG_MS = 180000;
@@ -34,7 +36,7 @@ export const BUILTIN = {
 };
 
 // Обработчики по сообщениям чата без правила: кровь — тег заклинания, статуэтка — карточка предмета (kind "card" конвейер не исполняет).
-const MESSAGE_HOOKS = [["blood-magic", bloodMagic.onMessage], ["reactive-strike", reactiveStrike.onMessage], ["onyx-dog", onyxDog.onMessage], ["one-shot-one-kill", oneShot.onMessage], ["surprise-attack", surprise.onMessage]];
+const MESSAGE_HOOKS = [["blood-magic", bloodMagic.onMessage], ["reactive-strike", reactiveStrike.onMessage], ["onyx-dog", onyxDog.onMessage], ["one-shot-one-kill", oneShot.onMessage], ["surprise-attack", surprise.onMessage], ["spellshape", spellshape.onMessage], ["tentacular-limbs", tentacles.onMessage]];
 
 export function initBuiltinHooks() {
   if (!globalThis.Hooks) return;   // node-тесты
@@ -46,9 +48,8 @@ export function initBuiltinHooks() {
   });
   Hooks.on("createChatMessage", async (message) => {
     if (!isActiveGM() || modeOf("macro") === "off") return;
-    for (const [id, fn] of MESSAGE_HOOKS) {
-      try { await fn(message); } catch (e) { console.error(`${MOD} | builtin ${id}`, e); }
-    }
+    // независимо: обработчик с окном (Магия крови ждёт ответа) не должен задерживать остальные; записи в актёра — через queue
+    for (const [id, fn] of MESSAGE_HOOKS) Promise.resolve().then(() => fn(message)).catch((e) => console.error(`${MOD} | builtin ${id}`, e));
   });
   Hooks.on("createChatMessage", (message) => {   // свой хук: не зависит от mode.macro (mode.shieldBlock проверяет onMessage)
     if (isActiveGM()) shieldBlock.onMessage(message).catch((e) => console.error(`${MOD} | builtin shield-block`, e));
@@ -66,7 +67,15 @@ export function initBuiltinHooks() {
     surprise.onTurn(combat, changed).catch((e) => console.error(`${MOD} | builtin surprise-attack turn`, e));
   });
   const sweep = () => Promise.all([sweepEffects(oneShot.SLUG), sweepEffects(surprise.SLUG)]).catch((e) => console.error(`${MOD} | builtin sweep`, e));
-  const migrate = (fn) => async (...a) => { await whenSettled(); if (isActiveGM() && modeOf("macro") !== "off") fn(...a).catch((e) => console.error(`${MOD} | builtin one-shot-one-kill migrate`, e)); };
+  // метамагия отслеживает mode.macro сама: off возвращает переключатели черт, иначе снимает (spellshape.mjs); ГМу — исполнитель один
+  const shapeSync = (fn) => async (...a) => { await whenSettled(); if (isActiveGM()) fn(...a).catch((e) => console.error(`${MOD} | builtin spellshape sync`, e)); };
+  const off = () => modeOf("macro") === "off";
+  Hooks.on("createChatMessage", (m) => { if (!off()) spellshape.warnNoGM(m); });
+  Hooks.once("ready", shapeSync(() => spellshape.syncAll(off())));
+  Hooks.on("pf2e-automato.macroMode", shapeSync(() => spellshape.syncAll(off())));
+  Hooks.on("createItem", shapeSync((i) => spellshape.syncItem(i, off())));
+  Hooks.on("updateItem", shapeSync((i) => spellshape.syncItem(i, off())));
+  const migrate = (fn) => async (...a) => { await whenSettled(); if (isActiveGM() && modeOf("macro") !== "off") fn(...a).catch((e) => console.error(`${MOD} | builtin migrate`, e)); };
   Hooks.once("ready", migrate(async () => { await oneShot.migrateAll(); await sweep(); }));
   Hooks.on("createItem", migrate(async (i) => { await oneShot.migrateItem(i); }));
   Hooks.on("updateItem", migrate(async (i) => { await oneShot.migrateItem(i); }));

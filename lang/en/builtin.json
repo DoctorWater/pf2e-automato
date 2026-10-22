@@ -35,9 +35,18 @@
         "noGun": "\"{name}\": needs a firearm or crossbow.",
         "noAlly": "\"{name}\": no allies on the scene."
       },
+      "spellshape": {
+        "effect": "Spellshape: {name}",
+        "spent": "{name} (spent)",
+        "hint": "<p><b>{shape}</b>: the next spell {name} casts gets this spellshape. The effect is spent by the cast and ends with the next cast or at the end of the turn.</p>"
+      },
       "oneShot": {
         "effect": "One Shot, One Kill: ready",
         "hint": "<p><b>One Shot, One Kill</b>: {name} rolled Stealth for initiative. Interact to draw a firearm or crossbow; the first Strike with it deals extra precision damage.</p>"
+      },
+      "tentacles": {
+        "effect": "Tentacular Limbs",
+        "hint": "Unarmed Strike reach is 10 feet. Extending to 20 feet with an extra action when casting is manual."
       },
       "surprise": {
         "effect": "Surprise Attack: creatures yet to act",

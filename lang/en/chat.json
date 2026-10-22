@@ -6,6 +6,7 @@
       "yieldWarn": "The group \"{name}\" in pf2e-automations will also react to this roll; disable it or do not remove the yield.",
       "waiting": "Waiting for the GM",
       "resume": "Resume",
+      "outOfRange": "\"{name}\" is out of range ({d} ft > {r} ft): not applied.",
       "awaitingRegion": "Waiting for the area to be placed",
       "challengeOff": "Challenges are handled by Toolbelt",
       "dc": "DC {dc}",

@@ -5,7 +5,7 @@
 export const HEADS = {
   "blade-dance": "fa-khanda", "double-slice": "fa-khanda", "one-shot-one-kill": "fa-crosshairs", "onyx-dog": "fa-dog",
   "reactive-strike": "fa-bolt", "shield-block": "fa-shield-halved", "surprise-attack": "fa-user-ninja", escape: "fa-unlock",
-  retch: "fa-face-dizzy", invis: "fa-ghost", saves: "fa-dice-d20", vision: "fa-eye"
+  retch: "fa-face-dizzy", spellshape: "fa-wand-sparkles", invis: "fa-ghost", saves: "fa-dice-d20", vision: "fa-eye"
 };
 
 /** head: { title, icon } | null. buttons — готовые cardButton(...) (и поле СЛ, если нужно). */

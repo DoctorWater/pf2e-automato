@@ -1,6 +1,7 @@
 // X1. Кровная магия аберрантного наследия (Eerie Veil): сотворил заклинание крови — «+2 статус Воле себе» или «−1 Воле одной цели».
 // Эффект один (feat-effects UQ7vZgmfK0VSFS8A): знак зависит от того, совпадает ли автор эффекта с владельцем (предикат self:signature).
 import { L, MOD, socket } from "../util.mjs";
+import { inRange } from "../range.mjs";
 import { ask, askHere, castOrigin, docOf, esc } from "./lib.mjs";
 
 export const EFFECT = "Compendium.pf2e.feat-effects.Item.UQ7vZgmfK0VSFS8A";
@@ -50,7 +51,7 @@ export async function onMessage(message) {
   if (!actor?.items.some((i) => i.slug === BLOODLINE_SLUG)) return;
   // снимок целей сообщения; иначе User#targets автора (ядро синхронизирует их между клиентами, user.mjs userActivity.targets)
   const snap = message.flags?.[MOD]?.use?.targets;
-  const targets = (snap ? snap.map((t) => fromUuidSync(t.uuid)) : [...(message.author?.targets ?? [])]).map(docOf).filter((t) => t?.actor);
+  const targets = (snap ? inRange(snap).map((t) => fromUuidSync(t.uuid)) : [...(message.author?.targets ?? [])]).map(docOf).filter((t) => t?.actor);
   const opts = bloodOptions(targets);
   const player = playerOf(message, actor);
   let id;

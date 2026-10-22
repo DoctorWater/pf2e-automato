@@ -4,6 +4,7 @@
 // и flags.pf2e-automato.cast.actions. Для «снарядов по числу действий» (Силовой залп) — распределение по целям и один бросок урона на цель.
 import { L, MOD, flagPath } from "../util.mjs";
 import { isLeader } from "../leader.mjs";
+import { inRange } from "../range.mjs";
 import { askHere, castOrigin, esc } from "./lib.mjs";
 
 const CHOICES = { "1 to 3": [1, 2, 3], "1 or 2": [1, 2], "2 or 3": [2, 3] };
@@ -95,9 +96,12 @@ export function snapTargets(message) {
 /** Цели каста: снимок castTargets, затем use.targets (scripts/use.mjs); нет снимка — текущие цели. */
 async function missileTargets(message) {
   const own = message.flags?.[MOD]?.castTargets;
-  if (own) return (await Promise.all(own.map((u) => fromUuid(u)))).filter((d) => d?.actor);   // пустой снимок — сотворили без целей
-  const snap = message.flags?.[MOD]?.use?.targets ?? [];
-  const docs = snap.length ? await Promise.all(snap.map((t) => fromUuid(t.uuid))) : [...(game.user.targets ?? [])].map((t) => t.document ?? t);
+  const all = message.flags?.[MOD]?.use?.targets ?? [], snap = inRange(all);   // все вне дальности — целей нет, а не «текущие цели»
+  if (own) {   // пустой снимок — сотворили без целей
+    const far = new Set(all.filter((t) => t.far).map((t) => t.uuid));
+    return (await Promise.all(own.filter((u) => !far.has(u)).map((u) => fromUuid(u)))).filter((d) => d?.actor);
+  }
+  const docs = all.length ? await Promise.all(snap.map((t) => fromUuid(t.uuid))) : [...(game.user.targets ?? [])].map((t) => t.document ?? t);
   return docs.filter((d) => d?.actor);
 }
 

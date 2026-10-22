@@ -26,7 +26,7 @@ export function init() {
   for (const [key, def] of Object.entries(MODES)) {
     const choices = { auto: "PF2E_AUTOMATO.mode.auto", button: "PF2E_AUTOMATO.mode.button", off: "PF2E_AUTOMATO.mode.off" };
     if (TWO_STATE.has(key)) delete choices.button;
-    reg(key, { type: String, default: def, choices });
+    reg(key, { type: String, default: def, choices, ...(key === "mode.macro" && { onChange: (v) => Hooks.callAll("pf2e-automato.macroMode", v) }) });
   }
   reg("yieldToAutomations", { type: Boolean, default: true });
   reg("useToolbeltTargetHelper", { type: Boolean, default: true });

@@ -1,5 +1,5 @@
 // K2: конвейер использования. Контракт — plan.md §2 use.mjs, §3.A–C, §3.H, §1.4.
-import { MOD, flagPath, guardActiveGM, queue, debug, forcedDelete } from "./util.mjs";
+import { MOD, L, flagPath, guardActiveGM, queue, debug, forcedDelete } from "./util.mjs";
 import { S, modeOf } from "./settings.mjs";
 import * as compat from "./compat.mjs";
 import * as rules from "./rules.mjs";
@@ -9,6 +9,8 @@ import * as saves from "./saves.mjs";
 import * as macros from "./macros.mjs";
 import * as reactions from "./reactions.mjs";
 import * as actions from "./actions.mjs";
+import { itemRange, markFar, inRange, TENTACLES } from "./range.mjs";
+import { recentShape, spentOptions } from "./builtin/spellshape.mjs";
 
 const CAST = "origin:action:slug:cast-a-spell";
 const CARD_TYPES = new Set(["consumable", "equipment", "spell", "weapon", "armor", "treasure", "backpack", "shield"]);
@@ -105,6 +107,12 @@ function onPreCreateMessage(message, data, options, userId) {
   const targets = [...(game.user.targets ?? [])].map((t) => t.document ?? t).map((d) => ({
     key: d.id, uuid: d.uuid, name: d.name, pc: !!d.actor?.hasPlayerOwner
   }));
+  const onUse = resolved.rule.onUse;
+  if (onUse?.targets !== "area" && targets.length && (onUse?.challenge || onUse?.check || onUse?.apply?.some((a) => a.to === "target"))) {
+    const far = markFar(targets, tokenDoc?.object, itemRange(item, [...(origin.rollOptions ?? []), ...casterOptions(item?.actor ?? tokenDoc?.actor)])).filter((t) => t.far);
+    for (const t of far) targets.find((x) => x.key === t.key).far = t.far;
+    if (far.length) ui.notifications?.warn(far.map((t) => L("chat.outOfRange", { name: t.name, d: t.far.d, r: t.far.r })).join(" "));
+  }
   const chDc = resolved.rule.onUse?.challenge?.dc;
   let dc = chDc?.value ?? null;
   if (dc == null && !resolved.rule.onUse?.check && (!chDc || chDc.source === "spell")) {   // СЛ заклинателя — только если правило её и просит (K7 п.7)
@@ -117,6 +125,16 @@ function onPreCreateMessage(message, data, options, userId) {
     actor, token: tokenDoc?.uuid ?? null
   });
   message.updateSource({ [flagPath("use")]: snapshot });
+}
+
+/** Опции актёра для дальности: метамагия (`spellshape:*`, не feat:reach-spell — это наличие черты) без потраченной на прошлое сотворение,
+ *  метамагия, нажатая только что (эффект ведущий ещё не создал), и «Руки-щупальца». */
+function casterOptions(caster) {
+  if (!caster) return [];
+  const spent = spentOptions(caster.items ?? []);
+  const own = Object.entries(caster.rollOptions?.all ?? {}).filter(([o, on]) => on && !spent.includes(o) && (o.startsWith("spellshape:") || o === TENTACLES)).map(([o]) => o);
+  const recent = recentShape(game.messages.contents, caster.uuid, (uuid) => { const f = fromUuidSync(uuid); return f?.parent === caster ? f.flags?.[MOD]?.spellshape : null; });
+  return recent ? [...own, recent] : own;
 }
 
 function onPreCreateRegion(region, data, options, userId) {
@@ -203,7 +221,7 @@ async function stepTargets(use) {
     const region = regionOf(use.state?.area?.regionUuid), scene = region?.parent;
     return (use.state?.area?.keys ?? []).map((key) => ({ key, doc: scene?.tokens.get(key) ?? null, region }));
   }
-  return Promise.all((use.targets ?? []).map(async (t) => ({ key: t.key, doc: await fromUuid(t.uuid) })));
+  return Promise.all(inRange(use.targets).map(async (t) => ({ key: t.key, doc: await fromUuid(t.uuid) })));
 }
 
 /** Кнопка «Применить» (effect=button): onUse.apply для kind use + high. */
@@ -287,7 +305,7 @@ function execUse(messageId, skipIfDone) {
     if (onUse?.apply?.length && modeOf("effect") === "auto") await applyUseSteps(message, use, { targets: !area });   // область: цели берёт runRegion
 
     if (use.rule.macros?.some((m) => m.phase === "onUse") && modeOf("macro") !== "off") {
-      const targets = (await Promise.all((use.targets ?? []).map((t) => fromUuid(t.uuid)))).filter(Boolean);
+      const targets = (await Promise.all(inRange(use.targets).map((t) => fromUuid(t.uuid)))).filter(Boolean);
       await macros.runMacros("onUse", { message, rule: use.rule, targets });
     }
 

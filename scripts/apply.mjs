@@ -4,6 +4,7 @@
 import { MOD, L, flagPath, sluggify, queue, forcedDelete, socket, ENDS_EARLY, sharedDialog } from "./util.mjs";
 import { runMacros } from "./macros.mjs";
 import { effectSource } from "./builtin/lib.mjs";
+import { inRange } from "./range.mjs";
 import { resolveFormula, isZeroFormula } from "./rules.mjs";
 import { setSource, dropSource, visionActive } from "./vision.mjs";
 import { escapeDC, offerEscape } from "./escape.mjs";
@@ -248,7 +249,7 @@ export async function applyOps(message, tokenKey, steps, ctx = {}) {
     }
     let markUuid = null;
     if (step.mark === "enemy") {
-      const docs = await Promise.all((use.targets ?? []).map((t) => fromUuid(t.uuid)));
+      const docs = await Promise.all(inRange(use.targets).map((t) => fromUuid(t.uuid)));
       const foes = docs.filter((d) => d && opposed(myDisp, d.disposition));
       if (foes.length !== 1) { notify("apply.needEnemy", { name: use.item?.name ?? "" }); continue; }
       markUuid = foes[0].uuid;

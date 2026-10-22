@@ -28,7 +28,9 @@ test("каждый вид кубика -> правильный Rule Element", ()
 
 test("состояние: UUID из рантайма или из броска, значение — алтерацией", () => {
   const u = "Compendium.pf2e.conditionitems.Item.FRIGHT";
-  assert.deepEqual(rulesOf(B("cond", { slug: "frightened" }), ctx), [{ key: "GrantItem", uuid: u, onDeleteActions: { grantee: "restrict" } }]);
+  // испуг убывает по ходу игры — ГМ должен мочь его снять: detach; неубывающие — restrict
+  assert.deepEqual(rulesOf(B("cond", { slug: "frightened" }), ctx), [{ key: "GrantItem", uuid: u, onDeleteActions: { grantee: "detach" } }]);
+  assert.equal(rulesOf(B("cond", { slug: "clumsy" }), { ...ctx, uuidOf: () => "Compendium.pf2e.conditionitems.Item.CLUMSY" })[0].onDeleteActions.grantee, "restrict");
   assert.deepEqual(rulesOf(B("cond", { slug: "frightened", valued: true, value: "2" }), ctx)[0].alterations, [{ mode: "override", property: "badge-value", value: 2 }]);
   assert.equal(rulesOf(B("cond", { uuid: "Compendium.x.Item.y" }), ctx)[0].uuid, "Compendium.x.Item.y");   // перетащенный эффект
   assert.deepEqual(rulesOf(B("cond", { slug: "nope" }), ctx), []);

@@ -1,6 +1,7 @@
 // Мастерская, режим «Эффект»: чистое ядро (без Foundry при импорте, node-тесты).
 // Модель: { name, level, img, dur: { value, unit, expiry, counter }, blocks: [кубик] } -> source эффекта pf2e с Rule Elements.
 // Схемы RE сверены с pf2e 8.6.1 (pf2e.mjs): FlatModifier/DamageDice/Resistance/TempHP/FastHealing/Sense/Aura/TokenLight/Note.
+import { ENDS_EARLY } from "../util.mjs";
 
 export const KINDS = ["bonus", "resist", "temphp", "fastheal", "dmg", "speed", "sense", "cond", "note", "aura", "light", "raw"];
 export const TARGETS = ["ac", "saving-throw", "attack-roll", "damage", "perception", "skill-check"];
@@ -66,7 +67,7 @@ export function rulesOf(b, ctx = {}) {
       const uuid = b.uuid || ctx.uuidOf?.(b.slug);
       if (!uuid) return [];
       // значение — алтерацией badge-value, как в apply.mjs createTimed
-      return [{ key: "GrantItem", uuid, onDeleteActions: { grantee: "restrict" }, ...(b.valued && { alterations: [{ mode: "override", property: "badge-value", value: num(b.value) }] }) }];
+      return [{ key: "GrantItem", uuid, onDeleteActions: { grantee: ENDS_EARLY.has(b.slug) ? "detach" : "restrict" }, ...(b.valued && { alterations: [{ mode: "override", property: "badge-value", value: num(b.value) }] }) }];
     }
     case "note": return [{ key: "Note", selector: b.target, ...(b.title?.trim() && { title: b.title.trim() }), text: b.text }];
     case "aura": return [{ key: "Aura", ...(String(b.slug ?? "").trim() && { slug: b.slug.trim() }), radius: num(b.radius), traits: [], effects: [] }];

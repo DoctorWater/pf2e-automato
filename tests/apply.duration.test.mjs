@@ -26,7 +26,8 @@ function mkActor(uuid) {
 }
 const setup = () => {
   registry.clear();
-  globalThis.game = { modules: { get: () => null }, pf2e: { ConditionManager: { getCondition: (slug) => ({ uuid: `Compendium.pf2e.conditionitems.Item.${slug}`, name: slug, img: "i.svg", system: { value: { isValued: slug === "clumsy" } }, toObject() { return { name: slug, type: "condition", system: { slug, value: { isValued: false, value: null } } }; } }) } } };
+  // как в pf2e: getCondition() отдаёт клон без uuid, источник — в _stats.compendiumSource
+  globalThis.game = { modules: { get: () => null }, pf2e: { ConditionManager: { getCondition: (slug) => ({ uuid: null, _stats: { compendiumSource: `Compendium.pf2e.conditionitems.Item.${slug}` }, name: slug, img: "i.svg", system: { value: { isValued: slug === "clumsy" || slug === "frightened" } }, toObject() { return { name: slug, type: "condition", system: { slug, value: { isValued: false, value: null } } }; } }) } } };
   globalThis.foundry = { utils: { getProperty: (o, p) => p.split(".").reduce((a, k) => a?.[k], o) } };
   globalThis.fromUuid = async (u) => registry.get(u) ?? null;
 };
@@ -52,6 +53,32 @@ test("applyCondition с duration: обёртка-эффект, GrantItem + badge
     const r2 = await applyCondition(t, { slug: "prone", duration: { ...DUR, of: "target", expiry: "turn-end" } }, { key: "k2" }, { originActor: author });
     assert.equal(r2.item.system.context.origin.actor, "Actor.t");
     assert.equal(r2.item.system.rules[0].alterations, undefined);
+  } finally { teardown(); }
+});
+
+test("applyCondition с duration: убывающие и досрочные — detach, обычные — restrict", async () => {
+  setup();
+  try {
+    const t = mkActor("Actor.t"), ctx = { originActor: { uuid: "Actor.a" } };
+    const f = await applyCondition(t, { slug: "frightened", value: 2, duration: DUR }, { key: "f" }, ctx);
+    assert.equal(f.item.system.rules[0].onDeleteActions.grantee, "detach");
+    assert.deepEqual(f.item.system.rules[0].alterations, [{ mode: "override", property: "badge-value", value: 2 }]);
+    assert.equal((await applyCondition(t, { slug: "prone", duration: DUR }, { key: "p" }, ctx)).item.system.rules[0].onDeleteActions.grantee, "detach");   // Встать
+    const c = await applyCondition(t, { slug: "clumsy", value: 1, duration: DUR }, { key: "c" }, ctx);
+    assert.equal(c.item.system.rules[0].onDeleteActions.grantee, "restrict");
+  } finally { teardown(); }
+});
+
+test("повышение без срока не трогает состояние, выданное обёрткой-сроком, — создаёт своё", async () => {
+  setup();
+  try {
+    const t = mkActor("Actor.t");
+    // выданный обёрткой испуг 1 (grantedBy есть, detach — не заперт)
+    t.items.push({ type: "condition", slug: "frightened", isLocked: false, grantedBy: { id: "wrap" }, system: { value: { value: 1 } } });
+    const r = await applyCondition(t, { slug: "frightened", value: 2 }, { key: "k" });
+    assert.equal(r.op, "created");
+    assert.equal(t.items.filter((i) => i.type === "condition").length, 2);
+    assert.equal(t.items[0].system.value.value, 1);   // выданный не повышен
   } finally { teardown(); }
 });
 

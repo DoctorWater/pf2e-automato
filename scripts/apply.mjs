@@ -1,7 +1,7 @@
 // Исполняется ТОЛЬКО на клиенте активного ГМа. Записи на актёре сериализованы queue("actor:<uuid>").
 // ВАЖНО: queue не реентерабелен — вызывающий (zone.hold и т.п.) НЕ должен сам держать queue("actor:"+uuid)
 // вокруг applyCondition/applyEffect/removeByKey, иначе зависнет. Очередь "msg:<id>" apply не берёт (её держит вызывающий).
-import { MOD, L, flagPath, sluggify, queue, forcedDelete, socket } from "./util.mjs";
+import { MOD, L, flagPath, sluggify, queue, forcedDelete, socket, ENDS_EARLY } from "./util.mjs";
 import { runMacros } from "./macros.mjs";
 import { effectSource } from "./builtin/lib.mjs";
 import { setSource, dropSource, visionActive } from "./vision.mjs";
@@ -22,10 +22,16 @@ export function hasEffect(actor, uuid, byActorUuid, key = null) {
 
 const withMeta = (data, meta) => { data.flags ??= {}; data.flags[MOD] = { ...data.flags[MOD], meta }; };
 
-/** Состояние с длительностью: эффект-обёртка pf2e + GrantItem состояния (значение — алтерацией badge-value). Снимается вместе с обёрткой (cascade). */
+/**
+ * Состояние с длительностью: эффект-обёртка pf2e + GrantItem состояния (значение — алтерацией badge-value, она применяется один раз при выдаче).
+ * Снимается вместе с обёрткой (cascade). Обычные состояния обёртка держит (grantee restrict — ГМ не удалит состояние, пока жива обёртка);
+ * убывающие и кончающиеся досрочно (ENDS_EARLY) — detach: ГМ уменьшает/снимает их вручную, а обёртка по истечении срока снимет остаток.
+ */
 async function createTimed(actor, spec, meta, ctx, base) {
   const d = spec.duration, valued = !!base.system?.value?.isValued;
-  const grant = { key: "GrantItem", uuid: base.uuid, onDeleteActions: { grantee: "restrict" },
+  // getCondition() отдаёт копию без uuid — источник в компендиуме берём из _stats/sourceId
+  const uuid = base.uuid ?? base._stats?.compendiumSource ?? base.sourceId;
+  const grant = { key: "GrantItem", uuid, onDeleteActions: { grantee: ENDS_EARLY.has(sluggify(spec.slug)) ? "detach" : "restrict" },
     ...(valued && { alterations: [{ mode: "override", property: "badge-value", value: spec.value ?? 1 }] }) };
   const tToken = ctx.target ?? actor.getActiveTokens(true, true)[0];
   // pf2e считает turn-start/turn-end по ходу context.origin.actor: для of:"target" автором срока делаем получателя
@@ -56,7 +62,7 @@ export function applyCondition(actor, spec /* {slug,value,policy,duration?} */, 
     }
     const policy = spec.policy ?? "max";
     // зона всегда создаёт свою копию (meta.key "zone:<uuid>"), остальное работает с уже существующим состоянием
-    const existing = meta.source === "zone" ? null : actor.itemTypes.condition.find((c) => c.slug === slug && !c.isLocked);
+    const existing = meta.source === "zone" ? null : actor.itemTypes.condition.find((c) => c.slug === slug && !c.isLocked && !c.grantedBy);   // выданное обёрткой-сроком не повышаем: истечёт вместе с чужим значением
     if (existing) {
       const cur = existing._source?.system?.value?.value ?? existing.system?.value?.value ?? null;
       if (cur === null) return { op: "skipped" };   // не valued

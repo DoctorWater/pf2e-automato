@@ -3,6 +3,8 @@ export const MOD = "pf2e-automato";
 export const errText = (e) => (e?.key && globalThis.game?.i18n ? L(`rules.err.${e.key}`, e.data) : String(e));
 export const L = (key, data) => data ? game.i18n.format(`PF2E_AUTOMATO.${key}`, data) : game.i18n.localize(`PF2E_AUTOMATO.${key}`);
 export const DEGREES = ["criticalFailure", "failure", "success", "criticalSuccess"];   // индекс = pf2e degreeOfSuccess 0..3
+/** Состояния, которые по правилам убывают или кончаются раньше срока (Встать, Вырваться, лечение, урон по спящему…) — снимает ГМ вручную, обёртка-срок их не запирает. */
+export const ENDS_EARLY = new Set(["frightened", "stunned", "sickened", "drained", "doomed", "wounded", "dying", "unconscious", "prone", "grabbed", "restrained", "immobilized", "fascinated", "confused"]);
 
 // Как pf2e sluggify (pf2e.mjs:209-213, camel=null, юникодные классы — кириллица сохраняется); своя копия — чтобы чистые модули работали под node.
 const WORD = String.raw`[\p{Alphabetic}\p{Mark}\p{Decimal_Number}\p{Join_Control}]`;

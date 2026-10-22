@@ -1,9 +1,10 @@
 {
   "PF2E_AUTOMATO": {
     "reactions": {
-      "hint": "{actor}: \"{item}\" ({bonus} to AC). Attack by \"{attacker}\" now: {before}; with the reaction: {after}.",
+      "hint": "{actor}: \"{item}\" ({bonus} AC). Attack by \"{attacker}\": reaction available.",
       "use": "Use reaction",
-      "used": "Reaction used: the result of this attack is {after}.",
+      "used": "Reaction used: the outcome of this attack was recalculated.",
+      "spent": "The reaction is already spent this round.",
       "rerolled": "The attack was rerolled after the reaction was used - check the result manually.",
       "degree": {
         "criticalFailure": "critical miss",

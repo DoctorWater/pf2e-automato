@@ -2,6 +2,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { buildViewModel, buildReactionViewModel } from "../scripts/chat.mjs";
+import { reactionWindowText } from "../scripts/reactions.mjs";
 
 const MOD = "pf2e-automato";
 const modes = { zone: "auto", effect: "auto", challenge: "auto", apply: "button" };
@@ -63,6 +64,22 @@ test("результат: Применить только ГМу и по реж�
   assert.equal(vm.challenge.rows[0].canUndo, true);
   assert.equal(vm.challenge.rows[0].canApply, false);
   assert.ok(vm.challenge.rows[0].changed);
+});
+
+test("счётчик ожидающих и «отработано»: сворачиваемо, когда применять больше нечего", () => {
+  const state = { challenge: { results: { a: { degree: 1, total: 12 }, b: { degree: 2, total: 22 } }, applied: {} } };
+  const env = mkEnv({ env: { lang: "ru" } });
+  let vm = buildViewModel(mkMsg({ state }), gm, env);
+  assert.match(vm.challenge.pending, /chat\.pending\.one.*"n":1/);
+  assert.equal(vm.challenge.settled, false);
+  assert.equal(buildViewModel(mkMsg({ state }), pl, env).challenge.pending, null);   // счётчик — только тем, кто может применить
+  state.challenge.applied.a = { ops: [], degree: 1 };
+  vm = buildViewModel(mkMsg({ state }), gm, env);
+  assert.equal(vm.challenge.pending, null);
+  assert.equal(vm.challenge.settled, true);
+  assert.match(vm.challenge.summary, /"applied":1/);
+  delete state.challenge.results.b;
+  assert.equal(buildViewModel(mkMsg({ state }), gm, env).challenge.settled, false);   // без броска — не отработано
 });
 
 test("множитель урона: только basic, только показ", () => {
@@ -186,4 +203,50 @@ test("метаигра: СЛ check скрыта у игрока (в шапке �
 test("заголовок равный названию предмета не выводится", () => {
   assert.equal(buildViewModel(mkMsg({}), gm, mkEnv()).title, null);
   assert.equal(buildViewModel(mkMsg({ rule: { ...fear, label: "Boo" } }), gm, mkEnv()).title, "Boo");
+});
+
+test("окно реакции: только получателям шёпота, не после used; метаигра прячет степени игроку, ГМу нет", () => {
+  const msg = (over = {}, used = false) => ({ id: "h", whisper: ["gm", "p"], flags: { [MOD]: { reaction: { actor: "Actor.1", actorName: "Валерос", item: "Item.2", before: 2, after: 1, used } } }, ...over });
+  const p = { id: "p", isGM: false, owns: ["Actor.1"] };
+  const env = mkEnv();
+  assert.match(reactionWindowText(msg(), p, env), /chat\.reaction\.popup\{.*"actor":"Валерос".*"before":"reactions\.degree\.success","after":"reactions\.degree\.failure"/);
+  assert.ok(reactionWindowText(msg(), gm, env));
+  assert.equal(reactionWindowText(msg(), other, env), null);                       // не получатель
+  assert.equal(reactionWindowText(msg({ whisper: ["gm"] }), p, env), null);         // шёпот не ему
+  assert.equal(reactionWindowText(msg({}, true), gm, env), null);                  // уже использована
+  assert.equal(reactionWindowText({ id: "x", flags: {} }, gm, env), null);
+  const hide = mkEnv({ env: { metagame: { dcs: false, results: false } } });
+  assert.match(reactionWindowText(msg(), p, hide), /popupHidden/);
+  assert.match(reactionWindowText(msg(), gm, hide), /chat\.reaction\.popup\{/);
+  assert.match(buildReactionViewModel(msg(), p, hide).text, /hintHidden/);
+});
+
+test("сводка/сворачивание: скрытые итоги у игрока — settled=false и summary=null; ГМу и при открытых итогах — как раньше", () => {
+  const rule = { v: 1, onUse: { targets: "selected", challenge: { statistic: "will", dc: { value: 20 }, byDegree: {} } } };
+  const state = { challenge: { results: { a: { degree: 2, total: 22 }, b: { degree: 2, total: 22 } }, applied: {} } };
+  const hide = mkEnv({ env: { metagame: { dcs: true, results: false } } });
+  const p = buildViewModel(mkMsg({ rule, state }), pl, hide).challenge;
+  assert.deepEqual([p.settled, p.summary], [false, null]);
+  const g = buildViewModel(mkMsg({ rule, state }), gm, hide).challenge;
+  assert.deepEqual([g.settled, typeof g.summary], [true, "string"]);
+  assert.equal(buildViewModel(mkMsg({ rule, state }), pl, mkEnv()).challenge.settled, true);
+});
+
+test("сворачивание: иммунная цель без броска отработана; при apply=off применение не требуется", () => {
+  const rule = { v: 1, onUse: { targets: "selected", check: { statistic: "will", vs: { dc: 20 }, immunity: { slug: "fear" }, byDegree: { failure: [{ condition: { slug: "frightened", value: 1 } }] } } } };
+  const imm = mkEnv({ env: { immune: (k) => k === "a", checkDc: () => 20 } });
+  const state = { challenge: { results: { b: { degree: 1, total: 5 } }, applied: { b: { degree: 1 } } } };
+  assert.equal(buildViewModel(mkMsg({ rule, state }), gm, imm).challenge.settled, true);   // a иммунна без r, b применена
+  const off = mkEnv({ modes: { apply: "off" } });
+  const st2 = { challenge: { results: { a: { degree: 1, total: 5 }, b: { degree: 1, total: 5 } }, applied: {} } };
+  assert.equal(buildViewModel(mkMsg({ rule: fear, state: st2 }), gm, off).challenge.settled, true);
+  assert.equal(buildViewModel(mkMsg({ rule: fear, state: st2 }), gm, mkEnv()).challenge.settled, false);   // apply=button: ждёт применения
+});
+
+test("плюральная категория без ключа (two/zero) падает на other", () => {
+  const rule = { v: 1, onUse: { targets: "selected", challenge: { statistic: "will", dc: { value: 20 }, byDegree: { failure: [{ condition: { slug: "frightened", value: 1 } }] } } } };
+  const state = { challenge: { results: { a: { degree: 1, total: 5 } }, applied: {} } };
+  const vm = buildViewModel(mkMsg({ rule, state }), gm, mkEnv({ env: { lang: "ar" } })).challenge;
+  assert.match(vm.pending, /^chat\.pending\.(other|zero|one|two|few|many)/);
+  assert.match(buildViewModel(mkMsg({ rule, state: { challenge: { results: { a: { degree: 1, total: 5 }, b: { degree: 1, total: 5 }, c: { degree: 1, total: 5 } }, applied: {} } } }), gm, mkEnv({ env: { lang: "ar" } })).challenge.pending, /pending\.few/);
 });

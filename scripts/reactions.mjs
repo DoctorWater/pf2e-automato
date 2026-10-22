@@ -1,8 +1,9 @@
 // K5 «Реакции»: подсказка шёпотом + пересчёт исхода этой атаки, без висящего бонуса. plan.md §3.D'.
-import { MOD, L, DEGREES, degreeFromTotal, isActiveGM, queue, debug } from "./util.mjs";
+import { MOD, L, DEGREES, degreeFromTotal, isActiveGM, queue, debug, callGM } from "./util.mjs";
 import { modeOf, S } from "./settings.mjs";
 import { onAttackedIndex, itemFlagRule, slugOf, sourceOf } from "./rules.mjs";
 import { runMacros } from "./macros.mjs";
+import { buildReactionViewModel } from "./chat.mjs";
 
 const clamp = (n) => Math.min(3, Math.max(0, n));
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
@@ -10,6 +11,67 @@ const signed = (n) => (n >= 0 ? `+${n}` : `${n}`);
 
 export function init() {
   Hooks.on("pf2e.startTurn", onStartTurn);
+  // createChatMessage срабатывает только на свежесозданное сообщение (F5/прокрутка чата его не повторяют)
+  Hooks.on("createChatMessage", (m) => { if (game.user && S.get("reaction.showWindow")) showReactionWindow(m); });
+  Hooks.on("updateChatMessage", onHintUpdate);
+  Hooks.on("deleteChatMessage", (m) => closeReactionWindow(m.id));
+  Hooks.on("updateCombat", (_c, ch) => { if ("turn" in ch || "round" in ch) for (const id of [...windows.keys()]) closeReactionWindow(id); });
+}
+
+/** Чистая: текст окна для этого пользователя или null (не показывать). Получатель — из whisper, как и шёпот. */
+export function reactionWindowText(message, user, env = null) {
+  const h = hintOf(message);
+  if (!h || h.used || !message.whisper?.includes(user.id)) return null;
+  const vm = buildReactionViewModel(message, user, env);
+  return vm?.canUse ? vm.popup : null;
+}
+
+const WINDOW_TTL = 30_000;   // подсказка живёт в чате как запасной путь; окно — чтобы не пропустить в бою; конец хода/раунда закрывает раньше
+const windows = new Map();   // id шёпота -> {app, timer, actor, sig}
+const sigOf = (h) => `${h.before}>${h.after}`;
+
+// used -> закрыть все окна этого актёра (реакция одна на раунд); переброс (before/after сменились) -> перерисовать
+function onHintUpdate(m) {
+  const h = hintOf(m);
+  if (!h) return;
+  if (h.used) { for (const [id, w] of [...windows]) if (id === m.id || w.actor === h.actor) closeReactionWindow(id); return; }
+  const w = windows.get(m.id);
+  if (!w || w.sig === sigOf(h)) return;
+  closeReactionWindow(m.id);
+  if (S.get("reaction.showWindow")) showReactionWindow(m);
+}
+
+function showReactionWindow(message) {
+  const text = reactionWindowText(message, game.user);
+  if (!text || windows.has(message.id)) return;
+  const id = message.id, h = hintOf(message);
+  const { DialogV2 } = foundry.applications.api;
+  const app = new DialogV2({
+    window: { title: L("chat.reaction.windowTitle"), minimizable: false },
+    classes: ["paf-reaction-window"],
+    position: { width: 340, left: Math.max(0, innerWidth - 340 - 320), top: Math.max(0, innerHeight - 190 - 120 * windows.size) },   // не накладывать друг на друга
+    modal: false,
+    content: `<p>${esc(text)}</p>`,
+    buttons: [
+      { action: "use", label: L("chat.reaction.use"), class: "paf-primary", callback: async () => {
+        try {
+          const res = await callGM("useReaction", id);   // тот же путь, что у кнопки в чате
+          if (res && res.ok === false && res.reason !== "no-gm") ui.notifications.warn(L("chat.failed", { reason: res.error ?? res.reason }));
+        } catch (e) { ui.notifications.error(L("chat.failed", { reason: e.message })); }
+      } },
+      { action: "skip", label: L("chat.reaction.skip"), class: "paf-ghost", default: true }
+    ]
+  });
+  windows.set(id, { app, actor: h.actor, sig: sigOf(h), timer: setTimeout(() => closeReactionWindow(id), WINDOW_TTL) });
+  const origClose = app.close.bind(app);
+  app.close = (opts) => { const w = windows.get(id); if (w) { clearTimeout(w.timer); windows.delete(id); } return origClose(opts); };
+  // окно не должно красть фокус (Enter в чате иначе нажмёт кнопку): возвращаем его туда, где он был
+  const prevFocus = document.activeElement;
+  app.render({ force: true }).then(() => prevFocus?.isConnected && prevFocus.focus?.());
+}
+
+function closeReactionWindow(id) {
+  windows.get(id)?.app.close();
 }
 
 /** Чистая: исход атаки при КБ+bonus. after = clamp(degree + delta), delta по degreeFromTotal (dosAdjustments pf2e уже внутри degree). */
@@ -57,10 +119,9 @@ const findHint = (key) => game.messages.contents.findLast((m) => {
 });
 
 function content(h) {
-  const name = (k) => L(`reactions.degree.${DEGREES[h[k]]}`);
-  const text = L("reactions.hint", { actor: esc(h.actorName), item: esc(h.itemName), bonus: signed(h.bonus), attacker: esc(h.attackerName), before: name("before"), after: name("after") });
-  // кнопку рисует chat.mjs по flags[MOD].reaction (K7 п.8) — здесь только текст
-  const tail = h.used ? `<p>${L("reactions.used", { after: name("after") })}</p>${h.rerolled ? `<p>${L("reactions.rerolled")}</p>` : ""}` : "";
+  // степени в content не пишем (метаигра) — их показывает блок chat.mjs по flags[MOD].reaction вместе с кнопкой
+  const text = L("reactions.hint", { actor: esc(h.actorName), item: esc(h.itemName), bonus: signed(h.bonus), attacker: esc(h.attackerName) });
+  const tail = h.used ? `<p>${L("reactions.used")}</p>${h.rerolled ? `<p>${L("reactions.rerolled")}</p>` : ""}` : "";
   return `<div class="pf2e-automato-reaction"><p>${text}</p>${tail}</div>`;
 }
 
@@ -104,11 +165,13 @@ export function useReaction(hintMessageId) {
     if (h.used) return { ok: true, skipped: true };
     const attack = game.messages.get(h.attack);
     if (!attack) return { ok: false, reason: "attack-gone" };   // атака переброшена/удалена
+    const actor = await fromUuid(h.actor);
+    if (actor && !reactionAvailable(actor)) return { ok: false, reason: "spent", error: L("reactions.spent") };   // вторая подсказка того же актёра
     const { before, after } = recalcWithBonus(attack, h.bonus);
     const next = { ...h, before, after, used: true };
     await msg.update({ content: content(next), [`flags.${MOD}.reaction`]: next });
 
-    const actor = await fromUuid(h.actor), item = await fromUuid(h.item);
+    const item = await fromUuid(h.item);
     // Трекер списывает реакцию по карточке предмета (system.time.value === "reaction")
     if (item && game.modules.get("pf2e-auto-action-tracker")?.active) await item.toMessage();
     const c = game.combat;

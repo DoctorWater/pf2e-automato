@@ -9,8 +9,16 @@
 .tab.automato .af-meta { font-size: 0.85em; opacity: 0.8; word-break: break-all; }
 .tab.automato .af-badge { font-weight: bold; }
 .tab.automato .af-warn { color: #fff; background: #a01818; padding: 0.4rem 0.6rem; border-radius: 3px; }
-.tab.automato .af-conf-low { color: #b86b00; }
 .tab.automato .af-errors { color: #a01818; margin: 0.25rem 0; padding-left: 1.2rem; }
 .tab.automato .af-buttons { display: flex; flex-wrap: wrap; gap: 0.25rem; }
 .tab.automato .af-buttons button { width: auto; flex: none; }
 .tab.automato details pre { max-height: 14rem; overflow: auto; font-size: 0.8em; }
+
+/* Чип источника правила: контур от currentColor, цвет — только у низкой уверенности */
+.tab.automato .paf-chip { display: inline-block; padding: 0 0.5em; border: 1px solid var(--paf-line); border-radius: 1em; font-size: 0.85em; line-height: 1.6; color: inherit; }
+.tab.automato .paf-chip-low { color: var(--color-level-warning, #b86b00); border-color: currentColor; }
+
+/* Значок автоматизации у предмета в листе актёра: еле заметный, при наведении ярче */
+.paf-mark { margin-left: 0.35em; font-size: 0.7em; opacity: 0.4; cursor: help; }
+.paf-mark:hover { opacity: 0.85; }
+.paf-mark-yield { opacity: 0.2; }

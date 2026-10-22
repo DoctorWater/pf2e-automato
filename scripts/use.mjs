@@ -34,6 +34,13 @@ export function useKindOf(message) {
   return null;
 }
 
+/** Вид использования предмета в листе (для значка): как useKindOf, но по самому предмету. selfEffect делает система. */
+export function itemUseKind(item) {
+  if (!item || item.system?.selfEffect) return null;
+  if (["consumable", "action", "feat", "spell"].includes(item.type)) return "use";
+  return CARD_TYPES.has(item.type) ? "card" : null;
+}
+
 /**
  * Сборка снимка §1.4. i: { kind, resolved:{rule,source,slug,sourceUuid,confidence}, item:{uuid,name,type,sourceId},
  * actor, token, dc, targets, yielded, consume, now }.

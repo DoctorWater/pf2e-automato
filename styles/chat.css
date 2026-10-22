@@ -73,3 +73,22 @@
 .pf2e-automato .paf-ghost:hover:not(:disabled), .tab.automato .paf-ghost:hover:not(:disabled) { background: transparent; color: inherit; text-decoration: underline; }
 .pf2e-automato .paf-name[data-token] { cursor: pointer; }
 .pf2e-automato .paf-name[data-token]:hover { text-decoration: underline; }
+
+/* свёрнутый отработанный блок: summary видна только у .paf-settled */
+.pf2e-automato .paf-challenge > summary { display: none; }
+.pf2e-automato .paf-settled > summary { display: list-item; cursor: pointer; margin-top: 4px; font-size: 11px; color: var(--paf-mute); }
+.pf2e-automato .paf-settled > summary:hover { color: inherit; }
+.pf2e-automato .paf-pending { flex: 1 1 100%; font-size: 11px; color: var(--paf-mute); }   /* своей строкой: в 300px с двумя кнопками не помещается */
+/* строка, у которой с прошлого рендера сменился бросок, итог или применение */
+@keyframes paf-flash { from { background: color-mix(in srgb, var(--dc, currentColor) 24%, transparent); } }
+@media (prefers-reduced-motion: no-preference) {
+  .pf2e-automato .paf-flash { animation: paf-flash 1.4s ease-out; }
+}
+
+/* окно реакции (немодальное): тот же тихий вид, основная кнопка — контур */
+.paf-reaction-window { --paf-line: color-mix(in srgb, currentColor 22%, transparent); --paf-mute: color-mix(in srgb, currentColor 62%, transparent); }
+.paf-reaction-window .dialog-content { padding: 4px 0; }
+.paf-reaction-window .dialog-content p { margin: 0; }
+.paf-reaction-window .form-footer button { height: 24px; background: transparent; border: 1px solid var(--paf-line); box-shadow: none; }
+.paf-reaction-window .form-footer .paf-primary { border-color: color-mix(in srgb, currentColor 55%, transparent); }
+.paf-reaction-window .form-footer .paf-ghost { border-color: transparent; color: var(--paf-mute); }

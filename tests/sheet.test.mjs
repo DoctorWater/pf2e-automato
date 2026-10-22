@@ -98,3 +98,30 @@ test("buildReport: испытание, проверка, иммунитет, п�
   assert.deepEqual(r3.problems, ["sheet.test.noOwner"]);
   assert.deepEqual(ruleUuids(ch.rule).sort(), ["Item.ok", "Macro.gone"]);
 });
+
+globalThis.foundry ??= { data: { regionBehaviors: { RegionBehaviorType: class {} }, fields: new Proxy({}, { get: () => class {} }) } };   // use.mjs тянет zone.mjs
+const { ruleParts, badgeTip } = await import("../scripts/badge.mjs");
+const { itemUseKind, wantsSnapshot } = await import("../scripts/use.mjs");
+
+test("подсказка значка: части правила и источник", () => {
+  const t = (k, d) => (d ? `${k}${JSON.stringify(d)}` : k);
+  const rule = validateRule({ v: 1, onUse: { targets: "area", zone: { condition: { slug: "frightened" } }, challenge: { statistic: "will", dc: { value: 20 }, byDegree: { failure: [{ condition: { slug: "frightened", value: 1 } }] } } } }).rule;
+  assert.deepEqual(ruleParts(rule, t), ['sheet.badge.challenge{"stat":"will"}', "sheet.badge.states", "sheet.badge.zone"]);
+  const tip = badgeTip({ rule, source: "markup", confidence: "low" }, { t });
+  assert.ok(tip.includes("sheet.src.markup") && tip.endsWith("sheet.confLow"));
+  assert.ok(badgeTip({ rule, source: "flag", confidence: "high" }, { t }).indexOf("confLow") < 0);
+  assert.equal(badgeTip({ rule, source: "flag" }, { t, groups: ["A", "B"], yielded: true }), 'sheet.badge.yielded{"groups":"A, B"}');
+  assert.deepEqual(ruleParts({ macros: [{ uuid: "Macro.x", phase: "onUse" }] }, t), ["sheet.badge.macros"]);
+});
+
+test("значок: фильтры использования и подпись навыка", () => {
+  assert.equal(itemUseKind({ type: "feat", system: { selfEffect: { uuid: "x" } } }), null);
+  assert.equal(itemUseKind({ type: "feat", system: {} }), "use");
+  assert.equal(itemUseKind({ type: "weapon", system: {} }), "card");
+  assert.equal(itemUseKind({ type: "lore", system: {} }), null);
+  const eq = validateRule({ v: 1, onUse: { targets: "self", apply: [{ to: "self", note: "n" }] } }).rule;
+  assert.ok(wantsSnapshot("use", eq) && !wantsSnapshot("card", eq));   // у снаряжения без области значка нет
+  const t = (k, d) => (d ? `${k}${JSON.stringify(d)}` : k);
+  const ck = validateRule({ v: 1, onUse: { targets: "selected", challenge: { statistic: "athletics", dc: { value: 15 } } } }).rule;
+  assert.deepEqual(ruleParts(ck, t, (s) => `L:${s}`), ['sheet.badge.challenge{"stat":"L:athletics"}']);
+});

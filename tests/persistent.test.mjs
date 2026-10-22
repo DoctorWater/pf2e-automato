@@ -131,3 +131,11 @@ test("isZeroFormula: «0», «0d8» — ноль; формула rank/2 на 1 �
   assert.equal(isZeroFormula(resolveFormula("(floor(@item.rank/2))d8")), true);
   assert.equal(isZeroFormula(resolveFormula("(floor(@item.rank/2))d8", { rank: 2 })), false);
 });
+
+test("типы урона в написании pf2ru: режущий, кровотечение, жизнь, дух, пустота, звук, яд", () => {
+  const t = (s) => persistentOf(s).steps[0]?.damageType;
+  const cases = { "продолжительного режущего урона": "slashing", "продолжительного рубящего урона": "slashing", "продолжительного урона от кровотечения": "bleed", "продолжительного урона кровотечением": "bleed",
+    "продолжительного урона жизнью": "vitality", "продолжительного урона духом": "spirit", "продолжительного урона пустотой": "void", "продолжительного урона звуком": "sonic",
+    "продолжительного урона ядом": "poison", "продолжительного урона кислотой": "acid", "продолжительного урона электричеством": "electricity", "продолжительного урона холодом": "cold", "продолжительного колющего урона": "piercing" };
+  for (const [phrase, type] of Object.entries(cases)) assert.equal(t(`Цель получает 1d6 ${phrase}.`), type, phrase);
+});

@@ -78,7 +78,7 @@ export function plate(row, env) {
   const dv = num(row.durValue);
   let keep = {};
   try { keep = row.keep ? JSON.parse(row.keep) : {}; } catch { /* битая строка: пометок нет */ }
-  const note = [keep.who && t(`workshop.au.keep.${keep.who}`), keep.unlessEffect && t("workshop.au.keep.unless"), keep.mark && t("workshop.au.keep.mark"), keep.choice != null && t("workshop.au.keep.choice", { v: keep.choice })].filter(Boolean).join(" · ");
+  const note = [keep.who && t(`workshop.au.keep.${keep.who}`), keep.unlessEffect && t("workshop.au.keep.unless"), keep.mark && t("workshop.au.keep.mark"), keep.choice != null && t("workshop.au.keep.choice", { v: keep.choice }), keep.escape && t("workshop.au.keep.escape")].filter(Boolean).join(" · ");
   const base = { kind: row.kind, valued: false, value: "", dur: "", self: row.to === "self", note };
   if (row.kind === "condition") {
     const value = num(row.value);

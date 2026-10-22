@@ -21,6 +21,7 @@ import * as shieldBlock from "./builtin/shield-block.mjs";
 import * as hud from "./hud.mjs";
 import * as damageGate from "./damage-gate.mjs";
 import * as turnConditions from "./turn-conditions.mjs";
+import * as escape from "./escape.mjs";
 
 const { S } = settings;
 
@@ -89,6 +90,7 @@ export const HANDLERS = {
   markDamageApplied: gm("markDamageApplied", (messageId, tokenUuid) => shieldBlock.markApplied(messageId, tokenUuid), "owner", async (user, _m, tokenUuid) => ({ owns: ownsActor((await fromUuid(tokenUuid))?.actor, user) })),
   dropSpellShield: gm("dropSpellShield", (actorUuid, effectId, layers) => shieldBlock.dropSpellShield(actorUuid, effectId, layers), "owner", async (user, actorUuid) => ({ owns: ownsActor(await fromUuid(actorUuid), user) })),
   applyRetch: gm("applyRetch", (actorUuid, degree) => turnConditions.applyRetch(actorUuid, degree), "owner", async (user, actorUuid) => ({ owns: ownsActor(await fromUuid(actorUuid), user) })),
+  applyEscape: gm("applyEscape", (actorUuid, items, degree) => escape.applyEscape(actorUuid, items, degree), "owner", async (user, actorUuid) => ({ owns: ownsActor(await fromUuid(actorUuid), user) })),
   dismissVis: gm("dismissVis", (sceneId, key) => vision.dismissSource(game.scenes.get(sceneId), key)),
   saveCatalogRule: gm("saveCatalogRule", (key, rule) => rules.saveWorldRule(key, rule))
 };
@@ -106,7 +108,7 @@ Hooks.once("socketlib.ready", () => {
 Hooks.once("setup", () => leader.start());
 
 Hooks.once("init", () => {
-  settings.init(); compat.init(); zone.init(); height.init(); saves.init(); use.init(); actions.init(); chat.init(); reactions.init(); sheet.init(); badge.init(); vision.init(); invis.init(); workshop.init(); hud.init(); damageGate.init(); turnConditions.init();
+  settings.init(); compat.init(); zone.init(); height.init(); saves.init(); use.init(); actions.init(); chat.init(); reactions.init(); sheet.init(); badge.init(); vision.init(); invis.init(); workshop.init(); hud.init(); damageGate.init(); turnConditions.init(); escape.init();
   game.modules.get(MOD).api = {
     // контракт plan.md §2 main
     attachZone: zone.attachZone, sweepZone: zone.sweepZone, closeZone: zone.closeZone, expireZones: zone.expireZones,

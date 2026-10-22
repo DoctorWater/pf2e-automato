@@ -2,6 +2,7 @@
 // run(scope) — тот же scope, что у макросов (macros.mjs buildScope). timeoutMs — вместо общих 30 с, если обработчик ждёт диалога.
 // player — бросать у автора сообщения, если это игрок онлайн и владелец актёра (macros.mjs); finish(result, scope) — затем у ГМа.
 import { MOD, isActiveGM, whenSettled } from "../util.mjs";
+import { sweepEffects } from "./lib.mjs";
 import { modeOf } from "../settings.mjs";
 import * as bloodMagic from "./blood-magic.mjs";
 import * as twinFeint from "./twin-feint.mjs";
@@ -14,6 +15,7 @@ import * as intimidatingStrike from "./intimidating-strike.mjs";
 import * as bladeDance from "./blade-dance.mjs";
 import * as oneShot from "./one-shot-one-kill.mjs";
 import * as shieldBlock from "./shield-block.mjs";
+import * as surprise from "./surprise-attack.mjs";
 import * as variableCast from "./variable-cast.mjs";
 
 const DIALOG_MS = 180000;
@@ -32,7 +34,7 @@ export const BUILTIN = {
 };
 
 // Обработчики по сообщениям чата без правила: кровь — тег заклинания, статуэтка — карточка предмета (kind "card" конвейер не исполняет).
-const MESSAGE_HOOKS = [["blood-magic", bloodMagic.onMessage], ["reactive-strike", reactiveStrike.onMessage], ["onyx-dog", onyxDog.onMessage], ["one-shot-one-kill", oneShot.onMessage]];
+const MESSAGE_HOOKS = [["blood-magic", bloodMagic.onMessage], ["reactive-strike", reactiveStrike.onMessage], ["onyx-dog", onyxDog.onMessage], ["one-shot-one-kill", oneShot.onMessage], ["surprise-attack", surprise.onMessage]];
 
 export function initBuiltinHooks() {
   if (!globalThis.Hooks) return;   // node-тесты
@@ -55,11 +57,19 @@ export function initBuiltinHooks() {
   Hooks.on("deleteCombat", (combat) => {
     if (!isActiveGM() || modeOf("macro") === "off") return;
     oneShot.onCombatEnd(combat).catch((e) => console.error(`${MOD} | builtin one-shot-one-kill end`, e));
+    surprise.onCombatEnd(combat).catch((e) => console.error(`${MOD} | builtin surprise-attack end`, e));
+    sweep();
   });
+  Hooks.on("deleteCombatant", () => { if (isActiveGM() && modeOf("macro") !== "off") sweep(); });
+  Hooks.on("updateCombat", (combat, changed) => {
+    if (!isActiveGM() || modeOf("macro") === "off") return;
+    surprise.onTurn(combat, changed).catch((e) => console.error(`${MOD} | builtin surprise-attack turn`, e));
+  });
+  const sweep = () => Promise.all([sweepEffects(oneShot.SLUG), sweepEffects(surprise.SLUG)]).catch((e) => console.error(`${MOD} | builtin sweep`, e));
   const migrate = (fn) => async (...a) => { await whenSettled(); if (isActiveGM() && modeOf("macro") !== "off") fn(...a).catch((e) => console.error(`${MOD} | builtin one-shot-one-kill migrate`, e)); };
-  Hooks.once("ready", migrate(oneShot.migrateAll));
-  Hooks.on("createItem", migrate(oneShot.migrateItem));
-  Hooks.on("updateItem", migrate(oneShot.migrateItem));
+  Hooks.once("ready", migrate(async () => { await oneShot.migrateAll(); await sweep(); }));
+  Hooks.on("createItem", migrate(async (i) => { await oneShot.migrateItem(i); }));
+  Hooks.on("updateItem", migrate(async (i) => { await oneShot.migrateItem(i); }));
   Hooks.on("renderChatMessageHTML", onyxDog.bindDismiss);
   Hooks.on("renderChatMessageHTML", reactiveStrike.bindStrike);
   Hooks.on("renderChatMessageHTML", shieldBlock.bindBlock);

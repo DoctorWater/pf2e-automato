@@ -92,3 +92,32 @@
 /* Карточка продолжительного урона: workbench сам применяет урон и бросает восстановление */
 .paf-hide-pdamage .damage-application,
 .paf-hide-precovery .persistent-damage-recovery { display: none !important; }
+
+/* Шёпот модуля (scripts/card.mjs) — самостоятельная карточка в языке «Мастерской» и листа pf2e:
+   пергамент #f8f4f1, рамка #baa991, золотая черта #d8c384 под шапкой (Eczar), бордовое #5e0000 единственное действие. */
+.paf-card > .pf2e-automato { margin: 2px 0 0; padding: 0; border: 0; font-size: 13px; line-height: 1.45; }
+.paf-card .paf-sheet { overflow: hidden; color: #2a2420; background: #f8f4f1; border: 1px solid #baa991; border-radius: 3px; }
+.paf-card .paf-card-head {
+  display: flex; align-items: center; gap: 8px; padding: 6px 10px 5px;
+  font: 600 15px/1.2 Eczar, Georgia, serif; color: #2a2420; background: #efe7dc; border-bottom: 1px solid #d8c384;
+}
+.paf-card .paf-card-head i { flex: none; width: 16px; text-align: center; font-size: 13px; color: #5e0000; }
+.paf-card .paf-note { padding: 8px 10px; }
+.paf-card .paf-note p { margin: 0 0 0.4em; }
+.paf-card .paf-note p:last-child { margin-bottom: 0; }
+.paf-card .paf-card-actions { display: grid; grid-template-columns: repeat(auto-fit, minmax(7.5em, 1fr)); gap: 6px; padding: 0 10px 10px; }
+.paf-card .paf-card-actions button {
+  height: auto; min-height: 30px; padding: 5px 10px; white-space: normal;
+  font: 500 13px/1.15 Roboto, system-ui, sans-serif; color: #2a2420;
+  background: #fffdf9; border: 1px solid #baa991; border-radius: 3px; transition: background-color .15s, border-color .15s;
+}
+.paf-card .paf-card-actions button:hover:not(:disabled) { background: #fff; border-color: #786452; }
+/* одно действие — основное (как «Сохранить» в «Мастерской»); равноправные варианты (Атлетика / Акробатика) не выделяем */
+.paf-card .paf-card-actions button:only-of-type { grid-column: 1 / -1; color: #fff; background: #5e0000; border-color: #5e0000; }
+.paf-card .paf-card-actions button:only-of-type:hover:not(:disabled) { background: #7a1414; border-color: #7a1414; }
+.paf-card .paf-card-actions button:focus-visible { outline: 2px solid #171f69; outline-offset: 2px; }
+.paf-card .paf-card-actions button:disabled { opacity: .5; cursor: not-allowed; }
+.paf-card .paf-card-actions .paf-dc-input {
+  grid-column: 1 / -1; order: -1; width: 100%; height: 30px; margin: 0; padding: 0 8px; box-sizing: border-box;
+  font: inherit; color: #2a2420; background: #fff; border: 1px solid #baa991; border-radius: 3px;
+}

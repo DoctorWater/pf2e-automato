@@ -4,6 +4,7 @@
 import { MOD, L, callGM, isActiveGM, flagPath, forcedReplace, forcedDelete, queue } from "./util.mjs";
 import { S } from "./settings.mjs";
 import { card, cardButton } from "./card.mjs";
+import { headOf } from "./builtin/lib.mjs";
 
 export const LEVELS = ["observed", "concealed", "hidden", "undetected", "unnoticed"];   // индекс = ранг, больше — хуже видно
 const rank = (l) => LEVELS.indexOf(l);
@@ -325,7 +326,7 @@ async function notifyCond(item, slug) {
     const n = countSourceCells(readVis(scene), key), name = foundry.utils.escapeHTML(item.actor.name);
     await ChatMessage.create({
       whisper: gmIds(), speaker: { alias: "pf2e-automato" }, flags: { [MOD]: { visCard: { key, scene: scene.id } } },
-      content: card(L("vision.card", { name, state: L(`vision.${slug}`), n }), cardButton("data-automato-vis-dismiss", L("vision.dismiss")))
+      content: card(L("vision.card", { name, state: L(`vision.${slug}`), n }), cardButton("data-automato-vis-dismiss", L("vision.dismiss")), headOf("vision"))
     });
     return;
   }

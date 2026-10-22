@@ -4,6 +4,7 @@
 import { MOD, L, isActiveGM, queue } from "./util.mjs";
 import { modeOf } from "./settings.mjs";
 import { card, cardButton } from "./card.mjs";
+import { headOf } from "./builtin/lib.mjs";
 
 /** Чистая: "ends" — заклинание Невидимость ранга < 4; "never" — ранг >= 4 (не кончается); "unknown" — иначе (ранг неизвестен). */
 export function invisVerdict(meta, originSlug) {
@@ -30,11 +31,11 @@ async function onMessage(m) {
     const name = foundry.utils.escapeHTML(actor.name);
     if (mode === "auto" && verdict === "ends") {
       await queue(`actor:${actor.uuid}`, () => target.delete());
-      await ChatMessage.create({ whisper: gmIds(), speaker: { alias: "pf2e-automato" }, content: card(L("invis.ended", { name })) });
+      await ChatMessage.create({ whisper: gmIds(), speaker: { alias: "pf2e-automato" }, content: card(L("invis.ended", { name }), "", headOf("invis")) });
     } else {
       await ChatMessage.create({
         whisper: gmIds(), speaker: { alias: "pf2e-automato" }, flags: { [MOD]: { invis: target.uuid } },
-        content: card(L(verdict === "ends" ? "invis.ask" : "invis.askUnknown", { name }), cardButton(`data-automato-invis="${target.uuid}"`, L("invis.remove")))
+        content: card(L(verdict === "ends" ? "invis.ask" : "invis.askUnknown", { name }), cardButton(`data-automato-invis="${target.uuid}"`, L("invis.remove")), headOf("invis"))
       });
     }
   }

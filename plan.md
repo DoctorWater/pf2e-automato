@@ -1,22 +1,22 @@
 # pf2e-automato — план реализации (финальный модуль)
 
-Основа: `design.md` (решения пользователя 2026-10-20 обязательны и здесь не пересматриваются), `brief.md`, `test-results.md`.
+Основа: `architecture.md` (решения пользователя 2026-10-20 обязательны и здесь не пересматриваются), `brief.md`, `test-results.md`.
 Источники сверки: ядро v14.366 `E:/Foundry VTT v14.366/app/resources/app/client/` (далее `core/`; `common/` — рядом),
 pf2e 8.6.1 `.../systems/pf2e/pf2e.mjs` (далее `pf2e:NNNN` — номер строки), socketlib 1.1.4, pf2e-toolbelt 3.59.1 (`scripts/main.js`, минифицирован — маркеры
 для grep), pf2e-automations (`src/index.js`, `rules/config.json`). Прототипы — только справка.
 
 Корень нового модуля: `D:/ClaudeFun/pf2e-automato/module/` (junction `…/Data/modules/pf2e-automato` -> туда; id модуля `pf2e-automato`).
 
-## 0. Что в design.md пришлось уточнить / исправить (по итогам сверки исходников)
+## 0. Что в architecture.md пришлось уточнить / исправить (по итогам сверки исходников)
 
 1. **Игрок не может создать регион с поведениями**: `common/documents/region.mjs:112` (`#canCreate`: «Only GMs can create Regions with Behaviors»).
-   Значит `preCreateRegion` + `updateSource({behaviors})` на клиенте создающего (design.md) работает только если регион ставит ГМ. Путь для игрока
+   Значит `preCreateRegion` + `updateSource({behaviors})` на клиенте создающего (architecture.md) работает только если регион ставит ГМ. Путь для игрока
    (основной в кампании) — поведение добавляет активный ГМ в `createRegion`. **План: единый путь для всех** — `createRegion` у активного ГМа
    (`region.createEmbeddedDocuments("RegionBehavior")`), затем **детерминированный свип геометрией** (`token.testInsideRegion(region)` по токенам сцены,
    не по `region.tokens`, без `sleep`). `preCreateRegion` остаётся только для флага Toolbelt `skip` (флаги игрок писать может).
    Идемпотентный `hold()` делает двойное срабатывание (свой свип + штатный `tokenEnter` ядра) безопасным.
 2. `getOriginData()` в 8.6.1 = `{actor, uuid, type, rollOptions}` (`pf2e:45537`); у заклинаний ещё `castRank`, `variant` (`pf2e:53487`).
-   **Поле `actor` есть** (design.md писал без него). Slug по-прежнему нет.
+   **Поле `actor` есть** (architecture.md писал без него). Slug по-прежнему нет.
 3. У **расходника** (`consume`, `pf2e:51042`) `flags.pf2e.origin` — это `{sourceId, uuid, type}` (`pf2e:51064`, `B(this,["sourceId","uuid","type"])`):
    **ни `actor`, ни `rollOptions`, ни `slug`**. Сообщение «использовал» создаётся **без await** перед удалением предмета (`pf2e:51079–51090`).
    Каскад slug должен это переживать (см. §1.5).
@@ -26,7 +26,7 @@ pf2e 8.6.1 `.../systems/pf2e/pf2e.mjs` (далее `pf2e:NNNN` — номер с
    использует `region.getCoverage()` (`pf2e:20865+`, клетки, закрытые стенами, исключены). То есть `testInsideRegion` уже даёт «правила области PF2e» — отдельная логика
    покрытия не нужна. Если активный ГМ смотрит другую сцену, `getCoverage` вернёт `null` и сработает обычная геометрия ядра (`core/documents/token.mjs:3236`).
 6. `CONFIG.time.roundTime = 6` (`pf2e:116922`): ядро само двигает `worldTime` на 6 с за раунд боя (`core/documents/combat.mjs:222–258`, `worldTime.delta`).
-   Счётчик раундов из design.md сохраняем (решение пользователя), но он дублирует время почти всегда; истечение — «что наступит раньше».
+   Счётчик раундов из architecture.md сохраняем (решение пользователя), но он дублирует время почти всегда; истечение — «что наступит раньше».
 7. `preCreateChatMessage` — **синхронный** (`Hooks.call` не ждёт промисов). Разметку в снимке разбираем регулярками, без `enrichHTML`; всё, что требует
    асинхронности (`resolve(...)`-СЛ, `fromUuid` компендиума), доделывает ГМ на исполнении (§3).
 8. `pf2e-toolbelt` Template Helper: `createRegion`-хук **только у создающего пользователя**, пропускает регион при `getFlag("pf2e-toolbelt","targetHelper.skip")`
@@ -283,7 +283,7 @@ Slug (запасной ключ каталога):
 
 ### 1.6 Примеры для четырёх тестов брифа (+ пример макроса)
 
-**(1) Дымовая шашка (малая) — зона** (`rules/catalog.json`: `bySource` на UUID шашки, `bySlug.smoke-ball-lesser` запасной ключ; то же для `-greater`; «Дымовая завеса» агентов — ключ уточнить живьём, slug в design.md — догадка):
+**(1) Дымовая шашка (малая) — зона** (`rules/catalog.json`: `bySource` на UUID шашки, `bySlug.smoke-ball-lesser` запасной ключ; то же для `-greater`; «Дымовая завеса» агентов — ключ уточнить живьём, slug в architecture.md — догадка):
 ```json
 { "v": 1, "label": "Дымовая завеса",
   "onUse": { "targets": "area",
@@ -347,7 +347,7 @@ module/
   README.md                    (в т.ч. «прототипы pf2e-autoflow-proto-* отключить»)
 ```
 
-Дополнения к design.md: `util.mjs`, `settings.mjs`, `compat.mjs`, `macros.mjs` выделены, чтобы исполнители не пересекались по файлам. `lib-wrapper` не используется и **не пишется в `relationships.requires`**.
+Дополнения к architecture.md: `util.mjs`, `settings.mjs`, `compat.mjs`, `macros.mjs` выделены, чтобы исполнители не пересекались по файлам. `lib-wrapper` не используется и **не пишется в `relationships.requires`**.
 
 Соглашение: каждый модуль экспортирует `init()` (из `Hooks.once("init")`) и/или `ready()` (из `Hooks.once("ready")`); **хуки навешивает сам модуль-владелец** внутри
 этих функций; `main.mjs` только вызывает их в фиксированном порядке. **K0 создаёт все файлы как заглушки с полными сигнатурами из этого раздела**
@@ -476,7 +476,7 @@ export class ZoneBehaviorType extends foundry.data.regionBehaviors.RegionBehavio
   static defineSchema() -> {       // БЕЗ поля events: события — статические и не редактируются в UI
     condition: StringField({blank:true}),  conditionValue: NumberField({integer:true, nullable:true, initial:null}),
     effectUuid: StringField({blank:true}),
-    expiresAt: NumberField({nullable:true, initial:null}),            // БЕЗ min! worldTime в мире отрицателен (design.md); ЕДИНСТВЕННЫЙ источник срока
+    expiresAt: NumberField({nullable:true, initial:null}),            // БЕЗ min! worldTime в мире отрицателен (architecture.md); ЕДИНСТВЕННЫЙ источник срока
     roundsLeft: NumberField({integer:true, nullable:true, initial:null}),   // ЕДИНСТВЕННЫЙ источник счётчика раундов
     originUuid: StringField({blank:true}), originActor: StringField({blank:true}), messageId: StringField({blank:true}), closed: BooleanField()
   }

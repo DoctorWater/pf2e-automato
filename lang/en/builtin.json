@@ -39,6 +39,10 @@
         "effect": "One Shot, One Kill: ready",
         "hint": "<p><b>One Shot, One Kill</b>: {name} rolled Stealth for initiative. Interact to draw a firearm or crossbow; the first Strike with it deals extra precision damage.</p>"
       },
+      "surprise": {
+        "effect": "Surprise Attack: creatures yet to act",
+        "hint": "<p><b>Surprise Attack</b>: {name} rolled Deception or Stealth for initiative. In the first round, creatures that have not acted yet are off-guard to them until their turn starts.</p>"
+      },
       "shieldBlock": {
         "hint": "<p><b>{name}</b>: Shield Block? Hardness {hardness}.</p>",
         "button": "Shield Block",

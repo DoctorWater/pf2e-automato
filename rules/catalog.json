@@ -8,7 +8,7 @@
         "apply": [] }
     },
     "Compendium.pf2e.feats-srd.Item.dNH8OHEvx3vI9NBQ": {
-      "v": 1, "label": "Ловкое уклонение",
+      "v": 1, "label": "Проворное уклонение",
       "onAttacked": { "trigger": "attack-on-self",
         "bonus": { "stat": "ac", "type": "circumstance", "value": 2 }, "cost": "reaction", "notify": ["owner", "gm"] }
     }
@@ -20,13 +20,13 @@
         "apply": [{ "to": "target", "condition": { "slug": "invisible" }, "duration": { "value": 10, "unit": "minutes" } }] }
     },
     "smoke-ball-lesser": {
-      "v": 1, "label": "Дымовая завеса",
+      "v": 1, "label": "Дымовая шашка",
       "onUse": { "targets": "area",
         "zone": { "condition": { "slug": "concealed" }, "effect": null, "duration": { "seconds": 60, "rounds": 10 } },
         "challenge": null, "apply": [] }
     },
     "smoke-ball-greater": {
-      "v": 1, "label": "Дымовая завеса",
+      "v": 1, "label": "Дымовая шашка",
       "onUse": { "targets": "area",
         "zone": { "condition": { "slug": "concealed" }, "effect": null, "duration": { "seconds": 60, "rounds": 10 } },
         "challenge": null, "apply": [] }
@@ -38,7 +38,7 @@
         "apply": [] }
     },
     "frightful-presence": {
-      "v": 1, "label": "Устрашающее присутствие", "yield": true,
+      "v": 1, "label": "Пугающее присутствие", "yield": true,
       "onUse": { "targets": "selected", "zone": null,
         "challenge": { "statistic": "will", "dc": { "expr": "markup" }, "basic": false, "traits": ["fear", "mental", "emotion"],
           "rollerRole": "target",
@@ -49,7 +49,7 @@
         "apply": [] }
     },
     "nimble-dodge": {
-      "v": 1, "label": "Ловкое уклонение",
+      "v": 1, "label": "Проворное уклонение",
       "onAttacked": { "trigger": "attack-on-self",
         "bonus": { "stat": "ac", "type": "circumstance", "value": 2 }, "cost": "reaction", "notify": ["owner", "gm"] }
     }

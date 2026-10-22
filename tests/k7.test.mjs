@@ -220,3 +220,10 @@ test("acceptToolbeltSave: бросок и переброс пишутся в р�
   const noCh = mk("n", { v: 1, onUse: { targets: "self", apply: [] } });
   assert.equal(await acceptToolbeltSave({ data: { success: "success", value: 1 }, message: noCh, roll: {}, target }), null);
 });
+
+test("B4: «невосприимчива» (pf2ru) и «иммунитет» — эффект получает цель", () => {
+  const E = "Compendium.pf2e.feat-effects.Item.eff00000000000x";
+  const d = (text) => deriveFromMarkup({ type: "action", name: "T", system: { actionType: { value: "action" }, description: { value: `<p>${text} @UUID[${E}]</p>` } } }, labels, slugOfUuid);
+  for (const text of ["Цель становится невосприимчива к этому действию на 1 час.", "Цель получает иммунитет к этому действию на 1 час."]) assert.equal(d(text).rule.onUse.apply[0].to, "target", text);
+  assert.equal(d("Вы получаете бонус.").rule.onUse.apply[0].to, "self");
+});

@@ -3,8 +3,9 @@ import assert from "node:assert/strict";
 
 const whispers = [];
 globalThis.game = { user: { isActiveGM: true }, i18n: { localize: (k) => k, format: (k) => k }, users: [] };
+game.combats = [{ id: "c1", combatants: [{ actor: { uuid: "Actor.a" } }] }];
 globalThis.ChatMessage = { create: (d) => whispers.push(d) };
-globalThis.foundry = { utils: { mergeObject: (a, b) => ({ ...a, flags: b.flags }) } };
+globalThis.foundry = { utils: { mergeObject: (a, b) => ({ ...a, flags: Object.fromEntries(Object.entries(b.flags).map(([k, v]) => [k, { ...a.flags?.[k], ...v }])) }) } };
 const os = await import("../scripts/builtin/one-shot-one-kill.mjs");
 
 test("classify: инициатива Скрытностью / урон огнестрелом", () => {
@@ -59,6 +60,7 @@ test("эффект: Скрытность создаёт один раз, Вос�
   assert.equal(effects(a).length, 1);
   assert.deepEqual(effects(a)[0].system.rules, [{ key: "RollOption", domain: "strike-damage", option: os.SLUG }]);
   assert.equal(whispers.length, 1);
+  assert.equal(effects(a)[0].flags["pf2e-automato"].combat, "c1");
   const dmg = msg(a, { type: "damage-roll", options: [os.SLUG, "item:group:firearm"] });
   await os.onMessage(dmg); await os.onMessage(dmg);
   assert.equal(effects(a).length, 0);

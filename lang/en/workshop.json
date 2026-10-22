@@ -393,7 +393,8 @@
           "enemy": "enemies only",
           "unless": "unless already has the effect",
           "mark": "mark on the enemy",
-          "choice": "choice: {v}"
+          "choice": "choice: {v}",
+          "escape": "victim can Escape"
         }
       },
       "item": {

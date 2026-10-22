@@ -1,10 +1,10 @@
 {
   "PF2E_AUTOMATO": {
     "hud": {
-      "cover": { "standard": "В укрытии", "greater": "В надёжном укрытии" },
-      "reload": "Перезарядить",
-      "loaded": "заряжено {n}/{max}",
-      "noAmmo": "нет боеприпасов",
+      "cover": { "standard": "Укрытие", "greater": "Надёжное укрытие" },
+      "reload": "Перезарядка",
+      "noAmmo": "нет подходящих боеприпасов",
+      "pickAmmo": "выберите боеприпас",
       "noCover": "Не найден эффект «Укрытие» в pf2e.other-effects"
     }
   }

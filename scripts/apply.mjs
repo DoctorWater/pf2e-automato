@@ -6,6 +6,7 @@ import { runMacros } from "./macros.mjs";
 import { effectSource } from "./builtin/lib.mjs";
 import { resolveFormula, isZeroFormula } from "./rules.mjs";
 import { setSource, dropSource, visionActive } from "./vision.mjs";
+import { escapeDC, offerEscape } from "./escape.mjs";
 
 const metaOf = (item) => item?.flags?.[MOD]?.meta;
 const notify = (key, data) => globalThis.ui?.notifications?.warn?.(L(key, data));
@@ -279,6 +280,16 @@ export async function applyOps(message, tokenKey, steps, ctx = {}) {
       : step.condition
       ? await applyCondition(actor, step.duration ? { ...step.condition, duration: step.duration } : step.condition, meta, { ...ectx, target: step.to === "self" ? null : targetDoc })
       : await applyEffect(actor, step.effect, meta, { ...ectx, markUuid, choice: step.choice, target: step.to === "self" ? null : targetDoc });
+    if (step.escape && r.op === "created") {   // жертва вправе освободиться проверкой: шёпот с кнопками (вторичен — сбой не должен терять ops)
+      try {
+        let spellDc = null, statDc = null;
+        try {
+          spellDc = originItem?.spellcasting?.statistic?.withRollOptions?.({ item: originItem })?.dc?.value ?? null;
+          statDc = step.escape.dcStat && step.escape.dcStat !== "spell" ? selfActor?.getStatistic?.(step.escape.dcStat)?.dc?.value ?? null : null;
+        } catch { /* СЛ спросим у жертвы */ }
+        await offerEscape(actor, r.item, step.escape, escapeDC(step.escape, { spellDc, statDc, useDc: scope === "challenge" ? use.dc : null }), originItem);
+      } catch (e) { console.error(`${MOD} | escape`, e); }
+    }
     if (r.reason === "vision") ops.push({ op: "vis", skipped: "marks", key: meta.key });   // видимость — метками: строка отработана
     else if (r.op !== "skipped" && r.op !== "pending") ops.push({ op: r.op, item: r.item.uuid, ...(r.prev != null && { prev: r.prev }) });
   }

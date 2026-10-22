@@ -4,7 +4,7 @@
 // Штатного способа скрыть переключатель без правки предмета нет (RollOptionRuleElement показывает его при любом toggleable и пройденном предикате).
 // Всё делает активный ГМ (по сообщениям чата, в т.ч. от игрока) — сокет не нужен.
 import { L, MOD, queue } from "../util.mjs";
-import { addEffect, effectSource, esc, whisper } from "./lib.mjs";
+import { addEffect, combatOf, effectSource, esc, whisper } from "./lib.mjs";
 
 export const SLUG = "one-shot-one-kill";
 const DOMAIN = "strike-damage";
@@ -47,11 +47,16 @@ export async function onMessage(message) {
   if (!itemOf(actor)) return;
   if (mode === "off") return void await removeEffect(actor);
   if (effectOf(actor)) return;   // повтор сообщения
-  const created = await addEffect(actor, effectSource({
-    name: L("builtin.oneShot.effect"), duration: UNLIMITED, img: itemOf(actor).img,
-    rules: [{ key: "RollOption", domain: DOMAIN, option: SLUG }],
-    origin: { actor: actor.uuid, item: itemOf(actor).uuid }
-  }), SLUG);
+  const combat = combatOf(game.combats, actor);   // id боя во флаг: подметание висящих эффектов (lib.sweepEffects)
+  if (!combat) return;
+  const created = await addEffect(actor, {
+    ...effectSource({
+      name: L("builtin.oneShot.effect"), duration: UNLIMITED, img: itemOf(actor).img,
+      rules: [{ key: "RollOption", domain: DOMAIN, option: SLUG }],
+      origin: { actor: actor.uuid, item: itemOf(actor).uuid }
+    }),
+    flags: { [MOD]: { combat: combat.id } }
+  }, SLUG);
   if (created) await whisper(actor, L("builtin.oneShot.hint", { name: esc(actor.name) }), SLUG);
 }
 

@@ -2,6 +2,7 @@
 import { MOD, L, DEGREES, flagPath, queue, degreeFromTotal, debug, callGM, isActiveGM } from "./util.mjs";
 import { S, modeOf } from "./settings.mjs";
 import { card } from "./card.mjs";
+import { headOf } from "./builtin/lib.mjs";
 import { toolbeltTargetHelper, toolbeltMessageTargets } from "./compat.mjs";
 import { applyOps } from "./apply.mjs";
 import { runMacros } from "./macros.mjs";
@@ -283,7 +284,7 @@ export async function recordResult(messageId, tokenKey, result) {
     });
     if (changed) {
       const name = (await challengeTargets(message)).find((t) => t.key === tokenKey)?.token.name ?? tokenKey;
-      await ChatMessage.create({ content: card(L("saves.changedAfterApply", { name, item: use.item?.name ?? "" })), whisper: ChatMessage.getWhisperRecipients("GM").map((u) => u.id) });
+      await ChatMessage.create({ content: card(L("saves.changedAfterApply", { name, item: use.item?.name ?? "" }), "", headOf("saves")), whisper: ChatMessage.getWhisperRecipients("GM").map((u) => u.id) });
     }
     return { ok: true, changed };
   });

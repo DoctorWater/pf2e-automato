@@ -2,7 +2,14 @@
   "PF2E_AUTOMATO": {
     "turn": {
       "sickened": "{name}: sickened {value}, DC {dc}. Retching is 1 action, Fortitude: success -1, critical success -2.",
+      "sickenedHidden": "{name}: sickened {value}. Retching is 1 action, Fortitude: success -1, critical success -2.",
       "retch": "Retch (reduce sickened)",
+      "escape": "{name}: {what}. Escaping is 1 action, a check against DC {dc}: success or critical success frees.",
+      "escapeHidden": "{name}: {what}. Escaping is 1 action, a check: success or critical success frees.",
+      "escapeGone": "{name}: nothing left to remove.",
+      "escapeStat": { "athletics": "Athletics", "acrobatics": "Acrobatics", "unarmed": "Unarmed attack" },
+      "needEscapeDC": "Enter the escape DC",
+      "escaped": "{name} breaks free",
       "dc": "DC",
       "needDC": "Enter the DC of the sickened source"
     }

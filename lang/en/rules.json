@@ -33,7 +33,8 @@
           "who": "Step: \"who\" can only be allies or enemies ({path})",
           "mark": "Step: the mark can only be \"enemy\" and only together with an effect ({path})",
           "choice": "Step: an effect choice needs a value and only works together with an effect ({path})",
-          "unless": "Step: \"unless the target has the effect\" — choose an effect ({path})"
+          "unless": "Step: \"unless the target has the effect\" — choose an effect ({path})",
+          "escape": "Step: \"escape\" — only on a condition or effect of the target; skills are Athletics, Acrobatics, unarmed attack; DC is an integer from 1 ({path})"
         },
         "cond": {
           "slug": "The condition is not chosen or unknown — pick a condition from the list ({path})",

@@ -78,6 +78,8 @@ const isPersStep = (s) => isPersFormula(s) && (!hasVars(s) ? !isZeroFormula(s) :
 /** Ошибка валидатора: key -> PF2E_AUTOMATO.rules.err.<key>, data -> подстановки ({path}, ...); текст получает потребитель (errText в util.mjs). */
 const E = (key, path, more) => ({ key, data: { path, ...more }, toString() { return `${key} (${path})`; } });
 
+export const ESCAPE_STATS = ["athletics", "acrobatics", "unarmed"];
+
 function vApply(a, path, defTo, err) {
   if (!isObj(a)) { err.push(E("notObj", path)); return null; }
   const out = { to: a.to ?? defTo };
@@ -128,6 +130,14 @@ function vApply(a, path, defTo, err) {
   if (a.mark != null) { if (a.mark !== "enemy" || a.effect == null) err.push(E("apply.mark", `${path}.mark`)); else out.mark = a.mark; }
   if (a.choice != null) { if (!(isStr(a.choice) || isNum(a.choice)) || a.effect == null) err.push(E("apply.choice", `${path}.choice`)); else out.choice = a.choice; }
   if (a.unlessEffect != null) { if (!isStr(a.unlessEffect)) err.push(E("apply.unless", `${path}.unlessEffect`)); else out.unlessEffect = a.unlessEffect; }
+  // escape — жертва сама проверкой снимает созданное этим шагом (Освобождение): stats — чем бросать, dc — готовая СЛ, dcStat — СЛ автора ("spell" или навык); без СЛ берётся use.dc
+  if (a.escape != null) {
+    const e = a.escape, stats = e?.stats ?? ["athletics", "acrobatics"];
+    if (!isObj(e) || out.to !== "target" || (a.condition == null && a.effect == null)
+      || !Array.isArray(stats) || !stats.length || !stats.every((s) => ESCAPE_STATS.includes(s))
+      || (e.dc != null && !(isInt(e.dc) && e.dc >= 1)) || (e.dcStat != null && !isStr(e.dcStat))) err.push(E("apply.escape", `${path}.escape`));
+    else out.escape = { stats: [...new Set(stats)], ...(e.dc != null && { dc: e.dc }), ...(e.dcStat != null && { dcStat: e.dcStat }) };
+  }
   return out;
 }
 
@@ -467,7 +477,7 @@ function linksOf(html, condSlug, hints) {
 
 // Состояния восприятия и off-guard в блоке степени обычно относятся к агенту/атакам, а не к цели -> только подсказка (K7 п.10).
 const NOT_ON_TARGET = new Set(["concealed", "hidden", "undetected", "unnoticed", "invisible", "observed", "off-guard"]);
-const IMMUNITY = /иммун|immun/i;
+const IMMUNITY = /иммун|невосприимч|immun/i;
 const condApply = (c, to) => ({ to, condition: { slug: c.slug, ...(c.value != null && { value: c.value }), policy: "max" }, ...(c.duration && { duration: c.duration }) });
 
 // Простым текстом не ищем: перечисленные выше, отношения и «продолжительный урон» (ложные совпадения).
@@ -554,9 +564,9 @@ function addPlainConds(text, conds, terms, linkedAll) {
 
 /* ---------- продолжительный урон в блоке степени ---------- */
 
-// основы названий типов урона (ru: «огненного», «урона огнём»; en: slug) -> тип pf2e
+// основы названий типов урона (ru: «огненного», «урона огнём», «режущего»; en: slug) -> тип pf2e
 const TYPE_STEMS = [["огн", "fire"], ["холод", "cold"], ["кислот", "acid"], ["электр", "electricity"], ["ментал", "mental"], ["яд", "poison"], ["дух", "spirit"], ["жизн", "vitality"], ["пустот", "void"], ["звук", "sonic"], ["сил", "force"], ["негатив", "void"], ["позитив", "vitality"], ["кровотеч", "bleed"],
-  ["колющ", "piercing"], ["дроб", "bludgeoning"], ["рубящ", "slashing"], ...DAMAGE_TYPES.filter((x) => x !== "untyped").map((x) => [x.slice(0, 6), x]), ["pierc", "piercing"], ["bludgeon", "bludgeoning"], ["electr", "electricity"]];
+  ["колющ", "piercing"], ["дроб", "bludgeoning"], ["рубящ", "slashing"], ["режущ", "slashing"], ...DAMAGE_TYPES.filter((x) => x !== "untyped").map((x) => [x.slice(0, 6), x]), ["pierc", "piercing"], ["bludgeon", "bludgeoning"], ["electr", "electricity"]];
 const typeOfWord = (w) => TYPE_STEMS.find(([stem]) => w?.startsWith(stem))?.[1] ?? null;
 const DICE_SRC = String.raw`\d+(?:[dдк]\d+)?(?:\s*[+-]\s*\d+)?`;
 const PERS_RU = new RegExp(String.raw`(${DICE_SRC})\s+продолжительн\p{L}*\s+(?:(\p{L}+)\s+)?урон\p{L}*(?:\s+(?:от\s+)?(\p{L}+))?`, "gu");
@@ -797,7 +807,7 @@ export function worldCatalog() {
 }
 
 export async function saveWorldRule(key /* {source?|slug?} */, rule) {
-  if (!game.user.isGM) throw new Error("saveWorldRule: только ГМ");
+  if (!game.user.isGM) throw new Error("saveWorldRule: только ведущий");
   const field = key.source ? "bySource" : key.slug ? "bySlug" : null;
   if (!field) throw new Error("saveWorldRule: нужен key.source или key.slug");
   const name = key.source ?? key.slug;

@@ -123,7 +123,7 @@ const allRegions = () => game.scenes.contents.flatMap((s) => s.regions.contents)
 
 /** rule — Rule (onUse.zone) либо сам Zone; originInfo — { originUuid, originActor, messageId, name? }. Повторный вызов не дублирует поведение. */
 export async function attachZone(region, rule, originInfo = {}) {
-  if (!isActiveGM()) throw new Error("attachZone: только активный ГМ");
+  if (!isActiveGM()) throw new Error("attachZone: только активный ведущий");
   const z = rule?.onUse?.zone ?? rule?.zone ?? rule ?? {};
   let behavior = zoneBehavior(region);
   if (!behavior) {

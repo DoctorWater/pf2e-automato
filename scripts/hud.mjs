@@ -1,5 +1,6 @@
 // HUD токена: ручной переключатель укрытия (эффект pf2e «Укрытие») и кнопка «Перезарядить» (то же, что WeaponReloader на листе pf2e).
 import { L } from "./util.mjs";
+import { askHere } from "./builtin/lib.mjs";
 
 export const COVER_UUID = "Compendium.pf2e.other-effects.Item.I9lfZUiCwMiGogVi";
 // Те же selection, что pf2e пишет в ChoiceSet при действии «Укрыться» (pf2e.mjs: SingleAction take-cover) — окно выбора не появляется.
@@ -15,8 +16,21 @@ export function coverToggle(effects, level) {
 /** w: { reload, capacity, repeating }. Оружие, которое перезаряжают (как в pf2e: есть магазин и Перезарядка не 0/«-»). */
 export const needsReload = (w) => w.capacity > 0 && (!!w.repeating || !["", "0", "-", "null", "undefined"].includes(String(w.reload ?? "").trim()));
 
-/** Оружие из HUD-списка: только перезаряжаемые; full — магазин полон. */
-export const reloadList = (ws) => ws.filter(needsReload).map((w) => ({ ...w, full: w.loaded >= w.capacity }));
+/** Оружие, которому нужна перезарядка и в котором нет заряженного боеприпаса: атаки заменяются кнопкой «Перезарядить». */
+export const isUnloaded = (w) => needsReload(w) && !(w.loaded > 0);
+
+/** encodedValue кнопки удара TAH pf2e: «strike|<itemId>>slug>...» (хвост — encodeURIComponent). -> itemId | null. */
+export function strikeItemId(value) {
+  const [type, rest] = String(value ?? "").split("|");
+  return type === "strike" && rest ? decodeURIComponent(rest).split(">")[0] || null : null;
+}
+
+/** Использование из того же значения (4-й сегмент: melee | ranged | thrown | ""). Ближний вариант комбинированного оружия — клон с тем же id
+ *  (pf2e toMeleeUsage, keepId) и без перезарядки: его кнопки не трогаем. */
+export function strikeUsage(value) {
+  const [type, rest] = String(value ?? "").split("|");
+  return type === "strike" && rest ? decodeURIComponent(rest).split(">")[3] ?? "" : "";
+}
 
 /** Число действий для значка/сообщения: repeating — 3, иначе целая Перезарядка > 0. */
 export const reloadGlyph = (w) => { const n = w.repeating ? 3 : Number(w.reload); return n > 0 && Number.isInteger(n) ? String(n) : ""; };
@@ -54,6 +68,8 @@ const weaponData = (w) => ({
 
 /** Как WeaponReloader.reloadWeapon pf2e: attach 1 шт. боеприпаса; сообщение «Взаимодействие: Перезарядка» — только в бою (как в pf2e). */
 async function reload(actor, w, ammo) {
+  const now = weaponData(w);   // как WeaponReloader pf2e: полный магазин не дозаряжаем (двойной клик до перерисовки HUD)
+  if (now.loaded >= now.capacity) return;
   if (!(await w.attach(ammo, { quantity: 1, stack: true }))) return;
   if (!game.combat) return;
   const d = weaponData(w), glyph = reloadGlyph(d), T = foundry.applications.handlebars.renderTemplate;
@@ -70,59 +86,86 @@ async function reload(actor, w, ammo) {
   });
 }
 
-const el = (tag, cls, attrs = {}) => Object.assign(document.createElement(tag), { className: cls }, attrs);
 
-function coverButton(hud, actor, level, active, icon) {
-  const b = el("button", `control-icon paf-cover${active ? " active" : ""}`, { type: "button" });
-  b.dataset.tooltipText = L(`hud.cover.${level}`);
-  b.setAttribute("aria-label", L(`hud.cover.${level}`));
-  b.innerHTML = `<i class="fa-solid ${icon}" inert></i>`;
-  b.addEventListener("click", async () => {
-    b.disabled = true;
-    try { await setCover(actor, level); } finally { hud.render(); }
-  });
-  return b;
+/* ---------- Token Action HUD ---------- */
+
+const DELIM = "|";   // DELIMITER core TAH
+const esc = (t) => foundry.utils.escapeHTML(String(t));
+const tip = (t) => `<div class="tah-tooltip-wrapper">${esc(t)}</div>`;
+const tah = () => game.tokenActionHud?.hudManager;
+
+/** Укрытия — обычные действия категории «Эффекты» (группа effects pf2e-TAH); активный уровень подсвечен как активное состояние. */
+const COVER_ICONS = { standard: "fa-shield-halved", greater: "fa-shield" };
+const coverActionHandler = {
+  extendActionHandler() {
+    const ah = this.actionHandler, actor = ah.actor;
+    if (!actor?.isOwner || !actor.itemTypes) return;
+    const on = new Set(coverEffects(actor).map((e) => e.level));
+    ah.addActions(Object.keys(COVER).map((level) => ({
+      id: `pafCover-${level}`, name: L(`hud.cover.${level}`), listName: L(`hud.cover.${level}`),
+      encodedValue: ["pafCover", level].join(DELIM), cssClass: `toggle${on.has(level) ? " active" : ""}`,
+      icon1: `<i class="fa-solid ${COVER_ICONS[level]}"></i>`
+    })), { id: "effects", type: "system" });
+  }
+};
+const coverRollHandler = {
+  prehandleActionEvent: () => false,
+  handleActionClick(event, value, actionHandler) {
+    const [type, level] = String(value ?? "").split(DELIM);
+    if (type !== "pafCover") return false;
+    const actor = actionHandler?.actor;
+    if (actor && COVER[level]) setCover(actor, level).finally(() => Hooks.callAll("forceUpdateTokenActionHud"));
+    return true;
+  }
+};
+
+async function pickAndReload(actor, w, ammos) {
+  let ammo = ammos[0];
+  if (ammos.length > 1) {
+    const res = await askHere(`${L("hud.reload")}: ${w.name}`, `<p>${esc(L("hud.pickAmmo").replace(/^./, (c) => c.toUpperCase()))}</p>`,
+      ammos.map((a) => ({ id: a.id, label: `${a.name} (${a.quantity})` })));   // окно модуля (.paf-dialog)
+    ammo = ammos.find((a) => a.id === res?.action);
+  }
+  if (ammo) await reload(actor, w, ammo);
 }
 
-function onRender(hud, html) {
-  const root = html instanceof HTMLElement ? html : html?.[0];
-  const actor = hud.document?.actor ?? hud.object?.actor;
+function reloadButton(actor, w, ammos) {
+  const text = L("hud.reload"), off = !ammos.length;
+  const wrap = document.createElement("div");
+  wrap.className = "tah-action"; wrap.dataset.part = "action"; wrap.dataset.pafReload = w.id;
+  const tipText = off ? `${text}: ${L("hud.noAmmo")}` : ammos.length > 1 ? `${text}: ${L("hud.pickAmmo")}` : `${text}: ${ammos[0].name} (${ammos[0].quantity})`;
+  wrap.innerHTML = `<button type="button" class="tah-action-button tah-button-box${off ? " disabled" : ""}" data-part="actionButton"${off ? ` aria-disabled="true"` : ""}
+    data-tooltip="${esc(tip(tipText))}" data-tooltip-class="tah-tooltip"><span class="tah-button-content"><div class="tah-icon"><i class="fa-solid fa-rotate"></i></div><div class="tah-button-text">${esc(text)}</div></span></button>`;
+  if (!off) wrap.firstElementChild.addEventListener("click", async (ev) => {
+    ev.stopPropagation();
+    try { await pickAndReload(actor, w, ammos); } finally { Hooks.callAll("forceUpdateTokenActionHud"); }
+  });
+  return wrap;
+}
+
+/** После каждой отрисовки TAH: у незаряженного оружия кнопки Strike/MAP/Урон/Критический (значение strike|id>...) прячем, на их месте — «Перезарядить». Строка доп. действий не трогается. */
+function onRender(app, html) {
+  const root = html instanceof HTMLElement ? html : html?.[0] ?? app.element;
+  const actor = tah()?.actor;
   if (!root || !actor?.isOwner || !actor.itemTypes) return;
-  const col = root.querySelector(".col.right");
-  if (!col) return;
-  const anchor = col.querySelector(".palette.status-effects") ?? col.firstElementChild;
-
-  const lv = new Set(coverEffects(actor).map((e) => e.level));
-  const nodes = [coverButton(hud, actor, "standard", lv.has("standard"), "fa-shield-halved"), coverButton(hud, actor, "greater", lv.has("greater"), "fa-shield")];
-
-  const list = reloadList(actor.itemTypes.weapon.map(weaponData));
-  if (list.length) {
-    const btn = el("button", "control-icon paf-reload", { type: "button" });
-    btn.dataset.action = "togglePalette"; btn.dataset.palette = "pafReload";
-    btn.dataset.tooltipText = L("hud.reload"); btn.setAttribute("aria-label", L("hud.reload"));
-    btn.innerHTML = `<i class="fa-solid fa-rotate" inert></i>`;
-    const pal = el("div", "palette palette-list", {});
-    pal.dataset.palette = "pafReload";
-    for (const d of list) {
-      const w = actor.items.get(d.id);
-      const ammos = d.full ? [] : ammoFor(actor, w), state = L("hud.loaded", { n: d.loaded, max: d.capacity });
-      for (const ammo of ammos) {
-        const a = el("a", "palette-list-entry", { innerHTML: "<span></span>" });
-        a.firstChild.textContent = `${d.name}: ${ammo.name} (${ammo.quantity}) — ${state}`;
-        a.addEventListener("click", async () => { hud.togglePalette(null); try { await reload(actor, w, ammo); } finally { hud.render(); } });
-        pal.append(a);
-      }
-      if (!ammos.length) {
-        const a = el("a", "palette-list-entry paf-disabled", { innerHTML: "<span></span>" });
-        a.firstChild.textContent = `${d.name} — ${state}${d.full ? "" : ` (${L("hud.noAmmo")})`}`;
-        pal.append(a);
-      }
-    }
-    nodes.push(btn, pal);
+  const rows = new Map();   // контейнер .tah-actions -> Map(itemId -> кнопки)
+  for (const b of root.querySelectorAll(".tah-action-button[value^='strike|']")) {
+    const id = strikeItemId(b.value), box = b.closest(".tah-actions");
+    if (!id || !box || b.closest("[data-paf-reload]") || strikeUsage(b.value) === "melee") continue;
+    if (!rows.has(box)) rows.set(box, new Map());
+    rows.get(box).set(id, [...(rows.get(box).get(id) ?? []), b.closest(".tah-action")]);
   }
-  anchor.after(...nodes);
+  for (const [box, byItem] of rows) for (const [id, wraps] of byItem) {
+    const w = actor.items.get(id);
+    if (!w?.isOfType("weapon") || !isUnloaded(weaponData(w))) continue;
+    const btn = reloadButton(actor, w, ammoFor(actor, w));
+    wraps[0].before(btn);
+    for (const x of wraps) x.style.display = "none";
+  }
 }
 
 export function init() {
-  Hooks.on("renderTokenHUD", onRender);
+  Hooks.on("tokenActionHudCoreAddActionHandlerExtenders", (ah) => ah.addActionHandlerExtender({ ...coverActionHandler }));
+  Hooks.on("tokenActionHudCoreAddRollHandlerExtenders", (rh) => rh.addRollHandlerExtender({ ...coverRollHandler }));
+  Hooks.on("renderTokenActionHud", onRender);
 }

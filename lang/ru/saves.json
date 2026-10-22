@@ -6,7 +6,7 @@
       "changedAfterApply": "Результат испытания «{item}» для «{name}» изменён после применения (переброс). Нажмите «Отменить» или «Применить» в блоке.",
       "macroError": "Макрос «{name}» завершился с ошибкой: {error}",
       "macroNotFound": "макрос не найден",
-      "macroNoPerm": "у ГМа нет права MACRO_SCRIPT",
+      "macroNoPerm": "у ведущего нет права MACRO_SCRIPT",
       "macroTimeout": "превышено время ожидания"
     },
     "apply": {

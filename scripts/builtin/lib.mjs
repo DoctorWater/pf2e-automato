@@ -1,6 +1,6 @@
 // Общие помощники встроенных обработчиков. Чистые функции не трогают foundry (юнит-тесты, tests/builtin.test.mjs).
-import { MOD, queue, sharedDialog } from "../util.mjs";
-import { card } from "../card.mjs";
+import { L, MOD, queue, sharedDialog } from "../util.mjs";
+import { card, HEADS } from "../card.mjs";
 export { card, cardButton } from "../card.mjs";
 
 export const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
@@ -60,12 +60,25 @@ export async function askHere(title, content, buttons) {
   return res ?? null;
 }
 
-/** Шёпот ГМам и владельцам актёра: text — текст, buttons — готовые cardButton(...). */
-export function whisper(actor, text, tag, extra = {}, buttons = "") {
-  const content = card(text, buttons);
-  const ids = new Set(game.users.filter((u) => u.isGM).map((u) => u.id));
-  for (const u of game.users) if (!u.isGM && actor?.testUserPermission?.(u, "OWNER")) ids.add(u.id);
-  return ChatMessage.create({ content, whisper: [...ids], flags: { [MOD]: { builtin: tag, ...extra } } });
+/** Шапка карточки по тегу шёпота: название из lang `card.<tag>`, иконка из HEADS. */
+export const headOf = (tag) => (HEADS[tag] ? { title: L(`card.${tag}`), icon: HEADS[tag] } : null);
+
+/** Шёпот ГМам и владельцам актёра: text — текст, buttons — готовые cardButton(...). only: "gm" | "players" — только одним адресатам. */
+export function whisper(actor, text, tag, extra = {}, buttons = "", only = null) {
+  const content = card(text, buttons, headOf(tag));
+  const ids = new Set(only === "players" ? [] : game.users.filter((u) => u.isGM).map((u) => u.id));
+  if (only !== "gm") for (const u of game.users) if (!u.isGM && actor?.testUserPermission?.(u, "OWNER")) ids.add(u.id);
+  if (only === "players" && !ids.size) return null;   // пустой whisper — публичное сообщение
+  // говорит сам актёр (портрет и имя в шапке сообщения, как у карточек pf2e), а не ведущий
+  return ChatMessage.create({ content, whisper: [...ids], speaker: ChatMessage.getSpeaker?.({ actor }), flags: { [MOD]: { builtin: tag, ...extra } } });
+}
+
+/** Шёпот с СЛ: метаигра pf2e (metagame.dcs) выключена — ведущему текст `key` с СЛ, владельцам `key + "Hidden"` без неё (отдельные сообщения: шёпот общий, текст не скрыть). */
+export async function whisperDC(actor, key, vars, dc, tag, extra, buttons) {
+  const text = (d) => L(key, { ...vars, dc: d ?? "?" });
+  if (dc == null || game.pf2e?.settings?.metagame?.dcs) return whisper(actor, text(dc), tag, extra, buttons);
+  await whisper(actor, text(dc), tag, extra, buttons, "gm");
+  await whisper(actor, L(`${key}Hidden`, vars), tag, extra, buttons, "players");
 }
 
 /** Токен-документ из токена канваса или документа. */
@@ -76,4 +89,32 @@ export function castOrigin(message) {
   const pf = message?.flags?.pf2e, ctx = pf?.context?.type;
   if (!pf?.origin || (ctx && ctx !== "spell-cast")) return null;
   return pf.origin;
+}
+
+/** Чистая: предмет не-эффект с этим slug; у предметов без slug (NPC-способности, перевод) — по babele.originalName и по имени. */
+export function findFeat(actor, slug) {
+  return actor?.items?.find((i) => i.type !== "effect" && (i.slug === slug || sluggifyName(i.flags?.babele?.originalName) === slug || sluggifyName(i.name) === slug)) ?? null;
+}
+const sluggifyName = (s) => (typeof s === "string" ? s.toLowerCase().trim().replace(/['’]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") : null);
+
+/** Чистая: правило «цель с этим предикатом застигнута врасплох для Ударов (бросок и урон)». */
+export const offGuardRule = (predicate) => ({ key: "EphemeralEffect", affects: "target", selectors: ["strike-attack-roll", "spell-attack-roll", "strike-damage", "attack-spell-damage"], uuid: COND.offGuard, predicate });
+
+/** Чистая: бой, в котором участвует актёр (по uuid; у токенов без связи actor — свой). */
+export const combatOf = (combats, actor) => combats.find((c) => c.combatants.some((x) => x.actor?.uuid === actor.uuid)) ?? null;
+
+/** Чистая: эффект боя «повис» — боя нет или актёра в нём нет. combats — коллекция с get(id). */
+export const isStale = (combatId, actorUuid, combats) => {
+  const c = combatId ? combats.get(combatId) : null;
+  return !c || !c.combatants.some((x) => x.actor?.uuid === actorUuid);
+};
+
+/** Подмести эффекты с meta.key боя, чей бой кончился или чей владелец вышел из боя (flags[MOD].combat — id боя). Только активный ГМ. */
+export async function sweepEffects(key) {
+  const actors = [...game.actors, ...game.scenes.contents.flatMap((s) => s.tokens.filter((t) => !t.actorLink).map((t) => t.actor))];
+  const find = (a) => a.items.find((i) => i.type === "effect" && i.flags?.[MOD]?.meta?.key === key);
+  for (const a of actors) {
+    const e = a && find(a);
+    if (e && isStale(e.flags?.[MOD]?.combat, a.uuid, game.combats)) await queue(`actor:${a.uuid}`, async () => { await find(a)?.delete(); });
+  }
 }

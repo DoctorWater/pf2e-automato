@@ -57,7 +57,7 @@ export async function onMessage(message) {
   if (player) {
     const token = message.speaker?.scene && message.speaker?.token ? game.scenes.get(message.speaker.scene)?.tokens.get(message.speaker.token) : null;
     try { id = await Promise.race([socket.executeAsUser("runPlayerBuiltin", player.id, "blood-magic-pick", { actor: actor.uuid, token: token?.uuid ?? null, item: origin.uuid, message: message.id, targets: targets.map((t) => t.uuid) }), new Promise((_, r) => setTimeout(() => r(new Error("timeout")), 180000))]); }
-    catch (e) { console.warn(`${MOD} | blood-magic: окно у игрока не вышло, спрашиваем ГМа`, e); id = undefined; }
+    catch (e) { console.warn(`${MOD} | blood-magic: окно у игрока не вышло, спрашиваем ведущего`, e); id = undefined; }
   }
   if (id === undefined) id = await ask(L("builtin.blood.title"), `<p>${L("builtin.blood.prompt", { name: esc(actor.name) })}</p>`, buttons(opts));
   const choice = bloodChoice(id, targets);

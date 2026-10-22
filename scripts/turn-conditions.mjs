@@ -4,7 +4,7 @@
 // Хуки pf2e вызывает только клиент активного ГМа (Combat#_manageTurnEvents) — исполняем на нём, если он лидер.
 import { MOD, L, queue, callGM, isActiveGM, degreeFromTotal } from "./util.mjs";
 import { modeOf } from "./settings.mjs";
-import { esc, whisper, cardButton } from "./builtin/lib.mjs";
+import { esc, whisperDC, cardButton } from "./builtin/lib.mjs";
 
 const WB = "xdy-pf2e-workbench", WB_KEY = "decreaseFrightenedConditionEachTurn", PA = "pf2e-automations";
 
@@ -65,7 +65,7 @@ async function onStartTurn(combatant) {
   if (!c) return;
   const dc = sourceDC([c, actor.items.get(c.flags?.pf2e?.grantedBy?.id)], (id) => game.messages.get(id));
   const field = dc == null ? `<input type="number" class="paf-dc-input" data-af-retch-dc placeholder="${L("turn.dc")}">` : "";
-  await whisper(actor, L("turn.sickened", { name: esc(actor.name), value: c.value, dc: dc ?? "?" }),
+  await whisperDC(actor, "turn.sickened", { name: esc(actor.name), value: c.value }, dc,
     "retch", { retch: { actor: actor.uuid, dc } }, cardButton("data-af-retch", L("turn.retch")) + field);
 }
 

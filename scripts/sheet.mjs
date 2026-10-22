@@ -28,7 +28,7 @@ const PERS_BLANK = { pType: "fire" };   // продолжительный уро
 export const blankRow = () => ({ to: "target", kind: "condition", text: "", value: "", policy: "max", keep: "", ...DUR_BLANK, ...VIS_BLANK, ...PERS_BLANK });
 
 // поля шага, которых нет в форме (who/mark/choice/unlessEffect): едут в строке JSON-ом и разворачиваются обратно в applyOf
-const KEEP = ["who", "mark", "choice", "unlessEffect"];
+const KEEP = ["who", "mark", "choice", "unlessEffect", "escape"];
 const keepOf = (a) => { const k = Object.fromEntries(KEEP.filter((n) => a[n] != null).map((n) => [n, a[n]])); return Object.keys(k).length ? JSON.stringify(k) : ""; };
 
 function rowOf(a) {

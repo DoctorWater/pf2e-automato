@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { coverToggle, needsReload, reloadList, reloadGlyph } from "../scripts/hud.mjs";
+import { coverToggle, needsReload, isUnloaded, strikeItemId, strikeUsage, reloadGlyph } from "../scripts/hud.mjs";
 
 test("укрытие: поставить, снять, взаимоисключение", () => {
   assert.deepEqual(coverToggle([], "standard"), { remove: [], add: "standard" });
@@ -18,12 +18,26 @@ test("перезарядка: какое оружие показывать", () 
   assert.ok(needsReload({ reload: "1", capacity: 1 }));
   assert.ok(needsReload({ reload: "2", capacity: 4 }));
   assert.ok(needsReload({ reload: "0", capacity: 5, repeating: true }));
-  const l = reloadList([{ reload: "1", capacity: 2, loaded: 2 }, { reload: "0", capacity: 1 }, { reload: "2", capacity: 2, loaded: 1 }]);
-  assert.deepEqual(l.map((w) => w.full), [true, false]);
+  assert.ok(isUnloaded({ reload: "1", capacity: 1, loaded: 0 }));
+  assert.ok(!isUnloaded({ reload: "1", capacity: 2, loaded: 1 }));
+  assert.ok(!isUnloaded({ reload: "0", capacity: 1, loaded: 0 }));
+  assert.ok(isUnloaded({ reload: "0", capacity: 5, repeating: true, loaded: 0 }));
 });
 
 test("глиф действий", () => {
   assert.equal(reloadGlyph({ reload: "2" }), "2");
   assert.equal(reloadGlyph({ reload: "0", repeating: true }), "3");
   assert.equal(reloadGlyph({ reload: "1min" }), "");
+});
+
+test("кнопки ударов TAH: id оружия из encodedValue", () => {
+  const v = (t) => "strike|" + encodeURIComponent(t);
+  assert.equal(strikeItemId(v("abc123>crossbow>0>ranged")), "abc123");
+  assert.equal(strikeItemId(v("abc123>crossbow>damage>ranged")), "abc123");
+  assert.equal(strikeItemId("strikeAuxiliaryAction|" + encodeURIComponent("abc>x>0>")), null);
+  assert.equal(strikeItemId("toggle|abc"), null);
+  assert.equal(strikeItemId(null), null);
+  assert.equal(strikeUsage(v("abc123>gun-sword>0>melee")), "melee");
+  assert.equal(strikeUsage(v("abc123>crossbow>damage>ranged")), "ranged");
+  assert.equal(strikeUsage("toggle|abc"), "");
 });

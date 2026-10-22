@@ -74,6 +74,7 @@
     <p class="paf-note paf-derived"><span class="paf-plan">{{text}}</span>
       {{#if canApply}}<button type="button" class="paf-primary" data-action="apply-derived" data-step="{{key}}" title="{{title}}">{{localize "PF2E_AUTOMATO.chat.applyDerived"}}</button>{{/if}}</p>
   {{/each}}
+  {{#each vm.hints}}<p class="paf-note paf-hint">{{this}}</p>{{/each}}
   {{#if vm.macroErrors.length}}
     <details class="paf-errors"><summary>{{localize "PF2E_AUTOMATO.chat.macroErrors"}}</summary>
       {{#each vm.macroErrors}}<p>{{this}}</p>{{/each}}</details>

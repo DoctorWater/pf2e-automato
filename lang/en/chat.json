@@ -53,6 +53,8 @@
         "other": "{n} targets await applying"
       },
       "macroErrors": "Macro errors",
+      "hintPossible": "Possibly: {list}",
+      "hintExcluded": "Not applied automatically: {list}",
       "failed": "Failed: {reason}",
       "degree": {
         "criticalFailure": "Critical Failure",

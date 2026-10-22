@@ -157,3 +157,46 @@ test("&nbsp; между именем и числом; срок 0 — не сро
   assert.deepEqual(bd("Провал", "цель получает испуг&nbsp;2 на 1 минуту."), { failure: [["frightened", 2, "1minutes"]] });
   assert.deepEqual(bd("Провал", "цель получает испуг 2 на 0 раундов."), { failure: [["frightened", 2, undefined]] });
 });
+
+// ---- таблицы случайных эффектов и «шок на срок» ----
+const IDS2 = { ...IDS, dfCMdR4wnpbYNTix: "stunned", MIRkyAjyBeXivMa7: "enfeebled", i3OJZU2nk64Df3xm: "clumsy", TkIyaNPgTZFBCCuh: "dazzled" };
+const cs2 = (u) => IDS2[u.split(".").pop()] ?? null;
+const N2 = [...NAMES, ["Шок", "stunned"], ["stunned", "stunned"], ["Слабость", "enfeebled"], ["Неуклюжесть", "clumsy"], ["Растерянность", "dazzled"]];
+const d2 = (html) => deriveFromMarkup({ type: "spell", name: "T", system: { description: { value: html }, defense: { save: { statistic: "will", basic: false } } } }, labels, cs2, N2);
+
+test("Creative Splash RU: подписи степеней внутри таблицы — не блоки", () => {
+  const d = d2(`Бросьте 1d4.\n<table class="inner"><tbody><tr><td><b>1d4</b></td><td><b>Провал</b>.</td><td><b>Критический провал</b>.</td></tr>
+<tr><td>2</td><td>${U("MIRkyAjyBeXivMa7")}{Слабость} 1 на 1 раунд</td><td>Слабость 2 на 1 раунд</td></tr><tr><td>4</td><td>${U("i3OJZU2nk64Df3xm")}{Неуклюжесть} 1 на 1 раунд</td><td>Неуклюжесть 2 на 1 раунд</td></tr></tbody></table>`);
+  assert.deepEqual(d.rule.onUse.challenge.byDegree, {});
+});
+
+test("Unfathomable Song: блок степени кончается на <table>", () => {
+  const d = d2(`<p><strong>Failure</strong> Roll 1d4 on the table below.</p>
+<p><strong>Critical Failure</strong> Roll 1d4+1 on the table below.</p><table><thead><tr><th>Result</th><th>Effect</th></tr></thead><tbody>
+<tr><td>1</td><td>The target is ${U("TBSHQspnbcqxsmjL")}{Frightened 2}</td></tr><tr><td>5</td><td>The target is ${U("dfCMdR4wnpbYNTix")}{Stunned} for 1 round</td></tr></tbody></table>`);
+  assert.deepEqual(d.rule.onUse.challenge.byDegree, {});
+  const e = d2(`<b>Критический провал:</b> бросьте 1d4+1 и сверьте результат с таблицей ниже.\n<table class="inner"><tbody><tr><td>1</td><td>Цель получает ${U("TBSHQspnbcqxsmjL")}{испуг} 2.</td></tr></tbody></table>`);
+  assert.deepEqual(e.rule.onUse.challenge.byDegree, {});
+});
+
+test("блок без <br>/</p> перед таблицей: условия после таблицы не втягиваются", () => {
+  const d = d2(`<b>Провал:</b> цель получает испуг 1<table><tbody><tr><td>испуг 3</td></tr></tbody></table>`);
+  assert.deepEqual(by(d), { failure: [["frightened", 1, undefined]] });
+});
+
+test("«шок на 1 раунд»: ссылка и простой текст — только подсказка, не stunned 1", () => {
+  const en = d2(`<p><strong>Failure</strong> The target is ${U("dfCMdR4wnpbYNTix")}{Stunned 1}.</p><p><strong>Critical Failure</strong> The target is ${U("dfCMdR4wnpbYNTix")}{Stunned} for 1 round and ${U("XgEqL1kFApUbl5Z2")}{blinded} for 1 minute.</p>`);
+  assert.deepEqual(by(en), { failure: [["stunned", 1, undefined]], criticalFailure: [["blinded", undefined, "1minutes"]] });
+  assert.deepEqual(en.hints.possible, ["criticalFailure:stunned"]);
+  const ru = d2(`<b>Провал:</b> существо получает ${U("dfCMdR4wnpbYNTix")}{шок} 1.<br><b>Критический провал:</b> существо получает шок на 1 раунд и слепоту на 1 минуту.`);
+  assert.deepEqual(by(ru).failure, [["stunned", 1, undefined]]);
+  assert.deepEqual(ru.hints.possible, ["criticalFailure:blinded", "criticalFailure:stunned"]);   // слепота без ссылки и значения — тоже подсказка
+  const plain = d2(`<b>Критический провал:</b> цель получает ${U("dfCMdR4wnpbYNTix")}{шок} до начала вашего следующего хода.`);
+  assert.deepEqual(plain.rule.onUse.challenge.byDegree, {});
+  assert.deepEqual(plain.hints.possible, ["criticalFailure:stunned"]);
+});
+
+test("«шок N» простым текстом: 3 буквы — только точное слово", () => {
+  const d = d2(`<b>Провал:</b> цель получает шок 2.<br><b>Критический провал:</b> шоковое состояние и шока нет.`);
+  assert.deepEqual(by(d), { failure: [["stunned", 2, undefined]] });
+});

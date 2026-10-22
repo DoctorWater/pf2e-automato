@@ -3,6 +3,7 @@ import { MOD, L, errText, DEGREES, callGM, forcedReplace, sluggify } from "./uti
 import { S } from "./settings.mjs";
 import { validateRule, resolveRule, slugOf, sourceOf } from "./rules.mjs";
 import { automationsGroups } from "./compat.mjs";
+import { hintsView, hintList } from "./hints.mjs";
 import { resolveDC, safeUuid } from "./saves.mjs";
 import { defenseDc, pickStatistic, hasImmunity } from "./checks.mjs";
 import { stepText } from "./chat.mjs";
@@ -295,6 +296,11 @@ async function testRun(item, rule) {
 
 const choices = (o) => Object.entries(o).map(([value, label]) => ({ value, label }));
 
+function hintLines(hints) {
+  const v = hintsView(hints, { condLabel: (s) => game.i18n.localize(CONFIG.PF2E.conditionTypes?.[s] ?? s), degLabel: (d) => L(`sheet.degree.${d}`).toLowerCase() });
+  return v.isEmpty ? null : { possible: v.possible.length ? L("sheet.hintPossible", { list: hintList(v.possible) }) : null, excluded: v.excluded.length ? L("sheet.hintExcluded", { list: hintList(v.excluded) }) : null };
+}
+
 function buildContext(item, draft) {
   const res = resolveRule(item);
   const slug = res?.slug ?? slugOf(null, item), sourceUuid = res?.sourceUuid ?? sourceOf(null, item);
@@ -306,7 +312,8 @@ function buildContext(item, draft) {
     f, slug, sourceUuid, groups, covered: groups.length > 0, settingYield: S.get("yieldToAutomations"),
     res: res && {
       source: T(`src.${res.source}`), src: res.source, low: res.confidence === "low", json: JSON.stringify(res.rule, null, 1),
-      canAccept: res.source !== "flag", ruleAttr: JSON.stringify(res.rule)
+      canAccept: res.source !== "flag", ruleAttr: JSON.stringify(res.rule),
+      hints: res.source === "markup" && game.user.isGM ? hintLines(res.hints) : null
     },
     isWorld: res?.source === "world",
     lockedFlag: !item.isOwner || !!item.compendium?.locked,

@@ -341,16 +341,21 @@ export function parseCheck(inner) {
   return out;
 }
 
+// конец блока степени: перенос/абзац/элемент списка или таблица (в таблице колонки по степеням и броску, это не продолжение блока)
+const BLOCK_STOP = /<hr|<\/p>|<\/li>|<br|<table/i;
+
 function parseBlocks(html, map) {
   const markers = [];
+  const tables = [...html.matchAll(/<table\b[\s\S]*?(?:<\/table>|$)/gi)].map((t) => [t.index, t.index + t[0].length]);
   for (const m of html.matchAll(/<(strong|b)\b[^>]*>([\s\S]{1,60}?)<\/\1>/gi)) {
     const degree = map.get(normLabel(m[2]));
-    if (degree) markers.push({ degree, start: m.index, end: m.index + m[0].length });
+    // подпись внутри таблицы — заголовок колонки, не блок
+    if (degree && !tables.some(([a, b]) => m.index >= a && m.index < b)) markers.push({ degree, start: m.index, end: m.index + m[0].length });
   }
   const blocks = {};
   markers.forEach((mk, i) => {
     const rest = html.slice(mk.end);
-    const stop = rest.search(/<hr|<\/p>|<\/li>|<br/i);
+    const stop = rest.search(BLOCK_STOP);
     let end = stop < 0 ? html.length : mk.end + stop;
     if (markers[i + 1] && markers[i + 1].start < end) end = markers[i + 1].start;
     blocks[mk.degree] = (blocks[mk.degree] ?? "") + html.slice(mk.end, end);
@@ -364,14 +369,14 @@ function stripBlocks(html, markers) {
   for (const mk of markers) {
     out += html.slice(pos, mk.start);
     const rest = html.slice(mk.end);
-    const stop = rest.search(/<hr|<\/p>|<\/li>|<br/i);
+    const stop = rest.search(BLOCK_STOP);
     pos = stop < 0 ? html.length : mk.end + stop;
   }
   return out + html.slice(pos);
 }
 
 function linksOf(html, condSlug, hints) {
-  const conds = [], effects = [];
+  const conds = [], effects = [], timed = [];
   for (const m of html.matchAll(/@UUID\[([^\]]+)\](?:\{([^}]*)\})?/g)) {
     const [, uuid, label = ""] = m;
     const slug = condSlug(uuid);
@@ -380,6 +385,8 @@ function linksOf(html, condSlug, hints) {
       if (VALUED.has(slug)) {
         const inLabel = [...label.matchAll(/\d+/g)].pop();
         const after = AFTER_NUM.exec(html.slice(m.index + m[0].length));
+        // «шок на 1 раунд»: срок вместо значения — не «stunned 1» (теряет все действия на срок); правилом не выразить
+        if (!inLabel && !after && DURATION_ONLY.has(slug) && durNext(html.slice(end))) { if (!timed.includes(slug)) timed.push(slug); continue; }
         value = inLabel ? +inLabel[0] : after ? +after[1] : 1;
         if (!inLabel && after) end += after[0].length;
       }
@@ -389,7 +396,7 @@ function linksOf(html, condSlug, hints) {
     } else if (COND_UUID.test(uuid)) hints.unresolved.push(uuid);
     else if (EFFECT_UUID.test(uuid) && !effects.includes(uuid)) effects.push(uuid);
   }
-  return { conds, effects };
+  return { conds, effects, timed };
 }
 
 // Состояния восприятия и off-guard в блоке степени обычно относятся к агенту/атакам, а не к цели -> только подсказка (K7 п.10).
@@ -401,7 +408,10 @@ const condApply = (c, to) => ({ to, condition: { slug: c.slug, ...(c.value != nu
 const PLAIN_SKIP = new Set([...NOT_ON_TARGET, "persistent-damage", "friendly", "helpful", "hostile", "indifferent", "unfriendly", "malevolence", "cursebound", "broken", "controlled", "unnoticed"]);
 const DUR = /(?<!\p{L})(?:в течение|на|for)\s+(\d+)\s*(раунд|минут|час|дн|ден|round|minute|hour|day)/giu;
 const NEXT_TURN = /(?<!\p{L})(?:до|until)\s+(?:the\s+)?(начала|конца|start|end)\s+(?:of\s+)?(своего|его|ее|их|вашего|its|their|his|her|your)\s+(?:следующего|next)\s+(?:хода|turn)/giu;
-const UNIT_OF = { р: "rounds", r: "rounds", м: "minutes", m: "minutes", ч: "hours", h: "hours", д: "days", d: "days" };
+// pf2e допускает «stunned на срок» вместо значения; шагом правила это не выразить: createTimed даёт значение 1 (теряет 1 действие, а не все)
+const DURATION_ONLY = new Set(["stunned"]);
+const durNext = (s) => [DUR, NEXT_TURN].some((re) => new RegExp("^\\s*(?:" + re.source + ")", "iu").test(s));
+const UNIT_OF ={ р: "rounds", r: "rounds", м: "minutes", m: "minutes", ч: "hours", h: "hours", д: "days", d: "days" };
 // перед состоянием без смысла «цель получает»: избавление, избегание, иммунитет, отрицание, условие
 const STOP = /(?<!\p{L})(?:из(?![\p{L}-])|без|уже|если|не|ни|избег\p{L}*|избав\p{L}*|тер(?:я|ет|ял)\p{L}*|утрач\p{L}*|высвобо\p{L}*|снима\p{L}*|снят\p{L}*|прекращ\p{L}*|иммун\p{L}*|невосприимч\p{L}*|no longer|not|can't|can’t|cannot|immune|if|unless|removes?|removed|free from|recovers? from)(?![\p{L}])|(?<!\p{L})от\s+(?:\p{L}+\s+)?$|(?<!\p{L})ends?(?![\p{L}])(?!\s+of\b)/iu;
 // получатель — автор («вы получаете…»), а не цель
@@ -429,13 +439,16 @@ function addPlainConds(text, conds, terms, linkedAll) {
   for (const [term, slug] of terms) {
     if (linked.has(slug)) continue;
     const stem = (term.length >= 5 ? term.slice(0, -1) : term).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    const re = new RegExp("(?<![\\p{L}])" + stem + "\\p{L}{0,2}(?![\\p{L}])", "gu");
+    const re = new RegExp("(?<![\\p{L}])" + stem + (term.length >= 4 ? "\\p{L}{0,2}" : "") + "(?![\\p{L}])", "gu");   // 3 буквы («шок») — только точное слово
     for (const m of flat.matchAll(re)) {
       const before = flat.slice(Math.max(sentStart(m.index), m.index - 40), m.index).split(",").pop();   // фраза до запятой
       if (STOP.test(before) || AUTHOR.test(flat.slice(sentStart(m.index), m.index).split(",").pop())) continue;
       const end = m.index + m[0].length;
       const after = AFTER_NUM.exec(flat.slice(end));
-      if (VALUED.has(slug) && !after) continue;
+      if (VALUED.has(slug) && !after) {
+        if (DURATION_ONLY.has(slug) && durNext(flat.slice(end)) && !possible.includes(slug)) possible.push(slug);
+        continue;
+      }
       if (ALT.test(flat.slice(end + (after?.[0].length ?? 0), Math.min(sentEnd(end), end + 40)).split(",")[0])) continue;
       const value = VALUED.has(slug) ? +after[1] : null;
       if (value == null && !linkedAll.has(slug)) { if (!possible.includes(slug)) possible.push(slug); continue; }
@@ -474,7 +487,7 @@ function plainTerms(html, condNames, condSlug) {
   const out = new Map();
   const add = (name, slug) => {
     const t = isStr(name) ? normTerm(name) : "";
-    if (slug && t.length >= 4 && !PLAIN_SKIP.has(slug) && !out.has(t)) out.set(t, slug);
+    if (slug && t.length >= 3 && !PLAIN_SKIP.has(slug) && !out.has(t)) out.set(t, slug);
   };
   for (const [n, s] of condNames ?? []) add(n, s);
   const linked = new Set();
@@ -517,7 +530,7 @@ export function deriveFromMarkup(itemLike, labels, conditionSlugByUuid, condName
   const save = sys.defense?.save;
 
   const outLinks = linksOf(outside, condSlug, hints);
-  hints.conditions = outLinks.conds.map((c) => c.slug);
+  hints.conditions = [...outLinks.conds.map((c) => c.slug), ...outLinks.timed];
   hints.effects = outLinks.effects;
 
   const mk = (onUse, confidence) => {
@@ -543,8 +556,8 @@ export function deriveFromMarkup(itemLike, labels, conditionSlugByUuid, condName
     if (check?.params.traits) challenge.traits = check.params.traits.split(",");
     if (opts.length) challenge.options = opts;
     for (const [deg, text] of Object.entries(blocks)) {
-      const { conds, effects } = linksOf(text, condSlug, hints);
-      for (const slug of addPlainConds(text, conds, terms, linkedAll)) hints.possible.push(`${deg}:${slug}`);   // имя без ссылки и значения — только подсказка
+      const { conds, effects, timed } = linksOf(text, condSlug, hints);
+      for (const slug of [...timed, ...addPlainConds(text, conds, terms, linkedAll)]) if (!hints.possible.includes(`${deg}:${slug}`)) hints.possible.push(`${deg}:${slug}`);   // имя без ссылки и значения — только подсказка
       for (const c of conds) if (NOT_ON_TARGET.has(c.slug)) hints.excluded.push(`${deg}:${c.slug}`);
       const list = [...conds.filter((c) => !NOT_ON_TARGET.has(c.slug)).map((c) => condApply(c, "target")), ...effects.map((uuid) => ({ to: "target", effect: { uuid } }))];
       if (list.length) challenge.byDegree[deg] = list;
@@ -684,7 +697,7 @@ export function resolveRule(source) {
   const item = liveItem(origin, source?.system ? source : (source?.item ?? null));
   const slug = slugOf(origin, item);
   const sourceUuid = sourceOf(origin, item);
-  const found = (rule, src, confidence = "high") => ({ rule, source: src, slug, sourceUuid, confidence });
+  const found = (rule, src, confidence = "high", hints) => ({ rule, source: src, slug, sourceUuid, confidence, ...(hints && { hints }) });
 
   const flag = itemFlagRule(item);
   if (flag) return found(flag, "flag");
@@ -702,7 +715,7 @@ export function resolveRule(source) {
       (uuid) => game.pf2e.ConditionManager.conditions.get(uuid)?.slug ?? null,
       runtimeCondNames()
     );
-    if (d) return found(d.rule, "markup", d.confidence);
+    if (d) return found(d.rule, "markup", d.confidence, d.hints);
   }
   return null;
 }

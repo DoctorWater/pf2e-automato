@@ -53,6 +53,7 @@ export function buildSnapshot(i) {
   if (i.kind === "use" && i.consume && rule.onUse?.targets === "area") state.awaitingRegion = true;
   return {
     v: 1, kind: i.kind, rule, src: i.resolved.source, confidence: i.resolved.confidence,
+    ...(i.resolved.hints && { hints: { possible: i.resolved.hints.possible ?? [], excluded: i.resolved.hints.excluded ?? [] } }),   // подсказки разметки (только ГМу в чате)
     slug: i.resolved.slug ?? null, sourceUuid: i.resolved.sourceUuid ?? null,
     item: i.item, actor: i.actor ?? null, token: i.token ?? null,
     dc: i.dc ?? null, createdAt: i.now, targets: i.targets ?? [], state

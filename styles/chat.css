@@ -92,3 +92,4 @@
 .paf-reaction-window .form-footer button { height: 24px; background: transparent; border: 1px solid var(--paf-line); box-shadow: none; }
 .paf-reaction-window .form-footer .paf-primary { border-color: color-mix(in srgb, currentColor 55%, transparent); }
 .paf-reaction-window .form-footer .paf-ghost { border-color: transparent; color: var(--paf-mute); }
+.pf2e-automato .paf-hint { font-style: italic; opacity: 0.75; }

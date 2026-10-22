@@ -28,6 +28,7 @@
 {{#*inline "lst"}}
 <div class="ws-lst" data-list="{{list}}">
   {{#each steps}}{{> plate}}{{/each}}
+  {{#each ghosts}}<button type="button" class="ws-ghost" data-action="addStep" data-list="{{../list}}" data-slug="{{slug}}" name="ghost-{{slug}}-{{../list}}" data-tooltip="PF2E_AUTOMATO.workshop.au.hintPossibleTip">{{text}}</button>{{/each}}
   {{#unless steps.length}}{{#unless quiet}}<div class="ws-dnone">{{localize "PF2E_AUTOMATO.workshop.au.noEffects"}}</div>{{/unless}}{{/unless}}
   <div class="ws-padd">
     <button type="button" class="ws-add" data-action="togglePicker" data-list="{{list}}" name="add-{{list}}" aria-expanded="{{picker}}"><i class="fa-solid fa-plus" inert></i> {{#if quiet}}{{localize "PF2E_AUTOMATO.workshop.au.addImmediate"}}{{else}}{{localize "PF2E_AUTOMATO.workshop.au.add"}}{{/if}}</button>
@@ -71,6 +72,7 @@
         {{/if}}
         {{#if r.is_outcome}}
         {{#if r.cols}}<div class="ws-dgrid ws-full">{{#each r.cols}}<div class="ws-dcol"><div class="ws-lbl ws-dhead ws-d-{{deg}}">{{label}}</div>{{> lst}}</div>{{/each}}</div>{{/if}}
+        {{#if r.hintExcluded}}<div class="ws-note ws-full ws-hintx">{{r.hintExcluded}}</div>{{/if}}
         <div class="ws-dimm ws-full">{{#unless r.imm.quiet}}<div class="ws-lbl ws-dhead">{{r.imm.label}}</div>{{/unless}}{{> lst r.imm}}</div>
         {{#if r.edit}}
         <div class="ws-sted ws-full">

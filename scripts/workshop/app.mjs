@@ -10,6 +10,7 @@ import { safeUuid } from "../saves.mjs";
 import * as fx from "./effect.mjs";
 import * as au from "./automation.mjs";
 import * as im from "./item.mjs";
+import { hintsView, hintList } from "../hints.mjs";
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
 const TPL = (n) => `modules/${MOD}/templates/workshop-${n}.hbs`;
@@ -225,7 +226,8 @@ export class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
     const item = this.#item, res = resolveRule(item), f = ruleToForm(res?.rule ?? null), prev = keepView ? this.#au : null;
     if (!res) f.kind = "onUse";
     const area = au.initialArea({ isSpell: item.type === "spell", area: item._source.system.area, description: item._source.system.description?.value });
-    this.#au = { f, base: JSON.stringify(f), area, baseArea: { ...area }, open: prev?.open ?? { when: false, targets: false, roll: true, outcome: true, zone: false, macros: false }, sel: prev?.sel ?? null, picker: null, probeDc: prev?.probeDc ?? "" };
+    const hints = res?.source === "markup" && game.user.isGM ? hintsView(res.hints, { condLabel, degLabel: (d) => t(`sheet.degree.${d}`).toLowerCase() }) : null;
+    this.#au = { hints, f, base: JSON.stringify(f), area, baseArea: { ...area }, open: prev?.open ?? { when: false, targets: false, roll: true, outcome: true, zone: false, macros: false }, sel: prev?.sel ?? null, picker: null, probeDc: prev?.probeDc ?? "" };
   }
 
   #dirty() {
@@ -386,7 +388,12 @@ export class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
       plates[p] = { text, value: pl.value };
       return { path: p, ...pl, text, open: a.sel === p, stepper: pl.kind === "condition" && pl.valued };
     });
-    const lst = (path, label, deg = "") => ({ list: path, label, deg, steps: stepsOf(path), picker: a.picker === path });
+    const okGhost = new Set(grantable().map((c) => c.slug));
+    const lst = (path, label, deg = "") => {
+      const steps = stepsOf(path), have = new Set((foundry.utils.getProperty(a, path) ?? []).filter((r) => r.kind === "condition").map((r) => r.text));
+      const ghosts = deg && a.hints ? a.hints.possible.filter((h) => h.deg === deg && okGhost.has(h.slug) && !have.has(h.slug)).map((h) => ({ slug: h.slug, text: t("workshop.au.hintPossible", { name: h.label }) })) : [];
+      return { list: path, label, deg, steps, ghosts, picker: a.picker === path };
+    };
     let edit = null;
     if (a.sel) {
       const row = foundry.utils.getProperty(a, a.sel);
@@ -461,7 +468,7 @@ export class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
       ...(onUse ? [
         R("targets", { fields: targetFields, area: areaNote }),
         R("roll", { fields: rollFields }),
-        R("outcome", { is_outcome: true, cols: mode === "none" ? null : au.COLS.map((d) => lst(`${au.degPath(mode)}.${d}`, t(`sheet.degree.${d}`), d)), imm: ((l) => ({ ...l, quiet: mode !== "none" && !l.steps.length && !l.picker }))(lst("f.apply", t(mode === "none" ? "workshop.au.immediate" : "workshop.au.immediateExtra"))), edit }),
+        R("outcome", { is_outcome: true, hintExcluded: a.hints?.excluded.length ? t("workshop.au.hintExcluded", { list: hintList(a.hints.excluded) }) : null, cols: mode === "none" ? null : au.COLS.map((d) => lst(`${au.degPath(mode)}.${d}`, t(`sheet.degree.${d}`), d)), imm: ((l) => ({ ...l, quiet: mode !== "none" && !l.steps.length && !l.picker }))(lst("f.apply", t(mode === "none" ? "workshop.au.immediate" : "workshop.au.immediateExtra"))), edit }),
         R("zone", { fold: f.targets === "area", fields: zoneFields })
       ] : []),
       R("macros", { is_macros: true, macros })

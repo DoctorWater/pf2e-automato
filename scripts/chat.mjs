@@ -5,6 +5,7 @@ import { automationsGroups, toolbeltTargetHelper } from "./compat.mjs";
 import * as saves from "./saves.mjs";
 import * as checks from "./checks.mjs";
 import { visionActive, zoneCells } from "./vision.mjs";
+import { hintsView, hintList } from "./hints.mjs";
 
 const TEMPLATE = "modules/pf2e-automato/templates/chat-block.hbs";
 let template = null;
@@ -244,6 +245,12 @@ export function buildViewModel(message, user, env = null) {
     if (env.mode(key === "zone" ? "zone" : /^c\d/.test(key) ? "apply" : "effect") === "off") continue;
     const text = describeStep(rule, key, env);
     vm.derived.push({ key, text, title: t("chat.applyDerivedTitle", { text }), canApply: canAct });
+  }
+
+  if (isGM && use.src === "markup" && use.hints) {
+    const hv = hintsView(use.hints, { condLabel: env.conditionLabel, degLabel: (d) => t(`chat.degree.${d}`).toLowerCase() });
+    const parts = [hv.possible.length && t("chat.hintPossible", { list: hintList(hv.possible) }), hv.excluded.length && t("chat.hintExcluded", { list: hintList(hv.excluded) })].filter(Boolean);
+    if (parts.length) vm.hints = parts;
   }
 
   if (isGM) vm.macroErrors = (state.macros?.errors ?? []).map((e) => `${e.key}: ${e.msg}`);

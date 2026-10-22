@@ -53,6 +53,8 @@
         "other": "{n} цели ждут применения"
       },
       "macroErrors": "Ошибки макросов",
+      "hintPossible": "Возможно: {list}",
+      "hintExcluded": "Не вешается автоматически: {list}",
       "failed": "Не удалось: {reason}",
       "degree": {
         "criticalFailure": "Крит. провал",

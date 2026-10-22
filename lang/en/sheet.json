@@ -6,6 +6,8 @@
       "failed": "Could not save",
       "openWorkshop": "Open in Workshop",
       "recognized": "Recognized",
+      "hintPossible": "Possibly: {list}",
+      "hintExcluded": "Not applied automatically: {list}",
       "source": "Rule source",
       "confLow": "Low confidence",
       "confLowHint": "The rule was inferred from the text approximately: check it before use.",

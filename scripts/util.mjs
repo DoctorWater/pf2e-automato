@@ -1,4 +1,6 @@
 export const MOD = "pf2e-automato";
+/** Ошибка validateRule ({key, data}) -> текст на языке интерфейса; без Foundry — фолбэк toString(). */
+export const errText = (e) => (e?.key && globalThis.game?.i18n ? L(`rules.err.${e.key}`, e.data) : String(e));
 export const L = (key, data) => data ? game.i18n.format(`PF2E_AUTOMATO.${key}`, data) : game.i18n.localize(`PF2E_AUTOMATO.${key}`);
 export const DEGREES = ["criticalFailure", "failure", "success", "criticalSuccess"];   // индекс = pf2e degreeOfSuccess 0..3
 

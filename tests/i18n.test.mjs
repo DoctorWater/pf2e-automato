@@ -41,6 +41,9 @@ function used() {
     }
     for (const m of text.matchAll(/PF2E_AUTOMATO\.[\w.${}\[\]]+/g)) add(m[0].replace(/\.$/, ""), where);
   }
+  // ошибки валидатора: ключи собираются E("key", ...) в rules.mjs, текст берётся динамически (errText)
+  const rs = readFileSync(root("scripts/rules.mjs"), "utf8");
+  for (const m of rs.matchAll(/\bE\((?:[^"()]*\?\s*)?"([\w.]+)"(?:\s*:\s*"([\w.]+)")?/g)) for (const k of [m[1], m[2]]) if (k) add(`PF2E_AUTOMATO.rules.err.${k}`, "rules.mjs");
   // настройки: name/hint для каждого reg("x") и MODES-ключа
   const settings = readFileSync(root("scripts/settings.mjs"), "utf8");
   const regs = [...settings.matchAll(/reg\("([\w.]+)"/g)].map((m) => m[1]);

@@ -386,7 +386,7 @@ export function queue(key, fn) -> Promise                    // ключи: "msg
 ### rules.mjs (контракт; чистая часть без Foundry для node-тестов)
 ```js
 export const RULE_VERSION = 1;
-export function validateRule(raw) -> { ok:boolean, rule:Rule|null, errors:string[] }     // в т.ч. onTurn/zone.events только null; macros по схеме §1.1
+export function validateRule(raw) -> { ok:boolean, rule:Rule|null, errors:{key,data,toString()}[] }     // в т.ч. onTurn/zone.events только null; macros по схеме §1.1 // ошибка = ключ PF2E_AUTOMATO.rules.err.* + data, текст — errText() (util.mjs); toString() — фолбэк
 export function slugOf(origin, item = null) -> string|null            // §1.5
 export function sourceOf(origin, item = null) -> string|null          // compendiumSource
 export function deriveFromMarkup(itemLike, labels, conditionSlugByUuid) -> { rule:Rule, confidence:"high"|"low", hints:object }|null

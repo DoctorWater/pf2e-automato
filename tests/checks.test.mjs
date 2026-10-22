@@ -43,17 +43,17 @@ test("validateRule: ошибки check", () => {
   const bad = (c, frag, onUse = {}) => {
     const r = validateRule({ v: 1, onUse: { targets: "selected", check: c, ...onUse } });
     assert.equal(r.ok, false, frag);
-    assert.ok(r.errors.some((e) => e.includes(frag)), `${frag}: ${r.errors.join("; ")}`);
+    assert.ok(r.errors.some((e) => e.key === frag), `${frag}: ${r.errors.join("; ")}`);
   };
-  bad({ statistic: "Athletics!", vs: { defense: "will" } }, "statistic");
-  bad({ statistic: "athletics" }, "vs");
-  bad({ statistic: "athletics", vs: { defense: "will", dc: 5 } }, "ровно одно");
-  bad({ statistic: "athletics", vs: { defense: "speed" } }, "vs.defense");
-  bad({ statistic: "athletics", vs: { defense: "ac" }, mapIncreases: 3 }, "mapIncreases");
-  bad({ statistic: "athletics", vs: { defense: "ac" }, immunity: { slug: "x" } }, "uuid эффекта или duration");
-  bad({ statistic: "athletics", vs: { defense: "ac" }, byDegree: { win: [] } }, "неизвестная степень");
-  bad({ statistic: "athletics", vs: { defense: "ac" } }, "взаимоисключающи", { challenge: { statistic: "will", dc: { value: 1 } } });
-  bad({ statistic: "athletics", vs: { defense: "ac" } }, "selected|area", { targets: "self" });
+  bad({ statistic: "Athletics!", vs: { defense: "will" } }, "chk.stat");
+  bad({ statistic: "athletics" }, "chk.vsNone");
+  bad({ statistic: "athletics", vs: { defense: "will", dc: 5 } }, "chk.vsMany");
+  bad({ statistic: "athletics", vs: { defense: "speed" } }, "chk.defense");
+  bad({ statistic: "athletics", vs: { defense: "ac" }, mapIncreases: 3 }, "chk.map");
+  bad({ statistic: "athletics", vs: { defense: "ac" }, immunity: { slug: "x" } }, "imm.empty");
+  bad({ statistic: "athletics", vs: { defense: "ac" }, byDegree: { win: [] } }, "degrees.unknown");
+  bad({ statistic: "athletics", vs: { defense: "ac" } }, "use.both", { challenge: { statistic: "will", dc: { value: 1 } } });
+  bad({ statistic: "athletics", vs: { defense: "ac" } }, "use.checkSelf", { targets: "self" });
 });
 
 /* ---------- СЛ защиты, статистика, иммунитет ---------- */

@@ -40,28 +40,28 @@ test("validateRule: дефолты нормализации", () => {
 });
 
 test("validateRule: ошибки", () => {
-  const bad = (raw, re) => {
+  const bad = (raw, key) => {
     const v = validateRule(raw);
     assert.equal(v.ok, false, JSON.stringify(raw));
     assert.equal(v.rule, null);
-    assert.match(v.errors.join("\n"), re);
+    assert.ok(v.errors.some((e) => e.key === key), `${key}: ${v.errors.join("; ")}`);
   };
-  bad(null, /объект/);
-  bad({ onUse: { targets: "self", apply: [{ note: "x" }] } }, /v:/);
-  bad({ v: 1 }, /пусто/);
-  bad({ v: 1, onTurn: {} }, /onTurn/);
-  bad({ v: 1, onUse: { targets: "self", apply: [{ note: "x" }] }, onAttacked: { trigger: "attack-on-self", bonus: { stat: "ac", type: "circumstance", value: 2 } } }, /взаимоисключ/);
-  bad({ v: 1, onUse: { targets: "selected", zone: { condition: { slug: "x" } } } }, /только при targets/);
-  bad({ v: 1, onUse: { targets: "area", zone: { condition: { slug: "x" }, events: { a: 1 } } } }, /events/);
-  bad({ v: 1, onUse: { targets: "area", zone: {} } }, /condition и\/или effect/);
-  bad({ v: 1, onUse: { targets: "self", apply: [{ condition: { slug: "a" }, effect: { uuid: "b" } }] } }, /ровно одно/);
-  bad({ v: 1, onUse: { targets: "self", apply: [{ condition: { slug: "a", policy: "min" } }] } }, /policy/);
-  bad({ v: 1, onUse: { targets: "selected", challenge: { statistic: "will", dc: { value: 1, expr: "x" }, byDegree: {} } } }, /ровно одно из value/);
-  bad({ v: 1, onUse: { targets: "selected", challenge: { statistic: "will", dc: { value: 1 }, byDegree: { great: [] } } } }, /неизвестная степень/);
-  bad({ v: 1, onUse: { targets: "bogus" } }, /targets/);
-  bad({ v: 1, macros: [{ uuid: "Macro.a", phase: "onUse", degree: "success" }] }, /только для phase/);
-  bad({ v: 1, macros: [{ uuid: "Macro.a", phase: "later" }] }, /phase/);
-  bad({ v: 1, onAttacked: { trigger: "x", bonus: { stat: "ac", type: "circumstance", value: 2 } } }, /trigger/);
+  bad(null, "rule.obj");
+  bad({ onUse: { targets: "self", apply: [{ note: "x" }] } }, "rule.version");
+  bad({ v: 1 }, "rule.empty");
+  bad({ v: 1, onTurn: {} }, "rule.onTurn");
+  bad({ v: 1, onUse: { targets: "self", apply: [{ note: "x" }] }, onAttacked: { trigger: "attack-on-self", bonus: { stat: "ac", type: "circumstance", value: 2 } } }, "rule.both");
+  bad({ v: 1, onUse: { targets: "selected", zone: { condition: { slug: "x" } } } }, "zone.onlyArea");
+  bad({ v: 1, onUse: { targets: "area", zone: { condition: { slug: "x" }, events: { a: 1 } } } }, "zone.events");
+  bad({ v: 1, onUse: { targets: "area", zone: {} } }, "zone.empty");
+  bad({ v: 1, onUse: { targets: "self", apply: [{ condition: { slug: "a" }, effect: { uuid: "b" } }] } }, "apply.kind");
+  bad({ v: 1, onUse: { targets: "self", apply: [{ condition: { slug: "a", policy: "min" } }] } }, "cond.policy");
+  bad({ v: 1, onUse: { targets: "selected", challenge: { statistic: "will", dc: { value: 1, expr: "x" }, byDegree: {} } } }, "dc.many");
+  bad({ v: 1, onUse: { targets: "selected", challenge: { statistic: "will", dc: { value: 1 }, byDegree: { great: [] } } } }, "degrees.unknown");
+  bad({ v: 1, onUse: { targets: "bogus" } }, "use.targets");
+  bad({ v: 1, macros: [{ uuid: "Macro.a", phase: "onUse", degree: "success" }] }, "macro.degreeOnly");
+  bad({ v: 1, macros: [{ uuid: "Macro.a", phase: "later" }] }, "macro.phase");
+  bad({ v: 1, onAttacked: { trigger: "x", bonus: { stat: "ac", type: "circumstance", value: 2 } } }, "react.trigger");
 });
 
 test("validateRule: макросы (пример §1.6.5)", () => {
@@ -131,7 +131,7 @@ test("derive: <b>Метка:</b> + <br>, число после ссылки, def
   const d = deriveFromMarkup(mkItem("spell", html, { defense: { save: { statistic: "will", basic: false } } }), labels, condSlug);
   assert.equal(d.confidence, "high");
   assert.deepEqual(d.rule.onUse.challenge.dc, { source: "spell" });
-  assert.deepEqual(Object.keys(d.rule.onUse.challenge.byDegree), ["failure"]);
+  assert.deepEqual(Object.keys(d.rule.onUse.challenge.byDegree), ["failure", "criticalFailure"]);   // «тошноту 2» простым текстом
   assert.equal(d.rule.onUse.challenge.byDegree.failure[0].condition.value, 1);
 });
 

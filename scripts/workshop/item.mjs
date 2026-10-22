@@ -1,7 +1,7 @@
 // Мастерская, режим «Предмет»: чистое ядро (без Foundry при импорте, node-тесты).
 // Модель мастера -> source мирового Item pf2e (расходник/снаряжение/оружие/действие/черта) + правило автоматизации во флаге.
 // Поля сверены с pf2e 8.6.1: template.json (consumable/equipment/weapon), AbilitySystemData и FeatSystemData (action/feat).
-import { MOD, sluggify } from "../util.mjs";
+import { MOD, errText, sluggify } from "../util.mjs";
 import { validateRule } from "../rules.mjs";
 import * as fx from "./effect.mjs";
 
@@ -174,7 +174,7 @@ export function validate(m, ctx) {
     });
   }
   const raw = ruleOf(m);
-  if (raw) { const v = validateRule(raw); if (!v.ok) err("rule", { error: v.errors[0] }); }
+  if (raw) { const v = validateRule(raw); if (!v.ok) err("rule", { error: errText(v.errors[0]) }); }
   return out;
 }
 

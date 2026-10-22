@@ -1,5 +1,5 @@
 // K6: вкладка «Автоматизация» в листе предмета (AppV1, plan.md §6). Только ГМ.
-import { MOD, L, DEGREES, callGM, forcedReplace, sluggify } from "./util.mjs";
+import { MOD, L, errText, DEGREES, callGM, forcedReplace, sluggify } from "./util.mjs";
 import { S } from "./settings.mjs";
 import { validateRule, resolveRule, slugOf, sourceOf } from "./rules.mjs";
 import { automationsGroups } from "./compat.mjs";
@@ -360,7 +360,7 @@ async function inject(app, $html) {
   const draft = () => { app._afDraft = readForm(sec); syncUi(sec); };
   const build = () => {
     const v = validateRule(formToRule(readForm(sec)));
-    errBox.replaceChildren(...v.errors.map((e) => Object.assign(document.createElement("li"), { textContent: e })));
+    errBox.replaceChildren(...v.errors.map((e) => Object.assign(document.createElement("li"), { textContent: errText(e) })));
     return v.ok ? v.rule : null;
   };
   const toast = (res) => (res?.ok ? ui.notifications.info(L("sheet.saved")) : ui.notifications.error(`${L("sheet.failed")}: ${res?.error ?? res?.reason ?? "?"}`));

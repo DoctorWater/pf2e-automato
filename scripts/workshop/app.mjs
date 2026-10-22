@@ -1,7 +1,7 @@
 // Мастерская: окно ГМа (ApplicationV2). Режимы: «Эффект» (effect.mjs) и «Автоматизация» предмета (automation.mjs).
 // Чистая часть — effect.mjs / automation.mjs; здесь только DOM, Foundry и запись в документы.
 // Части окна у обоих режимов одни и те же (id), шаблоны подставляются по режиму в _configureRenderParts.
-import { MOD, L, DEGREES, callGM, forcedReplace, forcedDelete, flagPath } from "../util.mjs";
+import { MOD, L, errText, DEGREES, callGM, forcedReplace, forcedDelete, flagPath } from "../util.mjs";
 import { modeOf } from "../settings.mjs";
 import { DENY, dropSpec, ruleToForm, formToRule, blankRow, reportEnv, pickedTokens, ruleUuids, buildReport } from "../sheet.mjs";
 import { validateRule, resolveRule, slugOf, sourceOf } from "../rules.mjs";
@@ -480,7 +480,7 @@ export class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
       });
       probe = { needDc, probeDc: a.probeDc ?? "", tokens: rows2, count: tokens.length, none: mode === "none", noTokens: !tokens.length, problems: rep.problems, legend: au.COLS.map((d) => ({ deg: d, label: t(`sheet.degree.${d}`) })) };
     }
-    const errors = v.errors, dirty = this.#dirty();
+    const errors = v.errors.map(errText), dirty = this.#dirty();
     const lockedFlag = !item.isOwner || !!item.compendium?.locked;
     return {
       head: {

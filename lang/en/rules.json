@@ -1,0 +1,108 @@
+{
+  "PF2E_AUTOMATO": {
+    "rules": {
+      "err": {
+        "notObj": "This block is filled in incorrectly ({path})",
+        "notArr": "A list is expected here ({path})",
+        "strList": "A list of non-empty words is needed ({path})",
+        "rule": {
+          "obj": "The rule is corrupted: a settings object was expected",
+          "version": "Unknown rule version — {v} is expected ({path})",
+          "yield": "\"Yield\" must be on or off ({path})",
+          "label": "The rule name must be text ({path})",
+          "onTurn": "Per-turn triggers are not supported yet — remove it ({path})",
+          "both": "A rule cannot trigger both on use and when the owner is attacked — keep only one ({path})",
+          "empty": "The rule is empty: add at least one step, check or reaction"
+        },
+        "use": {
+          "targets": "Choose who the rule affects: yourself, selected targets or an area ({path})",
+          "excludeSelf": "\"Exclude author\" must be on or off ({path})",
+          "both": "A challenge and a check are mutually exclusive — keep only one ({path})",
+          "checkSelf": "A check against a target does not work with \"self\" — choose selected targets or an area ({path})"
+        },
+        "zone": {
+          "onlyArea": "A zone is only possible when the target is an \"area\" ({path})",
+          "events": "Zone events are not supported yet — remove them ({path})",
+          "empty": "Zone: specify a condition and/or an effect ({path})",
+          "durObj": "Zone: the duration is set incorrectly ({path})",
+          "durNum": "Zone: the duration must be a number greater than zero ({path})"
+        },
+        "apply": {
+          "to": "Step: choose who it applies to — self or target ({path})",
+          "kind": "A step must do exactly one thing: apply a condition, grant an effect, show a note or change visibility ({path})",
+          "who": "Step: \"who\" can only be allies or enemies ({path})",
+          "mark": "Step: the mark can only be \"enemy\" and only together with an effect ({path})",
+          "choice": "Step: an effect choice needs a value and only works together with an effect ({path})",
+          "unless": "Step: \"unless the target has the effect\" — choose an effect ({path})"
+        },
+        "cond": {
+          "slug": "The condition is not chosen or unknown — pick a condition from the list ({path})",
+          "value": "The condition value must be a whole number from 1 ({path})",
+          "policy": "Condition stacking must be \"highest\" or \"add\" ({path})"
+        },
+        "effect": {
+          "uuid": "The effect is not chosen or unknown — pick an effect ({path})"
+        },
+        "note": {
+          "text": "The note is empty — enter some text ({path})"
+        },
+        "dur": {
+          "needCond": "A duration can only be set together with a condition ({path})",
+          "bad": "Duration: enter a whole number from 1 and a unit (rounds, minutes, hours, days); 0 is only allowed for \"until the end of the current turn\" ({path})",
+          "expiry": "Duration: it ends at the start or at the end of a turn ({path})",
+          "of": "Duration: count the turn of the author or of the target ({path})"
+        },
+        "vis": {
+          "bad": "Visibility: choose a level (hidden, undetected, unnoticed, etc.) and an observer — self or target ({path})",
+          "same": "Visibility: the observer and the one being seen must be different ({path})",
+          "until": "Visibility: \"until\" can only be end of turn, end of next turn or attack ({path})",
+          "selfNoTarget": "Visibility: a \"self\" step has no target to attach an observer to — make the target the recipient and yourself the observer ({path})"
+        },
+        "ch": {
+          "stat": "Challenge: choose a skill or a save ({path})",
+          "basic": "Challenge: \"basic save\" must be on or off ({path})",
+          "roller": "Challenge: the target always rolls ({path})"
+        },
+        "dc": {
+          "none": "Challenge: set the DC — a number, an expression, the caster's spell DC or the author's statistic ({path})",
+          "many": "Challenge: the DC is set in several ways at once — keep only one ({path})",
+          "value": "The DC must be a number ({path})",
+          "source": "DC: only the caster's spell DC is supported ({path})",
+          "str": "DC: fill in the expression or the statistic name ({path})"
+        },
+        "chk": {
+          "stat": "Check: choose a skill or another statistic of the author ({path})",
+          "vsNone": "Check: set what to roll against — a target defense, a number or a target statistic ({path})",
+          "vsMany": "Check: \"against\" is set in several ways — keep only one ({path})",
+          "defense": "Check: the defense must be AC, Fortitude, Reflex, Will or Perception ({path})",
+          "dc": "Check: the DC must be a number greater than zero ({path})",
+          "against": "Check: set a target statistic (lowercase slug, e.g. \"will\") ({path})",
+          "map": "Check: the multiple attack penalty steps must be from 0 to 2 ({path})",
+          "roll": "Check: the roll can only be \"system\" ({path})"
+        },
+        "degrees": {
+          "obj": "The results by degree of success are filled in incorrectly ({path})",
+          "unknown": "Unknown degree of success \"{k}\" ({path})"
+        },
+        "imm": {
+          "slug": "Immunity: a short code is needed (letters a-z, digits, hyphen) ({path})",
+          "uuid": "Immunity: the effect is chosen incorrectly ({path})",
+          "label": "Immunity: the name must be text ({path})",
+          "dur": "Immunity: the duration is a whole number from 1 and a unit (minutes, hours, days) ({path})",
+          "empty": "Immunity: specify an effect or a duration ({path})"
+        },
+        "react": {
+          "trigger": "Reaction: only the \"when the owner is attacked\" trigger is supported ({path})",
+          "bonus": "Reaction: set an AC bonus — a type and a number ({path})",
+          "cost": "Reaction: the cost can only be \"reaction\" ({path})",
+          "notify": "Reaction: you can notify the owner and/or the GM ({path})"
+        },
+        "macro": {
+          "id": "No macro chosen — specify a macro or a built-in handler ({path})",
+          "phase": "Macro: choose when it runs ({path})",
+          "degreeOnly": "Macro: a degree of success is only set for the \"by degree\" phase ({path})"
+        }
+      }
+    }
+  }
+}

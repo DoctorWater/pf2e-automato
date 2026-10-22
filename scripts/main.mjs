@@ -15,6 +15,7 @@ import * as badge from "./badge.mjs";
 import * as vision from "./vision.mjs";
 import * as invis from "./invis.mjs";
 import * as actions from "./actions.mjs";
+import * as workshop from "./workshop/app.mjs";
 
 const { S } = settings;
 
@@ -89,7 +90,7 @@ Hooks.once("socketlib.ready", () => {
 });
 
 Hooks.once("init", () => {
-  settings.init(); compat.init(); zone.init(); height.init(); saves.init(); use.init(); actions.init(); chat.init(); reactions.init(); sheet.init(); badge.init(); vision.init(); invis.init();
+  settings.init(); compat.init(); zone.init(); height.init(); saves.init(); use.init(); actions.init(); chat.init(); reactions.init(); sheet.init(); badge.init(); vision.init(); invis.init(); workshop.init();
   game.modules.get(MOD).api = {
     // контракт plan.md §2 main
     attachZone: zone.attachZone, sweepZone: zone.sweepZone, closeZone: zone.closeZone, expireZones: zone.expireZones,
@@ -103,6 +104,7 @@ Hooks.once("init", () => {
     undoOps: apply.undoOps, removeByKey: apply.removeByKey, findByKey: apply.findByKey,
     automationsGroups: compat.automationsGroups, shouldYield: compat.shouldYield,
     validateRule: rules.validateRule, deriveFromMarkup: rules.deriveFromMarkup, slugOf: rules.slugOf, sourceOf: rules.sourceOf,
+    openWorkshop: workshop.Workshop.open,
     degreeFromTotal, callGM, HANDLERS
   };
 });

@@ -1,0 +1,14 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "overused-font",
+        "value": "roboto",
+        "createdAt": "2026-10-22T01:48:49.472Z",
+        "reason": "user chose a native pf2e look; pf2e system CSS defines --sans-serif: Roboto (systems/pf2e/styles/pf2e.css)"
+      }
+    ]
+  }
+}

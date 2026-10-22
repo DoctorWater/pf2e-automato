@@ -28,7 +28,7 @@ const ru = load("ru"), en = load("en");
 // ключи, используемые кодом: L("x")/t("x") (префикс PF2E_AUTOMATO.), литералы PF2E_AUTOMATO.*, шаблоны hbs, настройки
 function used() {
   const src = [];
-  for (const d of ["scripts", "scripts/builtin", "templates"]) for (const f of readdirSync(root(d)).filter((f) => /.w+$/.test(f))) src.push([`${d}/${f}`, readFileSync(root(`${d}/${f}`), "utf8")]);
+  for (const d of ["scripts", "scripts/builtin", "scripts/workshop", "templates"]) for (const f of readdirSync(root(d)).filter((f) => /.(mjs|hbs)$/.test(f))) src.push([`${d}/${f}`, readFileSync(root(`${d}/${f}`), "utf8")]);
   const exact = new Map(), prefixes = new Map();
   const add = (k, where) => {
     const m = k.includes("${") ? prefixes : exact;

@@ -1,0 +1,16 @@
+<div class="ws-col">
+<h2 class="ws-h">{{localize "PF2E_AUTOMATO.workshop.preview"}}</h2>
+<div class="ws-prev">
+  <div class="ws-badge">
+    <img src="{{img}}" alt="">
+    <span class="ws-badge-dur">{{preview.durShort}}</span>
+  </div>
+  <div class="ws-prev-main">
+    <div class="ws-prev-name">{{#if name}}{{name}}{{else}}{{localize "PF2E_AUTOMATO.workshop.name"}}{{/if}}</div>
+    <div class="ws-prev-dur">{{preview.durLong}}</div>
+  </div>
+</div>
+<p class="ws-desc">{{#if desc}}{{desc}}{{else}}{{localize "PF2E_AUTOMATO.workshop.descEmpty"}}{{/if}}</p>
+<span class="ws-lbl">{{localize "PF2E_AUTOMATO.workshop.rules" n=preview.count}}</span>
+<pre class="ws-code">{{preview.json}}</pre>
+</div>

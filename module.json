@@ -21,7 +21,7 @@
   },
   "socket": true,
   "esmodules": ["scripts/main.mjs"],
-  "styles": ["styles/chat.css", "styles/sheet.css", "styles/zone.css"],
+  "styles": ["styles/chat.css", "styles/sheet.css", "styles/zone.css", "styles/workshop.css"],
   "languages": [
     { "lang": "ru", "name": "Русский", "path": "lang/ru/common.json" },
     { "lang": "ru", "name": "Русский", "path": "lang/ru/settings.json" },
@@ -33,6 +33,7 @@
     { "lang": "ru", "name": "Русский", "path": "lang/ru/reactions.json" },
     { "lang": "ru", "name": "Русский", "path": "lang/ru/sheet.json" },
     { "lang": "ru", "name": "Русский", "path": "lang/ru/builtin.json" },
+    { "lang": "ru", "name": "Русский", "path": "lang/ru/workshop.json" },
     { "lang": "en", "name": "English", "path": "lang/en/common.json" },
     { "lang": "en", "name": "English", "path": "lang/en/settings.json" },
     { "lang": "en", "name": "English", "path": "lang/en/zone.json" },
@@ -42,6 +43,7 @@
     { "lang": "en", "name": "English", "path": "lang/en/chat.json" },
     { "lang": "en", "name": "English", "path": "lang/en/reactions.json" },
     { "lang": "en", "name": "English", "path": "lang/en/sheet.json" },
-    { "lang": "en", "name": "English", "path": "lang/en/builtin.json" }
+    { "lang": "en", "name": "English", "path": "lang/en/builtin.json" },
+    { "lang": "en", "name": "English", "path": "lang/en/workshop.json" }
   ]
 }

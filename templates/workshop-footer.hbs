@@ -1,0 +1,5 @@
+<div class="ws-foot">
+  <span class="ws-foot-msg {{#if errors.length}}ws-err{{/if}}">{{#if error}}{{error}}{{else}}{{localize "PF2E_AUTOMATO.workshop.footHint"}}{{/if}}</span>
+  <button type="button" class="ws-btn" data-action="create" {{#if errors.length}}disabled{{/if}}>{{localize "PF2E_AUTOMATO.workshop.create"}}</button>
+  <button type="button" class="ws-btn ws-btn-p" data-action="createOpen" {{#if errors.length}}disabled{{/if}}>{{localize "PF2E_AUTOMATO.workshop.createOpen"}}</button>
+</div>

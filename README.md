@@ -99,7 +99,6 @@ New-Item -ItemType Junction -Path "$env:LOCALAPPDATA\FoundryVTT\Data\modules\pf2
 | `yieldToAutomations` | вкл | не выполнять предметы, покрытые активной группой pf2e-automations (правило может переопределить `yield`) |
 | `useToolbeltTargetHelper` | вкл | если Target Helper ведёт испытания — сами не бросаем |
 | `challenge.messageMode` | gm / public | видимость бросков NPC |
-| `reaction.onlyWhenChanges` | вкл | подсказка реакции только если бонус меняет исход |
 | `resumeMinutes` | 1–1440 (30) | давность автоматического дозапуска; старше — только кнопкой «Дозапустить» |
 | `debug` (клиент) | — | подробный лог в консоль |
 

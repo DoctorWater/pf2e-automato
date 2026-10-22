@@ -105,9 +105,10 @@ function ruleOfItem(item, idx = onAttackedIndex()) {
 function reactionItems(actor) {
   const idx = onAttackedIndex();
   const out = [];
+  const seen = new Set();   // дубли способности на листе (старая и новая копия одного slug) — одна подсказка
   for (const item of actor.items) {
-    const rule = ruleOfItem(item, idx);
-    if (rule?.onAttacked) out.push({ item, reaction: rule.onAttacked });
+    const rule = ruleOfItem(item, idx), key = slugOf(null, item) || item.name;
+    if (rule?.onAttacked && !seen.has(key)) { seen.add(key); out.push({ item, reaction: rule.onAttacked }); }
   }
   return out;
 }
@@ -146,8 +147,7 @@ export async function onAttackMessage(message) {
       await existing.update({ content: content(h), [`flags.${MOD}.reaction`]: h });
       continue;
     }
-    if (r.before < 2) continue;   // не попала
-    if (!r.changes && S.get("reaction.onlyWhenChanges")) continue;
+    // подсказку даём при любой атаке по владельцу (ответное действие объявляют, не зная исхода), даже если бонус ничего не меняет
     const h = { attack: message.id, attacker, attackerName, actor: actor.uuid, actorName: actor.name, item: item.uuid, itemName: item.name, bonus, before: r.before, after: r.after, used: false };
     const notify = reaction.notify ?? ["owner", "gm"];
     const whisper = game.users.filter((u) => (notify.includes("gm") && u.isGM) || (notify.includes("owner") && actor.testUserPermission(u, "OWNER"))).map((u) => u.id);

@@ -117,7 +117,7 @@ const COND_DATA = { frightened: true, concealed: false };
 
 function setup() {
   registry.clear();
-  globalThis.game = { pf2e: { ConditionManager: {
+  globalThis.game = { modules: { get: () => null }, pf2e: { ConditionManager: {
     getCondition: (slug) => ({ toObject: () => ({ name: slug, type: "condition", system: { slug, value: { isValued: COND_DATA[slug], value: COND_DATA[slug] ? 1 : null } } }) }),
     updateConditionValue: async (id, actor, v) => { actor.items.find((i) => i.id === id).system.value.value = v; }
   } } };

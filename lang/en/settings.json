@@ -15,8 +15,10 @@
         "messageMode": { "name": "NPC roll visibility", "hint": "Public or GM only." }
       },
       "reaction": {
+        "showWindow": { "name": "Show reaction window", "hint": "A small window with Use / Skip buttons when a reaction hint is whispered to you (this client only)." },
         "onlyWhenChanges": { "name": "Reaction hint only when outcome changes", "hint": "Stay quiet if the reaction bonus does not change the attack result." }
       },
+      "vision": { "marks": { "name": "Visibility marks in PF2e Vision", "hint": "When the PF2e Vision module is active, smoke, blindness and invisibility write marks into its matrix instead of conditions on actors." } },
       "resumeMinutes": { "name": "Resume window (minutes)", "hint": "Messages older than this are not resumed automatically (1-1440)." },
       "debug": { "name": "Debug", "hint": "Write verbose logs to the console (this client only)." }
     }

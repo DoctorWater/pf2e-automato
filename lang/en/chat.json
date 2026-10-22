@@ -31,6 +31,11 @@
       "applyDerivedTitle": "Detected from description: {text}",
       "stepSelf": "{what} on self",
       "stepTarget": "{what} on target",
+      "stepVisTarget": "{level} from target{until}",
+      "stepVisSelf": "target seen by you no better than: {level}{until}",
+      "visManual": "(visibility is manual — PF2e Vision needed)",
+      "visLevel": { "concealed": "concealed", "hidden": "hidden", "undetected": "undetected", "unnoticed": "unnoticed" },
+      "visUntil": { "turn-end": "until end of turn", "next-turn-end": "until end of next turn", "attack": "until attack" },
       "stepZone": "zone: {what}",
       "applyDone": "Applied",
       "zone": "Zone",
@@ -40,6 +45,13 @@
       "zoneExpired": "expired",
       "createZone": "Create zone",
       "closeZone": "Close zone",
+      "summary": "All targets resolved · applied: {applied}",
+      "pending": {
+        "one": "{n} target awaits applying",
+        "few": "{n} targets await applying",
+        "many": "{n} targets await applying",
+        "other": "{n} targets await applying"
+      },
       "macroErrors": "Macro errors",
       "failed": "Failed: {reason}",
       "degree": {
@@ -50,9 +62,25 @@
       },
       "reaction": {
         "hint": "Reaction \"{item}\": {before} → {after}",
+        "hintHidden": "Reaction \"{item}\": can be used",
+        "popup": "{item} ({actor}): {before} → {after}",
+        "popupHidden": "{item} ({actor}): reaction available",
+        "windowTitle": "Reaction",
         "use": "Use",
+        "skip": "Skip",
         "used": "used"
       }
+    },
+    "invis": {
+      "ended": "{name}'s invisibility ended (hostile action): effect removed.",
+      "ask": "Did {name}'s invisibility end? (hostile action)",
+      "remove": "Remove effect",
+      "askUnknown": "{name} took a hostile action, but this invisibility was not applied by the module (spell rank unknown). Did it end?"
+    },
+    "visSkip": {
+      "noToken": "{name}: visibility not set — author or target token not found.",
+      "scene": "{name}: visibility not set — tokens are on different scenes.",
+      "refused": "{name}: visibility not set — PF2e Vision refused (e.g. a turn-based duration outside combat)."
     }
   }
 }

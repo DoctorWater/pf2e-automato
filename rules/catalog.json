@@ -14,6 +14,11 @@
     }
   },
   "bySlug": {
+    "invisibility": {
+      "v": 1, "label": "Невидимость",
+      "onUse": { "targets": "selected", "zone": null, "challenge": null,
+        "apply": [{ "to": "target", "condition": { "slug": "invisible" }, "duration": { "value": 10, "unit": "minutes" } }] }
+    },
     "smoke-ball-lesser": {
       "v": 1, "label": "Дымовая завеса",
       "onUse": { "targets": "area",

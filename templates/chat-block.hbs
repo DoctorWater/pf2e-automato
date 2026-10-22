@@ -21,9 +21,11 @@
     <p class="paf-note">{{vm.zone.text}}
       {{#if vm.zone.canCreate}}<button type="button" class="paf-primary" data-action="create-zone" data-region="{{vm.zone.regionUuid}}">{{localize "PF2E_AUTOMATO.chat.createZone"}}</button>{{/if}}
       {{#if vm.zone.canClose}}<button type="button" data-action="close-zone" data-region="{{vm.zone.regionUuid}}">{{localize "PF2E_AUTOMATO.chat.closeZone"}}</button>{{/if}}</p>
+    {{#if vm.zone.vis}}<p class="paf-note">{{vm.zone.vis}}</p>{{/if}}
   {{/if}}
   {{#if vm.challenge}}
-    <div class="paf-challenge">
+    <details class="paf-challenge{{#if vm.challenge.settled}} paf-settled{{/if}}" open>
+      {{#if vm.challenge.summary}}<summary class="paf-summary">{{vm.challenge.summary}}</summary>{{/if}}
       {{#if vm.challenge.toolbelt}}<p class="paf-note">{{vm.challenge.toolbelt}}</p>{{/if}}
       {{#if vm.challenge.rows.length}}
       <ul class="paf-rows">
@@ -33,7 +35,7 @@
           <span class="paf-result">{{localize "PF2E_AUTOMATO.chat.cols.result"}}</span>
         </li>
       {{#each vm.challenge.rows}}
-        <li class="paf-row paf-{{degree}}">
+        <li class="paf-row paf-{{degree}}" data-key="{{key}}" data-sig="{{total}}|{{degree}}|{{applied}}">
           <span class="paf-name" title="{{name}}" data-token="{{key}}">{{name}}</span>
           <span class="paf-total">{{total}}</span>
           <span class="paf-result">{{label}}</span>
@@ -55,11 +57,12 @@
       {{/if}}
       {{#if (or vm.challenge.canApplyAll vm.challenge.canUndoAll)}}
       <div class="paf-bulk">
+        {{#if vm.challenge.pending}}<span class="paf-pending">{{vm.challenge.pending}}</span>{{/if}}
         {{#if vm.challenge.canApplyAll}}<button type="button" class="paf-primary" data-action="apply" data-token="all"><i class="fa-solid fa-check-double"></i> {{localize "PF2E_AUTOMATO.chat.applyAll"}}</button>{{/if}}
         {{#if vm.challenge.canUndoAll}}<button type="button" class="paf-ghost" data-action="undo" data-token="all">{{localize "PF2E_AUTOMATO.chat.undoAll"}}</button>{{/if}}
       </div>
       {{/if}}
-    </div>
+    </details>
   {{/if}}
   {{#if vm.useApply}}
     <p class="paf-note">{{#each vm.useApply.plan}}<span class="paf-plan">{{this}}</span>{{/each}}

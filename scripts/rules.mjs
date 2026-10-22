@@ -1,5 +1,5 @@
 import { MOD, DEGREES, sluggify } from "./util.mjs";
-import { S } from "./settings.mjs";
+import { S, rev } from "./settings.mjs";
 
 export const RULE_VERSION = 1;
 
@@ -13,14 +13,16 @@ const isStr = (x) => typeof x === "string" && x.length > 0;
 const isInt = (x) => Number.isInteger(x);
 const isNum = (x) => typeof x === "number" && Number.isFinite(x);
 
+const VIS_LEVELS = ["concealed", "hidden", "undetected", "unnoticed"];
+const VIS_UNTIL = ["turn-end", "next-turn-end", "attack"];
 const APPLY_UNITS = ["rounds", "minutes", "hours", "days"];
 
 function vApply(a, path, defTo, err) {
   if (!isObj(a)) { err.push(`${path}: ожидается объект`); return null; }
   const out = { to: a.to ?? defTo };
   if (!["self", "target"].includes(out.to)) err.push(`${path}.to: self|target`);
-  const kinds = ["condition", "effect", "note"].filter((k) => a[k] != null);
-  if (kinds.length !== 1) err.push(`${path}: ровно одно из condition/effect/note`);
+  const kinds = ["condition", "effect", "note", "visibility"].filter((k) => a[k] != null);
+  if (kinds.length !== 1) err.push(`${path}: ровно одно из condition/effect/note/visibility`);
   if (a.condition != null) {
     const c = a.condition;
     if (!isObj(c) || !isStr(c.slug)) err.push(`${path}.condition.slug: строка`);
@@ -44,6 +46,13 @@ function vApply(a, path, defTo, err) {
   }
   if (a.note != null) {
     if (!isStr(a.note)) err.push(`${path}.note: строка`); else out.note = a.note;
+  }
+  if (a.visibility != null) {
+    const v = a.visibility;
+    if (!isObj(v) || !VIS_LEVELS.includes(v.level) || !["self", "target"].includes(v.of)) err.push(`${path}.visibility: {level:${VIS_LEVELS.join("|")}, of:self|target, until?}`);
+    else if (v.of === out.to) err.push(`${path}.visibility.of: не может совпадать с to (наблюдатель и субъект — разные)`);
+    else if (v.until != null && !(Array.isArray(v.until) && v.until.every((u) => VIS_UNTIL.includes(u)))) err.push(`${path}.visibility.until: подмножество ${VIS_UNTIL.join("|")}`);
+    else out.visibility = { level: v.level, of: v.of, ...(v.until?.length && { until: [...new Set(v.until)] }) };
   }
   // who — только союзникам/врагам автора (по disposition токенов); mark — метка TokenMark эффекта на вражескую цель из целей;
   // unlessEffect — пропустить, если у получателя уже есть этот эффект (иммунитет вида «Наставление: невосприимчивость 1 ч»)
@@ -210,6 +219,8 @@ function vOnUse(u, err) {
     out.check = vCheck(u.check, "onUse.check", err);
   }
   out.apply = vApplyList(u.apply, "onUse.apply", "self", err);
+  // self-шаги onUse.apply идут без цели: наблюдатель-автор не видит субъекта-«цель»
+  out.apply.forEach((a, i) => { if (a.visibility && a.to === "self") err.push(`onUse.apply[${i}].visibility: to=self невозможен без цели (используйте to=target, of=self)`); });
   return out;
 }
 
@@ -499,6 +510,7 @@ export function buildCatalog(jsons) {
 export function initCatalog(jsons, labels) {
   const { errors, ...cat } = buildCatalog(jsons);
   builtin = cat;
+  rev.n++;
   labelsData = labels;
   errors.forEach((e) => warn("каталог:", e));
   return errors;

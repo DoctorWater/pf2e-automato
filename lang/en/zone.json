@@ -15,6 +15,20 @@
         "messageId": { "label": "Chat message" },
         "closed": { "label": "Closed" }
       }
+    },
+    "vision": { "zone": "Smoke/mist", "blinded": "Blinded", "dazzled": "Dazzled", "invisible": "Invisible",
+      "status": { "on": "PF2e Vision {version}: found — marks are active", "missing": "PF2e Vision not found or disabled — visibility is set by conditions", "off": "Marks are turned off by this setting" },
+      "warn": "PF2e Vision is missing or does not expose the needed API: visibility (smoke, blindness, invisibility) will be set by conditions.",
+      "zoneCells": "Visibility: marks in PF2e Vision — {n} cells",
+      "card": "{name}: {state} — visibility marks in PF2e Vision ({n})",
+      "dismiss": "Remove marks" },
+    "height": {
+      "label": "Terrain Height",
+      "hint": "A token that ends its movement inside the area gets this elevation: banks, slopes, rooftops. If several overlap, the highest wins.",
+      "name": "Terrain Height",
+      "FIELDS": {
+        "height": { "label": "Height", "hint": "In scene units (usually feet)." }
+      }
     }
   }
 }

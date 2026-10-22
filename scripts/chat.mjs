@@ -4,9 +4,12 @@ import { modeOf, S } from "./settings.mjs";
 import { automationsGroups, toolbeltTargetHelper } from "./compat.mjs";
 import * as saves from "./saves.mjs";
 import * as checks from "./checks.mjs";
+import { visionActive, zoneCells } from "./vision.mjs";
 
 const TEMPLATE = "modules/pf2e-automato/templates/chat-block.hbs";
 let template = null;
+// ponytail: снимок прошлого рендера по id сообщения растёт с числом показанных сообщений; чистить в deleteChatMessage, если станет заметно
+const lastRender = new Map();   // messageId -> {mt, sigs: Map(key -> подпись строки), flash: Set(key), open} — одна запись на все виды (сайдбар, попаут, уведомление)
 
 export function init() {
   Hooks.on("renderChatMessageHTML", (message, html) => {
@@ -37,7 +40,10 @@ const nameOfUuid = (uuid) => { try { return fromUuidSync(uuid)?.name; } catch { 
 const defaultEnv = () => ({
   t: L,
   mode: modeOf,
+  vision: visionActive,
+  visCells: zoneCells,
   now: Date.now(),
+  lang: game.i18n.lang,
   resumeMinutes: S.get("resumeMinutes"),
   groups: automationsGroups,
   toolbelt: (() => { const th = toolbeltTargetHelper(); return th.enabled && th.checks && S.get("useToolbeltTargetHelper"); })(),
@@ -69,11 +75,18 @@ const authorId = (m) => m.author?.id ?? m.author ?? m.user?.id;
 export function stepText(a, env, defTo) {
   const t = env.t;
   if (a.note) return a.note;
+  if (a.visibility) {
+    const v = a.visibility, until = (v.until ?? []).map((u) => t(`chat.visUntil.${u}`)).join(", ");
+    const text = t((a.to ?? defTo) === "self" ? "chat.stepVisSelf" : "chat.stepVisTarget", { level: t(`chat.visLevel.${v.level}`), until: until ? ` (${until})` : "" });
+    return env.vision?.() === false ? `${text} ${t("chat.visManual")}` : text;
+  }
   const what = a.condition
     ? `${env.conditionLabel(a.condition.slug)}${a.condition.value ? ` ${a.condition.value}` : ""}`
     : (env.uuidName(a.effect?.uuid) ?? a.effect?.uuid ?? "?");
   return (a.to ?? defTo) === "self" ? t("chat.stepSelf", { what }) : t("chat.stepTarget", { what });
 }
+
+const visText = (env, uuid) => { const n = env.visCells?.(uuid); return n == null ? null : env.t("vision.zoneCells", { n }); };
 
 function zoneWhat(zone, env) {
   const c = zone?.condition;
@@ -93,6 +106,12 @@ function describeStep(rule, stepKey, env) {
 
 const vsLabel = (vs, env, showDc) => vs.dc != null ? (showDc ? env.t("chat.dc", { dc: vs.dc }) : env.t("chat.dcHidden"))
   : vs.defense === "ac" ? env.t("checks.ac") : env.statLabel(vs.defense ?? vs.against);
+
+const PLURALS = new Set(["one", "few", "many", "other"]);   // ключи в lang; zero/two (ar, cy…) -> other
+const pendingText = (n, env) => {
+  const cat = new Intl.PluralRules(env.lang).select(n);
+  return n ? env.t(`chat.pending.${PLURALS.has(cat) ? cat : "other"}`, { n }) : null;
+};
 
 /** Чистая: (сообщение, пользователь[, env]) -> модель блока | null. env подменяет доступ к Foundry (тесты). */
 export function buildViewModel(message, user, env = null) {
@@ -143,7 +162,8 @@ export function buildViewModel(message, user, env = null) {
       text: `${t("chat.zone")}: ${t(`chat.zone${st[0].toUpperCase()}${st.slice(1)}`)}`,
       regionUuid: state.zone.regionUuid ?? "",
       canCreate: isGM && st === "pending" && !(state.derived?.pending ?? []).includes("zone"),   // low: зону ставит applyDerived("zone")
-      canClose: canAct && st === "active"
+      canClose: canAct && st === "active",
+      vis: isGM && st === "active" && state.zone.regionUuid ? visText(env, state.zone.regionUuid) : null
     };
   }
 
@@ -155,6 +175,7 @@ export function buildViewModel(message, user, env = null) {
       ...(state.area?.keys ?? (on.targets === "area" ? [] : (use.targets ?? []).map((x) => x.key))),
       ...Object.keys(state.challenge?.results ?? {})
     ])];
+    const resultsSeen = isGM || meta.results;
     const rows = keys.map((key) => {
       const r = state.challenge?.results?.[key];
       const ap = state.challenge?.applied?.[key];
@@ -179,8 +200,10 @@ export function buildViewModel(message, user, env = null) {
         applied: ap && seen ? t("chat.applied", { degree: t(`chat.degree.${DEGREES[ap.degree]}`) }) : null,
         plan,
         canRoll: !r && !immune && modeChallenge !== "off" && ck?.roll !== "system" && (ck ? (isGM || env.isActorOwner(use.actor, user)) : !env.toolbelt && (isGM || env.isOwner(key, use, user))),
-        canApply: isGM && !!r && !ap && !immune && (steps.some((a) => a.condition || a.effect) || !!ck?.immunity) && modeApply !== "off",
-        canUndo: isGM && !!ap
+        canApply: isGM && !!r && !ap && !immune && (steps.some((a) => a.condition || a.effect || (a.visibility && env.vision?.() !== false)) || !!ck?.immunity) && modeApply !== "off",
+        canUndo: isGM && !!ap,
+        // применять больше нечего: иммунная цель отработана без броска; при apply=off применение не требуем
+        settled: immune || (!!r && (!!ap || modeApply === "off" || !(steps.some((a) => a.condition || a.effect || (a.visibility && env.vision?.() !== false)) || !!ck?.immunity)))
       };
     });
     const dcKnown = ck || !showDc ? null : use.dc ?? ch.dc?.value ?? null;
@@ -194,7 +217,11 @@ export function buildViewModel(message, user, env = null) {
       toolbelt: ck ? (rows.length || !(isUse || isRoll) ? null : t(isRoll ? "checks.noTargetRoll" : "checks.noTargets")) : env.toolbelt ? t("chat.challengeOff") : null,
       rows,
       canApplyAll: rows.some((r) => r.canApply),
-      canUndoAll: rows.some((r) => r.canUndo)
+      canUndoAll: rows.some((r) => r.canUndo),
+      pending: pendingText(rows.filter((r) => r.canApply).length, env),
+      // при скрытых итогах сводка и сворачивание выдали бы, что все прошли
+      settled: resultsSeen && rows.length > 0 && rows.every((r) => r.settled),
+      summary: resultsSeen ? t("chat.summary", { applied: rows.filter((r) => state.challenge?.applied?.[r.key]).length }) : null
     };
     if (!rows.length && !isUse && !isRoll) vm.challenge = null;
   }
@@ -225,17 +252,21 @@ export function buildViewModel(message, user, env = null) {
   return vm;
 }
 
-/** Подсказка реакции (шёпот K5, §3.D'): flags[MOD].reaction = {attack, actor, item, before, after, used}. */
+/** Подсказка реакции (шёпот K5, §3.D'): flags[MOD].reaction = {attack, actor, item, before, after, used}. Общая для чата и окна реакции.
+ *  Метаигра: игроку при скрытых результатах (pf2e metagame.results) степени не показываем, ГМу — всегда. */
 export function buildReactionViewModel(message, user, env = null) {
   const r = message?.flags?.[MOD]?.reaction;
   if (!r) return null;
   env ??= defaultEnv();
   const t = env.t;
+  const item = env.uuidName(r.item) ?? r.item ?? "";
+  const showDegrees = !!user.isGM || (env.metagame ?? { results: true }).results;
+  const degree = (k) => t(`reactions.degree.${DEGREES[r[k]]}`);   // «попадание/промах», как в окне
   return {
-    text: t("chat.reaction.hint", {
-      item: env.uuidName(r.item) ?? r.item ?? "",
-      before: t(`chat.degree.${DEGREES[r.before]}`), after: t(`chat.degree.${DEGREES[r.after]}`)
-    }),
+    text: showDegrees ? t("chat.reaction.hint", { item, before: degree("before"), after: degree("after") }) : t("chat.reaction.hintHidden", { item }),
+    popup: showDegrees
+      ? t("chat.reaction.popup", { item, actor: r.actorName ?? env.uuidName(r.actor) ?? "", before: degree("before"), after: degree("after") })
+      : t("chat.reaction.popupHidden", { item, actor: r.actorName ?? env.uuidName(r.actor) ?? "" }),
     used: r.used ? t("chat.reaction.used") : null,
     canUse: !r.used && (!!user.isGM || (!!r.actor && env.isActorOwner(r.actor, user)))
   };
@@ -253,6 +284,25 @@ async function renderBlock(message, html) {
   template ??= await foundry.applications.handlebars.getTemplate(TEMPLATE);   // до ready() (F5) шаблона ещё нет
   root.querySelector(":scope > .pf2e-automato")?.remove();
   const block = foundry.utils.parseHTML(template({ vm: showVm ? vm : null, reaction }));
+  const mt = message._stats?.modifiedTime ?? null;
+  let rec = lastRender.get(message.id), fresh = false;
+  if (!(rec && mt != null && rec.mt === mt)) {   // тот же mt — это тот же апдейт в другом виде: берём сохранённую подсветку
+    const sigs = new Map(), flash = new Set();
+    for (const li of block.querySelectorAll(".paf-row[data-key]")) {
+      sigs.set(li.dataset.key, li.dataset.sig);
+      if (rec && rec.sigs.get(li.dataset.key) !== li.dataset.sig) flash.add(li.dataset.key);   // первый рендер (F5, прокрутка) не мигает
+    }
+    rec = { mt, sigs, flash, open: rec?.open ?? null };
+    fresh = true;
+    lastRender.set(message.id, rec);
+  }
+  for (const li of block.querySelectorAll(".paf-row[data-key]")) if (rec.flash.has(li.dataset.key)) li.classList.add("paf-flash");
+  const det = block.querySelector("details.paf-challenge");
+  if (det?.classList.contains("paf-settled")) {
+    rec.open ??= false;
+    det.open = rec.open;   // уже отработанный — свёрнут; дошедший до конца на глазах — остаётся открытым
+    det.addEventListener("toggle", () => { lastRender.get(message.id).open = det.open; });
+  } else if (fresh) rec.open = true;
   block.addEventListener("click", (ev) => onClick(ev, message.id));
   const tokenOf = (ev) => {
     const el = ev.target.closest?.(".paf-name[data-token]");

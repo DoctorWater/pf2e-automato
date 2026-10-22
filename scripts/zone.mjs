@@ -4,6 +4,7 @@ import { MOD, L, debug, isActiveGM } from "./util.mjs";
 import { modeOf, S } from "./settings.mjs";
 import { applyCondition, applyEffect, removeByKey } from "./apply.mjs";
 import { runMacros } from "./macros.mjs";
+import { visionActive, refreshZone, dropSource } from "./vision.mjs";
 
 const TYPE = `${MOD}.zone`;
 const KEY = (regionUuid) => `zone:${regionUuid}`;
@@ -13,6 +14,14 @@ export const isExpired = (s, worldTime) =>
   !!s.closed || s.roundsLeft === 0 || (s.expiresAt != null && worldTime >= s.expiresAt);
 
 const zoneBehavior = (region) => region.behaviors.find((b) => b.type === TYPE) ?? null;
+// Дым/туман (concealed) при активном Vision — метки в матрице вместо состояния на актёре.
+const marks = (sys) => sys.condition === "concealed" && visionActive();
+// Пересчёт меток зоны; макросы zoneEnter/zoneExit — по смене множества «внутри».
+async function syncMarks(sys) {
+  const { entered, exited } = await refreshZone(sys.region);
+  for (const [ids, phase] of [[entered, "zoneEnter"], [exited, "zoneExit"]])
+    for (const id of ids) { const t = sys.region.parent.tokens.get(id); if (t) await zoneMacros(phase, sys, t); }
+}
 const hasZoneItem = (actor, regionUuid) => actor.items.some((i) => i.flags?.[MOD]?.meta?.key?.startsWith(KEY(regionUuid)));
 
 async function zoneMacros(phase, sys, tokenDoc) {
@@ -53,13 +62,14 @@ export class ZoneBehaviorType extends foundry.data.regionBehaviors.RegionBehavio
   get expired() { return isExpired(this, game.time.worldTime); }
 
   /** Поставить состояние/эффект зоны токену. Идемпотентно по meta.key; макрос zoneEnter — только при реальном создании. */
-  async hold(tokenDoc) {
+  async hold(tokenDoc, sync = true) {
     const region = this.region, actor = tokenDoc?.actor;
     if (!actor || !region || region.hidden || this.expired) return false;
     const key = KEY(region.uuid);
     const meta = { key, source: "zone", message: this.messageId || null, region: region.uuid, origin: this.originUuid || null, by: this.originActor || null };
     let created = false;
-    if (this.condition) {
+    if (marks(this)) { if (sync) await syncMarks(this); }
+    else if (this.condition) {
       const spec = { slug: this.condition, value: this.conditionValue ?? undefined, policy: "max" };
       created = (await applyCondition(actor, spec, meta)).op === "created" || created;
     }
@@ -76,9 +86,10 @@ export class ZoneBehaviorType extends foundry.data.regionBehaviors.RegionBehavio
   }
 
   /** Снять всё с ключом зоны. zoneExit — только если что-то реально снято. */
-  async release(tokenDoc) {
+  async release(tokenDoc, sync = true) {
     const region = this.region, actor = tokenDoc?.actor;
     if (!actor || !region) return false;
+    if (marks(this) && sync) await syncMarks(this);
     const n = await removeByKey(actor, KEY(region.uuid));
     if (n) await zoneMacros("zoneExit", this, tokenDoc);
     return n > 0;
@@ -136,15 +147,16 @@ export async function attachZone(region, rule, originInfo = {}) {
   return behavior;
 }
 
-/** Согласовать токены сцены с зоной. hidden/истёкшая/закрытая — только снимаем (ядро для hidden событий не шлёт). */
+/** Согласовать токены сцены с зоной. hidden/истёкшая/закрытая — только снимаем (ядро шлёт TOKEN_EXIT уже после updateRegion). */
 export async function sweepZone(region) {
   const sys = zoneBehavior(region)?.system;
   if (!sys) return;
   const off = region.hidden || sys.expired;
+  if (marks(sys)) await syncMarks(sys);   // один пересчёт на зону, не на токен
   for (const token of region.parent.tokens) {
     if (!token.actor) continue;
-    if (!off && token.testInsideRegion(region)) await sys.hold(token);
-    else if (hasZoneItem(token.actor, region.uuid)) await sys.release(token);
+    if (!off && token.testInsideRegion(region)) await sys.hold(token, false);
+    else if (hasZoneItem(token.actor, region.uuid)) await sys.release(token, false);
   }
 }
 
@@ -174,6 +186,7 @@ export async function purgeZoneState(regionUuid) {
   const scene = game.scenes.get(regionUuid.split(".")[1]);
   const actors = new Set([...(scene?.tokens ?? []).map((t) => t.actor), ...game.actors].filter(Boolean));
   for (const a of actors) if (hasZoneItem(a, regionUuid)) await removeByKey(a, KEY(regionUuid));
+  if (scene) await dropSource(scene, KEY(regionUuid));
 }
 
 /** ready / смена ГМа: sweep живых, удаление истёкших, дозапуск ожидавших зону (только при modeOf("zone")==="auto"). */
@@ -220,6 +233,20 @@ function itemHook(name) {
   };
 }
 
+// Настройка vision.marks переключена: зоны дыма переходят между метками и состояниями.
+async function onMarksToggle(on) {
+  if (!isActiveGM()) return;
+  for (const region of allRegions()) {
+    const sys = zoneBehavior(region)?.system;
+    if (sys?.condition !== "concealed") continue;
+    if (on) for (const t of region.parent.tokens) {   // состояние зоны уходит (эффект остаётся), метки ставит sweepZone
+      const ids = (t.actor?.items ?? []).filter((i) => i.type === "condition" && i.flags?.[MOD]?.meta?.key === KEY(region.uuid)).map((i) => i.id);
+      if (ids.length) await t.actor.deleteEmbeddedDocuments("Item", ids);
+    }
+    await sweepZone(region);
+  }
+}
+
 export function init() {
   CONFIG.RegionBehavior.dataModels[TYPE] = ZoneBehaviorType;
   CONFIG.RegionBehavior.typeLabels[TYPE] = "PF2E_AUTOMATO.zone.label";
@@ -229,6 +256,7 @@ export function init() {
   Hooks.on("updateWorldTime", () => expireZones());
   Hooks.on("updateCombat", onUpdateCombat);
   Hooks.on("userConnected", () => { if (isActiveGM()) reconcileZones(); });
+  Hooks.on("pf2e-automato.visionMarks", onMarksToggle);
   Hooks.on("updateRegion", (region, changes) => { if (isActiveGM() && "hidden" in changes) sweepZone(region); });
   Hooks.on("createItem", itemHook("pf2e-automato.zoneEnter"));
   Hooks.on("deleteItem", itemHook("pf2e-automato.zoneExit"));

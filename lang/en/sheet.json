@@ -6,7 +6,9 @@
       "failed": "Could not save",
       "recognized": "Recognized",
       "source": "Rule source",
-      "confidence": "Confidence",
+      "confLow": "Low confidence",
+      "confLowHint": "The rule was inferred from the text approximately: check it before use.",
+      "badge": {"tip":"AuTOMATO: {what}","rule":"rule","challenge":"save: {stat}","check":"check","states":"conditions","zone":"zone","reaction":"reaction to attack","macros":"macros","yielded":"Handled by pf2e-automations: {groups}"},
       "none": "No rule found (no flag, catalog entry or markup).",
       "src": { "flag": "item flag", "world": "world catalog", "catalog": "module catalog", "markup": "description markup" },
       "automationsBadge": "Handled by pf2e-automations",
@@ -54,7 +56,8 @@
       "degree": { "criticalSuccess": "Critical success", "success": "Success", "failure": "Failure", "criticalFailure": "Critical failure" },
       "anyDegree": "any degree",
       "to": { "self": "self", "target": "target" },
-      "row": { "condition": "condition", "effect": "effect", "note": "note", "placeholder": "slug / UUID / text", "value": "Value", "policy": "Condition policy" },
+      "row": { "condition": "condition", "effect": "effect", "note": "note", "visibility": "visibility", "until": "until: turn-end, next-turn-end, attack", "placeholder": "slug / UUID / text", "value": "Value", "policy": "Condition policy" },
+      "vis": { "level": { "concealed": "concealed", "hidden": "hidden", "undetected": "undetected", "unnoticed": "unnoticed" }, "of": { "self": "subject: author", "target": "subject: target" } },
       "policy": { "max": "raise to value", "add": "add" },
       "add": "Add",
       "remove": "Remove",
@@ -73,7 +76,7 @@
       "locked": "Item is in a locked compendium: saving to the item is unavailable, use \"For all...\".",
       "dropBad": "Drop a condition, effect or macro here.",
       "dropTemp": "This effect lives on an actor and will vanish: drop it from a compendium or an item instead.",
-      "test": {"noOwner": "The item has no owner: the author's check cannot be evaluated.", "button": "Test on selected", "title": "Rule test", "noTokens": "No targets or selected tokens.", "problems": "Problems", "badSlug": "Unknown condition: {slug}", "badUuid": "UUID not found: {uuid}", "dcUnknown": "Cannot determine the challenge DC (needs the item's owner or a number).", "noAuthorStat": "The author (item owner) has no statistic {stat}.", "challenge": "Challenge {stat} {mod} vs DC {dc}", "check": "Author check {stat} {mod} vs DC {dc}", "immune": "Immune: the action will not take effect"}
+      "test": {"close": "Close", "noOwner": "The item has no owner: the author's check cannot be evaluated.", "button": "Test on selected", "title": "Rule test", "noTokens": "No targets or selected tokens.", "problems": "Problems", "badSlug": "Unknown condition: {slug}", "badUuid": "UUID not found: {uuid}", "dcUnknown": "Cannot determine the challenge DC (needs the item's owner or a number).", "noAuthorStat": "The author (item owner) has no statistic {stat}.", "challenge": "Challenge {stat} {mod} vs DC {dc}", "check": "Author check {stat} {mod} vs DC {dc}", "immune": "Immune: the action will not take effect"}
     }
   }
 }

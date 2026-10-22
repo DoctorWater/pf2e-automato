@@ -7,7 +7,7 @@ import { resolveDC, safeUuid } from "./saves.mjs";
 import { defenseDc, pickStatistic, hasImmunity } from "./checks.mjs";
 import { stepText } from "./chat.mjs";
 
-const DENY = new Set(["condition", "effect", "ancestry", "heritage", "background", "class", "deity", "kit", "lore", "campaignFeature", "affliction", "melee"]);
+export const DENY = new Set(["condition", "effect", "ancestry", "heritage", "background", "class", "deity", "kit", "lore", "campaignFeature", "affliction", "melee"]);
 const TEMPLATE = `modules/${MOD}/templates/sheet-tab.hbs`;
 const TAB = "automato";
 
@@ -22,20 +22,26 @@ const num = (s) => {
 const csv = (s) => String(s ?? "").split(",").map((x) => x.trim()).filter(Boolean);
 
 const DUR_BLANK = { durValue: "", durUnit: "rounds", durExpiry: "turn-start", durOf: "origin" };
-const blankRow = () => ({ to: "target", kind: "condition", text: "", value: "", policy: "max", ...DUR_BLANK });
+const VIS_BLANK = { visLevel: "hidden", visOf: "self", visUntil: "" };
+const blankRow = () => ({ to: "target", kind: "condition", text: "", value: "", policy: "max", ...DUR_BLANK, ...VIS_BLANK });
 
 function rowOf(a) {
   const d = a.duration;
   const dur = d ? { durValue: d.value, durUnit: d.unit, durExpiry: d.expiry ?? "", durOf: d.of ?? "origin" } : DUR_BLANK;
-  if (a.condition) return { to: a.to, kind: "condition", text: a.condition.slug, value: a.condition.value ?? "", policy: a.condition.policy ?? "max", ...dur };
-  if (a.effect) return { to: a.to, kind: "effect", text: a.effect.uuid, value: "", policy: "max", ...DUR_BLANK };
-  return { to: a.to, kind: "note", text: a.note ?? "", value: "", policy: "max", ...DUR_BLANK };
+  if (a.condition) return { to: a.to, kind: "condition", text: a.condition.slug, value: a.condition.value ?? "", policy: a.condition.policy ?? "max", ...dur, ...VIS_BLANK };
+  if (a.effect) return { to: a.to, kind: "effect", text: a.effect.uuid, value: "", policy: "max", ...DUR_BLANK, ...VIS_BLANK };
+  if (a.visibility) return { to: a.to, kind: "visibility", text: "", value: "", policy: "max", ...DUR_BLANK, visLevel: a.visibility.level, visOf: a.visibility.of, visUntil: (a.visibility.until ?? []).join(", ") };
+  return { to: a.to, kind: "note", text: a.note ?? "", value: "", policy: "max", ...DUR_BLANK, ...VIS_BLANK };
 }
 
 function applyOf(r) {
   const text = String(r.text ?? "").trim();
-  if (!text) return null;
   const to = r.to === "self" ? "self" : "target";
+  if (r.kind === "visibility") {
+    const until = csv(r.visUntil);
+    return { to, visibility: { level: r.visLevel, of: r.visOf === "target" ? "target" : "self", ...(until.length && { until }) } };
+  }
+  if (!text) return null;
   if (r.kind === "effect") return { to, effect: { uuid: text } };
   if (r.kind === "note") return { to, note: text };
   const value = num(r.value);
@@ -260,7 +266,8 @@ async function testRun(item, rule) {
     rep.apply.length && `<p><b>${L("sheet.apply")}</b></p>${ul(rep.apply)}`,
     ...rep.tokens.map((t) => `<h4>${esc(t.name)}</h4>${ul([...t.problems, ...t.lines])}`)
   ].filter(Boolean).join("");
-  await foundry.applications.api.DialogV2.prompt({ window: { title: L("sheet.test.title") }, content: `<div class="af-test">${content}</div>`, rejectClose: false });
+  await foundry.applications.api.DialogV2.prompt({ window: { title: L("sheet.test.title") }, content: `<div class="af-test">${content}</div>`, rejectClose: false,
+    ok: { label: L("sheet.test.close"), icon: "fa-solid fa-xmark" } });   // пробный запуск ничего не применяет — не «Применить»
 }
 
 const choices = (o) => Object.entries(o).map(([value, label]) => ({ value, label }));
@@ -275,7 +282,7 @@ function buildContext(item, draft) {
   return {
     f, slug, sourceUuid, groups, covered: groups.length > 0, settingYield: S.get("yieldToAutomations"),
     res: res && {
-      source: T(`src.${res.source}`), confidence: res.confidence, json: JSON.stringify(res.rule, null, 1),
+      source: T(`src.${res.source}`), src: res.source, low: res.confidence === "low", json: JSON.stringify(res.rule, null, 1),
       canAccept: res.source !== "flag", ruleAttr: JSON.stringify(res.rule)
     },
     isWorld: res?.source === "world",
@@ -296,7 +303,9 @@ function buildContext(item, draft) {
       map: ["", "0", "1", "2"].map((v) => ({ value: v, label: v || "-" })),
       stat: choices(keys("stat", ["reflex", "fortitude", "will", "perception", "flat"])),
       to: choices(keys("to", ["self", "target"])),
-      rowKind: choices(keys("row", ["condition", "effect", "note"])),
+      rowKind: choices(keys("row", ["condition", "effect", "note", "visibility"])),
+      visLevel: choices(keys("vis.level", ["concealed", "hidden", "undetected", "unnoticed"])),
+      visOf: choices(keys("vis.of", ["self", "target"])),
       policy: choices(keys("policy", ["max", "add"])),
       phase: choices(keys("phase", ["onUse", "afterChallenge", "onDegree", "zoneEnter", "zoneExit", "onReaction"])),
       degree: choices({ "": T("anyDegree"), ...keys("degree", DEGREES) })

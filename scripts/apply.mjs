@@ -4,6 +4,7 @@
 import { MOD, L, flagPath, sluggify, queue, forcedDelete, socket } from "./util.mjs";
 import { runMacros } from "./macros.mjs";
 import { effectSource } from "./builtin/lib.mjs";
+import { setSource, dropSource, visionActive } from "./vision.mjs";
 
 const metaOf = (item) => item?.flags?.[MOD]?.meta;
 const notify = (key, data) => globalThis.ui?.notifications?.warn?.(L(key, data));
@@ -39,7 +40,11 @@ async function createTimed(actor, spec, meta, ctx, base) {
   return item ? { op: "created", item } : { op: "skipped" };   // pf2e выкинул документ (иммунитет к состоянию)
 }
 
+// при активном Vision видимость — только метками матрицы, без состояний на актёрах
+const SIGHT_CONDITIONS = new Set(["concealed", "hidden", "undetected", "unnoticed", "observed"]);
+
 export function applyCondition(actor, spec /* {slug,value,policy,duration?} */, meta = {}, ctx = {}) {
+  if (SIGHT_CONDITIONS.has(sluggify(spec.slug)) && visionActive()) return Promise.resolve({ op: "skipped", reason: "vision" });
   return queue(`actor:${actor.uuid}`, async () => {
     if (findByKey(actor, meta.key)) return { op: "skipped" };
     const slug = sluggify(spec.slug);
@@ -194,7 +199,8 @@ export async function applyOps(message, tokenKey, steps, ctx = {}) {
 
   for (const [i, step] of steps.entries()) {
     const actor = step.to === "self" ? selfActor : actorOf(targetDoc);
-    if (!actor || (!step.condition && !step.effect)) continue;   // note — только текст в блоке
+    if (!actor || (!step.condition && !step.effect && !step.visibility)) continue;   // note — только текст в блоке
+    if (step.visibility && !visionActive()) continue;   // без PF2e Vision — заметка (текст «вручную» даёт чат)
     if (step.to !== "self") {
       const hostile = opposed(myDisp, targetDoc?.disposition ?? 0);
       if (step.who && (step.who === "enemy") !== hostile) continue;
@@ -215,13 +221,29 @@ export async function applyOps(message, tokenKey, steps, ctx = {}) {
     const selfKey = scope === "challenge" && use.rule?.onUse?.check && tokenKey !== "self" ? `self.${tokenKey}` : "self";
     const meta = {
       key: `${message.id}:${step.to === "self" ? selfKey : tokenKey}:${stepKey}`,
+      rank: ectx.castRank,
       source: scope, message: message.id, region: ctx.region?.uuid ?? null,
       origin: use.item?.uuid ?? null, by: selfActor?.uuid ?? null
     };
+    if (step.visibility) {
+      const v = step.visibility, sourceKey = `auto:${meta.key}`;
+      const [observer, subject] = [step.to === "self" ? originToken : targetDoc, v.of === "self" ? originToken : targetDoc];
+      const scene = observer?.parent;
+      const prevOps = foundry.utils.getProperty(message, scope === "challenge" ? flagPath("use", "state", "challenge", "applied", tokenKey) : flagPath("use", "state", "apply", tokenKey))?.ops;
+      if (prevOps?.some((o) => o.key === sourceKey)) continue;   // повтор — источник уже стоит (или шаг уже отмечен пропущенным)
+      // пропуск пишем в ops, чтобы строка считалась отработанной; причина — уведомлением ГМу
+      const skip = !scene || !subject ? "noToken" : subject.parent !== scene ? "scene"
+        : (await setSource(scene, sourceKey, [{ observerId: observer.id, targetId: subject.id, level: v.level }],
+          { label: use.item?.name ?? use.rule?.label, until: v.until, subjectId: subject.id })) !== "ok" ? "refused" : null;   // "no-combat": срок «до хода» вне боя
+      if (skip) notify(`visSkip.${skip}`, { name: use.item?.name ?? "" });
+      ops.push(skip ? { op: "vis", skipped: skip, key: sourceKey } : { op: "vis", scene: scene.id, key: sourceKey });
+      continue;
+    }
     const r = step.condition
       ? await applyCondition(actor, step.duration ? { ...step.condition, duration: step.duration } : step.condition, meta, { ...ectx, target: step.to === "self" ? null : targetDoc })
       : await applyEffect(actor, step.effect, meta, { ...ectx, markUuid, choice: step.choice, target: step.to === "self" ? null : targetDoc });
-    if (r.op !== "skipped" && r.op !== "pending") ops.push({ op: r.op, item: r.item.uuid, ...(r.prev != null && { prev: r.prev }) });
+    if (r.reason === "vision") ops.push({ op: "vis", skipped: "marks", key: meta.key });   // видимость — метками: строка отработана
+    else if (r.op !== "skipped" && r.op !== "pending") ops.push({ op: r.op, item: r.item.uuid, ...(r.prev != null && { prev: r.prev }) });
   }
 
   if (ops.length) {
@@ -243,6 +265,8 @@ export async function undoOps(message, tokenKey) {
   for (const [scope, rec] of places) {
     if (!rec) continue;
     for (const o of [...(rec.ops ?? [])].reverse()) {
+      if (o.op === "vis" && o.skipped) continue;
+      if (o.op === "vis") { await dropSource(game.scenes.get(o.scene), o.key); undone++; continue; }
       const item = await fromUuid(o.item);
       if (!item?.actor) continue;
       await queue(`actor:${item.actor.uuid}`, async () => {

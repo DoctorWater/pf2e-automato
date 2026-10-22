@@ -4,12 +4,16 @@ import * as compat from "./compat.mjs";
 import * as rules from "./rules.mjs";
 import * as apply from "./apply.mjs";
 import * as zone from "./zone.mjs";
+import * as height from "./height.mjs";
 import * as use from "./use.mjs";
 import * as saves from "./saves.mjs";
 import * as macros from "./macros.mjs";
 import * as chat from "./chat.mjs";
 import * as reactions from "./reactions.mjs";
 import * as sheet from "./sheet.mjs";
+import * as badge from "./badge.mjs";
+import * as vision from "./vision.mjs";
+import * as invis from "./invis.mjs";
 import * as actions from "./actions.mjs";
 
 const { S } = settings;
@@ -71,6 +75,7 @@ export const HANDLERS = {
     const uuid = game.messages.get(messageId)?.flags?.[MOD]?.strike?.actor;
     return { owns: uuid ? ownsActor(await fromUuid(uuid), user) : false };
   }),
+  dismissVis: gm("dismissVis", (sceneId, key) => vision.dismissSource(game.scenes.get(sceneId), key)),
   saveCatalogRule: gm("saveCatalogRule", (key, rule) => rules.saveWorldRule(key, rule))
 };
 
@@ -84,7 +89,7 @@ Hooks.once("socketlib.ready", () => {
 });
 
 Hooks.once("init", () => {
-  settings.init(); compat.init(); zone.init(); saves.init(); use.init(); actions.init(); chat.init(); reactions.init(); sheet.init();
+  settings.init(); compat.init(); zone.init(); height.init(); saves.init(); use.init(); actions.init(); chat.init(); reactions.init(); sheet.init(); badge.init(); vision.init(); invis.init();
   game.modules.get(MOD).api = {
     // контракт plan.md §2 main
     attachZone: zone.attachZone, sweepZone: zone.sweepZone, closeZone: zone.closeZone, expireZones: zone.expireZones,

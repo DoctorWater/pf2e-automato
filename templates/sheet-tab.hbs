@@ -12,6 +12,11 @@
     <select data-r="durExpiry">{{selectOptions @root.ch.expiry selected=durExpiry valueAttr="value" labelAttr="label"}}</select>
     <select data-r="durOf">{{selectOptions @root.ch.durOf selected=durOf valueAttr="value" labelAttr="label"}}</select>
   </span>
+  <span class="af-vis">
+    <select data-r="visLevel">{{selectOptions @root.ch.visLevel selected=visLevel valueAttr="value" labelAttr="label"}}</select>
+    <select data-r="visOf">{{selectOptions @root.ch.visOf selected=visOf valueAttr="value" labelAttr="label"}}</select>
+    <input type="text" data-r="visUntil" value="{{visUntil}}" placeholder="{{localize 'PF2E_AUTOMATO.sheet.row.until'}}">
+  </span>
   <a data-action="remove-row" title="{{localize 'PF2E_AUTOMATO.sheet.remove'}}"><i class="fa-solid fa-trash"></i></a>
 </div>
 {{/inline}}
@@ -28,8 +33,8 @@
   <div class="af-recognized">
     <h3>{{localize "PF2E_AUTOMATO.sheet.recognized"}}</h3>
     {{#if res}}
-      <p>{{localize "PF2E_AUTOMATO.sheet.source"}}: <b>{{res.source}}</b>
-        &middot; {{localize "PF2E_AUTOMATO.sheet.confidence"}}: <b class="af-conf-{{res.confidence}}">{{res.confidence}}</b></p>
+      <p>{{localize "PF2E_AUTOMATO.sheet.source"}}: <span class="paf-chip" data-src="{{res.src}}">{{res.source}}</span>
+        {{#if res.low}}<span class="paf-chip paf-chip-low" data-tooltip="PF2E_AUTOMATO.sheet.confLowHint">{{localize "PF2E_AUTOMATO.sheet.confLow"}}</span>{{/if}}</p>
     {{else}}
       <p>{{localize "PF2E_AUTOMATO.sheet.none"}}</p>
     {{/if}}

@@ -11,6 +11,9 @@ export const S = {
   set: (key, val) => game.settings.set(MOD, key, val)
 };
 
+// Счётчик версии каталогов: кэши производных данных (значки) сверяются с ним.
+export const rev = { n: 0 };
+
 export function modeOf(kind /* zone|effect|challenge|apply|reaction|macro */) {
   return S.get(`mode.${kind}`);
 }
@@ -31,8 +34,10 @@ export function init() {
     type: String, default: "gm",
     choices: { public: "PF2E_AUTOMATO.messageMode.public", gm: "PF2E_AUTOMATO.messageMode.gm" }
   });
+  reg("reaction.showWindow", { type: Boolean, default: true, scope: "client" });
   reg("reaction.onlyWhenChanges", { type: Boolean, default: true });
+  reg("vision.marks", { type: Boolean, default: true, onChange: (on) => Hooks.callAll("pf2e-automato.visionMarks", on) });
   reg("resumeMinutes", { type: Number, default: 30, range: { min: 1, max: 1440, step: 1 } });
-  game.settings.register(MOD, "catalog", { scope: "world", config: false, type: Object, default: { bySource: {}, bySlug: {} } });
+  game.settings.register(MOD, "catalog", { scope: "world", config: false, type: Object, default: { bySource: {}, bySlug: {} }, onChange: () => { rev.n++; } });
   game.settings.register(MOD, "debug", { name: name("debug"), hint: hint("debug"), scope: "client", config: true, type: Boolean, default: false });
 }

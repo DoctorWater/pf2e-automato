@@ -26,7 +26,7 @@ function mkActor(uuid) {
 }
 const setup = () => {
   registry.clear();
-  globalThis.game = { pf2e: { ConditionManager: { getCondition: (slug) => ({ uuid: `Compendium.pf2e.conditionitems.Item.${slug}`, name: slug, img: "i.svg", system: { value: { isValued: slug === "clumsy" } }, toObject() { return { name: slug, type: "condition", system: { slug, value: { isValued: false, value: null } } }; } }) } } };
+  globalThis.game = { modules: { get: () => null }, pf2e: { ConditionManager: { getCondition: (slug) => ({ uuid: `Compendium.pf2e.conditionitems.Item.${slug}`, name: slug, img: "i.svg", system: { value: { isValued: slug === "clumsy" } }, toObject() { return { name: slug, type: "condition", system: { slug, value: { isValued: false, value: null } } }; } }) } } };
   globalThis.foundry = { utils: { getProperty: (o, p) => p.split(".").reduce((a, k) => a?.[k], o) } };
   globalThis.fromUuid = async (u) => registry.get(u) ?? null;
 };

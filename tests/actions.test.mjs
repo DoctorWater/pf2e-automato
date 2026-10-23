@@ -196,6 +196,9 @@ test("parseActionRoll: атака заклинанием с карточки —
   const m = rollMsg({ type: "attack-roll", options: ["item:trait:attack"], outcome: "criticalSuccess", origin: { actor: "Actor.gob" }, target: { actor: "Actor.orc", token: "Scene.s.Token.orc" } });
   m.flags.pf2e.origin = { type: "spell", rollOptions: ["origin:item:slug:tangle-vine"] };
   assert.deepEqual(parseActionRoll(m).slugs, ["tangle-vine"]);
+  const ru = rollMsg({ type: "attack-roll", options: ["item:trait:attack"], outcome: "success", origin: { actor: "Actor.gob" } });
+  ru.flags.pf2e.origin = { type: "spell", rollOptions: ["origin:item:slug:оплетающая-лоза"] };
+  assert.equal(parseActionRoll(ru), null);   // кириллический slug не берём
   const r = ruleFor(["tangle-vine"]);
   assert.equal(r.rule.onUse.check.roll, "system");
   assert.equal(r.rule.onUse.check.byDegree.criticalSuccess[0].choice, "critical-success");

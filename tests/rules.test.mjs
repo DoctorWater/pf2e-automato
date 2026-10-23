@@ -81,6 +81,10 @@ test("slugOf: каскад", () => {
   assert.equal(slugOf({ rollOptions: ["x", "origin:item:slug:smoke-ball-lesser"] }, { slug: null }), "smoke-ball-lesser");
   assert.equal(slugOf({}, { flags: { babele: { originalName: "Nimble Dodge" } } }), "nimble-dodge");
   assert.equal(slugOf({}, null), null);
+  // переведённый предмет без system.slug: rollOption кириллический, берём babele.originalName; одинокий не-ASCII slug игнорируем
+  assert.equal(slugOf({ rollOptions: ["origin:item:slug:бросок-щита"] }, { slug: null, flags: { babele: { originalName: "Raise a Shield" } } }), "raise-a-shield");
+  assert.equal(slugOf({ rollOptions: ["origin:item:slug:бросок-щита"] }, { slug: null }), null);
+  assert.equal(slugOf({ rollOptions: ["origin:item:slug:raise-a-shield"] }, { slug: null }), "raise-a-shield");
 });
 
 test("sourceOf: каскад", () => {

@@ -372,10 +372,12 @@ export function slugOf(origin, item = null) {
   const it = liveItem(origin, item);
   const s = it?.slug ?? it?.system?.slug;
   if (isStr(s)) return s;
-  const opt = (origin?.rollOptions ?? []).find((o) => typeof o === "string" && o.startsWith("origin:item:slug:"));
-  if (opt) return opt.slice("origin:item:slug:".length);
+  // originalName раньше rollOptions: pf2e строит origin:item:slug как sluggify(name), у переведённого предмета (pf2ru/babele) без system.slug он кириллический
   const orig = it?.flags?.babele?.originalName;
-  return isStr(orig) ? sluggify(orig) : null;
+  if (isStr(orig)) return sluggify(orig);
+  const opt = (origin?.rollOptions ?? []).find((o) => typeof o === "string" && o.startsWith("origin:item:slug:"));
+  const fromOpt = opt?.slice("origin:item:slug:".length);
+  return isStr(fromOpt) && !/[Ѐ-ӿ]/.test(fromOpt) ? fromOpt : null;   // кириллический slug (перевод) заведомо не из каталога
 }
 
 export function sourceOf(origin, item = null) {

@@ -255,11 +255,12 @@ test("pa-port: high только если ссылка есть в тексте,
   assert.equal(r1.confidence, "high");
   assert.equal(r1.rule.onUse.targets, "self");
   assert.match(translateItem(base, "", g(), c).reason, /effect-not-in-text/);                       // ссылки нет в тексте
-  assert.match(translateItem({ ...base, type: "feat", actionType: "action" }, html, g(), c).reason, /trigger-type:spell-cast\/feat/);   // spell-cast на черте
+  assert.match(translateItem({ ...base, type: "feat", actionType: "passive" }, html, g(), c).reason, /trigger-type:spell-cast\/feat/);   // spell-cast на пассивной черте: правило на использование мёртвое
+  assert.equal(translateItem({ ...base, type: "feat", actionType: "action" }, html, g(), c).confidence, "high");   // на непассивной — годится
   assert.match(translateItem({ ...base, type: "feat", actionType: "passive" }, html, g({ triggerType: "postInfo" }), c).reason, /trigger-type:postInfo/);
   assert.match(translateItem(base, html, g({}, ["origin:item:s", { gte: ["origin:item:level", 7] }]), c).reason, /predicate-op:gte/);
   assert.equal(translateItem(base, html, g({}, ["origin:item:s", { or: ["a:b"] }]), c).confidence, "low");   // «a:b» — неизвестный токен
-  assert.equal(translateItem({ ...base, embedded: { actor: "A" } }, html, g(), c, { slugOnly: true }).confidence, "low");   // NPC только по slug
+  assert.equal(translateItem({ ...base, embedded: { actor: "A" } }, html, g(), c, { slugOnly: true }).slugOnly, true);   // NPC только по slug: пометка для каталога (bySlug без bySource), на уверенность не влияет
   assert.equal(translateItem({ ...base, type: "action", actionType: "reaction" }, html, g({ triggerType: "postInfo" }), c).confidence, "low");   // реакция «на себя» — ошибка PA вероятна
   const sv = { ...base, defense: { save: "will", basic: false } };
   const g2 = { rules: [{ type: "base", triggerType: "saving-throw", value: "prone", target: "SelfAddCondition", predicate: [{ or: ["outcome:failure", "outcome:criticalFailure"] }, "origin:item:s"] }] };

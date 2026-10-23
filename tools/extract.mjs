@@ -69,6 +69,8 @@ async function main() {
         // состояния, которые эффект выдаёт сам (GrantItem на conditionitems): id состояния
         const g = (d.system.rules ?? []).filter((r) => r.key === "GrantItem").map((r) => /conditionitems\.Item\.(\w+)/.exec(r.uuid ?? "")?.[1]).filter(Boolean);
         if (g.length) refs.grants[u] = g;
+        // эффект зависит от выбора (ChoiceSet) или от slug других предметов в предикате: имя эффекта не доказывает, что он для этого предмета
+        if ((d.system.rules ?? []).some((r) => r.key === "ChoiceSet" || /(?:item:slug|consumable|action):[a-z0-9-]+/.test(JSON.stringify(r.predicate ?? [])))) (refs.effectRisk ??= {})[u] = 1;
       }
       if (!isActor) {
         if (!TOP_TYPES.has(d.type)) continue;

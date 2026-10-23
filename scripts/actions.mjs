@@ -24,7 +24,8 @@ export function parseActionRoll(message) {
   // атака заклинанием с карточки (Оплетающая лоза): slug заклинания — для правил с check.roll:"system"
   const spell = ctx.type === "attack-roll" && message.flags.pf2e.origin?.type === "spell"
     ? (message.flags.pf2e.origin.rollOptions ?? []).find((o) => o.startsWith("origin:item:slug:"))?.slice(17) : null;
-  const slugs = [...new Set([ctx.action, ...(ctx.options ?? []).map((o) => ACTION_OPT.exec(o)?.[1]), spell].filter(Boolean))];
+  const ascii = (x) => (x && !/[Ѐ-ӿ]/.test(x) ? x : null);   // кириллический slug (перевод без system.slug) в каталоге не найдётся
+  const slugs = [...new Set([ctx.action, ...(ctx.options ?? []).map((o) => ACTION_OPT.exec(o)?.[1]), ascii(spell)].filter(Boolean))];
   if (!slugs.length) return null;
   const roll = message.rolls?.[0];
   const idx = DEGREES.indexOf(ctx.outcome);

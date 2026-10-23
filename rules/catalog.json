@@ -45,7 +45,7 @@
           "byDegree": {
             "success":         [ { "to": "target", "condition": { "slug": "frightened", "value": 1, "policy": "max" } } ],
             "failure":         [ { "to": "target", "condition": { "slug": "frightened", "value": 2, "policy": "max" } } ],
-            "criticalFailure": [ { "to": "target", "condition": { "slug": "frightened", "value": 3, "policy": "max" } } ] } },
+            "criticalFailure": [ { "to": "target", "condition": { "slug": "frightened", "value": 4, "policy": "max" } } ] } },
         "apply": [] }
     },
     "nimble-dodge": {

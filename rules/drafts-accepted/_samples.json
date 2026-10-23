@@ -1,7 +1,21 @@
 {
- "pa-port:pa-port": {
+ "pa-port:pa-port:seed1": {
+  "seed": 1,
+  "n": 50
+ },
+ "pa-port:pa-port:seed2": {
   "seed": 2,
   "n": 55,
   "pool": 259
+ },
+ "pa-port:pa-port:seed3": {
+  "seed": 3,
+  "n": 51,
+  "pool": 92
+ },
+ "pa-port:pa-port:seed4": {
+  "seed": 4,
+  "n": 50,
+  "pool": 86
  }
 }

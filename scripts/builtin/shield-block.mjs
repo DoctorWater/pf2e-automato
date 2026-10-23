@@ -10,6 +10,7 @@ import { esc, whisper, cardButton } from "./lib.mjs";
 import { guardHints, wardShield, watchShieldDamage, damageHolderShield } from "./shield-ward.mjs";
 import * as channeling from "./channeling-block.mjs";
 import * as damageLink from "./damage-link.mjs";
+import { subscribe, install } from "./apply-hook.mjs";
 
 export const settleLink = damageLink.settle;
 
@@ -194,31 +195,26 @@ export function onDamageTaken(message) {
   if (scene && token) callGM("markDamageApplied", from, `Scene.${scene}.Token.${token}`).catch((e) => console.error(`${MOD} | markDamageApplied`, e));
 }
 
-const APPLY = "CONFIG.Actor.documentClass.prototype.applyDamage";
-
-/** Обёртка Actor#applyDamage: после применения урона с блоком просит ГМа снять щит заклинания.
- *  Есть libWrapper — регистрируем через него (иначе конфликт-предупреждения с другими модулями), нет — ручная подмена. */
-export function wrapApplyDamage() {
-  const wrap = async function (orig, opts, ...rest) {
-    const shield = this.attributes?.shield ? { ...this.attributes.shield } : null;
-    const fx = modeOf("shieldBlock") !== "off" && blockHappened({ request: opts?.shieldBlockRequest, damage: opts?.damage, shield }) ? spellShieldEffect(shield, this.items, this.rollOptions?.all) : null;
-    const from = clicked && Date.now() - clicked.at < CLICK_MS ? clicked.id : null;
-    // метку не гасим: pf2e применяет урон всем выделенным токенам в цикле; ошибочная метка лишь выключает нашу кнопку (безопасная сторона)
-    const link = modeOf("macro") !== "off" ? damageLink.intercept(this, opts) : null;   // Связь жизни / Кровные узы: урон цели уменьшается до применения
-    if (link) opts = { ...opts, damage: link.damage };
-    const res = await orig.call(this, opts, ...rest);
-    if (link) callGM("settleLink", this.uuid, link.rows, link.round).catch((e) => console.error(`${MOD} | settleLink`, e));
-    if (fx) callGM("dropSpellShield", this.uuid, fx.id, fx.layers).catch((e) => console.error(`${MOD} | dropSpellShield`, e));
-    if (from && opts?.token?.uuid) callGM("markDamageApplied", from, opts.token.uuid).catch((e) => console.error(`${MOD} | markDamageApplied`, e));
-    return res;
+/** Подписчик обёртки Actor#applyDamage (apply-hook.mjs): после применения урона с блоком просит ГМа снять щит заклинания; Связь жизни / Кровные узы и отметка карточки. */
+async function onApply(actor, opts) {
+  const shield = actor.attributes?.shield ? { ...actor.attributes.shield } : null;
+  const fx = modeOf("shieldBlock") !== "off" && blockHappened({ request: opts?.shieldBlockRequest, damage: opts?.damage, shield }) ? spellShieldEffect(shield, actor.items, actor.rollOptions?.all) : null;
+  const from = clicked && Date.now() - clicked.at < CLICK_MS ? clicked.id : null;
+  // метку не гасим: pf2e применяет урон всем выделенным токенам в цикле; ошибочная метка лишь выключает нашу кнопку (безопасная сторона)
+  const link = modeOf("macro") !== "off" ? damageLink.intercept(actor, opts) : null;   // урон цели уменьшается до применения
+  if (link) opts = { ...opts, damage: link.damage };
+  return {
+    opts: link ? opts : undefined,
+    after() {
+      if (link) callGM("settleLink", actor.uuid, link.rows, link.round).catch((e) => console.error(`${MOD} | settleLink`, e));
+      if (fx) callGM("dropSpellShield", actor.uuid, fx.id, fx.layers).catch((e) => console.error(`${MOD} | dropSpellShield`, e));
+      if (from && opts?.token?.uuid) callGM("markDamageApplied", from, opts.token.uuid).catch((e) => console.error(`${MOD} | markDamageApplied`, e));
+    },
   };
-  if (globalThis.game?.modules?.get("lib-wrapper")?.active && globalThis.libWrapper) {
-    libWrapper.register(MOD, APPLY, wrap, "WRAPPER");
-    return;
-  }
-  const proto = CONFIG.Actor.documentClass?.prototype;
-  if (!proto?.applyDamage || proto.applyDamage.__afShield) return;
-  const orig = proto.applyDamage;
-  proto.applyDamage = function (...a) { return wrap.call(this, orig, ...a); };
-  proto.applyDamage.__afShield = true;
 }
+
+export function wrapApplyDamage() {
+  subscribe(onApply);
+  install();
+}
+

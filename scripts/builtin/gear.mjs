@@ -8,6 +8,7 @@
 import { L, MOD, queue, isActiveGM, whenSettled } from "../util.mjs";
 import { addEffect, paHas, askOwner, askHere, worldActors } from "./lib.mjs";
 import { modeOf } from "../settings.mjs";
+import { subscribe, install } from "./apply-hook.mjs";
 
 const ASK_MS = 120000;
 
@@ -154,20 +155,17 @@ export async function sweep() {
 
 /** Metal Carapace: урон от критического попадания ломает панцирь (эффект снимается, onDelete убирает броню). Обёртка applyDamage — outcome приходит из карточки урона. */
 export function wrapShatter() {
-  const wrap = async function (orig, opts, ...rest) {
+  subscribe(async (actor) => {
     // pf2e применяет урон к контекстному клону (ОЗ клона не меняются): смотрим настоящего актёра по uuid
-    const real = fromUuidSync(this.uuid) ?? this, before = hpTotal(real), res = await orig.call(this, opts, ...rest);
-    if (opts?.outcome === "criticalSuccess" && modeOf("macro") !== "off" && hpTotal(real) < before)
-      for (const fx of real.itemTypes?.effect?.filter((e) => gearFlag(e)?.shatterOnCrit && e.isOwner) ?? []) await fx.delete();
-    return res;
-  };
-  const APPLY = "CONFIG.Actor.documentClass.prototype.applyDamage";
-  if (globalThis.game?.modules?.get("lib-wrapper")?.active && globalThis.libWrapper) return void libWrapper.register(MOD, APPLY, wrap, "WRAPPER");
-  const proto = CONFIG.Actor.documentClass?.prototype;
-  if (!proto?.applyDamage || proto.applyDamage.__afGear) return;
-  const orig = proto.applyDamage;
-  proto.applyDamage = function (...a) { return wrap.call(this, orig, ...a); };
-  proto.applyDamage.__afGear = true;
+    const real = fromUuidSync(actor.uuid) ?? actor, before = hpTotal(real);
+    return {
+      async after(_res, opts) {
+        if (opts?.outcome === "criticalSuccess" && modeOf("macro") !== "off" && hpTotal(real) < before)
+          for (const fx of real.itemTypes?.effect?.filter((e) => gearFlag(e)?.shatterOnCrit && e.isOwner) ?? []) await fx.delete();
+      },
+    };
+  });
+  install();
 }
 
 /** Хуки группы (вызывается из index.mjs). Выдача — только при включённых макросах; уборка — всегда. */

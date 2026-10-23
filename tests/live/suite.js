@@ -8,14 +8,25 @@ async () => {
   const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   const waitFor = async (fn, ms = 8000, step = 150) => {
     const end = Date.now() + ms, env = cur;   // своё окружение: после таймаута на cur уже следующий сценарий
+    if (env) env.step = `ждём: ${String(fn).replace(/\s+/g, " ").slice(0, 100)}`;
     while (Date.now() < end) { if (!env || env.dead) return null; try { const v = await fn(); if (v) return v; } catch { /* ещё не готово */ } await wait(step); }
     return null;
   };
   class Skip extends Error {}
+  /** await без таймаута может висеть вечно (бросок pf2e с окном): ограничиваем и называем шаг. */
+  const bound = (label, p, ms = 30000) => {
+    const env = cur; if (env) env.step = label;
+    let tm;
+    return Promise.race([p, new Promise((_, rej) => { tm = setTimeout(() => rej(new Error(`завис шаг «${label}» (>${ms / 1000} с)`)), ms); })]).finally(() => clearTimeout(tm));
+  };
+  /** Что видно при зависании: последний шаг, окна, которые закрывал харнесс, и открытые сейчас. */
+  const hangInfo = (e) => `последний шаг: ${e.step}; закрыто окон бросков: [${e.windows}]; окна модуля: [${e.dialogs}]; открыто: [${[...foundry.applications.instances.values(), ...Object.values(ui.windows ?? {})].map((a) => a.constructor.name).join(", ")}]`;
   let cur = null;   // текущее окружение: после dispose (в т.ч. по таймауту) ожидания и записи брошенного сценария прекращаются
   const DEG = ["criticalFailure", "failure", "success", "criticalSuccess"];
   const deg = (v) => (typeof v === "number" ? DEG[v] : v);
-  const SHIFT = () => new MouseEvent("click", { shiftKey: true });   // броски атаки игнорируют skipDialog, shift убирает окно
+  // pf2e: shift ИНВЕРТИРУЕТ настройку show*Dialogs (eventToRollParams). Прогон ставит их в false (окон нет), поэтому shift окно как раз ПОКАЗЫВАЕТ и бросок
+  // ждёт его вечно. Shift — только если окна включены; на всякий случай окна модификаторов ниже закрываются кнопкой броска.
+  const SHIFT = () => new MouseEvent("click", { shiftKey: !!game.user.flags.pf2e?.settings?.showCheckDialogs });
   const modOn = (id) => !!game.modules.get(id)?.active;
 
   // ---------- уборка: всё, что начинается с «AF тест» (работает и как аварийная чистка: window.__afSuite = {cleanOnly: true}) ----------
@@ -61,7 +72,7 @@ async () => {
 
   // ---------- окружение одного сценария ----------
   const newEnv = async (id) => {
-    const e = { dead: false, id, tracked: new Set(), dialogs: [], onDialog: null, stop: false, d20: null };
+    const e = { dead: false, id, tracked: new Set(), dialogs: [], windows: [], step: "старт", onDialog: null, stop: false, d20: null };
     const hook = Hooks.on("createChatMessage", (m) => { if (m.author?.id === game.user.id) e.tracked.add(m.id); });
     e.scene = await Scene.create({ name: `${PFX}сцена ${id}`, width: 2400, height: 2000, padding: 0, grid: { size: 100, distance: 5 }, navigation: false, tokenVision: false });
     await e.scene.view(); await wait(700);
@@ -82,11 +93,13 @@ async () => {
           seen.add(app.id);
           if (Array.isArray(app.choices) && app.choices.length) { app.selection = app.choices[0]; app.close(); }
         }
-        for (const app of Object.values(globalThis.ui?.windows ?? {})) {   // legacy-окно урона pf2e «Бросок урона»: жмём последнюю кнопку
-          if (seen.has(app.appId) || !/damage|урон/i.test(`${app.constructor.name} ${app.title}`)) continue;
-          seen.add(app.appId);
-          const bs = (app.element?.[0] ?? app.element)?.querySelectorAll?.("button");
-          bs?.[bs.length - 1]?.click();
+        for (const app of [...Object.values(globalThis.ui?.windows ?? {}), ...foundry.applications.instances.values()]) {   // окна бросков pf2e (проверка / урон): жмём «Бросок»
+          const id = app.appId ?? app.id;
+          if (seen.has(id) || !/damage|modifiers|урон|check/i.test(`${app.constructor.name} ${app.title}`)) continue;
+          seen.add(id);
+          e.windows.push(`${app.constructor.name} «${app.title}»`);
+          const root = app.element?.[0] ?? app.element, bs = root?.querySelectorAll?.("button");
+          (root?.querySelector?.("button.roll") ?? bs?.[bs.length - 1])?.click();
         }
         await wait(150);
       }
@@ -161,7 +174,7 @@ async () => {
     e.hit = async (att, def, strike = null) => {   // удар att по токену def (shift-клик без окна); сообщение атаки
       await e.aim(att, def);
       const t0 = e.since();
-      await (strike ?? e.strike(e.T(att).actor, "shortsword")).variants[0].roll({ event: SHIFT() });
+      await bound("бросок Удара (variants[0].roll)", (strike ?? e.strike(e.T(att).actor, "shortsword")).variants[0].roll({ event: SHIFT() }));
       return waitFor(() => e.attacks(t0)[0], 8000);
     };
     /** Каст с карточкой: { card, sp }; ждёт снимок use модуля. */
@@ -265,7 +278,7 @@ async () => {
     const { card, sp } = await e.cast(caster, "tangle-vine");
     t.ok(!!e.use(card), "снимок use на карточке заклинания");
     const t1 = e.since();
-    await sp.rollAttack(SHIFT());
+    await bound("атака заклинанием (rollAttack)", sp.rollAttack(SHIFT()));
     const att = await waitFor(() => e.msgs(t1).find((m) => /attack-roll/.test(m.flags?.pf2e?.context?.type ?? "")), 8000);
     t.ok(!!att, "атака заклинанием брошена");
     await waitFor(() => e.block(att)?.querySelector("button[data-action^=apply]"), 6000);
@@ -330,7 +343,7 @@ async () => {
     const c = await e.combat([tR, t1, t2], [null, null, null]);
     await rogue.update({ "system.initiative.statistic": "deception" }); await wait(300);
     await e.fix(10);
-    await rogue.initiative.roll({ event: SHIFT() });
+    await bound("инициатива (initiative.roll)", rogue.initiative.roll({ event: SHIFT() }));
     const eff = () => e.metaEffect(rogue, "surprise-attack");
     t.ok(await waitFor(eff, 8000), "эффект Внезапной атаки после инициативы Обманом");
     const sigs = () => sur.sigsOf(eff()?.system.rules ?? []);
@@ -358,22 +371,22 @@ async () => {
   const areaOf = (e, card) => Number((e.dom(card)?.querySelector("[data-action=spell-template]")?.textContent ?? "").match(/\d+/)?.[0]) || null;
 
   sc("metamagic", "Метамагия: Обширное -> конус 20, «(потрачена)» после сотворения, снятие при следующем", async (e, t) => {
-    const caster = await e.caster("маг", ["burning-hands"], { items: [await feat("widen-spell")] });
+    const caster = await e.caster("маг", ["breathe-fire"], { items: [await feat("widen-spell")] });
     const foe = await e.foe("цель");
     const tC = await e.tok(caster, 500, 500, 1), tF = await e.tok(foe, 700, 500, -1);
     await wait(700);
     openChat();
     await e.aim(tC, tF);
-    const base = (await e.cast(caster, "burning-hands")).card;
+    const base = (await e.cast(caster, "breathe-fire")).card;
     const a0 = await waitFor(() => areaOf(e, base), 5000);
     t.ok(a0 === 15, `без метамагии конус 15 (${a0})`);
     const { eff } = await shapeFeat(e, caster, "widen-spell");
     t.ok(!!eff, "эффект метамагии на заклинателе");
-    const { card } = await e.cast(caster, "burning-hands");
+    const { card } = await e.cast(caster, "breathe-fire");
     const a1 = await waitFor(() => areaOf(e, card), 5000);
     t.ok(a1 === 20, `с Обширным конус 20 (${a1})`);
     t.ok(await waitFor(() => e.metaEffect(caster, "spellshape")?.flags?.[MOD]?.spentBy === card.id, 6000), "эффект помечен «потрачена» этим сообщением");
-    await e.cast(caster, "burning-hands");
+    await e.cast(caster, "breathe-fire");
     t.ok(await waitFor(() => !e.metaEffect(caster, "spellshape"), 8000), "следующее сотворение сняло эффект");
   });
 
@@ -445,7 +458,7 @@ async () => {
     await e.aim(tF, tP);
     const strike = e.strike(e.T(tF).actor);
     const t0 = e.since();
-    await strike.damage({ event: SHIFT() });
+    await bound("бросок урона (strike.damage)", strike.damage({ event: SHIFT() }));
     const dmg = await waitFor(() => e.msgs(t0).find((m) => m.flags?.pf2e?.context?.type === "damage-roll"), 8000);
     t.ok(!!dmg, "карточка урона");
     const w = await waitFor(() => game.messages.contents.findLast((m) => m.flags?.[MOD]?.shieldBlock?.message === dmg?.id), 8000);
@@ -494,7 +507,7 @@ async () => {
   const TAH = "token-action-hud-core";
   sc("tah-reload", "Token Action HUD: кнопка «Перезарядить» у незаряженного арбалета", async (e, t) => {
     if (!modOn(TAH)) throw new Skip("Token Action HUD не активен");
-    const pc = await e.pc("стрелок", [held(await equip("crossbow"), 2), { ...(await equip("crossbow-bolts")), system: { ...(await equip("crossbow-bolts")).system, quantity: 10 } }]);
+    const pc = await e.pc("стрелок", [held(await equip("crossbow"), 2), { ...(await equip("bolts")), system: { ...(await equip("bolts")).system, quantity: 10 } }]);
     const tP = await e.tok(pc, 500, 500, 1);
     await wait(700);
     e.T(tP).object.control({ releaseOthers: true });
@@ -532,12 +545,12 @@ async () => {
         e = await newEnv(s.id); cur = e;
         const run = s.run(e, t); run.catch(() => {});   // после таймаута сценарий упадёт на live() — не «Uncaught»
         let timer;
-        try { await Promise.race([run, new Promise((_, rej) => { timer = setTimeout(() => rej(new Error("таймаут 150 с")), 150000); })]); }
+        try { await Promise.race([run, new Promise((_, rej) => { timer = setTimeout(() => rej(new Error(`таймаут 150 с; ${hangInfo(e)}`)), 150000); })]); }
         finally { clearTimeout(timer); }
         if (t.fails.length) { status = "fail"; detail = t.fails.join("; "); } else detail = `${t.n} проверок`;
       } catch (err) {
         if (err instanceof Skip) { status = "skip"; detail = err.message; }
-        else { status = "fail"; detail = `${t.fails.length ? t.fails.join("; ") + "; " : ""}ошибка: ${String(err?.message ?? err).slice(0, 200)}`; console.error(`${MOD} suite | ${s.id}`, err); }
+        else { status = "fail"; detail = `${t.fails.length ? t.fails.join("; ") + "; " : ""}ошибка: ${String(err?.message ?? err).slice(0, 400)}`; console.error(`${MOD} suite | ${s.id}`, err); }
       } finally {
         const left = e ? await e.dispose().catch((x) => `dispose: ${x}`) : 0;
         if (left) { status = "fail"; detail += ` | после уборки осталось: ${left}`; }

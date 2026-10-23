@@ -44,3 +44,25 @@ window.__afSuite = { cleanOnly: true }  // и запустить suite.js
 - `frightened` ломается, если активен Workbench/pf2e-automations с уменьшением испуга (модуль уступает им).
 - Сценарии зависят от слагов пака: `force-barrage`, `phantom-pain`, `tangle-vine`, `runic-weapon`, `burning-hands`, `shield`, `tentacular-limbs`, `widen-spell`, `reach-spell`, `nimble-dodge`, `surprise-attack`, `crossbow`, `crossbow-bolts`.
 - Таймаут сценария 150 с.
+
+## Механизмы пачки 0.5 (`pa05.js`)
+Те же требования и приёмы, что у `suite.js` (фиксация d20, сцена и актёры «AF тест: …» с уборкой, таймаут сценария 150 с, ответ на окна — отмена). Проверяется состояние актёров и эффектов, а не текст чата.
+```
+tests/live/pa05.js
+window.__afPa05 = { only: ["badge", "gear"], skip: [], cleanOnly: false }   // необязательно, до запуска
+```
+Результат: `{summary, table, rows:[{id,title,status,detail}]}`, то же в `console.table` и `window.__afPa05Result`. Аварийная чистка — `cleanOnly: true` (как у `suite.js`).
+
+Сценарии (id): `challenge-immunity`, `suffocation`, `improved-grab`, `rage-immunity`, `remove-condition`, `badge`, `damage-step`, `reduce`, `onevent-strike`, `gear`, `damage-link`, `when`.
+- Нужны режимы `mode.effect` и `mode.challenge` = `auto`, `mode.macro` не `off`; иначе сценарий `SKIP` с причиной. Группа, которой уступает модуль (pf2e-automations: `swallow-whole`, `grab`, `rage`, `hardwood-armor`, `life-link`), даёт `SKIP`.
+- Данные по slug/uuid pf2e 8.6.1 (ремастер); нет предмета в паках — `SKIP`. Правила `badge`, `damage-step`, `reduce`, `when` — флаг `rule` на временном предмете-действии «AF правило» (проверяется `validateRule`), остальные — каталожные правила настоящих предметов (Frightful Presence, Stand, Tongue Grab, Hardwood Armor).
+- Шаги NPC-целей читаются с актёра токена (`scene.tokens.get(id).actor`), не с исходного актёра: токены «развязаны».
+- `damage-link` кладёт эффект Life Link на союзника напрямую (ранг 3 = до 5 урона): сотворение в ячейках стенда невозможно.
+
+### Хрупкие места `pa05.js`
+- Устаревшие slug в `suite.js` (не правились): `crossbow-bolts` теперь `bolts`; `burning-hands` в ремастере иной.
+- `challenge-immunity`: СЛ 22 берётся из текста NPC-способности Abomination Vaults (`dc:22`), а исход «провал» рассчитан на неё и d20=10; кнопка «Применить» ищется в DOM `#chat` (`button[data-action^=apply]`).
+- `suffocation`: опирается на `air.decrease()` (pf2e удаляет эффект на значке 1), запасной путь — прямое удаление; GrantItem должен выдать Remaining Air.
+- `improved-grab`: бесплатный Захват NPC ищется по `options` `action:grapple`; кнопка «Применить» нажимается, если Захват не применился сам. `onevent-strike`/`improved-grab` правят `system.attackEffects.value` первого `melee` NPC.
+- `when`: предикат `target:trait:<первая черта цели>`; `badge`: эффект Bless (`spell-effects`), счётчик значка и `_stats.compendiumSource` у созданной копии.
+- `damage-step`: `3d1` untyped, ожидается ровно −3 ОЗ (у цели нет сопротивлений); откат урона pf2e имитируется записью ОЗ.

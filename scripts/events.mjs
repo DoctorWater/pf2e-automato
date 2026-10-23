@@ -218,6 +218,14 @@ async function undoLog(log) {
   }
 }
 
+/** Есть ли у заклинания цель/область/дальность: без них (самоприменяемое) устаревшие цели автора не его цели сотворения. */
+export function spellTargets(spell) {
+  const s = spell?.system;
+  if (!s) return true;   // предмет неизвестен — как раньше
+  const t = String(s.target?.value ?? "").trim(), range = String(s.range?.value ?? "").trim();
+  return !!(s.area?.value || (t && !/^(?:you|self)/i.test(t)) || range);
+}
+
 /** Участники события-сообщения. */
 async function messageParties(message) {
   const ctx = message.flags.pf2e.context ?? {}, pf = message.flags.pf2e;
@@ -257,14 +265,14 @@ export async function onMessage(message) {
     if (old && Date.now() - old.at <= REROLL_TTL) await undoLog(old.log);
   }
   // у карточки заклинания нет context.target: цели — снимок use или цели автора (как в use.mjs); область с несколькими целями — по одному запуску на цель
-  const cast = on === "spell-cast" ? messageTargets(message) : [];
+  const cast = on === "spell-cast" && (message.flags?.[MOD]?.use?.targets || spellTargets(message.item)) ? messageTargets(message) : [];
   await queue(`events:${message.id}`, async () => {
     for (const t of cast.length ? cast : [null]) {
       const q = t ? { ...p, target: t.actor, targetToken: t } : p;
       const { set, degree, total } = messageOptions(message, q, on);
       // «другой» у урона — его источник (ctx.origin), у остальных событий — цель броска / бросавший
       const ev = { id: cast.length > 1 ? `${message.id}@${t.id}` : message.id, message, options: set, degree, total,
-        otherFor: (side) => (side === "self" ? (on === "damage-taken" ? q.origin : q.target) : q.actor), otherTokenFor: (side) => (side === "self" ? q.targetToken : q.actorToken) };
+        otherFor: (side) => (side === "self" ? (on === "damage-taken" ? q.origin : q.target) : q.actor), otherTokenFor: (side) => (side === "self" ? (on === "damage-taken" ? tokenOf(q.origin) : q.targetToken) : q.actorToken) };
       const log = await runEvent(ev, on, { self: [q.actor], target: q.target ? [q.target] : [], origin: q.origin && q.origin.uuid !== q.actor.uuid ? [q.origin] : [] });
       if (log.length) await message.update({ [flagPath("events")]: [...(message.flags?.[MOD]?.events ?? []), ...log] });
     }

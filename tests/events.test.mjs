@@ -510,3 +510,65 @@ test("одна запись падает — остальные и журнал 
   assert.equal(fx.deleted, true);
   assert.equal(m.flags[MOD].events.length, 1);
 });
+
+test("испытание события не зависит от режима effect; имена в карточке экранируются", async () => {
+  settings["mode.effect"] = "off";
+  const ch = { statistic: "will", dc: { value: 20 }, byDegree: { failure: [{ condition: { slug: "frightened", value: 1 } }] } };
+  const rule = validate({ v: 1, onEvent: [{ on: "attack-roll", side: "target", challenge: ch }] }).rule;
+  const guard = mkActor("Actor.guard", [mkFeat("<b>mask</b>", rule)]);
+  const foe = mkActor("Actor.foe");
+  const ft = { id: "ft", uuid: "Scene.s.Token.ft", name: "<i>Foe</i>", actor: foe };
+  uuids.set(ft.uuid, ft); foe.getActiveTokens = () => [ft];
+  await ev.onMessage(mkMsg("E1", { context: { type: "attack-roll", options: [], target: { actor: guard.uuid } } }, { actor: foe, token: ft }));
+  assert.equal(created.length, 1);
+  assert.equal(created[0].content.includes("<i>Foe</i>"), false);
+});
+
+test("damage-taken: «другой» для владельца — источник урона (origin), а не цель", async () => {
+  const rule = validate({ v: 1, onEvent: [{ on: "damage-taken", apply: [{ to: "target", removeEffect: { slug: "mark" } }] }] }).rule;
+  const mark = mkEffect({ id: "m", slug: "mark", actor: "foe" });
+  const foe = mkActor("Actor.foe", [mark]);
+  const hero = mkActor("Actor.hero", [mkFeat("f", rule)]);
+  const ft = { id: "ft", uuid: "Scene.s.Token.ft", name: "Foe", actor: foe };
+  uuids.set(ft.uuid, ft); foe.getActiveTokens = () => [ft];
+  await ev.onMessage(mkMsg("D1", { context: { type: "damage-taken", options: [], origin: { actor: foe.uuid } }, appliedDamage: { updates: [{ path: "system.attributes.hp.value", value: 3 }] } }, { actor: hero }));
+  assert.equal(mark.deleted, true);
+});
+
+test("Мастерская: traits, options и иммунитет испытания события переживают форму", () => {
+  const raw = { v: 1, onEvent: [{ on: "attack-roll", side: "target", challenge: { statistic: "fortitude", dc: { against: "class" }, traits: ["incapacitation"], options: ["origin:item:stunning-blows"], immunity: { slug: "bane", duration: { value: 1, unit: "minutes" }, degrees: ["success"] }, byDegree: { failure: [{ to: "target", condition: { slug: "stunned", value: 1, policy: "max" } }] } } }] };
+  const r = validate(raw);
+  assert.equal(r.ok, true, JSON.stringify(r.errors));
+  const form = ruleToForm(r.rule), c = form.ev[0].ch;
+  assert.match(String(c.traits), /incapacitation/);
+  assert.match(String(c.options), /stunning-blows/);
+  assert.equal(c.imm.on, true);
+  assert.deepEqual(formToRule(form).onEvent[0].challenge.immunity, r.rule.onEvent[0].challenge.immunity);
+  assert.equal(roundTrip(r.rule), true);
+});
+
+test("damage-taken: токен «другого» у владельца — токен источника урона", async () => {
+  let seen;
+  const rule = validate({ v: 1, onEvent: [{ on: "damage-taken", challenge: { statistic: "will", dc: { value: 20 }, byDegree: { failure: [{ condition: { slug: "frightened", value: 1 } }] } } }] }).rule;
+  const foe = mkActor("Actor.foe"), hero = mkActor("Actor.hero", [mkFeat("f", rule)]);
+  const ft = { id: "ft", uuid: "Scene.s.Token.ft", name: "Foe", actor: foe }, other = { id: "xx", uuid: "Scene.s.Token.xx", name: "X", actor: hero };
+  uuids.set(ft.uuid, ft); foe.getActiveTokens = () => [ft];
+  await ev.onMessage(mkMsg("T1", { context: { type: "damage-taken", options: [], origin: { actor: foe.uuid } }, appliedDamage: { updates: [{ path: "system.attributes.hp.value", value: 3 }] } }, { actor: hero, token: other }));
+  seen = created[0]?.flags[MOD].use.targets.map((t) => t.key);
+  assert.deepEqual(seen, ["ft"]);
+});
+
+test("spell-cast: самоприменяемое заклинание без цели не берёт устаревшие цели автора", async () => {
+  const rule = validate({ v: 1, onEvent: [{ on: "spell-cast", when: ["origin:item:heroism", { not: "target" }], apply: [{ to: "self", removeEffect: { slug: "own" } }] }] }).rule;
+  const own = mkEffect({ id: "o", slug: "own" });
+  const mentor = mkActor("Actor.mentor", [own, mkFeat("mentor", rule)]);
+  const ally = mkActor("Actor.ally"), tok = { id: "t1", uuid: "Scene.s.Token.t1", name: "A", actor: ally };
+  uuids.set(tok.uuid, tok);
+  const flags = { origin: { type: "spell", rollOptions: ["origin:action:slug:cast-a-spell", "origin:item:heroism"] }, context: { type: "spell-cast", options: [] } };
+  const item = { system: { target: { value: "" }, range: { value: "" } } };
+  const before = [];
+  await ev.onMessage(mkMsg("SS1", flags, { actor: mentor, item, author: { targets: new Set([{ document: tok }]) } }));
+  assert.equal(own.deleted, true);
+  assert.equal(msgs.get("SS1").flags[MOD].events[0].recs[0].tk, "self");
+  assert.equal(created.length, 0);
+});

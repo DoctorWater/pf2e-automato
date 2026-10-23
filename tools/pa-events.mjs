@@ -20,6 +20,9 @@ const EV_EFFECT = /^effect(?::|$)/;   // опции эффекта: только
 const EV_IMPLIED = new Set(["champions-aura"]);
 const EV_SYN = { "shield:block": "damage-taken:shield" };   // PA ищет «shield … absorb» в тексте карточки; у нас — щит поглотил урон (appliedDamage.shield)
 
+// вариант черты по классу (tumble-behind-rogue / -swashbuckler) — та же группа, что и tumble-behind-<другой класс>
+const CLASS_SUFFIX = /-(?:alchemist|barbarian|bard|champion|cleric|druid|fighter|gunslinger|inventor|investigator|magus|monk|oracle|psychic|ranger|rogue|sorcerer|summoner|swashbuckler|thaumaturge|witch|wizard)$/;
+
 /** Строки предиката со всеми синонимами PA заменены на наши опции. */
 // `action:strike` есть только у Ударов персонажа; у Удара NPC pf2e даёт `self:action:slug:strike` (pf2e.mjs:20351) — условие на оба
 const synonyms = (p) => (p === "action:strike" ? { or: ["action:strike", "self:action:slug:strike"] } : typeof p === "string" ? EV_SYN[p] ?? p : Array.isArray(p) ? p.map(synonyms) : p && typeof p === "object" ? Object.fromEntries(Object.entries(p).map(([k, v]) => [k, synonyms(v)])) : p);
@@ -30,7 +33,7 @@ const synonyms = (p) => (p === "action:strike" ? { or: ["action:strike", "self:a
  */
 export function eventWhen(rest, item, on, { optStrings, OWN }) {
   // тождество самого предмета: его slug, его sourceId и варианты (у «Кувырка сзади» feat:tumble-behind-rogue / -swashbuckler — те же способности у копий NPC без этих фитов)
-  const own = (t) => { const o = OWN.exec(t)?.[2]; return o === item.slug || o?.startsWith(`${item.slug}-`) || t === `origin:item:sourceId:${item.source ?? item.uuid}`; };
+  const base = (x) => x?.replace(CLASS_SUFFIX, ""), own = (t) => { const o = OWN.exec(t)?.[2]; return o === item.slug || o?.startsWith(`${item.slug}-`) || (o && base(o) === base(item.slug)) ||t === `origin:item:sourceId:${item.source ?? item.uuid}`; };
   const terms = synonyms(rest.filter((x) => !(optStrings(x).length && optStrings(x).every((t) => own(t) || EV_IMPLIED.has(t)))));
   const effectEvent = on === "effect-created" || on === "effect-deleted";
   const bad = optStrings(terms).find((s) => !(/^-?d+(?:.d+)?$/.test(s) || EV_PREFIX.test(s) || EV_BARE.has(s) || (effectEvent && EV_EFFECT.test(s))));

@@ -208,3 +208,20 @@ test("событие: опция заменённого эффекта PA пер
   assert.deepEqual(r.rule.onEvent[0].when, ["self:effect:bless"]);
   assert.match(pa.translateItem(feat(), "", group(rule("self:effect:aura-nope")), c).reason, /event-predicate:pa-effect/);
 });
+
+test("strike / sense-motive: false-coverage подтверждён симулятором PA (no-fire)", async () => {
+  const { readFileSync } = await import("node:fs");
+  const d = JSON.parse(readFileSync(new URL("../rules/drafts/pa-port.json", import.meta.url), "utf8"));
+  for (const slug of ["strike", "sense-motive"]) {
+    const x = (d.items ?? d).find((i) => i.slug === slug && i.uuid.includes("actionspf2e"));
+    assert.equal(x.paStatus, "false-coverage");
+    assert.equal(x.sim, "no-fire");
+  }
+});
+
+test("eventWhen: варианты по классу (tumble-behind-*) — тождество предмета у любой копии", () => {
+  const deps = { optStrings: (x) => JSON.stringify(x).match(/(?:feat|origin:item:sourceId):[\w:-]+/g) ?? [], OWN: /^(?:origin:)?(feat|feature|spell):(?:slug:)?([a-z0-9-]+)$/ };
+  for (const slug of ["tumble-behind", "tumble-behind-rogue"])
+    assert.deepEqual(ev.eventWhen([{ or: ["feat:tumble-behind-rogue", "feat:tumble-behind-swashbuckler"] }], { slug, uuid: "U" }, "skill-check", deps), { when: null });
+  assert.notDeepEqual(ev.eventWhen([{ or: ["feat:aura-of-faith"] }], { slug: "aura-of-courage", uuid: "U" }, "skill-check", deps), { when: null });
+});

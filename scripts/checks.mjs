@@ -180,6 +180,7 @@ export async function applyImmunity(message, tokenKey, token, imm, degree) {
       origin: { actor: author.uuid, token: use.token, item: use.item?.uuid }, target: { actor: tActor.uuid, token: token.uuid }
     });
     source.flags = { [MOD]: { immunity: { slug: imm.slug } } };
+    source.system.slug = `${imm.slug}-immunity`;   // предикаты вида not target:effect:<slug>-immunity (аура Bane) видят иммунитет
     item = await addEffect(tActor, source, key);
   }
   if (!item) return [];

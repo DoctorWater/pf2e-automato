@@ -96,7 +96,8 @@ function stepFields(row, p, names) {
     F.sel(`${p}.durExpiry`, t("workshop.expires"), row.durExpiry, { "": t("sheet.expiry.none"), "turn-start": t("sheet.expiry.start"), "turn-end": t("sheet.expiry.end") }));
   else if (row.kind === "damage") out.push(
     F.text(`${p}.text`, t("workshop.au.persFormula"), row.text, { placeholder: "2d6" }),
-    F.sel(`${p}.pType`, t("workshop.au.persType"), row.pType, [["healing", t("workshop.au.healing")], ...DAMAGE_TYPES.map((v) => [v, damageLabel(v)])])
+    F.sel(`${p}.pType`, t("workshop.au.persType"), row.pType, [["healing", t("workshop.au.healing")], ...DAMAGE_TYPES.map((v) => [v, damageLabel(v)])]),
+    F.chk(`${p}.dmgBasic`, t("workshop.au.dmgBasic"), row.dmgBasic)
   );
   else if (row.kind === "choose") out.push(F.text(`${p}.text`, t("workshop.au.chooseJson"), row.text, { cls: "ws-grow", placeholder: "{\"from\":\"allies\"}" }));
   else if (row.kind === "removeEffect") out.push(F.text(`${p}.text`, t("workshop.au.effectRef"), row.text, { drop: "effect", cls: "ws-grow", hint: names.get(row.text) ?? "" }), F.chk(`${p}.ofOrigin`, t("workshop.au.ofOrigin"), row.ofOrigin));

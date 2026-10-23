@@ -311,6 +311,7 @@
         "effectRef": "Effect: slug or UUID",
         "effectSlug": "Effect slug",
         "ofOrigin": "Only the one I created",
+        "dmgBasic": "Basic save (×0 / ×½ / ×1 / ×2)",
         "extendRounds": "Extend by rounds",
         "optionName": "Option (e.g. mighty-rage)",
         "optOff": "Turn off instead of on",

@@ -311,6 +311,7 @@
         "effectRef": "Эффект: slug или UUID",
         "effectSlug": "Slug эффекта",
         "ofOrigin": "Только созданный мной",
+        "dmgBasic": "Обычное испытание (×0 / ×½ / ×1 / ×2)",
         "extendRounds": "Продлить на раундов",
         "optionName": "Опция (например, mighty-rage)",
         "optOff": "Выключить, а не включить",

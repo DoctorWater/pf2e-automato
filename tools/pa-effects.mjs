@@ -9,7 +9,7 @@ import { join } from "node:path";
 import { DATA, ROOT, readJson, writeJson, isMain, cmp } from "./lib.mjs";
 import { classicLevel, openPacks } from "./packs.mjs";
 import { sluggify } from "../scripts/util.mjs";
-import { AUTHORED, authoredDoc, authoredMapEntry } from "./pa-effects.authored.mjs";
+import { AUTHORED, AUTHORED_EQUIPMENT, authoredDoc, authoredEquipmentDoc, authoredMapEntry } from "./pa-effects.authored.mjs";
 
 export const SRC_DIR = join(ROOT, "packs", "_source", "effects");
 export const MAP_FILE = join(ROOT, "tools", "pa-effects.json");
@@ -92,6 +92,7 @@ async function extractEquipment() {
     const doc = { _id: e._id, name: e.name, type: e.type, img: e.img, system, effects: [], folder: null, sort: 0, ownership: { default: 0 }, flags: {}, _stats: stats, _key: `!items!${e._id}` };
     writeFileSync(join(EQUIP_DIR, `${sluggify(e.name)}_${e._id}.json`), JSON.stringify(doc, null, 2) + "\n");
   }
+  writeAuthoredDocs();   // свои предметы лежат в том же каталоге, который выше очищен
   return docs.length;
 }
 
@@ -163,7 +164,9 @@ async function main() {
 /** Свои эффекты (pa-effects.authored.mjs) -> packs/_source/effects. Не трогает остальные файлы. */
 export function writeAuthoredDocs() {
   mkdirSync(SRC_DIR, { recursive: true });
-  for (const [id, a] of Object.entries(AUTHORED)) writeFileSync(join(SRC_DIR, `${sluggify(a.name)}_${id}.json`), JSON.stringify(authoredDoc(id, a, sluggify(a.name)), null, 2) + "\n");
+  mkdirSync(EQUIP_DIR, { recursive: true });
+  for (const [id, a] of Object.entries(AUTHORED_EQUIPMENT)) writeFileSync(join(EQUIP_DIR, `${sluggify(a.name)}_${id}.json`), JSON.stringify(authoredEquipmentDoc(id, a), null, 2) + "\n");
+  for (const [id, a] of Object.entries(AUTHORED))writeFileSync(join(SRC_DIR, `${sluggify(a.name)}_${id}.json`), JSON.stringify(authoredDoc(id, a, sluggify(a.name)), null, 2) + "\n");
 }
 
 /** `--authored`: без PA и Foundry — только свои эффекты и их записи в карте pa-effects.json. */

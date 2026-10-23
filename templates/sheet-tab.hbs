@@ -21,6 +21,7 @@
   <select data-r="pType" title="{{localize 'PF2E_AUTOMATO.sheet.row.pType'}}">{{selectOptions @root.ch.dmgType selected=pType valueAttr="value" labelAttr="label"}}</select>
   <input type="text" data-r="domain" value="{{domain}}" class="af-domain" placeholder="all" title="{{localize 'PF2E_AUTOMATO.sheet.row.domain'}}">
   <label class="af-optoff"><input type="checkbox" data-r="optOff" {{checked optOff}}> {{localize 'PF2E_AUTOMATO.sheet.row.optOff'}}</label>
+  <label class="af-ofo" title="{{localize 'PF2E_AUTOMATO.sheet.row.dmgBasicTip'}}"><input type="checkbox" data-r="dmgBasic" {{checked dmgBasic}}> {{localize 'PF2E_AUTOMATO.sheet.row.dmgBasic'}}</label>
   <label class="af-ofo"><input type="checkbox" data-r="ofOrigin" {{checked ofOrigin}}> {{localize 'PF2E_AUTOMATO.sheet.row.ofOrigin'}}</label>
   <input type="number" data-r="range" value="{{range}}" min="5" class="af-narrow af-range" placeholder="{{localize 'PF2E_AUTOMATO.sheet.row.range'}}" title="{{localize 'PF2E_AUTOMATO.sheet.row.rangeTip'}}">
   <input type="text" data-r="when" value="{{when}}" class="af-when" placeholder="{{localize 'PF2E_AUTOMATO.sheet.row.when'}}" title="{{localize 'PF2E_AUTOMATO.sheet.row.whenTip'}}">
@@ -122,6 +123,7 @@
         <div class="af-line">
           <label>{{localize "PF2E_AUTOMATO.sheet.traits"}} <input type="text" data-f="ch.traits" value="{{f.ch.traits}}" placeholder="fear, mental"></label>
           <label>{{localize "PF2E_AUTOMATO.sheet.options"}} <input type="text" data-f="ch.options" value="{{f.ch.options}}"></label>
+          <label>{{localize "PF2E_AUTOMATO.sheet.chWhen"}} <input type="text" data-f="ch.when" value="{{f.ch.when}}" placeholder="target:trait:undead"></label>
         </div>
         <div class="af-line">
           <label><input type="checkbox" data-f="ch.imm.on" {{checked f.ch.imm.on}}> {{localize "PF2E_AUTOMATO.sheet.immunity"}}</label>

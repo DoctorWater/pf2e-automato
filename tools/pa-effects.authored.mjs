@@ -15,10 +15,17 @@ export const AUTHORED = {
   // Невосприимчивость цели к «Пучку трав» на 10 минут: шаг unlessEffect правила берёт её как метку
   rg21PkfOqRC4wKwa: { name: "Effect: Dash of Herbs Immunity", level: 0, duration: dur(10, "minutes"), rules: [], description: "<p>The creature is temporarily immune to Dash of Herbs for 10 minutes.</p>" },
   // Conjure Bullet: порождённый боеприпас живёт, пока длится эффект (до конца хода); GrantItem с каскадом, как у Blazing Armory (pf2e GrantItemRuleElement onDeleteActions.granter)
-  CnjrBulletEffct1: { name: "Effect: Conjure Bullet (Bullet)", level: 0, duration: dur(0, "rounds", "turn-end"), rules: [{ key: "GrantItem", uuid: "Compendium.pf2e.equipment-srd.Item.MKSeXwUm56c15MZa", onDeleteActions: { granter: "cascade" } }], description: "<p>You conjure an ordinary level-0 sling bullet. If it isn't fired before the end of your turn, the effect is wasted.</p>" },
-  CnjrBoltEffect01: { name: "Effect: Conjure Bullet (Bolt)", level: 0, duration: dur(0, "rounds", "turn-end"), rules: [{ key: "GrantItem", uuid: "Compendium.pf2e.equipment-srd.Item.AITVZmakiu3RgfKo", onDeleteActions: { granter: "cascade" } }], description: "<p>You conjure an ordinary level-0 bolt. If it isn't fired before the end of your turn, the effect is wasted.</p>" },
+  CnjrBulletEffct1: { name: "Effect: Conjure Bullet (Bullet)", level: 0, duration: dur(0, "rounds", "turn-end"), rules: [{ key: "GrantItem", uuid: "Compendium.pf2e-automato.equipment.Item.CnjrBulletItem01", onDeleteActions: { granter: "cascade" } }], description: "<p>You conjure one ordinary level-0 sling bullet. If it isn't fired before the end of your turn, the effect is wasted.</p>" },
+  CnjrBoltEffect01: { name: "Effect: Conjure Bullet (Bolt)", level: 0, duration: dur(0, "rounds", "turn-end"), rules: [{ key: "GrantItem", uuid: "Compendium.pf2e-automato.equipment.Item.CnjrBoltItem0001", onDeleteActions: { granter: "cascade" } }], description: "<p>You conjure one ordinary level-0 bolt. If it isn't fired before the end of your turn, the effect is wasted.</p>" },
   // Маска ужаса: носитель страшен; правило-носитель с испытанием нападающего лежит в tools/pa-carriers.mjs (bySource этого эффекта)
   Pdq3C29GY18nbVg9: { name: "Spell Effect: Mask of Terror", level: 4, duration: dur(1, "minutes"), rules: [], description: "<p>You appear to be a gruesome and terrifying creature. When a creature attacks you, it must attempt a Will save against the spell DC of Mask of Terror: on a failure it becomes frightened 2.</p>" }
+};
+
+// Боеприпасы Conjure Bullet: «один» по тексту, а у предметов pf2e стопка из 10 (GrantItem количество не меняет) — свои копии с quantity 1 (пак equipment, tools/pa-effects.mjs)
+const ammo = (name, slug, img, price) => ({ name, type: "ammo", img, system: { baseItem: slug, bulk: { value: 0.1 }, containerId: null, craftableAs: null, hardness: 0, hp: { max: 0, value: 0 }, level: { value: 0 }, material: { grade: null, type: null }, price: { per: 10, value: price }, publication: { license: "ORC", remaster: true, title: "Pathfinder Player Core" }, quantity: 1, rules: [], size: "med", traits: { rarity: "common", value: ["consumable"] }, uses: { autoDestroy: true, max: 1, value: 1 }, slug, equipped: { carryType: "worn" } } });
+export const AUTHORED_EQUIPMENT = {
+  CnjrBulletItem01: ammo("Sling Bullet (conjured)", "sling-bullets", "systems/pf2e/icons/equipment/weapons/sling-bullets.webp", { cp: 1 }),
+  CnjrBoltItem0001: ammo("Bolt (conjured)", "bolts", "systems/pf2e/icons/equipment/weapons/bolts.webp", { sp: 1 })
 };
 
 const STATS = { coreVersion: "14.366", systemId: "pf2e", systemVersion: "8.6.1", createdTime: null, modifiedTime: null, lastModifiedBy: null, compendiumSource: null, duplicateSource: null, exportSource: null };
@@ -37,3 +44,8 @@ export function authoredDoc(id, a, slug) {
 
 /** Запись карты pa-effects.json для эффекта: kind own, срок — для проверки «срок правила PA отличается от срока эффекта». */
 export const authoredMapEntry = (a) => ({ name: a.name, kind: "own", dur: a.duration.unit && a.duration.value >= 0 ? { value: a.duration.value, unit: a.duration.unit } : null, authored: true });
+
+/** Документ предмета пака equipment (формат packs/_source/equipment, как у импортированных PA). */
+export function authoredEquipmentDoc(id, a) {
+  return { _id: id, name: a.name, type: a.type, img: a.img, system: { description: { gm: "", value: "" }, ...a.system, slug: a.system.slug, _migration: { version: 0.959, previous: null } }, effects: [], folder: null, sort: 0, ownership: { default: 0 }, flags: {}, _stats: STATS, _key: `!items!${id}` };
+}

@@ -67,6 +67,7 @@ const defaultEnv = () => ({
   uuidName: nameOfUuid,
   damageLabel,
   checkDc: (key, use) => checks.defenseDc(tokenDocOf(key, use)?.actor, use.rule.onUse.check.vs),
+  skipped: (key, use, ch) => !saves.challengeApplies(ch, tokenDocOf(key, use)?.actor, use.actor),
   immune: (key, use) => checks.hasImmunity(tokenDocOf(key, use)?.actor, (use.rule.onUse.challenge ?? use.rule.onUse.check).immunity, use.actor)
 });
 
@@ -202,7 +203,7 @@ export function buildViewModel(message, user, env = null) {
       ...Object.keys(state.challenge?.results ?? {})
     ])];
     const resultsSeen = isGM || meta.results;
-    const rows = keys.map((key) => {
+    const rows = keys.filter((key) => !env.skipped?.(key, use, ch)).map((key) => {
       const r = state.challenge?.results?.[key];
       const ap = state.challenge?.applied?.[key];
       const steps = r ? (ch.byDegree?.[DEGREES[r.degree]] ?? []) : [];

@@ -277,3 +277,23 @@ test("stepText: выбор, выбранный получатель, урон, �
   assert.match(stepText({ to: "self", damage: { formula: "1d8", damageType: "healing" } }, env, "self"), /chat\.stepHeal/);
   assert.match(stepText({ to: "allies", range: 15, condition: { slug: "frightened", policy: "reduce" } }, env, "self"), /chat\.stepReduce/);
 });
+
+test("choose from allies {of:target, withSelf}: кандидаты — союзники вокруг цели и сам автор, но не сам центр отсчёта (Защитная статуэтка)", async () => {
+  const seen = [];
+  setSocket({ executeAsUser: async (_n, _u, d) => { seen.push(d.choices.map((c) => c.value)); return d.choices[0].value; } });
+  const hero = mkActor("Actor.hero", { isAllyOf: (a) => a.ally, isEnemyOf: (a) => !a.ally, testUserPermission: () => true });
+  const bob = mkActor("Actor.bob", { ally: true }), foe = mkActor("Actor.foe", { ally: false });
+  const at = (id, actor, x, y) => ({ id, actor, x, y, width: 1, height: 1, name: id });   // клетка 100 px = 5 фт; герой и Боб в 5 фт от врага
+  const toks = [at("h", hero, 0, 100), at("b", bob, 100, 0), at("f", foe, 0, 0)];
+  const scene = { grid: { size: 100, measurePath: ([p, q]) => ({ distance: Math.hypot(p.x - q.x, p.y - q.y) / 20 }) }, tokens: { filter: (fn) => toks.filter(fn) } };
+  toks.forEach((t) => { t.parent = scene; });
+  const [tHero, , tFoe] = toks;
+  uuids.set("Scene.s.Token.h", tHero);
+  uuids.set(EFF, src("a"));
+  const player = { id: "p1", isGM: false, active: true };
+  const run = (c, id) => applyOps(mkMsg(use({ token: "Scene.s.Token.h" }), { id, author: player }), "self", [{ to: "self", choose: c }, { to: "chosen", effect: { uuid: EFF } }], { scope: "apply", target: tFoe });
+  await run({ from: "allies", range: 5, of: "target" }, "M1");
+  await run({ from: "allies", range: 5, of: "target", withSelf: true }, "M2");
+  assert.deepEqual(seen, [["Actor.bob"], ["Actor.hero", "Actor.bob"]]);
+  assert.equal(validate({ v: 1, onUse: { targets: "self", apply: [{ to: "self", choose: { from: "enemies", withSelf: true } }] } }).ok, false);   // withSelf — только у союзников
+});

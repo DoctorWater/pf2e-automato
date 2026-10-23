@@ -67,10 +67,10 @@ export const EVENT_HANDLERS = {
   rollSavingThrowVsBane: { side: "origin", challenge: { statistic: "will", dc: { source: "spell" }, immunity: { slug: "bane", duration: { value: 1, unit: "minutes" }, degrees: ["success", "criticalSuccess"] }, byDegree: Object.fromEntries(["success", "criticalSuccess"].map((d) => [d, [{ to: "target", removeEffect: { slug: "spell-effect-bane" } }]])) } },
   applyBaneImmunity: { absorbed: true },   // иммунитет и снятие эффекта — степени испытания rollSavingThrowVsBane
   // «Оружие небожителя» (Celestial Armaments): крит. попадание оружием при эффекте — Стойкость цели против СЛ класса/заклинаний (большей), провал — Blinded на 1d4 раунда; степени — из saving-throw правила группы
-  celestialArmaments: { challenge: { statistic: "fortitude", dc: { against: "class-spell" }, option: "celestial-armaments-st" } },
-  // «Защитная статуэтка» (Warding Statuette): попадание оружием с ней — выбранный союзник рядом (10 фт) с поражённым получает +1 к КБ; владелец — вложенный предмет оружия (sub-item), его опция есть у броска
+  celestialArmaments: { when: ["item:chosen:celestial-armaments:weapon"], challenge: { statistic: "fortitude", dc: { against: "class-spell" }, option: "celestial-armaments-st" } },
+  // «Защитная статуэтка» (Warding Statuette): попадание оружием с ней — выбранное существо рядом (5 фт: «adjacent»), в том числе сам владелец, получает +1 к КБ; владелец — вложенный предмет оружия (sub-item), его опция есть у броска
   wardingStatuetteAttack: { steps: [
-    { to: "self", choose: { from: "allies", range: 10, of: "target" } },
+    { to: "self", choose: { from: "allies", range: 5, of: "target", withSelf: true } },
     { to: "chosen", effect: { uuid: "Compendium.pf2e.equipment-effects.Item.gwiyabYi92R97bXZ" } }] },
   // «Охотник на чудовищ»: крит. успех Вспоминания (у мастера — и успех) метит жертву владельцу и союзнику по его выбору (choose); Monster Warden добавляет защиту
   monsterHunter: { steps: [
@@ -100,7 +100,7 @@ export function hasTokenMark(uuid) {
   return !!doc && (doc.system?.rules ?? []).some((r) => r.key === "TokenMark");
 }
 
-/** Шаги onEvent: эффект с TokenMark всегда получает `mark:"enemy"` (метка на цель события из use.targets двойника, apply.mjs). */
+/** Шаги onEvent: эффект с TokenMark всегда получает `mark:"enemy"` (метка на цель события из use.targets двойника, apply.mjs). Шаги onUse не трогаем: у них метка зависит от текста (Ghostbane Fulu — «вызвавший» существо, а не выбранная цель); у правил вердиктов g4 она проставлена вручную, проверяет тест. */
 export function withMarks(rule, has = hasTokenMark) {
   if (!rule?.onEvent?.length) return rule;
   const fix = (l) => l?.map((s) => (s.effect && !s.mark && has(s.effect.uuid) ? { ...s, mark: "enemy" } : s));

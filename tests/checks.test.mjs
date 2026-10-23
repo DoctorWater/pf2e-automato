@@ -254,6 +254,7 @@ test("applyImmunity: эффект на цель с флагом/автором, 
     const ops = await applyImmunity(m, "t1", tgt, imm, 2);
     assert.equal(ops.length, 1);
     assert.equal(created[0].flags[MOD].immunity.slug, "demoralize");
+    assert.equal(created[0].system.slug, "demoralize-immunity");   // roll option effect:<slug>-immunity для предикатов (Bane)
     assert.equal(created[0].system.context.origin.actor, "Actor.o");
     assert.deepEqual(created[0].system.duration, { sustained: false, value: 10, unit: "minutes", expiry: "turn-start" });
     assert.equal(m.flags[MOD].use.state.challenge.applied.t1.ops.length, 1);

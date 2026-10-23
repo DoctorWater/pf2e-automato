@@ -345,7 +345,8 @@ function evPart(r, item, ctx, spec, bound = false) {
   }
   if (!steps.length && !spec?.challenge) return { fail: MARKER, low: [] };
   if (rank) steps = steps.map((x) => ({ ...x, rank }));
-  const ev = { on, side: spec?.side ?? "self", ...(w.when && { when: w.when }), ...(spec?.once && { once: true }) };   // side:"origin" — запись лежит у автора эффекта (Bane: правило у заклинателя, спасается носитель эффекта)
+  const when = [...(w.when ?? []), ...(spec?.when ?? [])];   // spec.when — условия, которых нет в предикате PA (PA сверяет их кодом handler-а)
+  const ev = { on, side: spec?.side ?? "self", ...(when.length && { when }), ...(spec?.once && { once: true }) };   // side:"origin" — запись лежит у автора эффекта (Bane: правило у заклинателя, спасается носитель эффекта)
   return { ev, evSteps: steps, evChallenge: spec?.challenge ?? null, trigger: on, degrees: null, steps: [], own: false, imm: null, low, bound, selfOrTarget: false, selText: false, foreign: [], names };
 }
 
@@ -830,7 +831,7 @@ export function resolveAccepted(accepted, drafts, derive) {
     if (a.uuid && !a.accept) { const d = drafts.find((x) => x.uuid === a.uuid); out.push(d ? { slug: d.slug, type: d.type, name: d.name, status: "pa-port", ...(d.slugOnly && { slugOnly: true }), confidence: null, rule: null, ...a } : a); continue; }
     const docs = a.uuid ? drafts.filter((d) => d.uuid === a.uuid) : drafts.filter((d) => d.slug === a.slug && (!a.type || d.type === a.type) && (!a.scope || (a.scope === "npc") === d.uuid.includes(".Actor.")) && !own.has(d.uuid) && !["covered", "native", "false-coverage", "not-ported"].includes(d.paStatus));
     for (const d of docs) {
-      const { uuid, slug: s, type, slug, accept, ...rest } = a;
+      const { uuid, slug: s, type, slug, accept, partial, ...rest } = a;   // partial — перечень пробелов (annotateGaps), в запись каталога не идёт
       const rule = accept === "markup" ? derive(d) : accept ? d.rule ?? d.partial ?? null : (a.rule ?? null);
       if (accept && !rule) throw new Error(`pa-port: вердикт accept без правила: ${d.uuid} (${d.name})`);
       out.push({ uuid: d.uuid, slug: d.slug, type: d.type, name: d.name, status: "pa-port", ...(d.slugOnly && { slugOnly: true }), confidence: accept ? "manual" : null, ...rest, rule });
@@ -853,6 +854,20 @@ export function applyAccepted(drafts, accepted) {
   }
   return drafts;
 }
+
+/**
+ * 0.5g4 п.35: вердикт с `partial: [пробел, …]` — правило перенесено, но по тексту оно неполно (то, чего схема не выражает). Такой документ засчитывается перенесённым, если правило не слабее PA;
+ * слабее PA — долг, признака ему не ставят. Вердикт может нести правило (rule / accept) или быть чистой пометкой поверх выведенного правила. Совпадение — как у resolveAccepted (uuid либо slug + type + scope).
+ */
+export function annotateGaps(drafts, verdicts) {
+  for (const a of verdicts) {
+    if (!Array.isArray(a.partial)) continue;
+    for (const d of drafts) if (a.uuid ? d.uuid === a.uuid : d.slug === a.slug && (!a.type || d.type === a.type) && (!a.scope || (a.scope === "npc") === d.uuid.includes(".Actor."))) d.gaps = a.partial;
+  }
+  return drafts;
+}
+/** Пометки без собственного правила (только partial) не входят в resolveAccepted: правило у документа уже есть. */
+export const gapsOnly = (a) => Array.isArray(a.partial) && !a.rule && !a.accept && !a.paStatus && !a.debt;
 
 /** Статусы false-coverage / pa-wrong, выставленные вручную (нет метки sim), сверяются с симулятором: fires(d) = PA срабатывает на документе. */
 export function reconcileSim(drafts, fires, stats = {}) {
@@ -969,8 +984,10 @@ function main() {
   drafts.forEach((d) => { d.paStatus ??= "port"; });
   // ручной вердикт по документу (drafts-accepted/pa-port.json): paStatus — покрыто/ложное покрытие/pf2e делает сам; debt — долг в указанную подпачку
   // вердикты 0.5g4 лежат в своём файле и идут последними (при совпадении побеждает последняя запись)
-  const ap = join(ACCEPTED, "pa-port.json"), ap4 = join(ACCEPTED, "pa-port.g4.json"), acceptedItems = resolveAccepted([...(existsSync(ap) ? readJson(ap).items : []), ...(existsSync(ap4) ? readJson(ap4).items : [])], drafts, (d) => derivedOf(itBy.get(d.uuid), html[d.uuid] ?? "", ctx)?.rule ?? null);
+  const ap = join(ACCEPTED, "pa-port.json"), ap4 = join(ACCEPTED, "pa-port.g4.json"), verdicts = [...(existsSync(ap) ? readJson(ap).items : []), ...(existsSync(ap4) ? readJson(ap4).items : [])];
+  const acceptedItems = resolveAccepted(verdicts.filter((a) => !gapsOnly(a)), drafts, (d) => derivedOf(itBy.get(d.uuid), html[d.uuid] ?? "", ctx)?.rule ?? null);
   applyAccepted(drafts, acceptedItems);
+  annotateGaps(drafts, verdicts);
   // ручные «ложное покрытие» / «pa-wrong» проверяет симулятор: срабатывает — это pa-wrong (эффект противоречит тексту), не срабатывает — ложное покрытие
   simStats.manual = 0; simStats.manualToWrong = 0; simStats.manualToFalse = 0;
   reconcileSim(drafts, (d) => simOf(itBy.get(d.uuid)).length > 0, simStats);
@@ -1015,8 +1032,13 @@ function main() {
   }
   const debts = existsSync(join(ROOT, "pa-port-report.md")) ? parseDebts(readFileSync(join(ROOT, "pa-port-report.md"), "utf8")) : [];
   const outside = docs.falseCoverage + docs.paWrong + docs.notPorted;   // вне знаменателя: ложное покрытие, PA ошибается (при выключении PA верное не теряется), не переносимое по решению
+  // партиальные: перенесены (ported), но по тексту неполны; один пункт на slug и набор пробелов (копии NPC считаются в docs)
+  const partial = new Map();
+  for (const d of drafts.filter((x) => x.gaps && x.finalStatus === "ported")) { const k = `${d.slug}|${d.gaps.join("|")}`; const e = partial.get(k) ?? partial.set(k, { slug: d.slug, name: d.name, gaps: d.gaps, docs: 0 }).get(k); e.docs++; }
+  for (const d of drafts.filter((x) => x.gaps && x.finalStatus !== "ported" && x.paStatus !== "covered" && x.paStatus !== "false-coverage")) console.warn(`pa-port: partial без переноса (${d.finalStatus}): ${d.slug} ${d.uuid}`);
+  const partialList = [...partial.values()].sort((a, b) => a.slug.localeCompare(b.slug));
   const paWrongList = drafts.filter((d) => d.paStatus === "pa-wrong").map((d) => ({ uuid: d.uuid, slug: d.slug, name: d.name, reason: d.reason }));
-  const summary = { paVersion: config.version, docs: { ...docs, applicable: docs.total - outside, done: docs.ported + docs.covered + docs.native, percent: +((100 * (docs.ported + docs.covered + docs.native)) / (docs.total - outside)).toFixed(1) }, sim: simStats, paWrongList, debt: { total: docs.debt, ...debt }, groups: gs, manualReasonsByGroup: gmanual, catalog: { bySource: Object.keys(cat.bySource).length, bySlug: Object.keys(cat.bySlug).length, skipped }, debts };
+  const summary = { paVersion: config.version, docs: { ...docs, applicable: docs.total - outside, done: docs.ported + docs.covered + docs.native, partial: partialList.reduce((n, x) => n + x.docs, 0), percent: +((100 * (docs.ported + docs.covered + docs.native)) / (docs.total - outside)).toFixed(1) }, sim: simStats, paWrongList, partialList, debt: { total: docs.debt, ...debt }, groups: gs, manualReasonsByGroup: gmanual, catalog: { bySource: Object.keys(cat.bySource).length, bySlug: Object.keys(cat.bySlug).length, skipped }, debts };
   writeJson(outPath("pa-port.json"), summary);
   const head = `{"meta":${JSON.stringify({ batch: "pa-port", generatedAt: new Date().toISOString(), pf2eVersion: meta.pf2eVersion, paVersion: config.version, counts: docs })},\n"items":[\n`;
   writeText(join(ROOT, "rules/drafts/pa-port.json"), head + drafts.map((d) => JSON.stringify(d)).join(",\n") + "\n]}\n");

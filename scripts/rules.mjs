@@ -91,7 +91,7 @@ export const CHOOSE_FROM = ["allies", "enemies", "options"];
 /** Урон шага damage: типы урона и лечение (healing — формула лечит). */
 export const STEP_DAMAGE_TYPES = ["healing", ...DAMAGE_TYPES];
 
-function vApply(a, path, defTo, err) {
+function vApply(a, path, defTo, err, basicOk = false) {
   if (!isObj(a)) { err.push(E("notObj", path)); return null; }
   const out = { to: a.choose != null && a.to == null ? "self" : a.to ?? defTo };   // choose — выбор делает автор: получатель шага всегда «self»
   if (!APPLY_TO.includes(out.to) || (a.choose != null && out.to !== "self")) err.push(E("apply.to", `${path}.to`));
@@ -101,9 +101,9 @@ function vApply(a, path, defTo, err) {
     if (!isObj(c) || !CHOOSE_FROM.includes(c.from) || (c.prompt != null && !isStr(c.prompt))
       || (c.from === "options" ? !(opts?.length && opts.every((o) => isObj(o) && isStr(o.value) && SLUG.test(o.value) && (o.label == null || isStr(o.label)) && (o.when == null || isPredicate(o.when))) && new Set(opts.map((o) => o.value)).size === opts.length) : c.options != null)
       || (c.range != null && !(c.from !== "options" && isInt(c.range) && c.range >= 5))
-      || (c.of != null && !(c.from !== "options" && c.of === "target"))) err.push(E("choose.bad", `${path}.choose`));
+      || (c.of != null && !(c.from !== "options" && c.of === "target")) || (c.withSelf != null && !(c.withSelf === true && c.from === "allies"))) err.push(E("choose.bad", `${path}.choose`));
     // option.when — вариант виден, только если у автора выполнено условие (черта даёт вариант); of:"target" — радиус считается от цели события/карточки, а не от автора
-    else out.choose = { from: c.from, ...(opts && { options: opts.map((o) => ({ value: o.value, ...(o.label && { label: o.label }), ...(o.when && { when: o.when }) })) }), ...(c.prompt && { prompt: c.prompt }), ...(c.range != null && { range: c.range }), ...(c.of && { of: c.of }) };
+    else out.choose = { from: c.from, ...(opts && { options: opts.map((o) => ({ value: o.value, ...(o.label && { label: o.label }), ...(o.when && { when: o.when }) })) }), ...(c.prompt && { prompt: c.prompt }), ...(c.range != null && { range: c.range }), ...(c.of && { of: c.of }), ...(c.withSelf && { withSelf: true }) };
   }  const kinds = [...STEP_KINDS, "note"].filter((k) => a[k] != null);
   if (kinds.length !== 1) err.push(E("apply.kind", path));
   // range — радиус в футах, только у союзников (Живые щиты, Сеятель)
@@ -163,8 +163,8 @@ function vApply(a, path, defTo, err) {
   // damage — урон (или лечение, type "healing") по формуле: бросок и применение pf2e без кнопок, с учётом сопротивлений
   if (a.damage != null) {
     const g = a.damage;
-    // basic: true — «обычное» испытание: по степени ×0 / ×½ / ×1 / ×2 (крит. успех — ничего), как у карточки урона pf2e; не лечению
-    if (!isObj(g) || !isPersFormula(g.formula) || !STEP_DAMAGE_TYPES.includes(g.damageType) || (g.basic != null && (typeof g.basic !== "boolean" || (g.basic && g.damageType === "healing")))) err.push(E("dmg.bad", `${path}.damage`));
+    // basic: true — только в challenge.byDegree (нужна степень испытания); «обычное» испытание: по степени ×0 / ×½ / ×1 / ×2 (крит. успех — ничего), как у карточки урона pf2e; не лечению
+    if (!isObj(g) || !isPersFormula(g.formula) || !STEP_DAMAGE_TYPES.includes(g.damageType) || (g.basic != null && (typeof g.basic !== "boolean" || (g.basic && (!basicOk || g.damageType === "healing"))))) err.push(E("dmg.bad", `${path}.damage`));
     else out.damage = { formula: g.formula.trim().replace(/\s+/g, ""), damageType: g.damageType, ...(g.basic && { basic: true }) };
   }
   if (a.effect != null) {
@@ -211,10 +211,10 @@ function vApply(a, path, defTo, err) {
   return out;
 }
 
-function vApplyList(list, path, defTo, err) {
+function vApplyList(list, path, defTo, err, basicOk = false) {
   if (list == null) return [];
   if (!Array.isArray(list)) { err.push(E("notArr", path)); return []; }
-  const out = list.map((a, i) => vApply(a, `${path}[${i}]`, defTo, err));
+  const out = list.map((a, i) => vApply(a, `${path}[${i}]`, defTo, err, basicOk));
   // to:"chosen" — только после шага choose из allies/enemies в этом же списке
   let picked = false;
   out.forEach((a, i) => {
@@ -280,6 +280,7 @@ function vChallenge(c, path, err) {
     if (!Array.isArray(c[k]) || !c[k].every(isStr)) err.push(E("strList", `${path}.${k}`)); else out[k] = [...c[k]];
   }
   if (c.immunity != null) { const im = vImmunity(c.immunity, `${path}.immunity`, err); if (im) out.immunity = im; }
+  if (c.when != null) { if (!isPredicate(c.when)) err.push(E("apply.when", `${path}.when`)); else out.when = c.when; }   // условие на цель: не выполнено — цель не бросает и не показана
   if (c.rollerRole != null && c.rollerRole !== "target") err.push(E("ch.roller", `${path}.rollerRole`));
   out.rollerRole = "target";
   out.byDegree = {};
@@ -287,7 +288,7 @@ function vChallenge(c, path, err) {
     if (!isObj(c.byDegree)) err.push(E("degrees.obj", `${path}.byDegree`));
     else for (const [k, v] of Object.entries(c.byDegree)) {
       if (!DEGREES.includes(k)) { err.push(E("degrees.unknown", `${path}.byDegree.${k}`, { k })); continue; }
-      const list = vApplyList(v, `${path}.byDegree.${k}`, "target", err);
+      const list = vApplyList(v, `${path}.byDegree.${k}`, "target", err, true);
       if (list.length) out.byDegree[k] = list;
     }
   }

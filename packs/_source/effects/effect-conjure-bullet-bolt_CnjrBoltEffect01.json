@@ -5,7 +5,7 @@
   "img": "icons/svg/aura.svg",
   "system": {
     "description": {
-      "value": "<p>You conjure an ordinary level-0 bolt. If it isn't fired before the end of your turn, the effect is wasted.</p>"
+      "value": "<p>You conjure one ordinary level-0 bolt. If it isn't fired before the end of your turn, the effect is wasted.</p>"
     },
     "duration": {
       "expiry": "turn-end",
@@ -24,7 +24,7 @@
     "rules": [
       {
         "key": "GrantItem",
-        "uuid": "Compendium.pf2e.equipment-srd.Item.AITVZmakiu3RgfKo",
+        "uuid": "Compendium.pf2e-automato.equipment.Item.CnjrBoltItem0001",
         "onDeleteActions": {
           "granter": "cascade"
         }

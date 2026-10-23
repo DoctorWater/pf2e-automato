@@ -26,17 +26,17 @@ const csv = (s) => String(s ?? "").split(",").map((x) => x.trim()).filter(Boolea
 const DUR_BLANK = { durValue: "", durUnit: "rounds", durExpiry: "turn-start", durOf: "origin" };
 const VIS_BLANK = { visLevel: "hidden", visOf: "self", visUntil: "" };
 const PERS_BLANK = { pType: "fire" };   // продолжительный урон: формула — text, СЛ очистки — value
-const STEP_BLANK = { rankMin: "", rankMax: "", stack: false, stackBy: "", stackStart: "", unstack: false, replace: false, range: "", when: "", domain: "all", optOff: false, ofOrigin: false };
+const STEP_BLANK = { rankMin: "", rankMax: "", stack: false, stackBy: "", stackStart: "", unstack: false, replace: false, range: "", when: "", domain: "all", optOff: false, ofOrigin: false, dmgBasic: false };
 // у любого шага: круг от/до, условие when (строка опций через запятую или JSON), радиус союзников range; у эффекта: повтор увеличивает/уменьшает значок; rollOption — domain и «выключить»; removeEffect — ofOrigin
 export const blankRow = () => ({ to: "target", kind: "condition", text: "", value: "", policy: "max", keep: "", ...DUR_BLANK, ...VIS_BLANK, ...PERS_BLANK, ...STEP_BLANK });
 
 // поля шага, которых нет в форме (who/mark/choice/unlessEffect): едут в строке JSON-ом и разворачиваются обратно в applyOf
 const KEEP = ["who", "mark", "choice", "unlessEffect", "escape"];
-const keepOf = (a) => { const k = Object.fromEntries(KEEP.filter((n) => a[n] != null).map((n) => [n, a[n]])); if (a.damage?.basic) k.dmgBasic = true; return Object.keys(k).length ? JSON.stringify(k) : ""; };   // dmgBasic — «обычное» испытание у шага damage
+const keepOf = (a) => { const k = Object.fromEntries(KEEP.filter((n) => a[n] != null).map((n) => [n, a[n]])); return Object.keys(k).length ? JSON.stringify(k) : ""; };   // dmgBasic — «обычное» испытание у шага damage
 
 function rowOf(a) {
   return { ...rowCore(a), rankMin: a.rank?.min ?? "", rankMax: a.rank?.max ?? "", stack: a.effect?.badge === "increment", stackBy: a.effect?.by ?? "", stackStart: a.effect?.start ?? "", unstack: a.effect?.badge === "decrement", replace: !!a.effect?.replace,
-    range: a.range ?? "", when: whenText(a.when), domain: a.rollOption?.domain ?? "all", optOff: a.rollOption?.value === false, ofOrigin: a.removeEffect?.of === "origin" };
+    range: a.range ?? "", when: whenText(a.when), domain: a.rollOption?.domain ?? "all", optOff: a.rollOption?.value === false, ofOrigin: a.removeEffect?.of === "origin", dmgBasic: !!a.damage?.basic };
 }
 
 function rowCore(a) {
@@ -64,7 +64,7 @@ export function applyOf(r) {
   let keep = {};
   try { keep = r.keep ? JSON.parse(r.keep) : {}; } catch { /* битая строка: прочие поля не восстанавливаем */ }
   for (const n of KEEP) if (keep[n] != null && !((n === "mark" || n === "choice") && !out.effect)) out[n] = keep[n];   // mark/choice валидны только у effect
-  if (keep.dmgBasic && out.damage) out.damage.basic = true;
+  if ((r.dmgBasic === true || r.dmgBasic === "true") && out.damage) out.damage.basic = true;   // «обычное» испытание: ×0 / ×½ / ×1 / ×2 по степени (допустимо только в byDegree испытания)
   const lo = num(r.rankMin), hi = num(r.rankMax);
   if (lo !== undefined || hi !== undefined) out.rank = { ...(lo !== undefined && { min: lo }), ...(hi !== undefined && { max: hi }) };
   const when = parseWhen(r.when);
@@ -152,7 +152,7 @@ export function ruleToForm(rule) {
       on: !!c, statistic: c?.statistic ?? "reflex",
       dcType: dc.expr === "markup" ? "markup" : dc.source ? "source" : dc.against != null ? "against" : dc.expr != null ? "expr" : "value",
       dcText: dc.value ?? (dc.expr === "markup" ? "" : dc.expr ?? dc.against ?? ""),
-      basic: !!c?.basic, traits: (c?.traits ?? []).join(", "), options: (c?.options ?? []).join(", "),
+      basic: !!c?.basic, traits: (c?.traits ?? []).join(", "), options: (c?.options ?? []).join(", "), when: whenText(c?.when),
       imm: immForm(c?.immunity),
       deg: degRows(c?.byDegree)
     },
@@ -192,6 +192,7 @@ export function formToRule(f) {
       u.challenge = {
         statistic: c.statistic, dc, basic: !!c.basic, rollerRole: "target", byDegree: degSteps(c.deg),
         ...(csv(c.traits).length && { traits: csv(c.traits) }), ...(csv(c.options).length && { options: csv(c.options) }),
+        ...(parseWhen(c.when) !== undefined && { when: parseWhen(c.when) }),
         ...(c.imm?.on && { immunity: immRule(c.imm) })
       };
     }

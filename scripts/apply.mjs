@@ -163,7 +163,7 @@ export async function dealDamage(actor, spec, vars = {}, token = null, degree = 
   const DamageRoll = CONFIG.Dice.rolls.find((r) => r.name === "DamageRoll");
   const heal = spec.damageType === "healing";
   const roll = await new DamageRoll(`(${formula})[${spec.damageType}]`).evaluate();
-  token ??= actor.getActiveTokens?.(true, true)?.[0] ?? null;
+  token ??= actor.getActiveTokens?.(true, true)?.[0] ?? actor.prototypeToken;   // pf2e applyDamage читает token.name: без токена на сцене — прототип
   const dealt = mult === 1 ? roll : roll.alter(mult, 0);   // как у карточки урона pf2e: слагаемые умножаются, сопротивления считаются после
   if (heal) await actor.applyDamage({ damage: -roll.total, token, skipIWR: true });
   else await actor.applyDamage({ damage: dealt, token });
@@ -248,7 +248,7 @@ export function setRollOption(actor, spec) {
 
 /** Получатели «party» и «allies»: участники партий автора; союзники автора в радиусе range футов от его токена без преграды стен (как PA OnlyAllyWithinRange). */
 const partyOf = (actor) => [...new Map([...(actor?.parties ?? [])].flatMap((p) => [...p.members]).map((m) => [m.uuid, m])).values()];
-function alliesIn(actor, token, range, rel = "isAllyOf") {
+function alliesIn(actor, token, range, rel = "isAllyOf", withSelf = false) {   // withSelf — сам автор тоже кандидат (если он не центр отсчёта)
   const src = token?.object, scene = token?.parent;
   if (!actor || !scene) return [];
   // сцена не на холсте (нет .object): расстояние по документам (центры токенов), стены проверить нечем — предупреждаем ГМа
@@ -257,7 +257,7 @@ function alliesIn(actor, token, range, rel = "isAllyOf") {
   const dist = (t) => (live && t.object ? src.distanceTo(t.object) : scene.grid.measurePath([center(token), center(t)]).distance);
   if (range != null && !live) notify("apply.noWalls", { name: token.name ?? "" });
   // range == null — вся сцена, без стен (выбор союзника/врага шагом choose)
-  const hit = scene.tokens.filter((t) => t.actor && t.actor !== actor && actor[rel](t.actor) && (range == null || dist(t) <= range)
+  const hit = scene.tokens.filter((t) => t.actor && (t.actor === actor ? withSelf && token.actor !== actor : actor[rel](t.actor)) && (range == null || dist(t) <= range)
     && !(range != null && live && t.object && CONFIG.Canvas.polygonBackends.move.testCollision(t.object.center, src.center, { type: "move", mode: "any", ...(token.level && { level: token.level }) }))).map((t) => t.actor);
   return [...new Map(hit.map((a) => [a.uuid, a])).values()];
 }
@@ -482,7 +482,7 @@ export async function applyOps(message, tokenKey, steps, ctx = {}) {
           value = choices.length === 1 ? choices[0].value : await askChoice(ectx.chooser, title, c.prompt ?? L("apply.prompt.options"), choices);
         } else {
           const centre = c.of === "target" ? targetDoc : originToken;   // of:"target" — расстояние от цели броска/карточки
-          const list = alliesIn(selfActor, centre, c.range ?? null, c.from === "enemies" ? "isEnemyOf" : "isAllyOf");
+          const list = alliesIn(selfActor, centre, c.range ?? null, c.from === "enemies" ? "isEnemyOf" : "isAllyOf", !!c.withSelf);
           if (!list.length) { notify("apply.noCandidates", { name: title }); continue; }
           const uuid = await askChoice(ectx.chooser, title, c.prompt ?? L(`apply.prompt.${c.from}`), list.map((a) => ({ value: a.uuid, label: a.token?.name ?? a.name })));
           chosen = list.find((a) => a.uuid === uuid) ?? null;
@@ -495,8 +495,16 @@ export async function applyOps(message, tokenKey, steps, ctx = {}) {
       continue;
     }
     if (step.damage) {
-      if (doneOps.some((o) => o.key === meta.key)) continue;
-      const r = await dealDamage(actor, step.damage, persVars, step.to === "target" && targetDoc?.actor ? targetDoc : step.to === "self" ? originToken : null, ctx.degree ?? null);
+      // Журнал нанесённого урона (state.damaged) переживает откат записи: pf2e откатывает урон своей карточкой, повтор шага его не повторяет.
+      // Степень в ключе не участвует: переброс испытания после отката не бьёт второй раз.
+      const dkey = scope === "challenge" && !ctx.stepKey ? `${meta.key.slice(0, -stepKey.length)}c.${i}` : meta.key;
+      const r = await queue(`msg:${message.id}`, async () => {
+        const log = foundry.utils.getProperty(message, flagPath("use", "state", "damaged")) ?? [];
+        if (doneOps.some((o) => o.key === meta.key) || log.includes(dkey)) return null;
+        const dealt = await dealDamage(actor, step.damage, persVars, step.to === "target" && targetDoc?.actor ? targetDoc : step.to === "self" ? originToken : null, ctx.degree ?? null);
+        if (dealt) await message.update({ [flagPath("use", "state", "damaged")]: [...log, dkey] });   // сразу после урона, не в конце вызова
+        return dealt;
+      });
       if (r) ops.push({ op: "damaged", actor: actor.uuid, amount: r.amount, key: meta.key });
       continue;
     }

@@ -6,6 +6,7 @@ import { headOf } from "./builtin/lib.mjs";
 import { inRange } from "./range.mjs";
 import { toolbeltTargetHelper, toolbeltMessageTargets } from "./compat.mjs";
 import { applyOps } from "./apply.mjs";
+import { testPredicate } from "./predicate.mjs";
 import { runMacros } from "./macros.mjs";
 import { runCheck, findCheckByOrigin, applyImmunity, isCheck, isImmune } from "./checks.mjs";
 
@@ -99,6 +100,19 @@ export async function resolveDC(use, ctx = {}) {
 export async function challengeTargets(message) {
   const use = useOf(message);
   if (!use) return [];
+  const ch = challengeOf(use);
+  return (await challengeTargetsAll(message, use)).filter((t) => challengeApplies(ch, t.token?.actor, use.actor));
+}
+
+/** challenge.when — условие на цель (target:*, target:self): не выполнено — цель не бросает и в карточке не показана (Возложение рук: бросает только нежить). */
+export function challengeApplies(ch, actor, authorUuid) {
+  if (!ch?.when || !actor) return true;
+  const o = new Set(["target", ...(actor.getSelfRollOptions?.("target") ?? [])]);
+  if (authorUuid && actor.uuid === authorUuid) o.add("target:self");
+  return testPredicate(ch.when, o);
+}
+
+async function challengeTargetsAll(message, use) {
   if (S.get("useToolbeltTargetHelper")) {
     const tb = toolbeltMessageTargets(message);
     const far = new Set((use.targets ?? []).filter((t) => t.far).map((t) => t.key));   // цели Toolbelt берутся из его списка — вне дальности отсеиваем по снимку

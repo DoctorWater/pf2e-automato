@@ -1,0 +1,82 @@
+{
+  "_id": "CnjrBulletItem01",
+  "name": "Sling Bullet (conjured)",
+  "type": "ammo",
+  "img": "systems/pf2e/icons/equipment/weapons/sling-bullets.webp",
+  "system": {
+    "description": {
+      "gm": "",
+      "value": ""
+    },
+    "baseItem": "sling-bullets",
+    "bulk": {
+      "value": 0.1
+    },
+    "containerId": null,
+    "craftableAs": null,
+    "hardness": 0,
+    "hp": {
+      "max": 0,
+      "value": 0
+    },
+    "level": {
+      "value": 0
+    },
+    "material": {
+      "grade": null,
+      "type": null
+    },
+    "price": {
+      "per": 10,
+      "value": {
+        "cp": 1
+      }
+    },
+    "publication": {
+      "license": "ORC",
+      "remaster": true,
+      "title": "Pathfinder Player Core"
+    },
+    "quantity": 1,
+    "rules": [],
+    "size": "med",
+    "traits": {
+      "rarity": "common",
+      "value": [
+        "consumable"
+      ]
+    },
+    "uses": {
+      "autoDestroy": true,
+      "max": 1,
+      "value": 1
+    },
+    "slug": "sling-bullets",
+    "equipped": {
+      "carryType": "worn"
+    },
+    "_migration": {
+      "version": 0.959,
+      "previous": null
+    }
+  },
+  "effects": [],
+  "folder": null,
+  "sort": 0,
+  "ownership": {
+    "default": 0
+  },
+  "flags": {},
+  "_stats": {
+    "coreVersion": "14.366",
+    "systemId": "pf2e",
+    "systemVersion": "8.6.1",
+    "createdTime": null,
+    "modifiedTime": null,
+    "lastModifiedBy": null,
+    "compendiumSource": null,
+    "duplicateSource": null,
+    "exportSource": null
+  },
+  "_key": "!items!CnjrBulletItem01"
+}

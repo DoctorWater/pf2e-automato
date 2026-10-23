@@ -76,7 +76,7 @@ test("признак эффекта, выданный предмет, групп
 
 test("данные пака: флаги gear ведут в существующие предметы и эффекты, выданное уходит каскадом granter, схема pf2e 8.6.1", () => {
   const eff = Object.fromEntries(sourceDocs("effects").map((d) => [d._id, d])), eq = Object.fromEntries(sourceDocs("equipment").map((d) => [d._id, d]));
-  assert.equal(Object.keys(eq).length, 5);
+  assert.equal(Object.keys(eq).length, 5 + 2);   // 5 предметов gear + 2 боеприпаса Conjure Bullet (pa-effects.authored.mjs)
   for (const [id, g] of Object.entries(GEAR)) {
     assert.deepEqual(eff[id].flags["pf2e-automato"].gear, g, id);
     for (const k of ["armor", "shield"]) if (g[k]) assert.equal(eq[g[k].split(".").pop()]?.type, k, `${id}.${k}`);

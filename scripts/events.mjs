@@ -66,6 +66,10 @@ export function damageOptions(applied) {
  * Опции `item:attack-effect:<slug>` для Удара: pf2e связывает пассивные способности NPC с Ударом через его attackEffects (tongue-grab у «Языка»).
  * Правило способности («при попадании цель схвачена») ловит именно такие Удары, а не любые Удары существа.
  */
+/** Предмет броска выбран эффектом бросавшего (ChoiceSet с flag): `item:chosen:<slug эффекта>:<flag>` (Celestial Armaments: оружие из выбора эффекта). */
+export const chosenOptions = (actor, item) => !item?.id ? [] : (actor?.itemTypes?.effect ?? []).flatMap((e) => Object.entries(e.flags?.pf2e?.rulesSelections ?? {}).filter(([, v]) => v === item.id).flatMap(([k]) => [...new Set([e.slug, e.slug.replace(/^(?:spell-)?effect-/, "")])].map((sl) => `item:chosen:${sl}:${k}`)));
+/** uuid предмета компендия среди выбранных значений ChoiceSet эффекта (rulesSelections) или null. */
+export const chosenSourceUuid = (effect) => Object.values(effect?.flags?.pf2e?.rulesSelections ?? {}).find((v) => typeof v === "string" && v.startsWith("Compendium.")) ?? null;
 export const attackEffectOptions = (strike) => (strike?.system?.attackEffects?.value ?? []).filter((e) => typeof e === "string" && e).map((e) => `item:attack-effect:${e}`);
 
 /** Опции эффекта для `when` у effect-created/-deleted: `effect:<slug>`, `item:slug:<slug>`, `effect:origin` (у эффекта есть автор). */
@@ -140,7 +144,8 @@ export async function runEntry(ev, owner, { item, rule }, { i, entry }, sink = n
   const slug = rules.slugOf(null, item), src = rules.sourceOf(null, item);
   // эффект-носитель на «чужом» актёре (Маска ужаса, репеллент): СЛ испытания — у автора эффекта и его предмета-источника, а не у носителя
   const origin = item.type === "effect" ? item.system?.context?.origin : null;
-  const authorItem = origin?.item ? await safeDoc(origin.item) : null;
+  // предмет автора исчез (расходник уничтожен последней единицей): СЛ берём из предмета компендия, выбранного ChoiceSet эффекта (Репеллент: вариант — uuid расходника)
+  const authorItem = item.type === "effect" ? (origin?.item && await safeDoc(origin.item)) || await safeDoc(chosenSourceUuid(item)) : null;
   const snap = (r, kind) => buildSnapshot({
     kind, resolved: { rule: r, source: "catalog", slug, sourceUuid: src, confidence: "high" },
     item: kind === "use" && authorItem ? { uuid: authorItem.uuid, name: authorItem.name, type: authorItem.type, sourceId: rules.sourceOf(null, authorItem) } : { uuid: item.uuid, name: item.name, type: item.type, sourceId: src },
@@ -242,6 +247,7 @@ function messageOptions(message, { actor, target }, on) {
     ...(actor?.getRollOptions?.() ?? []), ...(actor?.getSelfRollOptions?.("self") ?? []), ...(target ? ["target", ...(target.getSelfRollOptions?.("target") ?? [])] : [])]);
   if (on === "damage-taken") for (const o of damageOptions(pf.appliedDamage)) set.add(o);
   for (const o of attackEffectOptions(message.item)) set.add(o);
+  for (const o of chosenOptions(actor, message.item)) set.add(o);
   for (const s of message.item?.subitems ?? []) if (s.slug) set.add(`sub-item:${s.slug}`);   // как у PA: вложенные предметы оружия, которым нанесён бросок
   const roll = message.rolls?.[0], idx = DEGREES.indexOf(ctx.outcome);
   const degree = roll?.degreeOfSuccess ?? (idx >= 0 ? idx : null);

@@ -1,0 +1,26 @@
+# git archive (релизный zip): служебное в архив не попадает; README, LICENSE, CHANGELOG остаются
+tools/** export-ignore
+tests/** export-ignore
+prototypes/** export-ignore
+rules/drafts/** export-ignore
+rules/drafts-accepted/** export-ignore
+.impeccable/** export-ignore
+.gitignore export-ignore
+.gitattributes export-ignore
+/DESIGN.md export-ignore
+/K7-notes.md export-ignore
+/PRODUCT.md export-ignore
+/ROADMAP.md export-ignore
+/WORKERS.md export-ignore
+/architecture.md export-ignore
+/brief.md export-ignore
+/coverage.md export-ignore
+/inventory-report.md export-ignore
+/pa-port-report.md export-ignore
+/party-report.md export-ignore
+/plan-review.md export-ignore
+/plan.md export-ignore
+/seam-review.md export-ignore
+/test-results.md export-ignore
+/inventory-campaign.json export-ignore
+/party-inventory.json export-ignore

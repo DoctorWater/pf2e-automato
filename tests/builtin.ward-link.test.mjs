@@ -52,10 +52,18 @@ test("группа прикрытия выводится из текста: ди
   const d = (slug, descEn, extra = {}) => ({ type: "feat", slug, descEn, ...extra });
   const { cover, debt } = buildCover([
     d("a", "Shield Block when an ally within 10 feet is hit"), d("m", "Shield Block when your mount would take damage"),
-    d("s", "Shield Block when an ally adjacent to you is attacked", { selfEffect: "x", traits: ["stance"] }), d("g", "Shield Block, nothing"), d("g", "Shield Block when an adjacent ally is hit")
+    d("s", "Shield Block when an ally adjacent to you is attacked", { selfEffect: "x", traits: ["stance"] }), d("g", "Shield Block, nothing", { uuid: "U1" }), d("g", "Shield Block when an adjacent ally is hit", { uuid: "U2" })
   ]);
-  assert.deepEqual(cover, { a: { feet: 10 }, s: { feet: 5, stance: "stance-s" } });
-  assert.deepEqual(debt, { g: "slug-shared", m: "mount-link" });
+  assert.deepEqual(cover, { a: { feet: 10 }, g: { feet: 5, sources: ["U2"] }, s: { feet: 5, stance: "stance-s" } });   // общий slug — по исходному документу
+  assert.deepEqual(debt, { g: "actor-source-only", m: "mount-link" });
+  assert.equal(ward.COVER["living-shield"].feet, 10);
+  // реальная форма: у предмета NPC compendiumSource нет, он есть у актёра (…Actor.<id>)
+  const held = (slug, src) => ({ _stats: { compendiumSource: src }, items: [{ type: "action", slug, sourceId: null, _stats: { compendiumSource: null } }] });
+  cover.g.sources = ["Compendium.p.Actor.AID.Item.I2"];
+  assert.equal(ward.coverSlug(held("g", "Compendium.p.Actor.AID"), cover), "g");
+  assert.equal(ward.coverSlug(held("g", "Compendium.p.Actor.OTHER"), cover), null);   // другая способность с тем же slug
+  assert.equal(ward.coverSlug(held("g", null), cover), null);   // актёр не из пака — не срабатывает
+  assert.equal(ward.coverSlug(held("a", null), cover), "a");
   assert.ok(ward.COVER["shield-warden"] && ward.COVER["blanket-defense"] && ward.COVER["shield-warden-fighter"] && ward.COVER["guardian-shield"]);
 });
 
@@ -171,4 +179,17 @@ test("учёт pa-port: обработчики PA группы -> встроен
   assert.equal(BUILTIN_HANDLERS.wardensBoon, "prey-share");
   assert.equal(BUILTIN_HANDLERS.sharedPrey, "prey-share");
   assert.deepEqual(Object.values(SCRIPT_EFFECTS), ["damage-link", "damage-link"]);
+});
+
+test("Тройная угроза: одна добыча — два союзника, две — один; Общая добыча — один при одной добыче", () => {
+  assert.deepEqual(share.PASSIVE_ALLIES["triple-threat"], [2, 1]);
+  assert.deepEqual(share.PASSIVE_ALLIES["shared-prey"], [1]);
+  assert.equal(share.PASSIVE_ALLIES["shared-prey"][1], undefined);   // две добычи — 0 (`?? 0` в afterHunt)
+});
+
+test("учёт Heal/Harm: заклинание компендиума покрыто обработчиком (у PC с чертой PA срабатывает), копии NPC без черты — false-coverage", async () => {
+  const { readFileSync } = await import("node:fs");
+  const acc = JSON.parse(readFileSync(new URL("../rules/drafts-accepted/pa-port.json", import.meta.url), "utf8")).items.filter((a) => ["heal", "harm"].includes(a.slug) && /channeling-block/.test(a.reason));
+  assert.equal(acc.length, 4);
+  for (const a of acc) assert.equal(a.paStatus, a.uuid.includes(".spells-srd.") ? "covered" : "false-coverage", a.uuid);
 });

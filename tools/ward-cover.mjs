@@ -1,7 +1,7 @@
 // Группа «щит прикрывает союзника»: черты и способности, дающие Блок щитом за другого (scripts/builtin/shield-ward.mjs). У pf2e этого нет в правилах, только в тексте,
 // поэтому таблицу с дистанцией выводим из английского текста паков (tools/out/items.json) и пишем в scripts/builtin/ward-cover.data.mjs. Запуск: node tools/ward-cover.mjs
 // Признак: «Shield Block … (adjacent ally | ally adjacent | ally within N feet)» либо «(adjacent ally | ally within N feet) … Shield Block». Скакун («your mount») связи всадник–скакун
-// в данных не имеет — в долг с причиной. Слаг с документами, не подходящими под признак (общий «shield-block»), не берём.
+// в данных не имеет — в долг с причиной. Общий slug у несвязанных документов (shield-block, living-shield): запись несёт sources — uuid документов-попаданий, а в рантайме сверяется с _stats.compendiumSource актёра (у предметов NPC его нет); актёр не из пака — не срабатывает (в COVER_DEBT: actor-source-only).
 import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { ROOT, readOut, stripHtml, isMain } from "./lib.mjs";
@@ -36,11 +36,12 @@ export function buildCover(items) {
   for (const [slug, docs] of [...by].sort((a, b) => a[0].localeCompare(b[0]))) {
     const hits = docs.filter((d) => d.c);
     if (!hits.length) continue;
-    if (hits.length < docs.length) { debt[slug] = "slug-shared"; continue; }   // общий slug у несвязанных способностей (shield-block, living-shield): по slug не различить
-    const c = hits[0].c;
-    if (c.mount) { debt[slug] = "mount-link"; continue; }
+    const ok = hits.filter((d) => !d.c.mount);
+    if (!ok.length) { debt[slug] = "mount-link"; continue; }
+    const shared = hits.length < docs.length;   // общий slug у несвязанных способностей (shield-block, living-shield): по slug не различить — запись несёт sources (исходные документы)
     const stance = docs.some((d) => d.it.selfEffect && (d.it.traits ?? []).includes("stance"));   // эффект стойки pf2e: slug «stance-<slug>»
-    cover[slug] = { feet: Math.max(...hits.map((d) => d.c.feet ?? 5)), ...(c.physical && { physical: true }), ...(stance && { stance: `stance-${slug}` }) };
+    if (shared) debt[slug] = "actor-source-only";   // работает только у NPC, созданных из пака (compendiumSource актёра)
+    cover[slug] = { feet: Math.max(...ok.map((d) => d.c.feet ?? 5)), ...(ok[0].c.physical && { physical: true }), ...(stance && { stance: `stance-${slug}` }), ...(shared && { sources: ok.map((d) => d.it.uuid).filter(Boolean) }) };
   }
   return { cover, debt };
 }

@@ -3,9 +3,9 @@
 //    добавляется подсказка держателю; по кнопке урон применяется к союзнику с подменой щита на щит держателя, а урон щиту записывается держателю.
 // 2) GUARD — Преданный страж: союзнику +1/+2 круговой бонус к КЗ, пока щит держателя поднят (предикат pf2e parent:origin:shield:raised).
 // У pf2e в данных этих черт правил нет, только текст: таблица COVER (slug -> дистанция, физический урон, стойка) выводится из текста паков
-// инструментом tools/ward-cover.mjs в ward-cover.data.mjs — перечня руками нет; не берётся то, что по slug не различить (COVER_DEBT: скакун, общий slug).
+// инструментом tools/ward-cover.mjs в ward-cover.data.mjs — перечня руками нет; общий slug несвязанных способностей различается по sources (исходный документ); COVER_DEBT: скакун.
 import { L, MOD, queue } from "../util.mjs";
-import { esc, whisper, cardButton, paHas, heldSlug, itemSlug, effectSource, addEffect, messageTargets, worldActors } from "./lib.mjs";
+import { esc, whisper, cardButton, paHas, itemSlug, effectSource, addEffect, messageTargets, worldActors } from "./lib.mjs";
 import { COVER } from "./ward-cover.data.mjs";
 import * as channeling from "./channeling-block.mjs";
 
@@ -42,13 +42,24 @@ export function shieldDamage(message, shieldId) {
   return s?.id === shieldId ? s.damage : null;
 }
 
+/** Чистая: черта актёра из COVER -> slug | null. Запись с sources (общий slug у несвязанных способностей) считается только у актёра, созданного из того NPC пака (_stats.compendiumSource = начало uuid предмета):
+ *  у предметов NPC своего compendiumSource нет. Актёр без признака (не из пака) такие записи не получает — ограничение. */
+export function coverSlug(actor, cover = COVER) {
+  const from = actor?._stats?.compendiumSource ?? actor?.sourceId;
+  for (const i of actor?.items ?? []) {
+    const slug = i.type !== "effect" && itemSlug(i), e = slug && cover[slug];
+    if (e && (!e.sources || (from && e.sources.some((s) => s.startsWith(`${from}.Item.`))))) return slug;
+  }
+  return null;
+}
+
 /** Подсказки держателям: токены сцены с чертой из COVER, достающие до прикрываемой цели. deps — функции shield-block.mjs (цикл импорта не нужен). */
 export async function guardHints(message, token, { raisedShield, reactionAvailable, attack }) {
   const ally = token.actor, types = damageTypes(message);
   for (const t of canvas?.tokens?.placeables ?? []) {
     const guard = t.actor;
     if (!guard || guard.uuid === ally.uuid || !guard.isAllyOf?.(ally) || !token.object) continue;
-    const slug = heldSlug(guard, Object.keys(COVER));
+    const slug = coverSlug(guard);
     if (!slug || paHas(slug)) continue;
     const shield = raisedShield(guard.attributes?.shield), entry = COVER[slug];
     if (!shield || !canCover({ entry, raised: true, hp: guard.hitPoints?.value, reaction: reactionAvailable(guard), distance: t.distanceTo(token.object), types, attack, stance: !entry.stance || guard.itemTypes.effect.some((e) => e.slug === entry.stance) })) continue;

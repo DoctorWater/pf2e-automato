@@ -15,8 +15,21 @@ export const COVER = {
   "lastwall-warden": {
     "feet": 5
   },
+  "living-shield": {
+    "feet": 10,
+    "sources": [
+      "Compendium.pf2e.pathfinder-bestiary.Actor.qkWkshBHyTbLP07b.Item.3HPvO9ipnRupy7G0"
+    ]
+  },
   "paragon-benefit-shield": {
     "feet": 15
+  },
+  "shield-block": {
+    "feet": 5,
+    "sources": [
+      "Compendium.pf2e.hellbreakers-bestiary.Actor.ZZAxu68icExP415I.Item.gc3OmkkBpyHVGxuy",
+      "Compendium.pf2e.pathfinder-npc-core.Actor.fSwCwS75z9FeUazU.Item.gc3OmkkBpyHVGxuy"
+    ]
   },
   "shield-warden": {
     "feet": 5
@@ -26,7 +39,7 @@ export const COVER = {
   }
 };
 export const COVER_DEBT = {
-  "living-shield": "slug-shared",
+  "living-shield": "actor-source-only",
   "mounted-shield": "mount-link",
-  "shield-block": "slug-shared"
+  "shield-block": "actor-source-only"
 };

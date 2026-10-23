@@ -182,8 +182,8 @@ const immGate = (ctx, t) => {
   return id && `Compendium.pf2e-automato.effects.Item.${id}`;
 };
 /** Условие «эффект самого шага есть / нет» у шага значка лишнее: шаг сам смотрит на наличие эффекта (slug сравниваем, чужие эффекты остаются). -> предикат без них | null. */
-const noPresence = (w, slug) => {
-  const own = (t) => typeof t === "string" && (t === `self:effect:${slug}` || t === `target:effect:${slug}`);
+const noPresence = (w, slug, gates = new Set()) => {
+  const own = (t) => typeof t === "string" && (t === `self:effect:${slug}` || t === `target:effect:${slug}` || gates.has(t));
   const k = w.filter((t) => !own(t) && !own(t?.not));
   return k.length ? k : null;
 };
@@ -330,7 +330,7 @@ function evPart(r, item, ctx, spec, bound = false) {
   if (!on) return { fail: `trigger:${r.triggerType}`, low: [] };
   if (!ctx.owner) return { fail: "event-carrier", low: [] };   // чужой slug в предикате (Strike у «Боевого выступления»): правило на фите-владельце, у этого документа — вердикт covered
   const { rank, rest } = rankOf(r.predicate);
-  const mapped = mapEffectOpts(rest, ctx.paEffects);
+  const mapped = mapEffectOpts(rest, ctx.paEffects, ctx.effects);
   if (!mapped) return { fail: "event-predicate:pa-effect", low: [] };
   const w = eventWhen(mapped, item, on, { optStrings, OWN });
   if (w.fail) return { ...w, low: [] };
@@ -516,9 +516,12 @@ export function translateItem(item, html, group, ctx0, { slugOnly = false, viaSo
   for (const p of parts) p.low = p.low.filter((l) => !p.foreign.some((f) => `predicate:${f.tok}` === l && parts.some((q) => q !== p && sig(q) === sig(p) && q.foreign.some((g) => g.tok === f.tok && g.pol !== f.pol))));
   // повтор увеличивает значок: «эффекта нет / он уже есть» — две половины одного шага, условие на наличие эффекта лишнее
   const badgeEff = new Set(parts.flatMap((p) => p.steps.filter((s) => s.effect?.badge).map((s) => s.effect.uuid)));
+  // эффект в предикате PA назван иначе, чем наш (Bless: aura-bless при эффекте bless): «есть / нет» одного и того же эффекта у двух шагов группы — те же ворота присутствия
+  const gates = new Set(), hasBadge = (s) => s.effect && badgeEff.has(s.effect.uuid);
+  for (const q of parts) for (const s of q.steps) if (hasBadge(s)) for (const t of s.when ?? []) if (typeof t?.not === "string" && /^(?:self|target):effect:/.test(t.not) && parts.some((o) => o.steps.some((x) => hasBadge(x) && x.when?.includes(t.not)))) gates.add(t.not);
   if (badgeEff.size) for (const p of parts) if (p.steps.some((s) => s.effect && badgeEff.has(s.effect.uuid))) {
     p.low = p.low.filter((l) => !/^predicate:(?:self|target):effect:/.test(l));
-    p.steps = p.steps.map((s) => { if (!s.when) return s; const { when, ...r } = s, w = noPresence(when, optSlug(ctx.effects?.[s.effect?.uuid] ?? ctx.paEffects?.[/\w+$/.exec(s.effect?.uuid ?? "")?.[0]]?.name ?? "")); return w ? { ...r, when: w } : r; });
+    p.steps = p.steps.map((s) => { if (!s.when) return s; const { when, ...r } = s, w = noPresence(when, optSlug(ctx.effects?.[s.effect?.uuid] ?? ctx.paEffects?.[/\w+$/.exec(s.effect?.uuid ?? "")?.[0]]?.name ?? ""), gates); return w ? { ...r, when: w } : r; });
   }
   const build = () => {
     const apply = [], byDegree = {}, kinds = new Set(), lowAdd = [], imms = [...new Set(plain.filter((p) => p.imm).map((p) => JSON.stringify(p.imm)))].map((x) => JSON.parse(x));

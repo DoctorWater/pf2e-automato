@@ -199,3 +199,12 @@ test("Predictable!: степень — шаг effect.choice (2 / 1 / −1), бе
 test("Оглушающие удары: испытание с чертой incapacitation", () => {
   assert.deepEqual(ev.EVENT_HANDLERS.stunningBlows.challenge.traits, ["incapacitation"]);
 });
+
+test("событие: опция заменённого эффекта PA переписывается на slug замены pf2e (Bless), без замены — долг", () => {
+  const BL = "Compendium.pf2e.spell-effects.Item.BBBBBBBBBBBBBBBB", NO = "Compendium.pf2e.spell-effects.Item.CCCCCCCCCCCCCCCC";
+  const c = { ...pctx, effects: { ...pctx.effects, [BL]: "Spell Effect: Bless" }, paEffects: { P1: { name: "Effect: Aura Bless", kind: "pf2e", uuid: BL }, P2: { name: "Effect: Aura Nope", kind: "pf2e", uuid: NO } } };
+  const rule = (opt) => [{ target: "TargetAddCondition", value: "frightened", predicate: [opt] }];
+  const r = pa.translateItem(feat(), "", group(rule("self:effect:aura-bless")), c);
+  assert.deepEqual(r.rule.onEvent[0].when, ["self:effect:bless"]);
+  assert.match(pa.translateItem(feat(), "", group(rule("self:effect:aura-nope")), c).reason, /event-predicate:pa-effect/);
+});

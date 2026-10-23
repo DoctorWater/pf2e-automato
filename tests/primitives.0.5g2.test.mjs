@@ -480,3 +480,11 @@ test("PA: эффект PA заменён эффектом pf2e — опция п
   assert.equal(b.rule.onUse.apply[0].to, "self");
   assert.equal(pa.translateItem(spell(), L, grp([{ target: "SelfEffect", predicate: ["origin:item:x", { or: ["feat:a", "item:melee"] }] }]), pctx).confidence, "low");
 });
+
+test("PA: пара «нет эффекта / есть эффект» с значком (Bless, aura-bless при нашем эффекте bless) — ворота присутствия не остаются в when", () => {
+  const r = pa.translateItem(spell(), L, grp([
+    { target: "SelfEffect", predicate: ["origin:item:x", { not: "self:effect:aura-x" }] },
+    { target: "IncreaseBadgeEffect", predicate: ["origin:item:x", "self:effect:aura-x"] },
+  ]), pctx);
+  assert.deepEqual(r.rule.onUse.apply.map((a) => [a.when, a.effect.badge ?? null]), [[undefined, "increment"]]);
+});

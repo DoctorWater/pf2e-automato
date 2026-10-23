@@ -1,4 +1,4 @@
-// Полный прогон: extract -> triage -> pa-port -> drafts -> haiku-input -> coverage. validate и sample — по требованию.
+// Полный прогон: extract -> triage -> pa-port (+ rules/catalog.pa.json) -> drafts -> haiku-input -> coverage. validate и sample — по требованию.
 import { spawnSync } from "node:child_process";
 import { join } from "node:path";
 import { ROOT } from "./lib.mjs";

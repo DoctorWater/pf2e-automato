@@ -38,10 +38,13 @@ function main() {
   const batch = process.argv[2];
   if (!batch || batch.startsWith("--")) throw new Error("usage: node tools/sample.mjs <batch> [--source markup|model|pa-port|all] [--n 50] [--seed 1]");
   const n = +arg("n", 50), seed = +arg("seed", 1), source = arg("source", batch === "pa-port" ? "pa-port" : "all");
-  const drafts = readJson(join(ROOT, "rules/drafts", `${batch}.json`));
+  // pa-port: только правила, попавшие в rules/catalog.pa.json (tools/pa-port.mjs пишет их в out/pa-catalog.json)
+  const drafts = batch === "pa-port" ? readOut("pa-catalog.json") : readJson(join(ROOT, "rules/drafts", `${batch}.json`));
   const itemBy = new Map(readOut("items.json").items.map((i) => [i.uuid, i]));
   const pool = poolOf(drafts.items, source);
   const picked = pick(pool, n, seed);
+  // правила с проверкой/испытанием редки — берём все сверх случайных n
+  if (batch === "pa-port") for (const d of pool) if ((d.rule.onUse?.check || d.rule.onUse?.challenge) && !picked.includes(d)) picked.push(d);
   writeText(outPath("sample", `${batch}-${source}-seed${seed}.md`), sampleMd(batch, source, seed, picked, itemBy));
   // сид хранится отдельно от черновиков (drafts.mjs их перегенерирует): rules/drafts-accepted/_samples.json
   const sp = join(ACCEPTED, "_samples.json");

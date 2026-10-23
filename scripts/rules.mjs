@@ -787,10 +787,11 @@ export async function loadCatalog() {
   const get = async (name, optional = false) => {
     const resp = await fetch(foundry.utils.getRoute(`modules/${MOD}/rules/${name}`));
     if (!resp.ok) { if (!optional) warn(`не загружен rules/${name}: ${resp.status}`); return null; }
-    return resp.json();
+    try { return await resp.json(); } catch (e) { warn(`rules/${name}: битый JSON`, e); if (!optional) throw e; return null; }   // битый необязательный файл не должен ронять остальные каталоги
   };
-  const [cat, campaign, labels] = await Promise.all([get("catalog.json"), get("catalog.campaign.json", true), get("labels.json")]);
-  return initCatalog([cat, campaign].filter(Boolean), labels);
+  const [cat, campaign, pa, labels] = await Promise.all([get("catalog.json"), get("catalog.campaign.json", true), get("catalog.pa.json", true), get("labels.json")]);
+  // при совпадении ключа побеждает последний: автоматический перенос PA — первым, проверенные вручную — после
+  return initCatalog([pa, cat, campaign].filter(Boolean), labels);
 }
 export const ready = loadCatalog;
 

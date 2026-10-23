@@ -54,7 +54,7 @@ const descKey = (type, slug, html) => `${type}|${slug}|${normText(html)}`;
 async function main() {
   const t0 = Date.now();
   const src = await openPacks();
-  const items = [], htmlOf = {}, refs = { conditions: {}, effects: {} };
+  const items = [], htmlOf = {}, refs = { conditions: {}, effects: {}, grants: {} };
   const topText = new Map(), seen = new Map();
   const pending = [];   // встроенные берём после верхнего уровня, чтобы ловить дубли компендия
 
@@ -63,7 +63,13 @@ async function main() {
     const ru = existsSync(ruPath) ? readJson(ruPath).entries ?? {} : {};
     for (const d of docs) {
       if (pack === "conditionitems") refs.conditions[d.system.slug] = { id: d._id, name: d.name, nameRu: ru[d.name]?.name ?? null };
-      else if (d.type === "effect") refs.effects[`Compendium.pf2e.${pack}.Item.${d._id}`] = d.name;
+      else if (d.type === "effect") {
+        const u = `Compendium.pf2e.${pack}.Item.${d._id}`;
+        refs.effects[u] = d.name;
+        // состояния, которые эффект выдаёт сам (GrantItem на conditionitems): id состояния
+        const g = (d.system.rules ?? []).filter((r) => r.key === "GrantItem").map((r) => /conditionitems\.Item\.(\w+)/.exec(r.uuid ?? "")?.[1]).filter(Boolean);
+        if (g.length) refs.grants[u] = g;
+      }
       if (!isActor) {
         if (!TOP_TYPES.has(d.type)) continue;
         const { rec, html } = normItem(d, { pack, uuid: `Compendium.pf2e.${pack}.Item.${d._id}`, ru: ru[d.name] });

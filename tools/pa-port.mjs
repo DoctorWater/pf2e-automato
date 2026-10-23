@@ -2,11 +2,12 @@
 // остальное — rule:null с причиной (список причин = будущие примитивы схемы). Выход: tools/out/pa-port.json (сводка и «долги переноса»).
 import { readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
-import { ROOT, AUTOMATIONS_CONFIG, readJson, readOut, writeJson, writeText, outPath, isMain } from "./lib.mjs";
+import { ROOT, ACCEPTED, AUTOMATIONS_CONFIG, cmp, readJson, readOut, writeJson, writeText, outPath, isMain } from "./lib.mjs";
 import { makeContext, BATCHES } from "./triage.mjs";
 import { buildAutomationsIndex } from "../scripts/compat.mjs";
 import { deriveFromMarkup, validateRule, parseCheck } from "../scripts/rules.mjs";
 import { DEGREES } from "../scripts/util.mjs";
+import { roundTrip } from "./validate.mjs";
 
 // причины, где нужна ручная работа, а не новый примитив схемы
 export const MANUAL_REASONS = new Set(["pa-own-effect", "effect-missing", "no-roll-def", "no-save-def", "invalid", "unknown", "unmatched", "cond-unknown", "slug-mismatch"]);
@@ -143,9 +144,21 @@ export function translateItem(item, html, group, ctx, { slugOnly = false } = {})
     if (a.condition && !html.includes(`conditionitems.Item.${ctx.condIds?.[a.condition.slug]}`)) low.push(`condition-not-in-text:${a.condition.slug}`);
   }
   if (slugOnly && item.embedded) low.push("npc-slug-only");
+  // цель PA перенесена как есть: у расходника/снаряжения без «target» эффект, скорее всего, для владельца (Stormbreaker/Ghostbane Fulu)
+  const steps = built.rule ? [...built.rule.onUse.apply, ...Object.values(built.rule.onUse.challenge?.byDegree ?? {}).flat(), ...Object.values(built.rule.onUse.check?.byDegree ?? {}).flat()] : [];
+  if (["consumable", "equipment"].includes(item.type) && !item.target && steps.some((a) => a.to === "target")) low.push("to-target-no-item-target");
+  // текст -> правило (узко): «you become/gain the @UUID[состояние]» без такого состояния ни в правиле, ни в GrantItem выданного эффекта
+  if (built.rule) {
+    const have = new Set(steps.flatMap((a) => [a.condition && ctx.condIds?.[a.condition.slug], ...(a.effect ? ctx.grants?.[a.effect.uuid] ?? [] : [])]).filter(Boolean));
+    const slugById = Object.fromEntries(Object.entries(ctx.condIds ?? {}).map(([k, v]) => [v, k]));
+    for (const m of html.matchAll(/\b(?:you|it|they|target|creature)\s+(?:become|becomes|are|is|gain|gains|have|has)\s+(?:the\s+)?@UUID\[Compendium\.pf2e\.conditionitems\.Item\.(\w+)\]|\bbecoming\s+@UUID\[Compendium\.pf2e\.conditionitems\.Item\.(\w+)\]/gi)) {
+      const id = m[1] ?? m[2];
+      if (!have.has(id)) low.push(`text-condition-missing:${slugById[id] ?? id}`);
+    }
+  }
   // правило слабее текста: в тексте спасбросок или шаблон области, а перенос — только «на себя» без испытания (Blight Breath, Thawing Candle)
   const u = built.rule?.onUse;
-  if (u && !u.challenge && u.targets === "self" && /@Check\[(?:fortitude|reflex|will)|@Template\[/.test(html)) low.push("text-has-save-or-area");
+  if (u && !u.challenge && u.targets === "self" && /@Check\[(?:fortitude|reflex|will)\b|@Template\[/.test(html)) low.push("text-has-save-or-area");
   if (!allFails.length && built.rule) return { rule: built.rule, confidence: low.length ? "low" : "high", reason: `translated: ${parts.length} part(s)${low.length ? "; " + [...new Set(low)].join(",") : ""}` };
   return { rule: null, confidence: null, reason: allFails.length ? [...new Set(allFails)].join("; ") : "unknown", ...(built.rule && { partial: built.rule }) };
 }
@@ -164,13 +177,56 @@ export function parseDebts(md) {
 }
 
 
+/**
+ * Черновики PA -> шипуемый каталог { v, bySource, bySlug }. Идут только high и принятые вручную (rules/drafts-accepted/pa-port.json, перекрывает по uuid).
+ * Ручные каталоги (manual) главнее: запись, чей источник или slug там уже есть, отбрасывается.
+ * bySlug — только если slug у ровно одного предмета во всём наборе (в т.ч. среди встроенных в NPC): ложное совпадение хуже пропуска.
+ */
+export function buildPaCatalog(drafts, accepted, items, manual) {
+  const acc = new Map(accepted.map((d) => [d.uuid, d]));
+  const all = drafts.map((d) => acc.get(d.uuid) ?? d);
+  const slugN = {}, itemBy = new Map(items.map((i) => [i.uuid, i]));
+  const keyOf = (i) => (i.embedded ? i.source ?? i.uuid : i.uuid);   // NPC-копии одного заклинания — один предмет
+  const seenKey = new Set();
+  for (const i of items) if (i.slug && !seenKey.has(keyOf(i))) { seenKey.add(keyOf(i)); slugN[i.slug] = (slugN[i.slug] ?? 0) + 1; }
+  const mSrc = new Set(manual.flatMap((c) => Object.keys(c.bySource ?? {}))), mSlug = new Set(manual.flatMap((c) => Object.keys(c.bySlug ?? {})));
+  const skipped = {}, cand = [], bySource = {}, bySlug = {}, included = [];
+  const skip = (k) => { skipped[k] = (skipped[k] ?? 0) + 1; };
+  for (const d of all.sort((a, b) => cmp(a.uuid, b.uuid))) {
+    if (!d.rule) { skip(acc.has(d.uuid) ? "excluded-manually" : "no-rule"); continue; }   // rule:null в drafts-accepted — явное исключение
+    if (d.confidence !== "high" && !acc.has(d.uuid)) { skip("low"); continue; }
+    const v = validateRule(d.rule);
+    if (!v.ok) { skip("invalid"); continue; }
+    if (!roundTrip(v.rule)) { skip("roundtrip"); continue; }
+    const it = itemBy.get(d.uuid), src = it?.embedded ? it.source : d.uuid;
+    const slug = slugN[d.slug] === 1 ? d.slug : null;
+    if ((src && mSrc.has(src)) || mSlug.has(d.slug)) { skip("manual-wins"); continue; }
+    if (!src && !slug) { skip("no-key"); continue; }
+    cand.push({ d, src, slug, rule: v.rule });
+  }
+  // один источник у нескольких предметов (копии в NPC) с разными правилами — не берём ни одно
+  const rules = {}, inSrc = new Set();
+  for (const c of cand) if (c.src) (rules[c.src] ??= new Set()).add(JSON.stringify(c.rule));
+  for (const c of cand) {
+    if (c.src && rules[c.src].size > 1) { skip("source-conflict"); continue; }
+    if (c.src) bySource[c.src] = c.rule;
+    if (c.slug) bySlug[c.slug] = c.rule;
+    if (!c.src || !inSrc.has(c.src)) included.push(c.d);   // для выборки — без дублей NPC-копий
+    inSrc.add(c.src);
+  }
+  return { cat: { v: 1, bySource, bySlug }, skipped, included };
+}
+
+/** Каталог: одна запись на строку (читаемые диффы). */
+const serializeCatalog = (c) => `{"v":1,\n"bySource":{\n${Object.entries(c.bySource).map(([k, r]) => `${JSON.stringify(k)}:${JSON.stringify(r)}`).join(",\n")}\n},\n"bySlug":{\n${Object.entries(c.bySlug).map(([k, r]) => `${JSON.stringify(k)}:${JSON.stringify(r)}`).join(",\n")}\n}}\n`;
+
 function main() {
   const { meta, items } = readOut("items.json");
   const html = readOut("html.json"), refs = readOut("refs.json"), tri = readOut("triage.json").items;
   const triBy = new Map(tri.map((t) => [t.uuid, t]));
   const config = readJson(AUTOMATIONS_CONFIG);
   const catalogJsons = ["catalog.json", "catalog.campaign.json"].map((f) => readJson(join(ROOT, "rules", f)));
-  const ctx = { ...makeContext({ refs, catalogJsons, labels: readJson(join(ROOT, "rules/labels.json")) }), condIds: Object.fromEntries(Object.entries(refs.conditions).map(([k, c]) => [k, c.id])), effects: refs.effects, condSlugs: new Set(Object.keys(refs.conditions)) };
+  const ctx = { ...makeContext({ refs, catalogJsons, labels: readJson(join(ROOT, "rules/labels.json")) }), grants: refs.grants, condIds: Object.fromEntries(Object.entries(refs.conditions).map(([k, c]) => [k, c.id])), effects: refs.effects, condSlugs: new Set(Object.keys(refs.conditions)) };
 
   const groups = [];
   for (const g of config.groups) {
@@ -218,6 +274,12 @@ function main() {
   const head = `{"meta":${JSON.stringify({ batch: "pa-port", generatedAt: new Date().toISOString(), pf2eVersion: meta.pf2eVersion, paVersion: config.version, counts: perDoc })},\n"items":[\n`;
   writeText(join(ROOT, "rules/drafts/pa-port.json"), head + drafts.map((d) => JSON.stringify(d)).join(",\n") + "\n]}\n");
   console.log("pa-port:", JSON.stringify({ groups: gs, docs: summary.docs, reasons }));
+  // шипуемый каталог; included (с учётом принятых) — для выборки Критика (tools/sample.mjs pa-port)
+  const ap = join(ACCEPTED, "pa-port.json");
+  const { cat, skipped, included } = buildPaCatalog(drafts, existsSync(ap) ? readJson(ap).items : [], items, catalogJsons);
+  writeText(join(ROOT, "rules/catalog.pa.json"), serializeCatalog(cat));
+  writeJson(outPath("pa-catalog.json"), { items: included });
+  console.log("pa-catalog:", JSON.stringify({ bySource: Object.keys(cat.bySource).length, bySlug: Object.keys(cat.bySlug).length, skipped }));
 }
 
 if (isMain(import.meta.url)) main();

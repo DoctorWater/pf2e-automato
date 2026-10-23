@@ -1,0 +1,5 @@
+{"meta":{"batch":"pa-port","note":"ручные решения: rule:null исключает предмет из catalog.pa.json; иначе правило подмешивается (даже low)"},
+"items":[
+{"uuid":"Compendium.pf2e.equipment-srd.Item.Ut6fuRkMsydWVlSb","slug":"vengeful-demons-tears","name":"Vengeful Demon's Tears","status":"pa-port","confidence":null,"reason":"effect привязан к вторичному действию Release the Demon, а не к активации; Quickened в тексте не покрыт","rule":null},
+{"uuid":"Compendium.pf2e.equipment-srd.Item.Cu2zf4wi8UGzsyVC","slug":"demortification-oil","name":"Demortification Oil","status":"pa-port","confidence":null,"reason":"SelfOrTarget у расходника стал self, а по тексту эффект получает нежить, на которую нанесено масло; групповое исправление self-or-target — в 0.5b","rule":null}
+]}

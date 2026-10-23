@@ -3,6 +3,7 @@
   "title": "PF2e AuTOMATO",
   "description": "Автоматизация PF2e для Foundry v14: зоны, испытания целей, состояния по степеням, реакции, макросы.",
   "version": "0.1.0",
+  "license": "LICENSE",
   "compatibility": { "minimum": "14", "verified": "14.366" },
   "relationships": {
     "systems": [

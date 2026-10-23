@@ -219,3 +219,11 @@ const f = <вставить содержимое af-harness.js>; const r = await
 `scripts/` — код (`main.mjs` точка входа); `rules/` — `catalog.json`, `catalog.campaign.json`, `labels.json`; `lang/{ru,en}/*.json` — несколько файлов на один
 `lang`, Foundry их склеивает (`client/helpers/localization.mjs:331–339`); `templates/` — блок чата и вкладка листа;
 `tests/` — `node --test` и живой харнесс.
+
+## Лицензия
+
+Код модуля — MIT (`LICENSE`). Правила и эффекты, перенесённые из pf2e-automations, — MIT, © 2024 reyzor1991 (`NOTICE`).
+
+Игровые механики и названия — Paizo Inc., используются по ORC License (ремастер) и OGL 1.0a (прочее), а также по
+[Paizo Community Use Policy](https://paizo.com/licenses/communityuse). Модуль не публикуется, не одобряется и не поддерживается Paizo.
+Русская терминология — по pf2ru-translation.

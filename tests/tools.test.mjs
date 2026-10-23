@@ -112,6 +112,10 @@ test("слой и статус: pf2e / catalog / skip / markup / manual", () => 
   const ok = triageItem(sv, `<p><strong>Failure</strong> The target is ${h} 1.</p>`, ctx);
   assert.equal(ok.status, "markup-high");
   assert.equal(ok.layer, 2);
+  // испытание без шагов, но с подсказкой (условное состояние): правило-голова, автоматизацией не считается
+  const head = triageItem(sv, `<p><strong>Failure</strong> If it ends its turn adjacent to the source, it is ${h} 1.</p>`, ctx);
+  assert.equal(head.status, "markup-head");
+  assert.ok(head.rule.onUse.challenge);
   const empty = triageItem(sv, "<p>@Check[will|dc:20] damage</p>", ctx);   // правило без шагов — не вывод, а manual
   assert.equal(empty.status, "manual");
   assert.ok(stepCount(ok.rule) > 0);
@@ -254,14 +258,19 @@ test("pa-port: high только если ссылка есть в тексте,
   const r1 = translateItem(base, html, g(), c);
   assert.equal(r1.confidence, "high");
   assert.equal(r1.rule.onUse.targets, "self");
-  assert.match(translateItem(base, "", g(), c).reason, /effect-not-in-text/);                       // ссылки нет в тексте
-  assert.match(translateItem({ ...base, type: "feat", actionType: "passive" }, html, g(), c).reason, /trigger-type:spell-cast\/feat/);   // spell-cast на пассивной черте: правило на использование мёртвое
+  assert.match(translateItem(base, "", g({}, ["feat:s"]), c).reason, /effect-not-in-text/);               // ссылки нет в тексте, а PA предмет по slug не называл
+  assert.equal(translateItem(base, "", g(), c, { viaSource: true }).confidence, "high");                    // группа названа по uuid этого документа — доказательство
+  assert.match(translateItem({ ...base, type: "feat", actionType: "passive" }, html, g(), c).reason, /passive-event-trigger/);   // spell-cast на пассивной черте: правило на использование мёртвое — триггер по событию (0.5g)
   assert.equal(translateItem({ ...base, type: "feat", actionType: "action" }, html, g(), c).confidence, "high");   // на непассивной — годится
-  assert.match(translateItem({ ...base, type: "feat", actionType: "passive" }, html, g({ triggerType: "postInfo" }), c).reason, /trigger-type:postInfo/);
-  assert.match(translateItem(base, html, g({}, ["origin:item:s", { gte: ["origin:item:level", 7] }]), c).reason, /predicate-op:gte/);
+  assert.equal(translateItem({ ...base, type: "feat", actionType: "passive" }, html, g({ triggerType: "postInfo" }), c).confidence, "high");   // карточка пассивки = использование (0.5g1, use.mjs useKindOf)
+  const hi = translateItem(base, html, g({}, ["origin:item:s", { gte: ["origin:item:level", 7] }]), c);   // сравнение круга — шаг rank (0.5f), не условие
+  assert.deepEqual([hi.confidence, hi.rule.onUse.apply[0].rank], ["high", { min: 7 }]);
+  assert.deepEqual(translateItem(base, html, g({}, ["origin:item:s", { eq: ["origin:item:level", 7] }]), c).rule.onUse.apply[0].when, [{ eq: ["origin:item:level", 7] }]);   // прочие сравнения — условие шага when (0.5g2)
+  assert.match(translateItem(base, html, g({}, ["origin:item:s", { lge: ["self:level", 7] }]), c).reason, /predicate-op:lge/);   // опечатка PA вне круга — по-прежнему долг
   assert.equal(translateItem(base, html, g({}, ["origin:item:s", { or: ["a:b"] }]), c).confidence, "low");   // «a:b» — неизвестный токен
   assert.equal(translateItem({ ...base, embedded: { actor: "A" } }, html, g(), c, { slugOnly: true }).slugOnly, true);   // NPC только по slug: пометка для каталога (bySlug без bySource), на уверенность не влияет
-  assert.equal(translateItem({ ...base, type: "action", actionType: "reaction" }, html, g({ triggerType: "postInfo" }), c).confidence, "low");   // реакция «на себя» — ошибка PA вероятна
+  assert.equal(translateItem({ ...base, type: "action", actionType: "reaction" }, html, g({ triggerType: "postInfo" }, ["feat:s"]), c).confidence, "low");   // реакция «на себя» без привязки PA к предмету — ошибка вероятна
+  assert.equal(translateItem({ ...base, type: "action", actionType: "reaction" }, html, g({ triggerType: "postInfo" }), c, { viaSource: true }).confidence, "low");   // и по source — тоже: «Self» у реакции проверяется вручную (Clue In, Bristle)
   const sv = { ...base, defense: { save: "will", basic: false } };
   const g2 = { rules: [{ type: "base", triggerType: "saving-throw", value: "prone", target: "SelfAddCondition", predicate: [{ or: ["outcome:failure", "outcome:criticalFailure"] }, "origin:item:s"] }] };
   const r2 = translateItem(sv, "<p>@UUID[Compendium.pf2e.conditionitems.Item.pronepronepronep]{Prone}</p>", g2, c);

@@ -1,0 +1,71 @@
+{
+  "_id": "E0TloRt3TY6bM9yO",
+  "name": "Effect: Blindpepper Bomb (Critical Failure)",
+  "type": "effect",
+  "img": "icons/weapons/thrown/bomb-fuse-brown.webp",
+  "system": {
+    "description": {
+      "value": ""
+    },
+    "duration": {
+      "expiry": "turn-end",
+      "sustained": false,
+      "unit": "unlimited",
+      "value": -1
+    },
+    "level": {
+      "value": 1
+    },
+    "rules": [
+      {
+        "key": "GrantItem",
+        "onDeleteActions": {
+          "grantee": "cascade"
+        },
+        "uuid": "Compendium.pf2e.conditionitems.Item.fesd1n5eVhpCSS18"
+      },
+      {
+        "key": "GrantItem",
+        "onDeleteActions": {
+          "grantee": "restrict"
+        },
+        "uuid": "Compendium.pf2e.conditionitems.Item.TkIyaNPgTZFBCCuh"
+      }
+    ],
+    "source": {
+      "value": ""
+    },
+    "start": {
+      "initiative": null,
+      "value": 0
+    },
+    "target": null,
+    "tokenIcon": {
+      "show": true
+    },
+    "traits": {
+      "rarity": "common",
+      "value": []
+    },
+    "slug": "effect-blindpepper-bomb-critical-failure"
+  },
+  "effects": [],
+  "folder": null,
+  "sort": 0,
+  "ownership": {
+    "default": 0
+  },
+  "flags": {},
+  "_stats": {
+    "coreVersion": "14.366",
+    "systemId": "pf2e",
+    "systemVersion": "8.6.1",
+    "createdTime": null,
+    "modifiedTime": null,
+    "lastModifiedBy": null,
+    "compendiumSource": null,
+    "duplicateSource": null,
+    "exportSource": null
+  },
+  "_key": "!items!E0TloRt3TY6bM9yO"
+}

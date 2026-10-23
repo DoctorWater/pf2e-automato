@@ -62,7 +62,9 @@ test("pa-port: resolveRule на предметах (инвентарь геро�
         : { type, name: slug, slug, _stats: { compendiumSource: src }, system: { description: { value: "" }, traits: { value: [] } } };
       const r = resolveRule({ item });
       assert.equal(r?.source, "catalog", slug);
-      assert.deepEqual(r.rule, rule(slug), slug);
+      // dc {expr:"markup"}: голову испытания (СЛ, статистика, черты) resolveRule берёт из текста предмета — сверяем остальное
+      if (rule(slug).onUse?.challenge?.dc?.expr === "markup") assert.deepEqual([r.rule.onUse.challenge.immunity, r.rule.onUse.challenge.byDegree], [rule(slug).onUse.challenge.immunity, rule(slug).onUse.challenge.byDegree], slug);
+      else assert.deepEqual(r.rule, rule(slug), slug);
       if (src) assert.equal(resolveRule({ item: { ...item, slug: null } })?.source, "catalog", `${slug}: по источнику без slug`);
     }
     // выписанные из инвентаря сущности кампании действительно там есть (иначе проверка выше синтетическая)
@@ -94,13 +96,14 @@ test("pa-port: 13 сущностей кампании — эффекты и ст
   assert.equal(fire.targets, "area");
   assert.equal(fire.challenge.statistic, "reflex");
   assert.equal(fire.challenge.basic, true);
-  // Злобный взгляд пугала: Воля СЛ 18, испуг 1/2/3, заворожён до конца СЛЕДУЮЩЕГО хода цели
+  // Злобный взгляд пугала: Воля, СЛ из текста, испуг 1/2/3, заворожён до конца СЛЕДУЮЩЕГО хода цели
   const leer = rule("scarecrows-leer").onUse.challenge;
-  assert.deepEqual([leer.statistic, leer.dc.value, leer.basic], ["will", 18, false]);
+  assert.deepEqual([leer.statistic, leer.dc, leer.basic], ["will", { expr: "markup" }, false]);   // СЛ у копий разная (18, 27) — из текста
   assert.deepEqual([1, 2, 3].map((v, i) => leer.byDegree[["success", "failure", "criticalFailure"][i]][0].condition.value), [1, 2, 3]);
   const fasc = leer.byDegree.failure.find((a) => a.condition.slug === "fascinated");
   assert.deepEqual(fasc.duration, { value: 1, unit: "rounds", expiry: "turn-end", of: "target" });
-  assert.equal(leer.byDegree.criticalSuccess.some((a) => a.condition), false);
+  assert.equal(leer.byDegree.criticalSuccess, undefined);
+  assert.deepEqual(leer.immunity, { slug: "scarecrows-leer", label: "Злобный взгляд пугала", duration: { value: 24, unit: "hours" }, degrees: ["criticalSuccess"] });
 });
 
 test("pa-port: Устрашающий удар — правило ссылается на встроенный обработчик; Грязный приём — правило check без макроса", () => {

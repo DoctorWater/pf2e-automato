@@ -155,11 +155,14 @@ export function triageItem(it, html, ctx) {
   if (trace.S && !trace.E && !trace.Z && !trace.R && it.defense?.basic && !COND_OR_EFFECT.test(html ?? "")) return done("skip", null, "damage-only");
 
   const d = deriveFromMarkup(asLike(it, html), ctx.labels, ctx.condSlugByUuid, ctx.condNames);
-  if (d && !stepCount(d.rule)) return done("manual", 3, `${selfNote}derive-empty:${ruleKind(d.rule)}; hints=${[...d.hints.possible, ...d.hints.unresolved].join(",")}`, withBatch);
+  // испытание без шагов, но с подсказками (выбор, условие): карточка всё равно показывает спасбросок, состояния — призраками для ГМа
+  if (d && !stepCount(d.rule) && !(d.rule.onUse?.challenge && d.hints.possible.length)) return done("manual", 3, `${selfNote}derive-empty:${ruleKind(d.rule)}; hints=${[...d.hints.possible, ...d.hints.unresolved].join(",")}`, withBatch);
   if (d) {
     const h = d.hints;
     const note = ["possible", "unresolved", "excluded"].filter((k) => h[k].length).map((k) => `${k}=${h[k].join(",")}`).join("; ");
-    return { status: `markup-${d.confidence}`, layer: 2, confidence: d.confidence, reason: `${selfNote}${ruleKind(d.rule)}${note ? "; " + note : ""}`, rule: d.rule, ...withBatch, priority };
+    // испытание без шагов (только голова + подсказки): в рантайме правило работает, но автоматизацией не считается
+    const head = !stepCount(d.rule);
+    return { status: head ? "markup-head" : `markup-${d.confidence}`, layer: 2, confidence: d.confidence, reason: `${selfNote}${ruleKind(d.rule)}${note ? "; " + note : ""}`, rule: d.rule, ...withBatch, priority };
   }
   return done("manual", 3, `${selfNote}trace=${["E", "S", "Z", "R"].filter((k) => trace[k]).join("")}`, withBatch);
 }

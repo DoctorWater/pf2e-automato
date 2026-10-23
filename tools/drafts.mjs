@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { ACCEPTED, DRAFTS, readJson, readOut, writeText, serializeDrafts, cmp, isMain } from "./lib.mjs";
 import { roundTrip } from "./validate.mjs";
 
-const DRAFT_STATUSES = new Set(["markup-high", "markup-low", "manual"]);
+const DRAFT_STATUSES = new Set(["markup-high", "markup-head", "markup-low", "manual"]);
 
 /** Запись триажа + предмет -> элемент черновика (ровно поля контракта). */
 export function makeDraft(it, t) {

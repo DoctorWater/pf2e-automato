@@ -6,6 +6,8 @@ import * as saves from "./saves.mjs";
 import * as checks from "./checks.mjs";
 import { visionActive, zoneCells } from "./vision.mjs";
 import { hintsView, hintList } from "./hints.mjs";
+import { whenHuman } from "./predicate.mjs";
+import { isActiveStep } from "./rules.mjs";
 
 const TEMPLATE = "modules/pf2e-automato/templates/chat-block.hbs";
 let template = null;
@@ -65,7 +67,7 @@ const defaultEnv = () => ({
   uuidName: nameOfUuid,
   damageLabel,
   checkDc: (key, use) => checks.defenseDc(tokenDocOf(key, use)?.actor, use.rule.onUse.check.vs),
-  immune: (key, use) => checks.hasImmunity(tokenDocOf(key, use)?.actor, use.rule.onUse.check.immunity, use.actor)
+  immune: (key, use) => checks.hasImmunity(tokenDocOf(key, use)?.actor, (use.rule.onUse.challenge ?? use.rule.onUse.check).immunity, use.actor)
 });
 
 /* ---------- чистые части ---------- */
@@ -90,11 +92,20 @@ export function stepText(a, env, defTo) {
     return env.vision?.() === false ? `${text} ${t("chat.visManual")}` : text;
   }
   const p = a.persistent;
+  if (a.choose) return t(`chat.stepChoose.${a.choose.from}`, { options: (a.choose.options ?? []).map((o) => o.label ?? o.value).join(" / ") });
+  const to = { self: "Self", target: "Target", party: "Party", allies: "Allies", chosen: "Chosen" }[a.to ?? defTo] ?? "Target", rank = a.rank ? `[${t("chat.stepRank", { range: a.rank.min != null && a.rank.max != null ? (a.rank.min === a.rank.max ? a.rank.min : `${a.rank.min}–${a.rank.max}`) : a.rank.min != null ? `${a.rank.min}+` : `≤${a.rank.max}` })}] ` : "";
+  const when = a.when ? ` [${t("chat.stepWhen", { when: whenHuman(a.when) })}]` : "", say = (key, what) => rank + t(`chat.${key}${to}`, { what, range: a.range }) + when;
+  if (a.removeCondition) return say("stepRemove", env.conditionLabel(a.removeCondition.slug));
+  if (a.removeEffect) return say("stepRemove", t("chat.stepEffect", { name: a.removeEffect.uuid ? env.uuidName(a.removeEffect.uuid) ?? a.removeEffect.uuid : a.removeEffect.slug }));
+  if (a.extendEffect) return say("step", t("chat.stepExtend", a.extendEffect));
+  if (a.rollOption) return say("step", t(a.rollOption.value === false ? "chat.stepOptionOff" : "chat.stepOption", { option: a.rollOption.option }));
+  if (a.damage) return say("step", t(a.damage.damageType === "healing" ? "chat.stepHeal" : "chat.stepDamage", { formula: persFormulaText(a.damage.formula, t), type: env.damageLabel?.(a.damage.damageType) ?? a.damage.damageType }) + (a.damage.basic ? ` ${t("chat.stepBasic")}` : ""));
+  if (a.condition?.policy === "reduce") return say("step", t("chat.stepReduce", { what: env.conditionLabel(a.condition.slug), n: a.condition.value ?? 1 }));
   const what = p ? t("chat.stepPersistent", { formula: persFormulaText(p.formula, t), type: env.damageLabel?.(p.damageType) ?? p.damageType }) + (p.dc && p.dc !== 15 ? ` (${t("chat.dc", { dc: p.dc })})` : "")
     : a.condition
     ? `${env.conditionLabel(a.condition.slug)}${a.condition.value ? ` ${a.condition.value}` : ""}`
-    : (env.uuidName(a.effect?.uuid) ?? a.effect?.uuid ?? "?");
-  return (a.to ?? defTo) === "self" ? t("chat.stepSelf", { what }) : t("chat.stepTarget", { what });
+    : (env.uuidName(a.effect?.uuid) ?? a.effect?.uuid ?? "?") + (a.effect?.badge ? ` (${t(a.effect.badge === "decrement" ? "chat.stepBadgeDec" : "chat.stepBadge")})` : "");
+  return say("step", what);
 }
 
 const visText = (env, uuid) => { const n = env.visCells?.(uuid); return n == null ? null : env.t("vision.zoneCells", { n }); };
@@ -115,7 +126,7 @@ function describeStep(rule, stepKey, env) {
   return a ? stepText(a, env, "target") : stepKey;
 }
 
-const vsLabel = (vs, env, showDc) => vs.dc != null ? (showDc ? env.t("chat.dc", { dc: vs.dc }) : env.t("chat.dcHidden"))
+const vsLabel = (vs, env, showDc) => !vs ? "" : vs.dc != null ? (showDc ? env.t("chat.dc", { dc: vs.dc }) : env.t("chat.dcHidden"))
   : vs.defense === "ac" ? env.t("checks.ac") : env.statLabel(vs.defense ?? vs.against);
 
 const PLURALS = new Set(["one", "few", "many", "other"]);   // ключи в lang; zero/two (ar, cy…) -> other
@@ -196,12 +207,13 @@ export function buildViewModel(message, user, env = null) {
       const ap = state.challenge?.applied?.[key];
       const steps = r ? (ch.byDegree?.[DEGREES[r.degree]] ?? []) : [];
       const m = r ? mult(r.degree, ch.basic) : null;
-      const immune = !!ck && !ap && !!ck.immunity && env.immune(key, use);
+      const immune = !ap && !!ch.immunity && env.immune(key, use);
+      const imm = r && checks.immunityAt(ch.immunity, r.degree) ? ch.immunity : null;   // ставится при этой степени
       const dcN = ck && (isGM || meta.dcs || (ck.vs?.dc == null && env.isPc?.(key, use))) ? (r?.dc ?? env.checkDc(key, use)) : null;
       const seen = !r || isGM || meta.results;   // степень и всё, что её выдаёт (pf2e скрывает и от владельца)
       const seenTotal = seen || env.isOwner(key, use, user);   // бросок публичный: владельцу число оставляем
       const plan = seen ? steps.map((a) => stepText(a, env, "target")) : [];
-      if (ck?.immunity && r) plan.push(t("checks.immunityPlan", { name: ck.immunity.label ?? ck.immunity.slug }));
+      if (imm) plan.push(t("checks.immunityPlan", { name: imm.label ?? use.item?.name ?? imm.slug }));
       return {
         key,
         name: use.targets?.find((x) => x.key === key)?.name ?? env.tokenName(key, use),
@@ -215,15 +227,15 @@ export function buildViewModel(message, user, env = null) {
         applied: ap && seen ? t("chat.applied", { degree: t(`chat.degree.${DEGREES[ap.degree]}`) }) : null,
         plan,
         canRoll: !r && !immune && modeChallenge !== "off" && !(modeChallenge === "auto" && !state.challenge?.rollTried?.[key] && (ck ? env.isActorPc && !env.isActorPc(use.actor) : env.isPc && !env.isPc(key, use))) && ck?.roll !== "system" && (ck ? (isGM || env.isActorOwner(use.actor, user)) : !env.toolbelt && (isGM || env.isOwner(key, use, user))),
-        canApply: isGM && !!r && !ap && !immune && (steps.some((a) => a.condition || a.effect || a.persistent || (a.visibility && env.vision?.() !== false)) || !!ck?.immunity) && (modeApply === "button" || (modeApply === "auto" && !!state.challenge?.autoTried?.[key])),   // auto применяет сам; после попытки (сбой, «Отменить») кнопка возвращается
+        canApply: isGM && !!r && !ap && !immune && (steps.some((a) => isActiveStep({ ...a, visibility: a.visibility && env.vision?.() !== false })) || !!imm) && (modeApply === "button" || (modeApply === "auto" && !!state.challenge?.autoTried?.[key])),   // auto применяет сам; после попытки (сбой, «Отменить») кнопка возвращается
         canUndo: isGM && !!ap,
         // применять больше нечего: иммунная цель отработана без броска; при apply=off применение не требуем
-        settled: immune || (!!r && (!!ap || modeApply === "off" || !(steps.some((a) => a.condition || a.effect || a.persistent || (a.visibility && env.vision?.() !== false)) || !!ck?.immunity)))
+        settled: immune || (!!r && (!!ap || modeApply === "off" || !(steps.some((a) => isActiveStep({ ...a, visibility: a.visibility && env.vision?.() !== false })) || !!imm)))
       };
     });
     const dcKnown = ck || !showDc ? null : use.dc ?? ch.dc?.value ?? null;
     vm.challenge = {
-      stat: ck ? t("checks.head", { stat: [ck.statistic].flat().map(env.statLabel).join(" / "), vs: vsLabel(ck.vs, env, showDc) })
+      stat: ck ? (ck.vs ? t("checks.head", { stat: [ck.statistic].flat().map(env.statLabel).join(" / "), vs: vsLabel(ck.vs, env, showDc) }) : t("checks.headSelf", { stat: [ck.statistic].flat().map(env.statLabel).join(" / ") }))
         : t("chat.challenge", { stat: env.statLabel(ch.statistic) }),
       basic: ch.basic ? t("chat.basic") : null,
       dc: dcKnown != null ? t("chat.dc", { dc: dcKnown }) : null,

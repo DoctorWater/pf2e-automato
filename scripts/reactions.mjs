@@ -1,7 +1,7 @@
 // K5 «Реакции»: подсказка шёпотом + пересчёт исхода этой атаки, без висящего бонуса. plan.md §3.D'.
 import { MOD, L, DEGREES, degreeFromTotal, isActiveGM, queue, debug, callGM } from "./util.mjs";
 import { modeOf, S } from "./settings.mjs";
-import { onAttackedIndex, itemFlagRule, slugOf, sourceOf } from "./rules.mjs";
+import { onAttackedIndex, itemFlagRule, slugOf, sourceOf, bySlugOf } from "./rules.mjs";
 import { runMacros } from "./macros.mjs";
 import { buildReactionViewModel } from "./chat.mjs";
 
@@ -97,9 +97,9 @@ export function reactionAvailable(actor) {
 }
 
 // Правило onAttacked предмета: каталоги (slug/источник) или флаг на предмете.
-function ruleOfItem(item, idx = onAttackedIndex()) {
+export function ruleOfItem(item, idx = onAttackedIndex()) {
   const slug = slugOf(null, item), src = sourceOf(null, item);
-  return (slug && idx.get(slug)) || (src && idx.get(src)) || itemFlagRule(item);
+  return (slug && bySlugOf(idx, slug, item?.type)) || (src && idx.get(src)) || itemFlagRule(item);   // как resolveRule: ключ slug@type, армейские способности — не по общему slug
 }
 
 function reactionItems(actor) {

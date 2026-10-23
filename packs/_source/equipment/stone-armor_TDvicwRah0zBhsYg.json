@@ -1,0 +1,129 @@
+{
+  "_id": "TDvicwRah0zBhsYg",
+  "name": "Stone Armor",
+  "type": "armor",
+  "img": "icons/equipment/chest/breastplate-banded-steel-gold.webp",
+  "system": {
+    "description": {
+      "gm": "",
+      "value": "<p>Armor created with @UUID[Compendium.pf2e.feats-srd.Item.plEZoAyPwjAOdY4e]</p>"
+    },
+    "rules": [
+      {
+        "key": "MartialProficiency",
+        "kind": "defense",
+        "slug": "gear-stone-armor",
+        "label": "PF2E_AUTOMATO.builtin.gear.proficiency",
+        "definition": [
+          "item:slug:stone-armor"
+        ],
+        "value": "max(@actor.system.proficiencies.defenses.unarmored.rank, @actor.system.proficiencies.defenses.light.rank, @actor.system.proficiencies.defenses.medium.rank, @actor.system.proficiencies.defenses.heavy.rank)"
+      },
+      {
+        "key": "Resistance",
+        "type": "slashing",
+        "predicate": [
+          "armor:category:medium",
+          "armor:group:plate"
+        ],
+        "value": "1 + @armor.system.runes.potency"
+      },
+      {
+        "key": "Resistance",
+        "type": "slashing",
+        "predicate": [
+          "armor:category:heavy",
+          "armor:group:plate"
+        ],
+        "value": "2 + @armor.system.runes.potency"
+      }
+    ],
+    "slug": "stone-armor",
+    "_migration": {
+      "version": 0.959,
+      "previous": null
+    },
+    "traits": {
+      "otherTags": [],
+      "value": [],
+      "rarity": "common"
+    },
+    "publication": {
+      "title": "",
+      "authors": "",
+      "license": "OGL",
+      "remaster": false
+    },
+    "level": {
+      "value": 0
+    },
+    "quantity": 1,
+    "baseItem": "half-plate",
+    "bulk": {
+      "value": 1
+    },
+    "hp": {
+      "value": 0,
+      "max": 0
+    },
+    "hardness": 0,
+    "price": {
+      "value": {}
+    },
+    "equipped": {
+      "carryType": "worn",
+      "invested": null
+    },
+    "containerId": null,
+    "size": "med",
+    "material": {
+      "type": null,
+      "grade": null
+    },
+    "identification": {
+      "status": "identified",
+      "unidentified": {
+        "name": "",
+        "img": "",
+        "data": {
+          "description": {
+            "value": ""
+          }
+        }
+      }
+    },
+    "category": "medium",
+    "group": "plate",
+    "acBonus": 4,
+    "strength": 3,
+    "dexCap": 1,
+    "checkPenalty": -2,
+    "speedPenalty": -10,
+    "grade": null,
+    "runes": {
+      "potency": 0,
+      "resilient": 0,
+      "property": []
+    },
+    "subitems": []
+  },
+  "effects": [],
+  "folder": null,
+  "sort": 0,
+  "ownership": {
+    "default": 0
+  },
+  "flags": {},
+  "_stats": {
+    "coreVersion": "14.366",
+    "systemId": "pf2e",
+    "systemVersion": "8.6.1",
+    "createdTime": null,
+    "modifiedTime": null,
+    "lastModifiedBy": null,
+    "compendiumSource": null,
+    "duplicateSource": null,
+    "exportSource": null
+  },
+  "_key": "!items!TDvicwRah0zBhsYg"
+}

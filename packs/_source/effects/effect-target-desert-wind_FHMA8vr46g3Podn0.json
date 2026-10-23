@@ -1,0 +1,68 @@
+{
+  "_id": "FHMA8vr46g3Podn0",
+  "name": "Effect: Target Desert Wind",
+  "type": "effect",
+  "img": "icons/magic/air/fog-gas-smoke-dense-brown.webp",
+  "system": {
+    "description": {
+      "value": ""
+    },
+    "duration": {
+      "expiry": "turn-end",
+      "sustained": false,
+      "unit": "unlimited",
+      "value": -1
+    },
+    "level": {
+      "value": 1
+    },
+    "rules": [
+      {
+        "key": "RollOption",
+        "predicate": [
+          "target:effect:desert-wind",
+          {
+            "not": "self:effect:desert-wind"
+          }
+        ],
+        "domain": "all",
+        "option": "target:condition:concealed"
+      }
+    ],
+    "source": {
+      "value": ""
+    },
+    "start": {
+      "initiative": null,
+      "value": 0
+    },
+    "target": null,
+    "tokenIcon": {
+      "show": true
+    },
+    "traits": {
+      "rarity": "common",
+      "value": []
+    },
+    "slug": "effect-target-desert-wind"
+  },
+  "effects": [],
+  "folder": null,
+  "sort": 0,
+  "ownership": {
+    "default": 0
+  },
+  "flags": {},
+  "_stats": {
+    "coreVersion": "14.366",
+    "systemId": "pf2e",
+    "systemVersion": "8.6.1",
+    "createdTime": null,
+    "modifiedTime": null,
+    "lastModifiedBy": null,
+    "compendiumSource": null,
+    "duplicateSource": null,
+    "exportSource": null
+  },
+  "_key": "!items!FHMA8vr46g3Podn0"
+}

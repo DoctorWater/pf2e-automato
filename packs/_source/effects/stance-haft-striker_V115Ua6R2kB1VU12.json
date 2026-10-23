@@ -1,0 +1,76 @@
+{
+  "_id": "V115Ua6R2kB1VU12",
+  "name": "Stance: Haft Striker",
+  "type": "effect",
+  "img": "icons/svg/circle.svg",
+  "system": {
+    "description": {
+      "value": ""
+    },
+    "duration": {
+      "expiry": "turn-end",
+      "sustained": false,
+      "unit": "unlimited",
+      "value": -1
+    },
+    "level": {
+      "value": 1
+    },
+    "rules": [
+      {
+        "category": "simple",
+        "damage": {
+          "base": {
+            "damageType": "bludgeoning",
+            "dice": 1,
+            "die": "d4"
+          }
+        },
+        "group": "club",
+        "img": "icons/weapons/staves/staff-simple.webp",
+        "key": "Strike",
+        "label": "Haft",
+        "range": null,
+        "traits": [
+          "finesse",
+          "agile"
+        ]
+      }
+    ],
+    "source": {
+      "value": ""
+    },
+    "start": {
+      "initiative": null,
+      "value": 0
+    },
+    "target": null,
+    "tokenIcon": {
+      "show": true
+    },
+    "traits": {
+      "rarity": "common",
+      "value": []
+    },
+    "slug": "stance-haft-striker"
+  },
+  "effects": [],
+  "folder": null,
+  "sort": 0,
+  "ownership": {
+    "default": 0
+  },
+  "flags": {},
+  "_stats": {
+    "coreVersion": "14.366",
+    "systemId": "pf2e",
+    "systemVersion": "8.6.1",
+    "createdTime": null,
+    "modifiedTime": null,
+    "lastModifiedBy": null,
+    "compendiumSource": null,
+    "duplicateSource": null,
+    "exportSource": null
+  },
+  "_key": "!items!V115Ua6R2kB1VU12"
+}

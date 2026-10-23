@@ -1,7 +1,11 @@
 // Общие помощники встроенных обработчиков. Чистые функции не трогают foundry (юнит-тесты, tests/builtin.test.mjs).
-import { L, MOD, queue, sharedDialog } from "../util.mjs";
+import { L, MOD, queue, sharedDialog, sluggify, socket } from "../util.mjs";
 import { card, HEADS } from "../card.mjs";
+import { shouldYield } from "../compat.mjs";
 export { card, cardButton } from "../card.mjs";
+
+/** pf2e-automations ещё ведёт эту механику (активна группа с таким slug и включена настройка «уступать»): обработчик молчит, чтобы не было двойного срабатывания. */
+export const paHas = (slug) => shouldYield(null, { slug });
 
 export const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 
@@ -51,10 +55,11 @@ export const ask = async (title, content, buttons) =>
   (await sharedDialog({ title, content, buttons: buttons.map((b) => ({ action: b.id, label: b.label })) }))?.action ?? null;
 
 /** Диалог автору: игроку — у него; ГМу — общее окно всех вкладок ГМа (первый ответ побеждает). -> { action, form } | null (закрыт). */
-export async function askHere(title, content, buttons) {
-  if (game.user.isGM) return (await sharedDialog({ title, content, buttons: buttons.map((b) => ({ action: b.id, label: b.label })) })) ?? null;
+export async function askHere(title, content, buttons, ms = 0) {   // ms > 0 — окно закрывается само (результат null)
+  if (game.user.isGM) return (await sharedDialog({ title, content, ms, buttons: buttons.map((b) => ({ action: b.id, label: b.label })) })) ?? null;
   const res = await foundry.applications.api.DialogV2.wait({
     window: { title }, classes: ["paf-dialog"], content, rejectClose: false,
+    render: (_e, dlg) => { if (ms > 0) setTimeout(() => dlg.close(), ms); },
     buttons: buttons.map((b, i) => ({ action: b.id, label: b.label, default: i === 0, callback: (_e, btn) => ({ action: b.id, form: btn.form ? Object.fromEntries(new FormData(btn.form)) : {} }) }))
   });
   return res ?? null;
@@ -118,3 +123,36 @@ export async function sweepEffects(key) {
     if (e && isStale(e.flags?.[MOD]?.combat, a.uuid, game.combats)) await queue(`actor:${a.uuid}`, async () => { await find(a)?.delete(); });
   }
 }
+
+/** Чистая: slug предмета; у копий NPC и переводов slug нет или чужой — по исходному имени (babele) и имени. */
+export const itemSlug = (item) => item?.slug || sluggify(item?.flags?.babele?.originalName ?? item?.name) || null;
+
+/** Чистая: предмет актёра с одним из slug (не эффект) -> slug | null. */
+export const heldSlug = (actor, slugs) => {
+  const set = slugs instanceof Set ? slugs : new Set(slugs);
+  for (const i of actor?.items ?? []) if (i.type !== "effect" && set.has(itemSlug(i))) return itemSlug(i);
+  return null;
+};
+
+/** Токены-цели сообщения: снимок правила (use.targets), иначе цели автора (ядро синхронизирует User#targets между клиентами). */
+export function messageTargets(message) {
+  const snap = message.flags?.[MOD]?.use?.targets;
+  return (snap ? snap.map((t) => fromUuidSync(t.uuid)) : [...(message.author?.targets ?? [])]).map(docOf).filter((t) => t?.actor);
+}
+
+/**
+ * Выбор принадлежит игроку-владельцу: окно у него (runPlayerBuiltin, реестр builtin/index.mjs), нет игрока онлайн или он не ответил — окно ведущего (local()).
+ * packed — { targets: [uuid] }; возвращает то, что вернул обработчик, либо local().
+ */
+export async function askOwner(actor, bid, packed, local) {
+  const player = game.users.find((u) => !u.isGM && u.active && actor.testUserPermission?.(u, "OWNER"));
+  if (player) {
+    try {
+      return await Promise.race([socket.executeAsUser("runPlayerBuiltin", player.id, bid, { actor: actor.uuid, ...packed }), new Promise((_, r) => setTimeout(() => r(new Error("timeout")), 180000))]);
+    } catch (e) { console.warn(`${MOD} | ${bid}: окно у игрока не вышло, спрашиваем ведущего`, e); }
+  }
+  return local();
+}
+
+/** Актёры мира и актёры несвязанных токенов всех сцен. */
+export const worldActors = () => [...game.actors, ...game.scenes.contents.flatMap((s) => s.tokens.filter((t) => !t.actorLink).map((t) => t.actor))].filter(Boolean);

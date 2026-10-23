@@ -1,0 +1,91 @@
+{
+  "_id": "b51giwYKB4A4Lxl1",
+  "name": "Effect: Desert Wind Damage",
+  "type": "effect",
+  "img": "icons/magic/perception/eye-slit-red-orange.webp",
+  "system": {
+    "description": {
+      "value": ""
+    },
+    "duration": {
+      "expiry": "turn-end",
+      "sustained": false,
+      "unit": "unlimited",
+      "value": -1
+    },
+    "level": {
+      "value": 1
+    },
+    "rules": [
+      {
+        "key": "FlatModifier",
+        "selector": "damage",
+        "value": "floor(@actor.level/2)-2",
+        "slug": "base",
+        "predicate": [
+          "air",
+          "impulse",
+          {
+            "not": "desert-wind-single-target"
+          }
+        ],
+        "damageType": "slashing"
+      },
+      {
+        "key": "FlatModifier",
+        "selector": "damage",
+        "value": "(floor(@actor.level/2)-2)*2",
+        "slug": "sing-target",
+        "predicate": [
+          "air",
+          "impulse",
+          "desert-wind-single-target"
+        ],
+        "damageType": "slashing"
+      },
+      {
+        "domain": "all",
+        "key": "RollOption",
+        "option": "desert-wind-single-target",
+        "toggleable": true,
+        "value": false,
+        "label": "Desert Wind Single Target"
+      }
+    ],
+    "source": {
+      "value": ""
+    },
+    "start": {
+      "initiative": null,
+      "value": 0
+    },
+    "target": null,
+    "tokenIcon": {
+      "show": true
+    },
+    "traits": {
+      "rarity": "common",
+      "value": []
+    },
+    "slug": "effect-desert-wind-damage"
+  },
+  "effects": [],
+  "folder": null,
+  "sort": 0,
+  "ownership": {
+    "default": 0
+  },
+  "flags": {},
+  "_stats": {
+    "coreVersion": "14.366",
+    "systemId": "pf2e",
+    "systemVersion": "8.6.1",
+    "createdTime": null,
+    "modifiedTime": null,
+    "lastModifiedBy": null,
+    "compendiumSource": null,
+    "duplicateSource": null,
+    "exportSource": null
+  },
+  "_key": "!items!b51giwYKB4A4Lxl1"
+}

@@ -28,18 +28,32 @@
           "durNum": "Zone: the duration must be a number greater than zero ({path})"
         },
         "apply": {
-          "to": "Step: choose who it applies to — self or target ({path})",
-          "kind": "A step must do exactly one thing: apply a condition, grant an effect, show a note, change visibility or deal persistent damage ({path})",
+          "to": "Step: choose who it applies to — self, target, party members or nearby allies ({path})",
+          "kind": "A step must do exactly one thing: apply a condition, grant an effect, show a note, change visibility or deal persistent damage, remove a condition, remove or extend an effect, turn on a roll option, deal damage (heal) or offer a choice ({path})",
           "who": "Step: \"who\" can only be allies or enemies ({path})",
           "mark": "Step: the mark can only be \"enemy\" and only together with an effect ({path})",
           "choice": "Step: an effect choice needs a value and only works together with an effect ({path})",
           "unless": "Step: \"unless the target has the effect\" — choose an effect ({path})",
-          "escape": "Step: \"escape\" — only on a condition or effect of the target; skills are Athletics, Acrobatics, unarmed attack; DC is an integer from 1 ({path})"
+          "escape": "Step: \"escape\" — only on a condition or effect of the target; skills are Athletics, Acrobatics, unarmed attack; DC is an integer from 1 ({path})",
+          "rank": "Step: \"rank\" — a minimum and/or a maximum, integers from 1 to 10, minimum not above maximum ({path})",
+          "range": "Step: a radius in feet (integer, 5 or more) is required for nearby allies and only for them ({path})",
+          "groupKind": "Step: a visibility change cannot be applied to a group ({path})",
+          "when": "Step: \"when\" is a pf2e predicate: roll option strings, comparisons (gte/lte/gt/lt/eq) and and/or/not/nor ({path})",
+          "chosen": "A step for the chosen creature needs an ally or enemy choice step before it ({path})"
+        },
+        "choose": { "bad": "Choice: say what to choose from — allies, enemies or options (options are a list of unique Latin codes); the radius is an integer from 5 and only for allies and enemies ({path})" },
+        "dmg": { "bad": "Damage: the formula is dice and numbers or variables (for example 2d6+3, @actor.level), the type is from the damage list or \"healing\" ({path})" },
+        "rmEff": { "bad": "Remove effect: exactly one of slug (a-z, digits, hyphen) or UUID is needed; \"of\" can only be origin ({path})" },
+        "extEff": { "bad": "Extend effect: the effect slug and an integer number of rounds from 1 are needed ({path})" },
+        "rollOpt": { "bad": "Option: a domain and an option name without spaces are needed; value is true/false ({path})" },
+        "rm": {
+          "slug": "Remove condition: pick a condition from the list ({path})"
         },
         "cond": {
           "slug": "The condition is not chosen or unknown — pick a condition from the list ({path})",
           "value": "The condition value must be a whole number from 1 ({path})",
-          "policy": "Condition stacking must be \"highest\" or \"add\" ({path})"
+          "policy": "Condition stacking must be \"highest\", \"add\" or \"reduce\" ({path})",
+          "reduceDur": "A condition with the \"reduce\" policy has no duration ({path})"
         },
         "pers": {
           "formula": "Persistent damage: the formula is dice and numbers, e.g. 1d6 or 2d6+3 ({path})",
@@ -47,16 +61,18 @@
           "dc": "Persistent damage: the recovery DC is a whole number from 1 ({path})"
         },
         "effect": {
-          "uuid": "The effect is not chosen or unknown — pick an effect ({path})"
+          "uuid": "The effect is not chosen or unknown — pick an effect ({path})",
+          "badge": "Effect: the badge can only be increased (increment) or decreased (decrement) ({path})",
+          "replace": "Effect: replace is only true and cannot be combined with a badge ({path})"
         },
         "note": {
           "text": "The note is empty — enter some text ({path})"
         },
         "dur": {
-          "needCond": "A duration can only be set together with a condition ({path})",
-          "bad": "Duration: enter a whole number from 1 and a unit (rounds, minutes, hours, days); 0 is only allowed for \"until the end of the current turn\" ({path})",
+          "needCond": "A duration can only be set together with a condition or an effect ({path})",
+          "bad": "Duration: enter a whole number from 1 (for an effect also dice like 1d4) and a unit (rounds, minutes, hours, days); 0 is only allowed for \"until the end of the current turn\" ({path})",
           "expiry": "Duration: it ends at the start or at the end of a turn ({path})",
-          "of": "Duration: count the turn of the author or of the target ({path})"
+          "of": "Duration: count the turn of the author or of the target — conditions only ({path})"
         },
         "vis": {
           "bad": "Visibility: choose a level (hidden, undetected, unnoticed, etc.) and an observer — self or target ({path})",
@@ -84,7 +100,9 @@
           "dc": "Check: the DC must be a number greater than zero ({path})",
           "against": "Check: set a target statistic (lowercase slug, e.g. \"will\") ({path})",
           "map": "Check: the multiple attack penalty steps must be from 0 to 2 ({path})",
-          "roll": "Check: the roll can only be \"system\" ({path})"
+          "roll": "Check: the roll can only be \"system\" ({path})",
+          "selfSteps": "Check without a target: degree steps apply to the author only ({path})",
+          "noVsSelf": "Check without a target: \"self\" targeting, no immunity ({path})"
         },
         "degrees": {
           "obj": "The results by degree of success are filled in incorrectly ({path})",
@@ -95,7 +113,9 @@
           "uuid": "Immunity: the effect is chosen incorrectly ({path})",
           "label": "Immunity: the name must be text ({path})",
           "dur": "Immunity: the duration is a whole number from 1 and a unit (minutes, hours, days) ({path})",
-          "empty": "Immunity: specify an effect or a duration ({path})"
+          "empty": "Immunity: specify an effect or a duration ({path})",
+          "scope": "Immunity: scope can only be \"slug\" (any author) ({path})",
+          "degrees": "Immunity: pick degrees of success from the four ({path})"
         },
         "react": {
           "trigger": "Reaction: only the \"when the owner is attacked\" trigger is supported ({path})",

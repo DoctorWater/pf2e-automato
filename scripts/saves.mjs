@@ -114,11 +114,12 @@ export async function challengeTargets(message) {
 
 const toolbeltRolls = () => S.get("useToolbeltTargetHelper") && toolbeltTargetHelper().checks;
 
-/** Все цели имеют результат. */
+/** Все цели имеют результат либо иммунны (иммунная цель не бросает: без этого afterChallenge не дождался бы её). */
 async function allResolved(message) {
-  const keys = (await challengeTargets(message)).map((t) => t.key);
-  const res = useOf(message)?.state?.challenge?.results ?? {};
-  return keys.length > 0 && keys.every((k) => res[k]);
+  const targets = await challengeTargets(message), use = useOf(message), ch = challengeOf(use);
+  const res = use?.state?.challenge?.results ?? {};
+  const done = await Promise.all(targets.map(async (t) => !!res[t.key] || (!!ch?.immunity && await isImmune(use, t.token, ch))));
+  return targets.length > 0 && done.every(Boolean);
 }
 
 /* ---------- бросок ---------- */
@@ -130,6 +131,7 @@ async function allResolved(message) {
 export async function rollSave(actor, challenge, ctx = {}) {
   const { message, tokenKey } = ctx;
   const use = useOf(message);
+  if (challenge.immunity && await isImmune(use, { actor }, challenge)) { ui.notifications.info(L("checks.immuneNote", { name: actor.name })); return null; }
   const dc = ctx.dc ?? await resolveDC(use);
   if (dc == null) { ui.notifications.warn(L("saves.dcUnknown")); return null; }
 
@@ -327,11 +329,11 @@ export function applyByDegree(messageId, tokenKey) {
       if (!all && key !== tokenKey) continue;
       const r = useOf(message).state?.challenge?.results?.[key];
       if (!r) continue;
-      // бросок уже сделан (действие из листа), а цель иммунна к этому автору: ничего не применяем (повтор после применения — идемпотентно, пропуск не нужен)
-      if (isCheck(ch) && !useOf(message).state?.challenge?.applied?.[key] && await isImmune(useOf(message), token, ch)) continue;
+      // бросок уже сделан (действие или спасбросок из листа), а цель иммунна к этому автору: ничего не применяем (повтор после применения — идемпотентно, пропуск не нужен)
+      if (ch.immunity && !useOf(message).state?.challenge?.applied?.[key] && await isImmune(useOf(message), token, ch)) continue;
       const steps = ch.byDegree?.[DEGREES[r.degree]] ?? [];
       ops.push(...await applyOps(message, key, steps, { scope: "challenge", degree: r.degree, total: r.total, target: token }));
-      if (isCheck(ch) && ch.immunity) ops.push(...await applyImmunity(message, key, token, ch.immunity, r.degree));
+      if (ch.immunity) ops.push(...await applyImmunity(message, key, token, ch.immunity, r.degree));
       if (r.changedAfterApply) await message.update({ [flagPath("use", "state", "challenge", "results", key, "changedAfterApply")]: false });
     }
     if (all) await afterChallenge(message);

@@ -3,7 +3,7 @@ import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { ROOT, readOut, writeJson, outPath, isMain } from "./lib.mjs";
 
-export const STATUSES = ["pf2e", "catalog", "markup-high", "markup-low", "pa-port", "manual", "skip"];
+export const STATUSES = ["pf2e", "catalog", "markup-high", "markup-head", "markup-low", "pa-port", "manual", "skip"];
 const NEED = STATUSES.filter((s) => s !== "skip");
 const START = "<!-- pipeline:start -->", END = "<!-- pipeline:end -->";
 
@@ -49,7 +49,7 @@ export function buildReport({ meta, items, tri, pa }) {
 }
 
 export function renderMd(d) {
-  const pa = d.pa, g = pa?.groups;
+  const pa = d.pa;
   const o = d.overall;
   return `${START}
 ## Конвейер: сводка по снимку pf2e ${d.pf2eVersion} (${d.generatedAt.slice(0, 10)})
@@ -60,7 +60,14 @@ export function renderMd(d) {
 
 ### PA (pf2e-automations ${pa?.paVersion ?? "?"})
 
-${g ? `| групп PA всего | перенесено (в каталоге) | переводится скриптом | требует примитива | требует ручного |\n|---|---|---|---|---|\n| ${g.total} | ${g.ported} (${pct(g.ported, g.total)}) | ${g.script} (${pct(g.script, g.total)}) | ${g.primitive} (${pct(g.primitive, g.total)}) | ${g.manual} (${pct(g.manual, g.total)}) |\n\nДокументов pf2e под PA: ${pa.docs.total} (в каталоге ${pa.docs.catalog}, переведено ${pa.docs.translated}, не переведено ${pa.docs.failed}). Цель — 100% групп в \`перенесено\`, тогда PA можно выключить. «Долгов переноса» (перенесено слабее PA): ${pa.debts.length}.\n\nПричины непереведённого (документов) — кандидаты в примитивы схемы:\n\n${Object.entries(pa.reasons).sort((a, b) => b[1] - a[1]).map(([k, v]) => `- \`${k}\`: ${v}`).join("\n")}\n` : "PA: нет данных (запустите tools/pa-port.mjs)."}
+${pa?.docs?.applicable ? `Документов pf2e под PA: ${pa.docs.total}; применимо ${pa.docs.applicable} (без ложного покрытия ${pa.docs.falseCoverage} — симулятор PA не находит срабатывания, — без «PA ошибается» ${pa.docs.paWrong ?? 0} и не переносимого по решению ${pa.docs.notPorted}). Готово ${pa.docs.done} (${pa.docs.percent}%): перенесено ${pa.docs.ported}, покрыто ручным каталогом или встроенным обработчиком ${pa.docs.covered}, делает pf2e ${pa.docs.native}. Долг ${pa.docs.debt}. Цель — 100%, тогда PA можно выключить.
+
+${pa?.paWrongList?.length ? `PA ошибается (срабатывает по симулятору, но ставит то, что противоречит тексту; вне знаменателя — при выключении PA верное не теряется, правильную автоматизацию такие документы получат в основных пачках 1–10), ${pa.paWrongList.length}:\n\n${pa.paWrongList.map((w) => `- ${w.name} (\`${w.slug}\`)`).join("\n")}\n\n` : ""}Долг по подпачкам (ROADMAP §5.1): ${Object.entries(pa.debt.bySubpack).map(([k, v]) => `${k} ${v}`).join(", ")}.
+
+Причины долга (документов):
+
+${Object.entries(pa.debt.byReason).sort((a, b) => b[1] - a[1]).map(([k, v]) => `- \`${k}\`: ${v}`).join("\n")}
+` : "PA: нет данных (запустите tools/pa-port.mjs)."}
 ### По типам
 
 ${table("тип", d.byType)}

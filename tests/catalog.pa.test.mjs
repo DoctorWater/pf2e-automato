@@ -52,10 +52,25 @@ const L = `@UUID[${EFF}]`;
 const grp = (target) => ({ rules: [{ triggerType: "use", target, value: EFF, predicate: [] }] });
 const cons = (extra = {}) => ({ type: "consumable", slug: "x", name: "X", traits: [], ...extra });
 
-test("translateItem: спасбросок в тексте при правиле «на себя» -> low (регресс: литерал backspace вместо граница слова)", () => {
-  const r = translateItem(cons(), `<p>${L} @Check[fortitude|dc:20]</p>`, grp("SelfEffect"), ctx);
+const labels = read("../rules/labels.json");
+test("translateItem: спасбросок в тексте при правиле «на себя» -> low, если у него есть состояния по степеням (регресс: литерал backspace вместо граница слова)", () => {
+  const cx = { ...ctx, labels, condSlugByUuid: (u) => (u.endsWith(CID) ? "quickened" : null) };
+  const withSteps = `<p>${L} @Check[fortitude|dc:20]</p><p><strong>Failure</strong> The creature is @UUID[Compendium.pf2e.conditionitems.Item.${CID}]{Quickened}</p>`;
+  const r = translateItem(cons(), withSteps, grp("SelfEffect"), cx);
   assert.equal(r.confidence, "low"); assert.match(r.reason, /text-has-save-or-area/);
-  assert.equal(translateItem(cons(), `<p>${L}</p>`, grp("SelfEffect"), ctx).confidence, "high");
+  assert.equal(translateItem(cons(), `<p>${L}</p>`, grp("SelfEffect"), cx).confidence, "high");
+});
+
+test("translateItem: спасбросок «только урон» и область без состояния — не слабее PA (урон модуль не применяет)", () => {
+  const dmg = `<p>${L}</p><p>exhale: @Template[cone|distance:15] @Check[reflex|dc:20|basic|options:area-effect] save</p>`;
+  assert.equal(translateItem(cons(), dmg, grp("SelfEffect"), { ...ctx, labels }).confidence, "high");
+});
+
+test("translateItem: спасбросок на чужое нападение против владельца — не на использование: save-on-attacked (0.5g)", () => {
+  const html = `<p>${L} any arthropod must attempt a @Check[will|dc:35] save when attempting to attack you.</p>`;
+  const r = translateItem(cons(), html, grp("SelfEffect"), { ...ctx, labels });
+  assert.match(r.reason, /save-on-attacked/); assert.doesNotMatch(r.reason, /text-has-save-or-area/);
+  assert.equal(subpackOf(r.reason.split("; ")[1].split(",")), "0.5g");
 });
 
 test("translateItem: to:target у расходника без target -> low; с target остаётся high", () => {
@@ -86,21 +101,26 @@ const ctx2 = { ...ctx, effects: { [EFF]: "Effect: X", [EFF2]: "Spell Effect: Y" 
 const sp = (extra = {}) => ({ type: "spell", slug: "x", name: "X", traits: [], range: "30 feet", ...extra });
 const gr = (pred, extra = {}) => ({ rules: [{ type: "base", triggerType: "spell-cast", target: "SelfEffect", value: EFF, predicate: pred, ...extra }] });
 
-test("translateItem: чужое feat:/spell: понижает, своё безвредно, условие и его отрицание с одним результатом безвредны", () => {
-  assert.match(translateItem(sp(), L, gr(["item:slug:x", "feat:other"]), ctx2).reason, /predicate:feat:other/);
-  assert.match(translateItem(sp(), L, gr(["item:slug:x", "spell:other"]), ctx2).reason, /predicate:spell:other/);
+test("translateItem: чужое feat:/spell: — условие шага when (0.5g2), своё безвредно, условие и его отрицание с одним результатом сливаются; синтетическая опция PA понижает", () => {
+  const w = translateItem(sp(), L, gr(["item:slug:x", "feat:other"]), ctx2);
+  assert.deepEqual([w.confidence, w.rule.onUse.apply[0].when], ["high", ["feat:other"]]);
+  assert.deepEqual(translateItem(sp(), L, gr(["item:slug:x", "feature:other"]), ctx2).rule.onUse.apply[0].when, ["feature:other"]);
+  assert.match(translateItem(sp(), L, gr(["item:slug:x", "spell:other"]), ctx2).reason, /predicate:spell:other/);   // spell:* pf2e в наборы не кладёт
+  assert.match(translateItem(sp(), L, gr(["item:slug:x", "channeling-block"]), ctx2).reason, /predicate:channeling-block/);
   assert.equal(translateItem(sp(), L, gr(["item:slug:x", "feat:x"]), ctx2).confidence, "high");
   const a = gr(["item:slug:x", { not: "feat:other" }]).rules[0], b = gr(["item:slug:x", "feat:other"]).rules[0];
-  assert.equal(translateItem(sp(), L, { rules: [a, b] }, ctx2).confidence, "high");                                  // Taunt: фит меняет лишь дальность
-  assert.match(translateItem(sp(), L, { rules: [a, { ...b, value: EFF2 }] }, ctx2).reason, /predicate:feat:other/);   // результаты разные — условие значимо
+  const t = translateItem(sp(), L, { rules: [a, b] }, ctx2);                                                          // Taunt: фит меняет лишь дальность
+  assert.deepEqual([t.confidence, t.rule.onUse.apply], ["high", [{ to: "self", effect: { uuid: EFF } }]]);
+  assert.equal(translateItem(sp(), L, { rules: [a, { ...b, value: EFF2 }] }, ctx2).rule.onUse.apply.length, 2);     // результаты разные — условие значимо
 });
 
 test("translateItem: триггер use/spell-cast годится непассивному действию, пассивному — нет", () => {
   const act = (actionType) => ({ type: "action", slug: "x", name: "X", traits: [], actionType });
   assert.equal(translateItem(act("action"), L, gr(["item:slug:x"]), ctx2).confidence, "high");
   assert.equal(translateItem(act("action"), L, gr(["item:slug:x"], { triggerType: "use" }), ctx2).confidence, "high");
-  assert.match(translateItem(act("passive"), L, gr(["item:slug:x"]), ctx2).reason, /trigger-type:spell-cast\/action/);
-  assert.match(translateItem(act("passive"), L, gr(["item:slug:x"], { triggerType: "use" }), ctx2).reason, /trigger-type:use\/action/);
+  assert.match(translateItem(act("passive"), L, gr(["item:slug:x"]), ctx2).reason, /passive-event-trigger/);   // решение: триггер по событию — 0.5g
+  assert.match(translateItem(act("passive"), L, gr(["item:slug:x"], { triggerType: "use" }), ctx2).reason, /passive-event-trigger/);
+  assert.match(translateItem({ type: "weapon", slug: "x", name: "X", traits: [] }, L, gr(["item:slug:x"], { triggerType: "postInfo" }), ctx2).reason, /trigger-type:postInfo\/weapon/);   // postInfo у снаряжения — не пассив
 });
 
 test("translateItem: длительность без value — из самого эффекта, настоящие кубы остаются долгом", () => {
@@ -109,7 +129,10 @@ test("translateItem: длительность без value — из самого
   assert.equal(r.confidence, "high"); assert.deepEqual(r.rule.onUse.apply, [{ to: "self", effect: { uuid: EFF } }]);
   const c = translateItem(cons(), L, cx({ unit: "minutes" }, { conditions: ["quickened"] }), ctx2);
   assert.equal(c.rule.onUse.apply[0].duration, undefined);
-  assert.equal(translateItem(cons(), L, cx({ value: "1d4", unit: "rounds", expiry: "turn-end" }, { effects: [EFF] }), ctx2).reason, "dice-duration");
+  // 0.5g4: кубик «1d4» — duration со строкой (бросается при выдаче) у шага effect и у состояния; иная запись (формула) — долг
+  assert.deepEqual(translateItem(cons(), L, cx({ value: "1d4", unit: "rounds", expiry: "turn-end" }, { effects: [EFF] }), ctx2).rule.onUse.apply[0].duration, { value: "1d4", unit: "rounds", expiry: "turn-end" });
+  assert.deepEqual(translateItem(cons(), L, cx({ value: "1d4", unit: "rounds", expiry: "turn-end" }, { conditions: ["quickened"] }), ctx2).rule.onUse.apply[0].duration, { value: "1d4", unit: "rounds", expiry: "turn-end", of: "origin" });
+  assert.equal(translateItem(cons(), L, cx({ value: "1d4+@level", unit: "rounds" }, { effects: [EFF] }), ctx2).reason, "dice-duration");
   assert.equal(translateItem(cons(), L, cx({ value: 2, unit: "rounds" }, { conditions: ["quickened"] }), ctx2).rule.onUse.apply[0].duration.value, 2);
 });
 
@@ -129,11 +152,14 @@ test("translateItem: предмет переименован — по source б�
   const sameOld = { rules: [rule("old", EFF), rule("old", EFF2)] };
   assert.equal(translateItem(sp(), L, sameOld, ctx2).reason, "slug-mismatch");                          // найден лишь по slug
   assert.equal(translateItem(sp(), L, sameOld, ctx2, { viaSource: true }).rule.onUse.apply.length, 2);
-  assert.equal(translateItem(sp(), L, { rules: [rule("old", EFF), rule("older", EFF2)] }, ctx2, { viaSource: true }).reason, "slug-mismatch");   // slug-токены не согласованы
+  assert.equal(translateItem(sp(), "<p>x</p>", { rules: [rule("old", EFF), rule("older", EFF2)] }, ctx2, { viaSource: true }).reason, "slug-mismatch");   // slug-токены не согласованы
   const tiers = { rules: [rule("old-lesser", EFF), rule("old-greater", EFF2)].map((r) => ({ ...r, triggerType: "use", predicate: [r.predicate[0].replace("item:slug", "consumable")] })) };
   const t = translateItem(cons({ slug: "new-greater" }), `@UUID[${EFF2}]`, tiers, ctx2, { viaSource: true });
   assert.deepEqual(t.rule.onUse.apply.map((a) => a.effect.uuid), [EFF2]);
-  assert.equal(translateItem(cons({ slug: "new-major" }), L, tiers, ctx2, { viaSource: true }).reason, "slug-mismatch");   // такого тира нет
+  assert.equal(translateItem(cons({ slug: "new-major" }), "<p>x</p>", tiers, ctx2, { viaSource: true }).reason, "slug-mismatch");   // такого тира нет
+  // тир без правила PA, но эффект названа ссылкой в тексте — берём правило с этим эффектом (Dragon's Blood Pudding: moderate/greater при правилах для базового и major)
+  const pudding = translateItem(cons({ slug: "new-moderate" }), L, { rules: [rule("new", EFF), rule("new-major", EFF2)].map((r) => ({ ...r, triggerType: "use", predicate: [r.predicate[0].replace("item:slug", "consumable")] })) }, ctx2, { viaSource: true });
+  assert.deepEqual(pudding.rule.onUse.apply.map((a) => a.effect.uuid), [EFF]);
 });
 
 test("translateItem: SelfOrTarget — цель или дальность предмета, иначе на себя; расходник «наносится на существо» — на цель", () => {
@@ -160,12 +186,22 @@ test("translateItem: pf2e делает сам — собственный selfEff
   const hpg = { rules: [{ type: "handler", triggerType: "postInfo", value: "huntPrey", target: "none", predicate: [] }] };
   const hp = translateItem(sp({ selfEffect: EFF }), "", hpg, ctx2);
   assert.deepEqual([hp.native, hp.rule], [true, null]);
-  assert.deepEqual(translateItem(sp({ embedded: { actor: "A" } }), "", hpg, ctx2).reason, "handler:huntPrey");   // копия NPC без selfEffect — долг
+  const npcHp = translateItem(sp({ embedded: { actor: "A" } }), "", hpg, ctx2);   // копия NPC без selfEffect — встроенный обработчик (scripts/builtin/hunt-prey.mjs)
+  assert.deepEqual([npcHp.reason, npcHp.builtin, npcHp.native], ["builtin:hunt-prey", true, undefined]);
 });
 
 test("translateItem: «Effect: Fly» у Fly — эффект с именем самого предмета безвреден, чужой — нет", () => {
   assert.equal(translateItem(sp({ name: "X" }), "<p>без ссылки</p>", gr(["item:slug:x"]), ctx2).confidence, "high");
-  assert.match(translateItem(sp({ name: "Other" }), "<p>без ссылки</p>", gr(["item:slug:x"]), ctx2).reason, /effect-not-in-text/);
+  assert.match(translateItem(sp({ name: "Other" }), "<p>без ссылки</p>", gr(["item:slug:x"], { predicate: ["feat:x"] }), ctx2).reason, /effect-not-in-text/);   // PA не назвал этот предмет по slug
+});
+
+test("translateItem: правило, где PA назвал предмет по slug или через source, — доказательство, что эффект его (без ссылки в тексте)", () => {
+  const h = "<p>без ссылки</p>";
+  assert.match(translateItem(sp({ name: "Other" }), h, gr(["origin:item:x"]), ctx2).reason, /effect-not-in-text/);                      // slug в предикате без source группы — копия/тёзка, не доказательство
+  assert.equal(translateItem(sp({ name: "Other" }), h, gr(["item:slug:old"]), ctx2, { viaSource: true }).confidence, "high");           // переименован: найден по source
+  assert.match(translateItem(sp({ name: "Other" }), h, gr(["item:slug:old"]), ctx2).reason, /effect-not-in-text/);                       // лишь по slug и предикат на другой slug — не привязка
+  assert.equal(translateItem(sp({ name: "Other" }), h, gr(["origin:item:x"]), { ...ctx2, effectRisk: { [EFF]: 1 } }, { viaSource: true }).confidence, "high");   // source группы сильнее «рискованного» эффекта
+  assert.match(translateItem(sp({ name: "Other" }), h, gr(["item:slug:old"]), { ...ctx2, tierSiblings: () => true }, { viaSource: true }).reason, /effect-not-in-text/);   // тиры: source группы не говорит, какой тир
 });
 
 test("falseCoverage: slug лишь в условии чужого фита — ложное покрытие; триггер, источник и имя группы — настоящее", () => {
@@ -205,7 +241,8 @@ test("buildPaCatalog: covered/native/false-coverage не переносятся;
 
 test("сводка: подпачка долга и итоговый статус документа", () => {
   assert.equal(subpackOf(["handler:grab"]), "0.5e");
-  assert.equal(subpackOf(["handler:knockdown"]), "0.5g");
+  assert.equal(subpackOf(["handler:knockdown"]), "0.5e");
+  assert.equal(subpackOf(["handler:monsterHunter"]), "0.5g");
   assert.equal(subpackOf(["pa-own-effect", "handler:deleteHoldingBreath"]), "0.5e");
   assert.equal(subpackOf(["pa-own-effect"]), "0.5d");
   assert.equal(subpackOf(["immunity-after-save"]), "0.5c");
@@ -240,7 +277,7 @@ test("buildPaCatalog: копия NPC с source предмета, у которо
 });
 
 test("translateItem: подъём «эффект с именем предмета» запрещён для эффектов с выбором/slug чужих предметов и расходников с тирами", () => {
-  const g = gr(["item:slug:x"]);
+  const g = gr(["feat:x"]);   // PA предмет по slug не назвал — остаётся только имя
   assert.equal(translateItem(sp({ name: "X" }), "<p>нет ссылки</p>", g, ctx2).confidence, "high");
   assert.match(translateItem(sp({ name: "X" }), "<p>нет ссылки</p>", g, { ...ctx2, effectRisk: { [EFF]: 1 } }).reason, /effect-not-in-text/);
   assert.match(translateItem(sp({ name: "X" }), "<p>нет ссылки</p>", g, { ...ctx2, tierSiblings: () => true }).reason, /effect-not-in-text/);

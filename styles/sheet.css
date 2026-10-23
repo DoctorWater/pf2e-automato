@@ -1,7 +1,7 @@
 .tab.automato { padding: 0.5rem; overflow-y: auto; }
 .tab.automato [hidden] { display: none !important; }
 .tab.automato .af-line { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; margin: 0.25rem 0; }
-.tab.automato .af-row { display: flex; gap: 0.25rem; align-items: center; margin: 0.15rem 0; }
+.tab.automato .af-row { display: flex; flex-wrap: wrap; gap: 0.25rem; align-items: center; margin: 0.15rem 0; }
 .tab.automato .af-row [data-r="text"], .tab.automato .af-row [data-r="uuid"] { flex: 1; min-width: 6rem; }
 .tab.automato .af-narrow { width: 4rem; flex: none; }
 .tab.automato .af-block { margin: 0.5rem 0; }
@@ -24,5 +24,16 @@
 .paf-mark:hover { opacity: 0.85; }
 .paf-mark-yield { opacity: 0.2; }
 .tab.automato .af-ws-open { width: auto; flex: none; float: right; font-size: 0.75em; }
+/* значок +N — только у шага «Эффект»; круг не растягивает ряд */
+.tab.automato .af-row:not(:has([data-r="kind"] option[value="effect"]:checked)) .af-stack { display: none; }
+.tab.automato .af-row .af-rank { display: flex; flex: none; gap: 0.15rem; }
+.tab.automato .af-row .af-stack { flex: none; white-space: nowrap; }
+/* поля новых шагов: радиус — у союзников, опция — у rollOption, «созданный мной» — у снятия эффекта */
+.tab.automato .af-row:not(:has([data-r="to"] option[value="allies"]:checked)) .af-range { display: none; }
+.tab.automato .af-row:not(:has([data-r="kind"] option[value="rollOption"]:checked)) :is(.af-domain, .af-optoff) { display: none; }
+.tab.automato .af-row:not(:has([data-r="kind"] option[value="removeEffect"]:checked)) .af-ofo { display: none; }
+.tab.automato .af-row .af-when { flex: 1 1 12rem; }
+/* у заметки нет ни условия, ни круга */
+.tab.automato .af-row:has([data-r="kind"] option[value="note"]:checked) :is(.af-when, .af-rank) { display: none; }
 /* тип урона — только у шага «Продолжительный урон» */
 .tab.automato .af-row:not(:has([data-r="kind"] option[value="persistent"]:checked)) [data-r="pType"] { display: none; }

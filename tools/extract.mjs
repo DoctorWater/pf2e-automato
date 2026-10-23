@@ -3,6 +3,7 @@ import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { RU_PACKS, DATA, readJson, writeJson, outPath, stripHtml, cut, isMain } from "./lib.mjs";
 import { openPacks } from "./packs.mjs";
+import { sourceDocs, PACK_ID } from "./build-packs.mjs";
 import { sluggify } from "../scripts/util.mjs";
 
 const TOP_TYPES = new Set(["action", "feat", "campaignFeature", "spell", "consumable", "equipment", "weapon", "armor", "shield", "treasure", "ammo"]);
@@ -51,6 +52,17 @@ export function normItem(doc, { pack, uuid, ru = null, embedded = null }) {
 export const normText = (html) => stripHtml(html).toLowerCase().replace(/\s+/g, " ");
 const descKey = (type, slug, html) => `${type}|${slug}|${normText(html)}`;
 
+/** Эффект -> справочники refs: имя, состояния, которые он выдаёт сам (GrantItem / EphemeralEffect на conditionitems), риск «имя не доказывает предмет». */
+function noteEffect(refs, u, d) {
+  refs.effects[u] = d.name;
+  const du = d.system.duration;
+  if (du?.unit) (refs.effectDur ??= {})[u] = { value: du.value, unit: du.unit };   // срок самого эффекта: правило PA с другим сроком у шага effect выразить нечем
+  const g = (d.system.rules ?? []).filter((r) => r.key === "GrantItem" || r.key === "EphemeralEffect").map((r) => /conditionitems\.Item\.(\w+)/.exec(r.uuid ?? "")?.[1]).filter(Boolean);
+  if (g.length) refs.grants[u] = g;
+  // эффект зависит от выбора (ChoiceSet) или от slug других предметов в предикате: имя эффекта не доказывает, что он для этого предмета
+  if ((d.system.rules ?? []).some((r) => r.key === "ChoiceSet" || /(?:item:slug|consumable|action):[a-z0-9-]+/.test(JSON.stringify(r.predicate ?? [])))) (refs.effectRisk ??= {})[u] = 1;
+}
+
 async function main() {
   const t0 = Date.now();
   const src = await openPacks();
@@ -64,13 +76,7 @@ async function main() {
     for (const d of docs) {
       if (pack === "conditionitems") refs.conditions[d.system.slug] = { id: d._id, name: d.name, nameRu: ru[d.name]?.name ?? null };
       else if (d.type === "effect") {
-        const u = `Compendium.pf2e.${pack}.Item.${d._id}`;
-        refs.effects[u] = d.name;
-        // состояния, которые эффект выдаёт сам (GrantItem на conditionitems): id состояния
-        const g = (d.system.rules ?? []).filter((r) => r.key === "GrantItem").map((r) => /conditionitems\.Item\.(\w+)/.exec(r.uuid ?? "")?.[1]).filter(Boolean);
-        if (g.length) refs.grants[u] = g;
-        // эффект зависит от выбора (ChoiceSet) или от slug других предметов в предикате: имя эффекта не доказывает, что он для этого предмета
-        if ((d.system.rules ?? []).some((r) => r.key === "ChoiceSet" || /(?:item:slug|consumable|action):[a-z0-9-]+/.test(JSON.stringify(r.predicate ?? [])))) (refs.effectRisk ??= {})[u] = 1;
+        noteEffect(refs, `Compendium.pf2e.${pack}.Item.${d._id}`, d);
       }
       if (!isActor) {
         if (!TOP_TYPES.has(d.type)) continue;
@@ -84,6 +90,15 @@ async function main() {
         }
       }
     }
+  }
+  // эффекты нашего пака; обёртка с выбором (ChoiceSet из uuid эффектов) и аура выдают то, что выдают их варианты
+  for (const d of sourceDocs()) {
+    const u = `Compendium.${PACK_ID}.effects.Item.${d._id}`;
+    noteEffect(refs, u, d);
+    const offers = [...new Set(JSON.stringify(d.system.rules ?? []).match(/Compendium\.[\w-]+\.[\w-]*effects\.Item\.\w+/g) ?? [])].filter((v) => refs.effects[v] && v !== u);   // эффекты, которые ставит обёртка/аура
+    const via = offers.flatMap((v) => refs.grants[v] ?? []);
+    if (via.length) refs.grants[u] = [...new Set([...(refs.grants[u] ?? []), ...via])];
+    if (offers.length) (refs.wraps ??= {})[u] = offers;
   }
   for (const p of pending) {
     const uuid = `${p.embedded.actorUuid}.Item.${p.it._id}`;

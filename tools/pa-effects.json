@@ -1,0 +1,1614 @@
+{
+ "paVersion": "1.4.9",
+ "effects": {
+  "pAfGrabNoImmob01": {
+   "name": "Effect: Grabbed (Not Immobilized)",
+   "kind": "own",
+   "dur": null,
+   "module": true
+  },
+  "0v7THqjruKWI0wJ4": {
+   "name": "Effect: Skunk Bomb (Critical Failure)",
+   "kind": "own",
+   "dur": null
+  },
+  "1APyP9NlvsxaCY73": {
+   "name": "Effect: Vigilant Eye Major (Weapon)",
+   "kind": "own",
+   "dur": null
+  },
+  "1I3eP8d4rNs3RVG7": {
+   "name": "Effect: Cat's Eye Elixir",
+   "kind": "script"
+  },
+  "1KroJZ72a4Hc10fW": {
+   "name": "Effect: Concealed",
+   "kind": "conditions",
+   "steps": [
+    {
+     "slug": "concealed"
+    }
+   ],
+   "duration": {
+    "value": 1,
+    "unit": "rounds",
+    "expiry": "turn-start"
+   }
+  },
+  "1gzRFqNvsgHsL1dg": {
+   "name": "Effect: Slowed 2 for 1 round",
+   "kind": "conditions",
+   "steps": [
+    {
+     "slug": "slowed",
+     "value": 2
+    }
+   ],
+   "duration": {
+    "value": 1,
+    "unit": "rounds",
+    "expiry": "turn-end"
+   }
+  },
+  "1jyADLe4RLz35Kkn": {
+   "name": "Effect: Deactivated Regeneration",
+   "kind": "script"
+  },
+  "1u4ZAmfeWKyN3uKK": {
+   "name": "Effect: Dazzled for 1 round",
+   "kind": "conditions",
+   "steps": [
+    {
+     "slug": "dazzled"
+    }
+   ],
+   "duration": {
+    "value": 1,
+    "unit": "rounds",
+    "expiry": "turn-end"
+   }
+  },
+  "1zCit360MHdn1YmY": {
+   "name": "Effect: Blinded for 1 minute",
+   "kind": "conditions",
+   "steps": [
+    {
+     "slug": "blinded"
+    }
+   ],
+   "duration": {
+    "value": 1,
+    "unit": "minutes",
+    "expiry": "turn-start"
+   }
+  },
+  "20Fr36wvCCZtygX3": {
+   "name": "Spell Effect: Ill Omen (Failure)",
+   "kind": "own",
+   "dur": {
+    "value": 1,
+    "unit": "rounds"
+   }
+  },
+  "20iBI0W09a11Zsls": {
+   "name": "Effect: Selfless Parry",
+   "kind": "own",
+   "dur": {
+    "value": 1,
+    "unit": "rounds"
+   }
+  },
+  "2yWSBNLWWYXXSfKZ": {
+   "name": "Effect: Additional damage bloodline",
+   "kind": "own",
+   "dur": {
+    "value": 0,
+    "unit": "rounds"
+   }
+  },
+  "39ZPxVV3WYb54951": {
+   "name": "Spell Effect: Adapt Self",
+   "kind": "pf2e",
+   "uuid": "Compendium.pf2e.spell-effects.Item.kTFIq6FOziSP2D3e",
+   "obsolete": true,
+   "dur": {
+    "value": 1,
+    "unit": "minutes"
+   }
+  },
+  "3Hd6ZtQYlel5fYIC": {
+   "name": "Spell Effect: Angel Form",
+   "kind": "pf2e",
+   "uuid": "Compendium.pf2e.spell-effects.Item.Fi66csT9OiBGmPZ0",
+   "obsolete": true,
+   "dur": {
+    "value": 1,
+    "unit": "minutes"
+   }
+  },
+  "3IuaMLa4KhBqRQkM": {
+   "name": "Spell Effect: Primal Summons",
+   "kind": "pf2e",
+   "uuid": "Compendium.pf2e.spell-effects.Item.PQuQtDixruZmmvT4",
+   "obsolete": true,
+   "dur": null
+  },
+  "3NGsVS7Bc50QB38x": {
+   "name": "Effect: Consult The Stars",
+   "kind": "own",
+   "dur": {
+    "value": 1,
+    "unit": "days"
+   }
+  },
+  "4Lgd0gFHaPLp93RB": {
+   "name": "Spell Effect: Daze Weakness",
+   "kind": "own",
+   "dur": null
+  },
+  "4N0uP5J4zOCugn5R": {
+   "name": "Effect: Neutral Alliance",
+   "kind": "own",
+   "dur": null
+  },
+  "52FgvfpgAdKnO4d0": {
+   "name": "Spell Effect: Laughing Fit (Critical Failure)",
+   "kind": "own",
+   "dur": {
+    "value": 1,
+    "unit": "rounds"
+   }
+  },
+  "5MNn6cmXxbORB8x8": {
+   "name": "Effect: Grabbed until end of attacker next turn",
+   "kind": "conditions",
+   "steps": [
+    {
+     "slug": "grabbed"
+    }
+   ],
+   "duration": {
+    "value": 1,
+    "unit": "rounds",
+    "expiry": "turn-end"
+   }
+  },
+  "5Mk3CmmLDTLVf8l5": {
+   "name": "Effect: Paralyzed for 4 round",
+   "kind": "conditions",
+   "steps": [
+    {
+     "slug": "paralyzed"
+    }
+   ],
+   "duration": {
+    "value": 4,
+    "unit": "rounds",
+    "expiry": "turn-end"
+   }
+  },
+  "5PIGGtBluSELe9UL": {
+   "name": "Antagonize",
+   "kind": "own",
+   "dur": null
+  },
+  "5odYC7OTW9hmHcPM": {
+   "name": "Effect: Stupefied 4",
+   "kind": "conditions",
+   "steps": [
+    {
+     "slug": "stupefied",
+     "value": 4
+    }
+   ],
+   "duration": null
+  },
+  "5r6sjGnr6Vwr6XaY": {
+   "name": "Effect: Sleep (Failure)",
+   "kind": "conditions",
+   "steps": [
+    {
+     "slug": "blinded"
+    },
+    {
+     "slug": "off-guard"
+    }
+   ],
+   "duration": {
+    "value": 1,
+    "unit": "minutes",
+    "expiry": "turn-start"
+   }
+  },
+  "68qdwHfv7nm4Czyr": {
+   "name": "Spell Effect: Blur",
+   "kind": "conditions",
+   "steps": [
+    {
+     "slug": "concealed"
+    }
+   ],
+   "duration": {
+    "value": 1,
+    "unit": "minutes",
+    "expiry": "turn-end"
+   }
+  },
+  "6CTBvKIB9YgciVde": {
+   "name": "Effect: Enfeebled 2 for 1 round",
+   "kind": "conditions",
+   "steps": [
+    {
+     "slug": "enfeebled",
+     "value": 2
+    }
+   ],
+   "duration": {
+    "value": 1,
+    "unit": "rounds",
+    "expiry": "turn-start"
+   }
+  },
+  "6NKMkaEvSWRY78wG": {
+   "name": "Effect: +1 status bonus to AC",
+   "kind": "own",
+   "dur": {
+    "value": 1,
+    "unit": "rounds"
+   }
+  },
+  "6vrf3APd1A3TdfT8": {
+   "name": "Spell Effect: Ill Omen (Critical Failure)",
+   "kind": "own",
+   "dur": {
+    "value": 1,
+    "unit": "rounds"
+   }
+  },
+  "7kyjK9Pm7wKSZtdQ": {
+   "name": "Aura: Song of Strength",
+   "kind": "own",
+   "dur": {
+    "value": 1,
+    "unit": "rounds"
+   }
+  },
+  "7roTkQ4QHWDWZkJM": {
+   "name": "Effect: Deafened for 1 round",
+   "kind": "conditions",
+   "steps": [
+    {
+     "slug": "deafened"
+    }
+   ],
+   "duration": {
+    "value": 1,
+    "unit": "rounds",
+    "expiry": "turn-end"
+   }
+  },
+  "8VMC9QwRBGlDcDwQ": {
+   "name": "Aura: Triple Time",
+   "kind": "own",
+   "dur": {
+    "value": 1,
+    "unit": "rounds"
+   }
+  },
+  "8rmU1xImKF1Yj65d": {
+   "name": "Effect: Clumsy while Immobilized",
+   "kind": "own",
+   "dur": {
+    "value": 1,
+    "unit": "rounds"
+   }
+  },
+  "8rsKAZL0kVNrjbsb": {
+   "name": "Effect: Sleep (Success)",
+   "kind": "own",
+   "dur": {
+    "value": 1,
+    "unit": "rounds"
+   }
+  },
+  "AGXI9lBnnuEPYDGX": {
+   "name": "Effect: -1 status bonus to AC",
+   "kind": "own",
+   "dur": {
+    "value": 1,
+    "unit": "rounds"
+   }
+  },
+  "An3CuEIthnfIYnid": {
+   "name": "Effect: Channeling Block",
+   "kind": "own",
+   "dur": {
+    "value": 0,
+    "unit": "rounds"
+   }
+  },
+  "CEkQI3KysIs7C6EX": {
+   "name": "Spell Effect: Plant Form",
+   "kind": "pf2e",
+   "uuid": "Compendium.pf2e.spell-effects.Item.tu8FyCtmL3YYR2jL",
+   "obsolete": true,
+   "dur": {
+    "value": 1,
+    "unit": "minutes"
+   }
+  },
+  "CTZMnSK0YS818tXV": {
+   "name": "Spell Effect: Insect Form",
+   "kind": "pf2e",
+   "uuid": "Compendium.pf2e.spell-effects.Item.dQeERSuUeHv9Rib5",
+   "obsolete": true,
+   "dur": {
+    "value": 1,
+    "unit": "minutes"
+   }
+  },
+  "CTi8FM96E1ZX20v8": {
+   "name": "Effect: Stupefied 2 for 1 round (start)",
+   "kind": "conditions",
+   "steps": [
+    {
+     "slug": "stupefied",
+     "value": 2
+    }
+   ],
+   "duration": {
+    "value": 1,
+    "unit": "rounds",
+    "expiry": "turn-start"
+   }
+  },
+  "CUMpeosjhqDpj4KK": {
+   "name": "Effect: Additional damage bloodline",
+   "kind": "own",
+   "dur": {
+    "value": 0,
+    "unit": "rounds"
+   }
+  },
+  "Cb6PwNjKN4nsEEq2": {
+   "name": "Effect: Stupefied for 1 round (start)",
+   "kind": "conditions",
+   "steps": [
+    {
+     "slug": "stupefied"
+    }
+   ],
+   "duration": {
+    "value": 1,
+    "unit": "rounds",
+    "expiry": "turn-start"
+   }
+  },
+  "CeEIsLIPnR6zzBu5": {
+   "name": "Frightful Presence Immunity",
+   "kind": "immunity"
+  },
+  "CwBOiAsgZXA844HV": {
+   "name": "Effect: Qi Rush",
+   "kind": "conditions",
+   "steps": [
+    {
+     "slug": "concealed"
+    }
+   ],
+   "duration": {
+    "value": 1,
+    "unit": "rounds",
+    "expiry": "turn-start"
+   }
+  },
+  "DFLW2gzu0PGeX6zu": {
+   "name": "Effect: Demoralize Immunity 10 minutes",
+   "kind": "immunity"
+  },
+  "DGGVvtjm7r8yhSKG": {
+   "name": "Effect: Jinx Immunity",
+   "kind": "immunity"
+  },
+  "DOq3IEgQzoWvDdmB": {
+   "name": "Effect: Phantom Pain (Critical Failure)",
+   "kind": "own",
+   "dur": {
+    "value": 1,
+    "unit": "minutes"
+   }
+  },
+  "DqspZqJJu4v3k4Zv": {
+   "name": "Effect: Stupefied for 1 round",
+   "kind": "conditions",
+   "steps": [
+    {
+     "slug": "stupefied"
+    }
+   ],
+   "duration": {
+    "value": 1,
+    "unit": "rounds",
+    "expiry": "turn-end"
+   }
+  },
+  "E0TloRt3TY6bM9yO": {
+   "name": "Effect: Blindpepper Bomb (Critical Failure)",
+   "kind": "own",
+   "dur": null
+  },
+  "ESDysTknpmThdvQs": {
+   "name": "Effect: Stumbling Stance (Off-guard)",
+   "kind": "own",
+   "dur": {
+    "value": 1,
+    "unit": "rounds"
+   }
+  },
+  "Ed57eZ72j6RGAIp4": {
+   "name": "Effect: Skunk Bomb (Failure)",
+   "kind": "own",
+   "dur": null
+  },
+  "F4YT1SP3GovpDX48": {
+   "name": "Spell Effect: Shielded Arm",
+   "kind": "own",
+   "dur": {
+    "value": 1,
+    "unit": "minutes"
+   }
+  },
+  "F6vJYLZTWDpnrnCZ": {
+   "name": "Cover Tracks",
+   "kind": "marker"
+  },
+  "FCKm1dZKZzF7Jkxl": {
+   "name": "Effect: Immobilized for 1 round",
+   "kind": "conditions",
+   "steps": [
+    {
+     "slug": "immobilized"
+    }
+   ],
+   "duration": {
+    "value": 1,
+    "unit": "rounds",
+    "expiry": "turn-end"
+   }
+  },
+  "FHMA8vr46g3Podn0": {
+   "name": "Effect: Target Desert Wind",
+   "kind": "own",
+   "dur": null
+  },
+  "FJAGbFPO8SZHx0TQ": {
+   "name": "Aura: Protector's Sphere",
+   "kind": "pf2e",
+   "uuid": "Compendium.pf2e.spell-effects.Item.3bcUiWwc5KLc4X0T",
+   "dur": {
+    "value": 1,
+    "unit": "minutes"
+   }
+  },
+  "FWuDxhIAIX3pi8Ge": {
+   "name": "Effect: Remorseless Lash",
+   "kind": "own",
+   "dur": {
+    "value": 1,
+    "unit": "rounds"
+   }
+  },
+  "FcUe8TT7bhqlURIf": {
+   "name": "Aura: Bane",
+   "kind": "own",
+   "dur": {
+    "value": 1,
+    "unit": "minutes"
+   }
+  },
+  "Fl0w5CpVo51hgYeO": {
+   "name": "Spell Effect: Laughing Fit (Success)",
+   "kind": "own",
+   "dur": null
+  },
+  "GYOyFj4ziZX060rZ": {
+   "name": "Defend",
+   "kind": "marker"
+  },
+  "HrHzFVcdcBdG2nv8": {
+   "name": "Effect: Fascinated for 1 round",
+   "kind": "conditions",
+   "steps": [
+    {
+     "slug": "fascinated"
+    }
+   ],
+   "duration": {
+    "value": 1,
+    "unit": "rounds",
+    "expiry": "turn-end"
+   }
+  },
+  "IDhtOTQmmc8zSNki": {
+   "name": "Effect: Protector's Sphere",
+   "kind": "pf2e",
+   "uuid": "Compendium.pf2e.spell-effects.Item.XXtz5BDNNBmP9ub2",
+   "dur": null
+  },
+  "IxQH4PQwhbylr5VW": {
+   "name": "Effect: Chalice Intensify Vulnerability",
+   "kind": "script"
+  },
+  "J3GGbKP247JWY883": {
+   "name": "Effect: Spike Skin",
+   "kind": "own",
+   "dur": {
+    "value": 10,
+    "unit": "minutes"
+   }
+  },
+  "JNPkxBpM9ituZl3E": {
+   "name": "No Actions",
+   "kind": "own",
+   "dur": null
+  },
+  "JaZMkZA7LCBLiOf0": {
+   "name": "Effect: Subsist (Failure)",
+   "kind": "conditions",
+   "steps": [
+    {
+     "slug": "fatigued"
+    }
+   ],
+   "duration": null
+  },
+  "K9G9c1CguDaC85XH": {
+   "name": "Spell Effect: Fey Form",
+   "kind": "pf2e",
+   "uuid": "Compendium.pf2e.spell-effects.Item.jeH78c7kyk376PKS",
+   "obsolete": true,
+   "dur": {
+    "value": 1,
+    "unit": "minutes"
+   }
+  },
+  "KC8ScCZQpH2lN14h": {
+   "name": "Effect: Enfeebled for 1 round",
+   "kind": "conditions",
+   "steps": [
+    {
+     "slug": "enfeebled"
+    }
+   ],
+   "duration": {
+    "value": 1,
+    "unit": "rounds",
+    "expiry": "turn-start"
+   }
+  },
+  "KFoh6XzV382S9DDr": {
+   "name": "Effect: Additional bludgeoning damage bloodline",
+   "kind": "own",
+   "dur": {
+    "value": 0,
+    "unit": "rounds"
+   }
+  },
+  "KLd1H370WVyj1uih": {
+   "name": "Effect: Master Strike (Success)",
+   "kind": "conditions",
+   "steps": [
+    {
+     "slug": "enfeebled",
+     "value": 2
+    }
+   ],
+   "duration": {
+    "value": 1,
+    "unit": "rounds",
+    "expiry": "turn-end"
+   }
+  },
+  "KQ0TqKFPn64tkzkt": {
+   "name": "Effect: Aromatic Lure (Success)",
+   "kind": "conditions",
+   "steps": [
+    {
+     "slug": "stupefied"
+    }
+   ],
+   "duration": {
+    "value": 1,
+    "unit": "rounds",
+    "expiry": "turn-end"
+   }
+  },
+  "KmUCaFZSk9efn9AR": {
+   "name": "Effect: Blinded for 1 round",
+   "kind": "conditions",
+   "steps": [
+    {
+     "slug": "blinded"
+    }
+   ],
+   "duration": {
+    "value": 1,
+    "unit": "rounds",
+    "expiry": "turn-end"
+   }
+  },
+  "L7Uud00ev5Hz6f8c": {
+   "name": "Effect: Chaotic Spell",
+   "kind": "own",
+   "dur": null
+  },
+  "LJolgzDnieEB85zm": {
+   "name": "Effect: Vigilant Eye (Armor)",
+   "kind": "own",
+   "dur": null
+  },
+  "Lxn8RxpTTlr8QX0Y": {
+   "name": "Effect: Vigilant Eye (Weapon)",
+   "kind": "own",
+   "dur": null
+  },
+  "MSf73VBpSKCA4RNc": {
+   "name": "Effect: Raise a Tome",
+   "kind": "own",
+   "dur": {
+    "value": 1,
+    "unit": "rounds"
+   }
+  },
+  "MkWyAtPU3CAFpgdQ": {
+   "name": "Effect: Jinx Critical Failure",
+   "kind": "conditions",
+   "steps": [
+    {
+     "slug": "clumsy",
+     "value": 2
+    }
+   ],
+   "duration": {
+    "value": 1,
+    "unit": "minutes",
+    "expiry": "turn-end"
+   }
+  },
+  "N8vpuGy4TzU10y8E": {
+   "name": "Avoid Notice",
+   "kind": "own",
+   "dur": null
+  },
+  "NKue7w68dX1yH4bA": {
+   "name": "Effect: Enfeebled for 1 round",
+   "kind": "conditions",
+   "steps": [
+    {
+     "slug": "enfeebled"
+    }
+   ],
+   "duration": {
+    "value": 1,
+    "unit": "rounds",
+    "expiry": "turn-end"
+   }
+  },
+  "NT4T6gEdEQsoHItQ": {
+   "name": "Effect: Armor in Earth",
+   "kind": "own",
+   "dur": {
+    "value": 10,
+    "unit": "minutes"
+   },
+   "replace": true
+  },
+  "NXzdAozn7oODIdai": {
+   "name": "Effect: Agitate",
+   "kind": "script"
+  },
+  "O9UXbhiFWfAv6fEE": {
+   "name": "Effect: Albatross Curse (Failure)",
+   "kind": "own",
+   "dur": {
+    "value": 1,
+    "unit": "minutes"
+   }
+  },
+  "OcCXjJab7rSR3mDf": {
+   "name": "Track",
+   "kind": "marker"
+  },
+  "OjRHL0B4WAUUQc13": {
+   "name": "Detect Magic",
+   "kind": "marker"
+  },
+  "P54XrNMIaS7VAhXa": {
+   "name": "Effect: Stupefied for 2 round",
+   "kind": "conditions",
+   "steps": [
+    {
+     "slug": "stupefied"
+    }
+   ],
+   "duration": {
+    "value": 2,
+    "unit": "rounds",
+    "expiry": "turn-end"
+   }
+  },
+  "P6DGk2h38xE8O0pw": {
+   "name": "Effect: Feint (Success) from",
+   "kind": "own",
+   "dur": {
+    "value": 0,
+    "unit": "rounds"
+   }
+  },
+  "PZJ1VFkctyVTOkwe": {
+   "name": "Effect: Deafened for 10 minutes",
+   "kind": "conditions",
+   "steps": [
+    {
+     "slug": "deafened"
+    }
+   ],
+   "duration": {
+    "value": 10,
+    "unit": "minutes",
+    "expiry": "turn-end"
+   }
+  },
+  "Pdq3C29GY18nbVg9": {
+   "name": "Spell Effect: Mask of Terror",
+   "kind": "own",
+   "dur": {
+    "value": 1,
+    "unit": "minutes"
+   },
+   "authored": true
+  },
+  "QQ7HIDXvuZIK0192": {
+   "name": "Spell Effect: Dinosaur Form",
+   "kind": "own",
+   "dur": null
+  },
+  "R6wqd5rQTBNi7WaO": {
+   "name": "Spell Effect: Element Embodied",
+   "kind": "own",
+   "dur": null
+  },
+  "RAgO8Rfkx3NOsb0I": {
+   "name": "Spell Effect: Nudge Fate",
+   "kind": "own",
+   "dur": {
+    "value": 1,
+    "unit": "minutes"
+   }
+  },
+  "RR8MSbHqxJdQxh2e": {
+   "name": "Aura: Courageous Anthem",
+   "kind": "own",
+   "dur": {
+    "value": 1,
+    "unit": "rounds"
+   }
+  },
+  "Rhk5ot7huDlZzLif": {
+   "name": "Effect: Fleeing for 1 minute",
+   "kind": "conditions",
+   "steps": [
+    {
+     "slug": "fleeing"
+    }
+   ],
+   "duration": {
+    "value": 1,
+    "unit": "rounds",
+    "expiry": "turn-start"
+   }
+  },
+  "Rl0ztZNeVjXQDDGB": {
+   "name": "Effect: Blazing Armory",
+   "kind": "own",
+   "dur": {
+    "value": 5,
+    "unit": "minutes"
+   }
+  },
+  "Ru9goDwRnRAzcQU3": {
+   "name": "Spell Effect: Translocate Immunity",
+   "kind": "own",
+   "dur": {
+    "value": 1,
+    "unit": "hours"
+   },
+   "authored": true
+  },
+  "RzNmTMRgtSm0WF7t": {
+   "name": "Effect: Sleep Heightened (Critical Failure)",
+   "kind": "conditions",
+   "steps": [
+    {
+     "slug": "unconscious"
+    }
+   ],
+   "duration": {
+    "value": 1,
+    "unit": "minutes",
+    "expiry": "turn-start"
+   }
+  },
+  "SbYoI8G8Ze6oE4we": {
+   "name": "Effect: Concealed for 1 round",
+   "kind": "conditions",
+   "steps": [
+    {
+     "slug": "concealed"
+    }
+   ],
+   "duration": {
+    "value": 1,
+    "unit": "rounds",
+    "expiry": "turn-end"
+   }
+  },
+  "SggYzuL9NtYoktUR": {
+   "name": "Effect: Travel on Mount",
+   "kind": "own",
+   "dur": null
+  },
+  "TOH5kxkZBYXs1MI7": {
+   "name": "Spell Effect: Laughing Fit (Failure)",
+   "kind": "own",
+   "dur": null
+  },
+  "TWhtmqYe2GoNfF0O": {
+   "name": "Effect: Possessed",
+   "kind": "own",
+   "dur": null
+  },
+  "TgG0ksbrYUiBNfyf": {
+   "name": "Effect: Chalice Intensify Vulnerability Activation",
+   "kind": "script"
+  },
+  "ThF8UIN5093xtCaq": {
+   "name": "Refocus",
+   "kind": "marker"
+  },
+  "U6JZ3NYNtxjXeVdE": {
+   "name": "Effect: Haste",
+   "kind": "conditions",
+   "steps": [
+    {
+     "slug": "quickened"
+    }
+   ],
+   "duration": {
+    "value": 1,
+    "unit": "minutes",
+    "expiry": "turn-end"
+   }
+  },
+  "U6YTpJb4PQTh4mDL": {
+   "name": "Spell Effect: Daemon Form",
+   "kind": "pf2e",
+   "uuid": "Compendium.pf2e.spell-effects.Item.IKdTcUwGtnkvrCed",
+   "obsolete": true,
+   "dur": {
+    "value": 1,
+    "unit": "minutes"
+   }
+  },
+  "U7tuKcRePhSu2C2P": {
+   "name": "Effect: Scouting (Scout Dedication)",
+   "kind": "own",
+   "dur": null
+  },
+  "UQEqBomwGFkTOomK": {
+   "name": "Effect: Additional damage bloodline",
+   "kind": "own",
+   "dur": {
+    "value": 0,
+    "unit": "rounds"
+   }
+  },
+  "V0AiVBtUeFQk9dQe": {
+   "name": "Effect: Sleeping",
+   "kind": "script"
+  },
+  "V115Ua6R2kB1VU12": {
+   "name": "Stance: Haft Striker",
+   "kind": "own",
+   "dur": null
+  },
+  "V347nnVBGDrVWh7k": {
+   "name": "Follow The Expert",
+   "kind": "marker"
+  },
+  "VQlbBXSi4o6xZ9XM": {
+   "name": "Effect: Pistol Twirl",
+   "kind": "script"
+  },
+  "VeyrKJwjHTyXyXn7": {
+   "name": "Effect: Befuddle (Critical Failure)",
+   "kind": "conditions",
+   "steps": [
+    {
+     "slug": "clumsy",
+     "value": 3
+    },
+    {
+     "slug": "stupefied",
+     "value": 3
+    },
+    {
+     "slug": "confused"
+    }
+   ],
+   "duration": {
+    "value": 1,
+    "unit": "rounds",
+    "expiry": "turn-start"
+   }
+  },
+  "Vh5E1Qgp34sTKfVs": {
+   "name": "Effect: Off-Guard Tumble Behind",
+   "kind": "own",
+   "dur": {
+    "value": 0,
+    "unit": "rounds"
+   }
+  },
+  "VlCgSdh6nl5NowJl": {
+   "name": "Spell Effect: Daze Weakness",
+   "kind": "own",
+   "dur": null
+  },
+  "Vn57RpGjnNBtAfnj": {
+   "name": "Spell Effect: Buzzing Bites",
+   "kind": "script"
+  },
+  "WWAdkB7iRAEqcmWZ": {
+   "name": "Effect: Mighty Rage",
+   "kind": "own",
+   "dur": {
+    "value": 1,
+    "unit": "rounds"
+   }
+  },
+  "XBve00uwPI0FK4QP": {
+   "name": "Effect: Bell Intensify Vulnerability Activation",
+   "kind": "script"
+  },
+  "XWte9oUQ4x0sBHMq": {
+   "name": "Effect: Rousing Splash Immunity 10 minutes",
+   "kind": "own",
+   "dur": {
+    "value": 10,
+    "unit": "minutes"
+   },
+   "authored": true
+  },
+  "XcJAldj3qsmLKjSL": {
+   "name": "Effect: Successful Feint on",
+   "kind": "own",
+   "dur": {
+    "value": 0,
+    "unit": "rounds"
+   }
+  },
+  "XiVLHjg5lQVMX8Fj": {
+   "name": "Search",
+   "kind": "marker"
+  },
+  "YdWsNobIKIMBSSBP": {
+   "name": "Effect: Red-Gold Mortality",
+   "kind": "own",
+   "dur": {
+    "value": 1,
+    "unit": "minutes"
+   }
+  },
+  "YdwwACq7ODGs6DdA": {
+   "name": "Effect: Mirror Intensify Vulnerability",
+   "kind": "own",
+   "dur": {
+    "value": 1,
+    "unit": "rounds"
+   }
+  },
+  "YsNqG4OocHoErbc9": {
+   "name": "Effect: Off-Guard 1 round (start)",
+   "kind": "conditions",
+   "steps": [
+    {
+     "slug": "off-guard"
+    }
+   ],
+   "duration": {
+    "value": 1,
+    "unit": "rounds",
+    "expiry": "turn-start"
+   }
+  },
+  "Z7l3CKUyISzmL4zj": {
+   "name": "Spell Effect: Cosmic Form",
+   "kind": "pf2e",
+   "uuid": "Compendium.pf2e.spell-effects.Item.tfdDpf9xSWgQer5g",
+   "obsolete": true,
+   "dur": {
+    "value": 1,
+    "unit": "minutes"
+   }
+  },
+  "ZvveXgPyipw73EFk": {
+   "name": "Ill Omen Immunity",
+   "kind": "immunity"
+  },
+  "a51AN6VfpW9b4ttm": {
+   "name": "Effect: Actor's hunted prey",
+   "kind": "script"
+  },
+  "aEhh2kWTcKJacdHe": {
+   "name": "Effect: Jinx Failure",
+   "kind": "conditions",
+   "steps": [
+    {
+     "slug": "clumsy"
+    }
+   ],
+   "duration": {
+    "value": 1,
+    "unit": "minutes",
+    "expiry": "turn-end"
+   }
+  },
+  "aH805tedt3A5Suuc": {
+   "name": "Effect: Rusty Metal Carapace Shield",
+   "kind": "own",
+   "dur": {
+    "value": 10,
+    "unit": "minutes"
+   }
+  },
+  "aLqCfr4Yl6g2eyoO": {
+   "name": "Effect: Paralyzed for 1 round",
+   "kind": "conditions",
+   "steps": [
+    {
+     "slug": "paralyzed"
+    }
+   ],
+   "duration": {
+    "value": 1,
+    "unit": "rounds",
+    "expiry": "turn-end"
+   }
+  },
+  "ahWt5JLMFdCC1E3x": {
+   "name": "Effect: Stupefied for 1 minute",
+   "kind": "conditions",
+   "steps": [
+    {
+     "slug": "stupefied",
+     "value": 3
+    }
+   ],
+   "duration": {
+    "value": 1,
+    "unit": "minutes",
+    "expiry": "turn-start"
+   }
+  },
+  "b51giwYKB4A4Lxl1": {
+   "name": "Effect: Desert Wind Damage",
+   "kind": "own",
+   "dur": null
+  },
+  "bJSxQHZANzsho6b3": {
+   "name": "Spell Effect: Ooze Form",
+   "kind": "pf2e",
+   "uuid": "Compendium.pf2e.spell-effects.Item.ciQhlQbQcarzRYzf",
+   "obsolete": true,
+   "dur": {
+    "value": 1,
+    "unit": "minutes"
+   }
+  },
+  "bgOAblEI21XV8Pg3": {
+   "name": "Spell Effect: Aerial Form",
+   "kind": "pf2e",
+   "uuid": "Compendium.pf2e.spell-effects.Item.mvMWmP3m9Xawbwpx",
+   "obsolete": true,
+   "dur": {
+    "value": 1,
+    "unit": "minutes"
+   }
+  },
+  "cO2uqFHFoSxJdNNc": {
+   "name": "Effect: Stupefied for 1 minute",
+   "kind": "conditions",
+   "steps": [
+    {
+     "slug": "stupefied",
+     "value": 2
+    }
+   ],
+   "duration": {
+    "value": 1,
+    "unit": "minutes",
+    "expiry": "turn-start"
+   }
+  },
+  "dp8KKSNp7ltQhrge": {
+   "name": "Effect: Effect: Game Hunter (Failure)",
+   "kind": "own",
+   "dur": {
+    "value": 1,
+    "unit": "rounds"
+   }
+  },
+  "dyuItanPd1SRPZBc": {
+   "name": "Spell Effect: Synesthesia",
+   "kind": "own",
+   "dur": {
+    "value": 1,
+    "unit": "minutes"
+   }
+  },
+  "eMGGHi8bIib0mMeF": {
+   "name": "Effect: Life Link",
+   "kind": "script"
+  },
+  "fDTZsKRlw6AmmBKc": {
+   "name": "Effect: Befuddle (Success)",
+   "kind": "conditions",
+   "steps": [
+    {
+     "slug": "clumsy"
+    },
+    {
+     "slug": "stupefied"
+    }
+   ],
+   "duration": {
+    "value": 1,
+    "unit": "rounds",
+    "expiry": "turn-start"
+   }
+  },
+  "g2LBvDHPRZBabiU2": {
+   "name": "Aura: Rallying Anthem",
+   "kind": "own",
+   "dur": {
+    "value": 1,
+    "unit": "rounds"
+   }
+  },
+  "gDz6GknKWL6IKtbu": {
+   "name": "Effect: Deafness Immunity 1 minute",
+   "kind": "immunity"
+  },
+  "gVd4wmPDvwpD7hsC": {
+   "name": "Effect: Master Strike Immunity",
+   "kind": "immunity"
+  },
+  "gnKxMIPnEcg5QEEi": {
+   "name": "Effect: Befuddle (Failure)",
+   "kind": "conditions",
+   "steps": [
+    {
+     "slug": "clumsy",
+     "value": 2
+    },
+    {
+     "slug": "stupefied",
+     "value": 2
+    }
+   ],
+   "duration": {
+    "value": 1,
+    "unit": "rounds",
+    "expiry": "turn-start"
+   }
+  },
+  "gp7QMc2Nw9LoXu64": {
+   "name": "Effect: Aromatic Lure (Failure)",
+   "kind": "conditions",
+   "steps": [
+    {
+     "slug": "stupefied",
+     "value": 2
+    }
+   ],
+   "duration": {
+    "value": 1,
+    "unit": "rounds",
+    "expiry": "turn-end"
+   }
+  },
+  "h68Fr3fht1319txv": {
+   "name": "Spell Effect: Animal Form",
+   "kind": "own",
+   "dur": {
+    "value": 1,
+    "unit": "minutes"
+   }
+  },
+  "hA2y0arJg3ztQnF6": {
+   "name": "Aura: Lantern Intensify Vulnerability",
+   "kind": "own",
+   "dur": {
+    "value": 1,
+    "unit": "rounds"
+   }
+  },
+  "hCV9tQx3IXKWsOLW": {
+   "name": "Effect: Vision of Death",
+   "kind": "own",
+   "dur": null
+  },
+  "i2ZIl0p6x4L0pSmi": {
+   "name": "Effect: Goblin Song Immunity",
+   "kind": "immunity"
+  },
+  "iOBUgipEjgu7jA5k": {
+   "name": "Spell Effect: Aberrant Form",
+   "kind": "pf2e",
+   "uuid": "Compendium.pf2e.spell-effects.Item.OH3sdHE6xWwOjq9v",
+   "obsolete": true,
+   "dur": {
+    "value": 1,
+    "unit": "minutes"
+   }
+  },
+  "iqvdFq5V1b2HSAW4": {
+   "name": "Effect: Wooden Shield",
+   "kind": "own",
+   "dur": {
+    "value": 10,
+    "unit": "minutes"
+   }
+  },
+  "iykn477haVn2qI6y": {
+   "name": "Effect: Blinded for 1 round",
+   "kind": "conditions",
+   "steps": [
+    {
+     "slug": "blinded"
+    }
+   ],
+   "duration": {
+    "value": 1,
+    "unit": "rounds",
+    "expiry": "turn-start"
+   }
+  },
+  "j1rTpcO1B1FJSTyO": {
+   "name": "Effect: Game Hunter Immunity",
+   "kind": "immunity"
+  },
+  "jfn0eHEAnoxNI7YS": {
+   "name": "Effect: Critically Successful Feint on",
+   "kind": "own",
+   "dur": {
+    "value": 1,
+    "unit": "rounds"
+   }
+  },
+  "kLpCaiCZjenXCebV": {
+   "name": "Immunity to bane",
+   "kind": "immunity"
+  },
+  "kZmteGRpdP6qgIdC": {
+   "name": "Effect: Allegro",
+   "kind": "conditions",
+   "steps": [
+    {
+     "slug": "quickened"
+    }
+   ],
+   "duration": {
+    "value": 1,
+    "unit": "rounds",
+    "expiry": "turn-end"
+   }
+  },
+  "kh1QdKkvbNZ0qBsQ": {
+   "name": "Repeat A Spell",
+   "kind": "marker"
+  },
+  "lsICo0LAyrWy2cDm": {
+   "name": "Effect: Clumsy 1 round",
+   "kind": "conditions",
+   "steps": [
+    {
+     "slug": "clumsy"
+    }
+   ],
+   "duration": {
+    "value": 1,
+    "unit": "rounds",
+    "expiry": "turn-start"
+   }
+  },
+  "lwcyhD03jVchmPGm": {
+   "name": "Effect: Feint (Critical Success) from",
+   "kind": "own",
+   "dur": {
+    "value": 1,
+    "unit": "rounds"
+   }
+  },
+  "m3c5RcY4PbYClPa2": {
+   "name": "Effect: Desert Wind",
+   "kind": "own",
+   "dur": null
+  },
+  "mGFBHM1lvHNZ9BsH": {
+   "name": "Scout",
+   "kind": "marker"
+  },
+  "mxIt7zfVKgLZ8AeC": {
+   "name": "Effect: Hardwood Armor",
+   "kind": "own",
+   "dur": {
+    "value": 10,
+    "unit": "minutes"
+   },
+   "replace": true
+  },
+  "oTRhJB6ssdR6XXrm": {
+   "name": "Effect: Spike Skin Immunity",
+   "kind": "immunity"
+  },
+  "q7UyR7dWIzZThNir": {
+   "name": "Effect: Sleep Heightened (Failure)",
+   "kind": "conditions",
+   "steps": [
+    {
+     "slug": "unconscious"
+    }
+   ],
+   "duration": {
+    "value": 1,
+    "unit": "rounds",
+    "expiry": "turn-start"
+   }
+  },
+  "qzjX5A17McTdDHFx": {
+   "name": "Effect: Clumsy for 1 round",
+   "kind": "conditions",
+   "steps": [
+    {
+     "slug": "clumsy"
+    }
+   ],
+   "duration": {
+    "value": 1,
+    "unit": "rounds",
+    "expiry": "turn-end"
+   }
+  },
+  "rUuXwGQuL9poZsij": {
+   "name": "Effect: Phantom Pain (Failure)",
+   "kind": "own",
+   "dur": {
+    "value": 1,
+    "unit": "minutes"
+   }
+  },
+  "rg21PkfOqRC4wKwa": {
+   "name": "Effect: Dash of Herbs Immunity",
+   "kind": "own",
+   "dur": {
+    "value": 10,
+    "unit": "minutes"
+   },
+   "authored": true
+  },
+  "rtQSjQrKJXZTLN2O": {
+   "name": "No Reactions",
+   "kind": "own",
+   "dur": null
+  },
+  "s3N22GgSxeWZ2bM8": {
+   "name": "Effect: Impose Order (Psychic)",
+   "kind": "script"
+  },
+  "sBB3VElfaqa9ZYyL": {
+   "name": "Effect: Steal Shadow",
+   "kind": "own",
+   "dur": null
+  },
+  "sPASbnNqRjt2pZWv": {
+   "name": "Effect: Familiar of Flowing Script",
+   "kind": "own",
+   "dur": {
+    "value": 1,
+    "unit": "rounds"
+   }
+  },
+  "sRf7vaSbbT7EksRQ": {
+   "name": "Effect: Vigilant Eye Greater (Weapon)",
+   "kind": "own",
+   "dur": null
+  },
+  "tDsgl8YmhZbx2May": {
+   "name": "Investigate",
+   "kind": "marker"
+  },
+  "tKwhi4WGO6fcZCIv": {
+   "name": "Effect: Lantern Intensify Vulnerability (Target)",
+   "kind": "own",
+   "dur": null
+  },
+  "tOWxWONNFvvYWMQY": {
+   "name": "Effect: Sleep (Critical Failure)",
+   "kind": "conditions",
+   "steps": [
+    {
+     "slug": "blinded"
+    },
+    {
+     "slug": "off-guard"
+    }
+   ],
+   "duration": {
+    "value": 1,
+    "unit": "hours",
+    "expiry": "turn-start"
+   }
+  },
+  "uWkVsnSFdvIdGEwI": {
+   "name": "Effect: Share Life",
+   "kind": "script"
+  },
+  "ubBrL0lNSrpAHO6G": {
+   "name": "Effect: Aromatic Lure (Critical Failure)",
+   "kind": "conditions",
+   "steps": [
+    {
+     "slug": "stupefied",
+     "value": 4
+    }
+   ],
+   "duration": {
+    "value": 1,
+    "unit": "rounds",
+    "expiry": "turn-end"
+   }
+  },
+  "vB7dCJfH7H1abldb": {
+   "name": "Effect: Bell Intensify Vulnerability",
+   "kind": "own",
+   "dur": {
+    "value": 1,
+    "unit": "rounds"
+   }
+  },
+  "vNUrKvoOSvEnqzhM": {
+   "name": "Hustle",
+   "kind": "marker"
+  },
+  "vTFrTVltx4wsEpQw": {
+   "name": "Aura: Desert Wind",
+   "kind": "own",
+   "dur": null
+  },
+  "w4iqlhWrlHLlOiYP": {
+   "name": "Effect: Bend Time",
+   "kind": "conditions",
+   "steps": [
+    {
+     "slug": "quickened"
+    }
+   ],
+   "duration": {
+    "value": 0,
+    "unit": "rounds",
+    "expiry": "turn-end"
+   }
+  },
+  "w9i0aY2IQ3jvCX9K": {
+   "name": "Feat Effect: Intimidating Strike",
+   "kind": "script"
+  },
+  "wI2OJ76fbhM4MU0j": {
+   "name": "Spell Effect: Monstrosity Form",
+   "kind": "pf2e",
+   "uuid": "Compendium.pf2e.spell-effects.Item.oMtbVNQ5YFmmQUlU",
+   "obsolete": true,
+   "dur": {
+    "value": 1,
+    "unit": "minutes"
+   }
+  },
+  "wITJ6L8mcbbgoCHu": {
+   "name": "Effect: Metal Carapace",
+   "kind": "own",
+   "dur": {
+    "value": 10,
+    "unit": "minutes"
+   },
+   "replace": true
+  },
+  "xTHKw0VHuqu6SI93": {
+   "name": "Effect: Slowed 1 for 1 round",
+   "kind": "conditions",
+   "steps": [
+    {
+     "slug": "slowed"
+    }
+   ],
+   "duration": {
+    "value": 1,
+    "unit": "rounds",
+    "expiry": "turn-end"
+   }
+  },
+  "yYvPtdlew2YctMgt": {
+   "name": "Effect: Temp HP",
+   "kind": "own",
+   "dur": {
+    "value": 1,
+    "unit": "rounds"
+   }
+  },
+  "zol83j7l2cBSmY3a": {
+   "name": "Effect: Restrained until end of attacker next turn",
+   "kind": "conditions",
+   "steps": [
+    {
+     "slug": "restrained"
+    }
+   ],
+   "duration": {
+    "value": 1,
+    "unit": "rounds",
+    "expiry": "turn-end"
+   }
+  },
+  "zt5GIv9435SF0fYn": {
+   "name": "Effect: Aberrant Whispers Immunity",
+   "kind": "immunity"
+  },
+  "wOcAf3pf04cTM4Uk": {
+   "name": "Effect: Dirge of Doom",
+   "kind": "own",
+   "dur": {
+    "value": 1,
+    "unit": "rounds"
+   },
+   "authored": true
+  },
+  "dRgDoomFrightEf1": {
+   "name": "Spell Effect: Dirge of Doom",
+   "kind": "own",
+   "dur": {
+    "value": 1,
+    "unit": "rounds"
+   },
+   "authored": true
+  },
+  "CnjrBulletEffct1": {
+   "name": "Effect: Conjure Bullet (Bullet)",
+   "kind": "own",
+   "dur": {
+    "value": 0,
+    "unit": "rounds"
+   },
+   "authored": true
+  },
+  "CnjrBoltEffect01": {
+   "name": "Effect: Conjure Bullet (Bolt)",
+   "kind": "own",
+   "dur": {
+    "value": 0,
+    "unit": "rounds"
+   },
+   "authored": true
+  }
+ }
+}

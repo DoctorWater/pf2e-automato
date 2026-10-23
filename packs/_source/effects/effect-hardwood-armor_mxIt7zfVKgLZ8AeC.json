@@ -1,0 +1,67 @@
+{
+  "_id": "mxIt7zfVKgLZ8AeC",
+  "name": "Effect: Hardwood Armor",
+  "type": "effect",
+  "img": "icons/equipment/chest/breastplate-collared-leather-brown.webp",
+  "system": {
+    "description": {
+      "value": "<p>Worn armor - @UUID[Compendium.pf2e-automato.equipment.Item.9jbCQQAzUbXNGzZq]</p>"
+    },
+    "duration": {
+      "expiry": "turn-end",
+      "sustained": false,
+      "unit": "minutes",
+      "value": 10
+    },
+    "level": {
+      "value": 1
+    },
+    "rules": [],
+    "source": {
+      "value": ""
+    },
+    "start": {
+      "initiative": null,
+      "value": 0
+    },
+    "target": null,
+    "tokenIcon": {
+      "show": true
+    },
+    "traits": {
+      "rarity": "common",
+      "value": []
+    },
+    "slug": "effect-hardwood-armor",
+    "_migration": {
+      "version": 0.959,
+      "previous": null
+    }
+  },
+  "effects": [],
+  "folder": null,
+  "sort": 0,
+  "ownership": {
+    "default": 0
+  },
+  "flags": {
+    "pf2e-automato": {
+      "gear": {
+        "armor": "Compendium.pf2e-automato.equipment.Item.9jbCQQAzUbXNGzZq",
+        "shieldEffect": "Compendium.pf2e-automato.effects.Item.iqvdFq5V1b2HSAW4"
+      }
+    }
+  },
+  "_stats": {
+    "coreVersion": "14.366",
+    "systemId": "pf2e",
+    "systemVersion": "8.6.1",
+    "createdTime": null,
+    "modifiedTime": null,
+    "lastModifiedBy": null,
+    "compendiumSource": null,
+    "duplicateSource": null,
+    "exportSource": null
+  },
+  "_key": "!items!mxIt7zfVKgLZ8AeC"
+}

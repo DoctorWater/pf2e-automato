@@ -1,0 +1,37 @@
+{
+  "_id": "pAfGrabNoImmob01",
+  "name": "Effect: Grabbed (Not Immobilized)",
+  "type": "effect",
+  "img": "icons/magic/control/silhouette-grow-shrink-tan.webp",
+  "system": {
+    "description": {
+      "value": "<p>Метка «Схвачен без обездвиживания» (Grabbed, not Immobilized). The creature is held by the attacker's body part and is @UUID[Compendium.pf2e.conditionitems.Item.AJh5ex99aV6VTggg]{Off-Guard}, but unlike @UUID[Compendium.pf2e.conditionitems.Item.kWc1fhmv9LBiTuei]{Grabbed} it isn't @UUID[Compendium.pf2e.conditionitems.Item.eIcWbB5o3pP6OIMe]{Immobilized}: it only can't move beyond the reach of the holding limb. The Off-Guard condition comes from the module rule; remove this effect when the hold ends (Escape, severed limb).</p>"
+    },
+    "duration": { "expiry": "turn-end", "sustained": false, "unit": "unlimited", "value": -1 },
+    "level": { "value": 1 },
+    "rules": [],
+    "source": { "value": "" },
+    "start": { "initiative": null, "value": 0 },
+    "target": null,
+    "tokenIcon": { "show": true },
+    "traits": { "rarity": "common", "value": [] },
+    "slug": "effect-grabbed-not-immobilized"
+  },
+  "effects": [],
+  "folder": null,
+  "sort": 0,
+  "ownership": { "default": 0 },
+  "flags": {},
+  "_stats": {
+    "coreVersion": "14.366",
+    "systemId": "pf2e",
+    "systemVersion": "8.6.1",
+    "createdTime": null,
+    "modifiedTime": null,
+    "lastModifiedBy": null,
+    "compendiumSource": null,
+    "duplicateSource": null,
+    "exportSource": null
+  },
+  "_key": "!items!pAfGrabNoImmob01"
+}

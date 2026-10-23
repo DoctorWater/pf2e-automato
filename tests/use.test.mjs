@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 
 globalThis.foundry = { data: { regionBehaviors: { RegionBehaviorType: class {} }, fields: new Proxy({}, { get: () => class {} }) } };
 const use = await import("../scripts/use.mjs");
-const { useKindOf, isConsume, buildSnapshot, wantsSnapshot, areaUpdate, isResumable } = use;
+const { hasSnapshot, useKindOf, isConsume, buildSnapshot, wantsSnapshot, areaUpdate, isResumable } = use;
 
 const msg = (pf2e) => ({ flags: { pf2e } });
 const CAST = "origin:action:slug:cast-a-spell";
@@ -135,4 +135,11 @@ test("low: runUse и resumePending не применяют шаги, тольк�
   globalThis.fromUuid = boom;
   assert.equal(await use.resumePending({ maxAgeMinutes: 30 }), 1);
   assert.deepEqual(st(m2).state.derived.pending, ["u0", "u1"]);
+});
+
+test("hasSnapshot: чужие флаги модуля (preyTargets, castTargets) не отменяют снимок use; сам снимок — отменяет", () => {
+  assert.equal(hasSnapshot({ flags: { "pf2e-automato": { preyTargets: ["Scene.s.Token.t"] } } }), false);
+  assert.equal(hasSnapshot({ flags: { "pf2e-automato": { castTargets: [] } } }), false);
+  assert.equal(hasSnapshot({ flags: { "pf2e-automato": { use: { v: 1 } } } }), true);
+  assert.equal(hasSnapshot({ flags: {} }), false);
 });

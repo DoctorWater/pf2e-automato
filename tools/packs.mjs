@@ -7,7 +7,7 @@ import { DATA, PACKS, readJson } from "./lib.mjs";
 const FOUNDRY_MODULES = process.env.FOUNDRY_NODE_MODULES ?? "E:/Foundry VTT v14.366/app/resources/app/node_modules/";
 const SYSTEM = join(DATA, "systems/pf2e");
 
-function classicLevel() {
+export function classicLevel() {
   try { return createRequire(FOUNDRY_MODULES).call ? createRequire(FOUNDRY_MODULES)(join(FOUNDRY_MODULES, "classic-level")).ClassicLevel : null; } catch { return null; }
 }
 

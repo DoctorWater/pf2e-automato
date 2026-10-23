@@ -58,7 +58,7 @@ async function show(id, spec) {
   if (finished.has(id)) return null;
   const res = await foundry.applications.api.DialogV2.wait({
     id: dlgId(id), classes: ["paf-dialog"], window: { title: spec.title }, content: spec.content, rejectClose: false,
-    render: (_e, dlg) => { if (finished.has(id)) dlg.close(); },   // «готово» пришло, пока окно открывалось
+    render: (_e, dlg) => { if (finished.has(id)) dlg.close(); else if (spec.ms > 0) setTimeout(() => dlg.close(), spec.ms); },   // «готово» пришло, пока окно открывалось; spec.ms — самозакрытие по таймеру
     buttons: spec.buttons.map((b, i) => ({ action: b.action, label: b.label, default: i === 0, callback: (_e, btn) => ({ action: b.action, form: formOf(btn.form) }) }))
   });
   if (!finished.has(id)) { finished.add(id); if (net()) sock.executeForOtherGMs("sessionDialogDone", { id, res }); }

@@ -2,6 +2,7 @@
   "PF2E_AUTOMATO": {
     "checks": {
       "head": "Check: {stat} vs {vs}",
+      "headSelf": "Check: {stat}",
       "ac": "AC",
       "immune": "immune",
       "noTargets": "Target a creature before using it.",

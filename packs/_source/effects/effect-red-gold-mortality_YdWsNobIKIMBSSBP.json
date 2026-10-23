@@ -1,0 +1,56 @@
+{
+  "_id": "YdWsNobIKIMBSSBP",
+  "name": "Effect: Red-Gold Mortality",
+  "type": "effect",
+  "img": "icons/magic/symbols/fleur-de-lis-yellow.webp",
+  "system": {
+    "description": {
+      "value": "When the target would regain Hit Points, such as from a healing effect or an ability like fast healing or regeneration, it must attempt a Will save against your class DC to determine the effects, and then the marking fades. The marking otherwise fades after 1 minute."
+    },
+    "duration": {
+      "expiry": "turn-end",
+      "sustained": false,
+      "unit": "minutes",
+      "value": 1
+    },
+    "level": {
+      "value": 1
+    },
+    "rules": [],
+    "source": {
+      "value": ""
+    },
+    "start": {
+      "initiative": null,
+      "value": 0
+    },
+    "target": null,
+    "tokenIcon": {
+      "show": true
+    },
+    "traits": {
+      "rarity": "common",
+      "value": []
+    },
+    "slug": "effect-red-gold-mortality"
+  },
+  "effects": [],
+  "folder": null,
+  "sort": 0,
+  "ownership": {
+    "default": 0
+  },
+  "flags": {},
+  "_stats": {
+    "coreVersion": "14.366",
+    "systemId": "pf2e",
+    "systemVersion": "8.6.1",
+    "createdTime": null,
+    "modifiedTime": null,
+    "lastModifiedBy": null,
+    "compendiumSource": null,
+    "duplicateSource": null,
+    "exportSource": null
+  },
+  "_key": "!items!YdWsNobIKIMBSSBP"
+}

@@ -1,0 +1,56 @@
+{
+  "_id": "sRf7vaSbbT7EksRQ",
+  "name": "Effect: Vigilant Eye Greater (Weapon)",
+  "type": "effect",
+  "img": "icons/magic/perception/eye-winged-pink.webp",
+  "system": {
+    "description": {
+      "value": "When you make a Strike with the weapon against a target that's Concealed, hidden, or undetected, the DC of your flat check to target it is 3 if the target is concealed or 9 if it's hidden or undetected."
+    },
+    "duration": {
+      "expiry": "turn-end",
+      "sustained": false,
+      "unit": "unlimited",
+      "value": -1
+    },
+    "level": {
+      "value": 1
+    },
+    "rules": [],
+    "source": {
+      "value": ""
+    },
+    "start": {
+      "initiative": null,
+      "value": 0
+    },
+    "target": null,
+    "tokenIcon": {
+      "show": true
+    },
+    "traits": {
+      "rarity": "common",
+      "value": []
+    },
+    "slug": "effect-vigilant-eye-greater-weapon"
+  },
+  "effects": [],
+  "folder": null,
+  "sort": 0,
+  "ownership": {
+    "default": 0
+  },
+  "flags": {},
+  "_stats": {
+    "coreVersion": "14.366",
+    "systemId": "pf2e",
+    "systemVersion": "8.6.1",
+    "createdTime": null,
+    "modifiedTime": null,
+    "lastModifiedBy": null,
+    "compendiumSource": null,
+    "duplicateSource": null,
+    "exportSource": null
+  },
+  "_key": "!items!sRf7vaSbbT7EksRQ"
+}

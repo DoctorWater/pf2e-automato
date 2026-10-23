@@ -1,0 +1,72 @@
+{
+  "_id": "dRgDoomFrightEf1",
+  "name": "Spell Effect: Dirge of Doom",
+  "type": "effect",
+  "img": "icons/svg/aura.svg",
+  "system": {
+    "description": {
+      "value": "<p>You are @UUID[Compendium.pf2e.conditionitems.Item.TBSHQspnbcqxsmjL]{Frightened 1}, and you can't reduce your frightened value below 1 while you remain in the area of @UUID[Compendium.pf2e.spells-srd.Item.1xLVcA8Y1onw7toT]{Dirge of Doom}.</p>"
+    },
+    "duration": {
+      "expiry": "turn-start",
+      "sustained": false,
+      "value": 1,
+      "unit": "rounds"
+    },
+    "level": {
+      "value": 1
+    },
+    "publication": {
+      "license": "",
+      "remaster": false,
+      "title": ""
+    },
+    "rules": [
+      {
+        "key": "GrantItem",
+        "uuid": "Compendium.pf2e.conditionitems.Item.TBSHQspnbcqxsmjL",
+        "alterations": [
+          {
+            "mode": "override",
+            "property": "badge-value",
+            "value": 1
+          }
+        ],
+        "onDeleteActions": {
+          "grantee": "cascade"
+        }
+      }
+    ],
+    "start": {
+      "initiative": null,
+      "value": 0
+    },
+    "tokenIcon": {
+      "show": true
+    },
+    "traits": {
+      "rarity": "common",
+      "value": []
+    },
+    "slug": "spell-effect-dirge-of-doom"
+  },
+  "effects": [],
+  "folder": null,
+  "sort": 0,
+  "ownership": {
+    "default": 0
+  },
+  "flags": {},
+  "_stats": {
+    "coreVersion": "14.366",
+    "systemId": "pf2e",
+    "systemVersion": "8.6.1",
+    "createdTime": null,
+    "modifiedTime": null,
+    "lastModifiedBy": null,
+    "compendiumSource": null,
+    "duplicateSource": null,
+    "exportSource": null
+  },
+  "_key": "!items!dRgDoomFrightEf1"
+}

@@ -1,0 +1,55 @@
+{
+  "_id": "P6DGk2h38xE8O0pw",
+  "name": "Effect: Feint (Success) from",
+  "type": "effect",
+  "img": "icons/skills/social/theft-pickpocket-bribery-brown.webp",
+  "system": {
+    "description": {
+      "value": "<p>Actor is fooled, but only momentarily. The actor is off-guard against the next melee attack.</p>"
+    },
+    "duration": {
+      "expiry": "turn-end",
+      "sustained": false,
+      "unit": "rounds",
+      "value": 0
+    },
+    "level": {
+      "value": 1
+    },
+    "rules": [],
+    "source": {
+      "value": "Pathfinder Core Rulebook"
+    },
+    "start": {
+      "initiative": null,
+      "value": 0
+    },
+    "target": null,
+    "tokenIcon": {
+      "show": true
+    },
+    "traits": {
+      "value": []
+    },
+    "slug": "effect-feint-success-attacker"
+  },
+  "effects": [],
+  "folder": null,
+  "sort": 0,
+  "ownership": {
+    "default": 0
+  },
+  "flags": {},
+  "_stats": {
+    "coreVersion": "14.366",
+    "systemId": "pf2e",
+    "systemVersion": "8.6.1",
+    "createdTime": null,
+    "modifiedTime": null,
+    "lastModifiedBy": null,
+    "compendiumSource": null,
+    "duplicateSource": null,
+    "exportSource": null
+  },
+  "_key": "!items!P6DGk2h38xE8O0pw"
+}

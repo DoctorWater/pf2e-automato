@@ -1,0 +1,68 @@
+{
+  "_id": "ESDysTknpmThdvQs",
+  "name": "Effect: Stumbling Stance (Off-guard)",
+  "type": "effect",
+  "img": "icons/consumables/drinks/alcohol-beer-stein-wooden-brown.webp",
+  "system": {
+    "description": {
+      "value": ""
+    },
+    "duration": {
+      "expiry": "turn-end",
+      "sustained": false,
+      "unit": "rounds",
+      "value": 1
+    },
+    "level": {
+      "value": 1
+    },
+    "rules": [
+      {
+        "key": "EphemeralEffect",
+        "predicate": [
+          "item:slug:stumbling-swing"
+        ],
+        "selectors": [
+          "stumbling-swing-attack",
+          "stumbling-swing-damage"
+        ],
+        "uuid": "Compendium.pf2e.conditionitems.Item.AJh5ex99aV6VTggg"
+      }
+    ],
+    "source": {
+      "value": ""
+    },
+    "start": {
+      "initiative": null,
+      "value": 0
+    },
+    "target": null,
+    "tokenIcon": {
+      "show": true
+    },
+    "traits": {
+      "rarity": "common",
+      "value": []
+    },
+    "slug": "effect-stumbling-stance-target"
+  },
+  "effects": [],
+  "folder": null,
+  "sort": 0,
+  "ownership": {
+    "default": 0
+  },
+  "flags": {},
+  "_stats": {
+    "coreVersion": "14.366",
+    "systemId": "pf2e",
+    "systemVersion": "8.6.1",
+    "createdTime": null,
+    "modifiedTime": null,
+    "lastModifiedBy": null,
+    "compendiumSource": null,
+    "duplicateSource": null,
+    "exportSource": null
+  },
+  "_key": "!items!ESDysTknpmThdvQs"
+}

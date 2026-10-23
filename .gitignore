@@ -1,2 +1,6 @@
 tools/out/
 rules/drafts/
+packs/effects/
+packs/.effects.hash
+packs/equipment/
+packs/.equipment.hash

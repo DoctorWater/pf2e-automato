@@ -102,7 +102,8 @@ export async function onRollMessage(message) {
   if (!actor) return null;
 
   const ck = found.rule.onUse.check;
-  const tdoc = await targetOf(p.target) ?? authorTarget(message);
+  // проверка без цели (check без vs): «цель» — сам автор, шаги по степеням идут на него
+  const tdoc = ck.vs ? await targetOf(p.target) ?? authorTarget(message) : await targetOf({ token, actor });
   let { degree, dc } = p;
   if (tdoc && degree == null && p.total != null) {   // система не дала исход (нет СЛ в контексте): считаем по защите из правила
     dc ??= defenseDc(tdoc.actor, ck.vs);

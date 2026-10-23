@@ -1,0 +1,71 @@
+{
+  "_id": "4Lgd0gFHaPLp93RB",
+  "name": "Spell Effect: Daze Weakness",
+  "type": "effect",
+  "img": "icons/svg/daze.svg",
+  "system": {
+    "description": {
+      "value": ""
+    },
+    "duration": {
+      "expiry": "turn-end",
+      "sustained": false,
+      "unit": "unlimited",
+      "value": -1
+    },
+    "level": {
+      "value": 1
+    },
+    "rules": [
+      {
+        "key": "Weakness",
+        "type": "mental",
+        "value": 3
+      },
+      {
+        "key": "FlatModifier",
+        "selector": "saving-throw",
+        "predicate": [
+          "check:statistic:will"
+        ],
+        "type": "status",
+        "value": -1
+      }
+    ],
+    "source": {
+      "value": ""
+    },
+    "start": {
+      "initiative": null,
+      "value": 0
+    },
+    "target": null,
+    "tokenIcon": {
+      "show": true
+    },
+    "traits": {
+      "rarity": "common",
+      "value": []
+    },
+    "slug": "spell-effect-daze-weakness"
+  },
+  "effects": [],
+  "folder": null,
+  "sort": 0,
+  "ownership": {
+    "default": 0
+  },
+  "flags": {},
+  "_stats": {
+    "coreVersion": "14.366",
+    "systemId": "pf2e",
+    "systemVersion": "8.6.1",
+    "createdTime": null,
+    "modifiedTime": null,
+    "lastModifiedBy": null,
+    "compendiumSource": null,
+    "duplicateSource": null,
+    "exportSource": null
+  },
+  "_key": "!items!4Lgd0gFHaPLp93RB"
+}

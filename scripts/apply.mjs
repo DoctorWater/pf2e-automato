@@ -1,11 +1,12 @@
 // Исполняется ТОЛЬКО на клиенте активного ГМа. Записи на актёре сериализованы queue("actor:<uuid>").
 // ВАЖНО: queue не реентерабелен — вызывающий (zone.hold и т.п.) НЕ должен сам держать queue("actor:"+uuid)
 // вокруг applyCondition/applyEffect/removeByKey, иначе зависнет. Очередь "msg:<id>" apply не берёт (её держит вызывающий).
-import { MOD, L, flagPath, sluggify, queue, forcedDelete, socket, ENDS_EARLY, sharedDialog } from "./util.mjs";
+import { MOD, L, DEGREES, flagPath, sluggify, queue, forcedDelete, socket, ENDS_EARLY, sharedDialog } from "./util.mjs";
 import { runMacros } from "./macros.mjs";
 import { effectSource } from "./builtin/lib.mjs";
 import { inRange } from "./range.mjs";
-import { resolveFormula, isZeroFormula } from "./rules.mjs";
+import { resolveFormula, isZeroFormula, isActiveStep } from "./rules.mjs";
+import { testPredicate } from "./predicate.mjs";
 import { setSource, dropSource, visionActive } from "./vision.mjs";
 import { escapeDC, offerEscape } from "./escape.mjs";
 
@@ -42,7 +43,8 @@ async function createTimed(actor, spec, meta, ctx, base) {
     : { actor: ctx.originActor?.uuid, token: ctx.originToken?.uuid, item: ctx.originItem?.uuid };
   const data = effectSource({
     name: `${base.name}${valued ? ` ${spec.value ?? 1}` : ""}`, img: base.img, rules: [grant],
-    duration: { value: d.value, unit: d.unit, expiry: d.expiry ?? null }, origin: who, target: { actor: actor.uuid, token: tToken?.uuid }
+    description: who.item ? `<p>@UUID[${who.item}]</p>` : "",   // ссылка на источник: оговорки предмета (лишнее действие Haste только на…) не теряются
+    duration: { value: typeof d.value === "string" ? (await new Roll(d.value).evaluate()).total : d.value, unit: d.unit, expiry: d.expiry ?? null }, origin: who, target: { actor: actor.uuid, token: tToken?.uuid }
   });
   withMeta(data, meta);
   const [item] = await actor.createEmbeddedDocuments("Item", [data]);
@@ -51,6 +53,22 @@ async function createTimed(actor, spec, meta, ctx, base) {
 
 // при активном Vision видимость — только метками матрицы, без состояний на актёрах
 const SIGHT_CONDITIONS = new Set(["concealed", "hidden", "undetected", "unnoticed", "observed"]);
+
+/**
+ * policy "reduce": действующее значение состояния падает на n, на нуле состояние снимается (Аура отваги). Нет состояния, оно без значения или выдано другим предметом — пропуск.
+ * Вызывается внутри очереди актёра (applyCondition). -> {op:"raised", item, prev, key} | {op:"removed", slug, prev, key} | {op:"skipped"}
+ */
+async function reduceCondition(actor, slug, n, meta) {
+  const c = actor.itemTypes.condition.find((x) => x.slug === slug && !x.isLocked && !x.grantedBy);
+  const cur = c?._source?.system?.value?.value ?? c?.system?.value?.value ?? null;
+  if (cur == null) return { op: "skipped" };
+  if (cur - n >= 1) {
+    await game.pf2e.ConditionManager.updateConditionValue(c.id, actor, cur - n);
+    return { op: "raised", item: c, prev: cur, key: meta.key };   // откат возвращает прежнее значение (как у поднятого)
+  }
+  await actor.decreaseCondition(c, { forceRemove: true });
+  return actor.itemTypes.condition.some((x) => x.slug === slug) ? { op: "skipped" } : { op: "removed", slug, prev: cur, key: meta.key };
+}
 
 export function applyCondition(actor, spec /* {slug,value,policy,duration?} */, meta = {}, ctx = {}) {
   if (SIGHT_CONDITIONS.has(sluggify(spec.slug)) && visionActive()) return Promise.resolve({ op: "skipped", reason: "vision" });
@@ -63,6 +81,7 @@ export function applyCondition(actor, spec /* {slug,value,policy,duration?} */, 
       if (!b) throw new Error(`applyCondition: неизвестное состояние "${spec.slug}"`);
       return createTimed(actor, spec, meta, ctx, b);
     }
+    if (spec.policy === "reduce") return reduceCondition(actor, slug, spec.value ?? 1, meta);
     const policy = spec.policy ?? "max";
     // зона всегда создаёт свою копию (meta.key "zone:<uuid>"), остальное работает с уже существующим состоянием
     const existing = meta.source === "zone" ? null : actor.itemTypes.condition.find((c) => c.slug === slug && !c.isLocked && !c.grantedBy);   // выданное обёрткой-сроком не повышаем: истечёт вместе с чужим значением
@@ -85,6 +104,33 @@ export function applyCondition(actor, spec /* {slug,value,policy,duration?} */, 
   });
 }
 
+/**
+ * Снять состояние целиком (шаг removeCondition: Встать, Стабилизация). Выданное другим предметом и заблокированное не трогаем (как applyCondition);
+ * не исчезло после удаления — skipped. Снятие dying по правилам pf2e: Раненый +1, при 0 ОЗ — Без сознания (его держал GrantItem dying и ушёл с ним, без него pf2e считает существо мёртвым).
+ * -> {op:"removed", slug, prev, also?: [{slug, prev}]} | {op:"skipped"}. also — созданное/поднятое попутно: откат возвращает.
+ */
+export async function removeCondition(actor, slug) {
+  const r = await queue(`actor:${actor.uuid}`, async () => {
+    const c = actor.itemTypes.condition.find((x) => x.slug === slug && !x.isLocked && !x.grantedBy);
+    if (!c) return { op: "skipped" };
+    const prev = c._source?.system?.value?.value ?? c.system?.value?.value ?? null;
+    await actor.decreaseCondition(c, { forceRemove: true });
+    if (actor.itemTypes.condition.some((x) => x.slug === slug)) return { op: "skipped" };   // не удалилось
+    return { op: "removed", slug, prev };
+  });
+  if (r.op !== "removed" || slug !== "dying") return r;
+  const also = [];
+  const hp = actor.hitPoints?.value ?? actor.system?.attributes?.hp?.value;
+  if (hp === 0 && !actor.itemTypes.condition.some((x) => x.slug === "unconscious")) {
+    const u = await applyCondition(actor, { slug: "unconscious", policy: "max" });
+    if (u.op === "created") also.push({ slug: "unconscious", prev: null });
+  }
+  const w = await applyCondition(actor, { slug: "wounded", value: 1, policy: "add" });
+  if (w.op === "created") also.push({ slug: "wounded", prev: null });
+  else if (w.op === "raised") also.push({ slug: "wounded", prev: w.prev });
+  return also.length ? { ...r, also } : r;
+}
+
 /** Продолжительный урон как у pf2e (applyDamage / PersistentDamageEditor): состояние persistent-damage с system.persistent; иммунитеты и сопротивления учтёт pf2e при броске. */
 /** vars: {rank, level, actorLevel} — для формул с @item.rank / @item.level / @actor.level (подставляются и считаются здесь, в состояние уходит готовая формула). */
 export function applyPersistent(actor, spec /* {formula,damageType,dc?} */, meta = {}, vars = {}) {
@@ -102,6 +148,34 @@ export function applyPersistent(actor, spec /* {formula,damageType,dc?} */, meta
     return item ? { op: "created", item } : { op: "skipped" };   // pf2e выкинул документ (иммунитет к типу урона)
   });
 }
+
+/**
+ * Шаг damage: бросок DamageRoll и применение через pf2e (applyDamage: сопротивления, слабости, щит, временные ОЗ), без карточки с кнопками.
+ * Лечение (damageType "healing") — applyDamage с отрицательным числом, без IWR. vars — как у продолжительного урона (@item.rank, @actor.level).
+ * -> { amount } | null (нулевая формула). Откат не предусмотрен: pf2e сам пишет в чат карточку полученного урона с кнопкой отмены.
+ */
+export async function dealDamage(actor, spec, vars = {}, token = null, degree = null) {
+  const formula = spec.formula.includes("@") ? resolveFormula(spec.formula, vars) : spec.formula;
+  if (!formula) throw new Error(`dealDamage: формула "${spec.formula}" не считается`);
+  if (isZeroFormula(formula)) return null;
+  const mult = spec.basic && degree != null ? BASIC_MULT[degree] ?? 1 : 1;   // degree — degreeOfSuccess pf2e: 0 крит. провал … 3 крит. успех
+  if (!mult) return null;
+  const DamageRoll = CONFIG.Dice.rolls.find((r) => r.name === "DamageRoll");
+  const heal = spec.damageType === "healing";
+  const roll = await new DamageRoll(`(${formula})[${spec.damageType}]`).evaluate();
+  token ??= actor.getActiveTokens?.(true, true)?.[0] ?? null;
+  const dealt = mult === 1 ? roll : roll.alter(mult, 0);   // как у карточки урона pf2e: слагаемые умножаются, сопротивления считаются после
+  if (heal) await actor.applyDamage({ damage: -roll.total, token, skipIWR: true });
+  else await actor.applyDamage({ damage: dealt, token });
+  return { amount: dealt.total };
+}
+const BASIC_MULT = [2, 1, 0.5, 0];
+
+/** Подпись варианта choose: своя (label) -> перевод модуля choose.opt.<value> -> код. */
+const optionLabel = (o) => o.label ?? (game.i18n?.has?.(`PF2E_AUTOMATO.choose.opt.${o.value}`) ? L(`choose.opt.${o.value}`) : o.value);
+
+/** Игрок онлайн, владеющий актёром: ему показываем окна выбора, когда у сообщения нет автора (событие onEvent). */
+const ownerPlayer = (actor) => globalThis.game?.users?.find?.((u) => !u.isGM && u.active && actor?.testUserPermission?.(u, "OWNER")) ?? null;
 
 /**
  * Предзаполнить selection у ChoiceSet с массивом choices по предмету-источнику (так же делает pf2e-automations):
@@ -124,9 +198,120 @@ export function presetChoiceSets(rules, { slug, uuids = [], level } = {}) {
 }
 
 
-/** ctx: { originActor, originToken, originItem (документы), rollOptions?, target (TokenDocument)?, roll?: {total, degreeOfSuccess} — pf2e по нему сам выбирает вариант ChoiceSet по исходу } */
-export function applyEffect(actor, spec /* {uuid} */, meta = {}, ctx = {}) {
+const effectsOf = (actor, { slug, uuid }) => actor.itemTypes.effect.filter((i) => (uuid ? i._stats?.compendiumSource === uuid : i.slug === slug || i.slug?.replace(/^(?:spell-)?(?:effect|stance)-/, "") === slug));   // slug — как у предмета (effect-rage) или как в roll options (rage)
+/** Снять эффекты и вернуть их исходные данные (откат создаёт заново). */
+async function dropEffects(list, actor = list[0]?.actor) {
+  const all = list.map((e) => { const d = e.toObject(); delete d._id; return { e, d, id: e.id }; });
+  const gone = [];
+  for (const x of all) {
+    await x.e.delete();
+    if (!actor?.items?.has?.(x.id)) gone.push(x.d);   // pf2e молча отменяет удаление при onDelete:"restrict" — такой эффект не снят и в откат не идёт
+  }
+  return gone.length ? { op: "effRemoved", data: gone } : { op: "skipped" };
+}
+
+/** Шаг removeEffect {slug|uuid, of?}: снять эффекты получателя; of:"origin" — только созданные автором шага. */
+export function removeEffect(actor, spec, ctx = {}) {
   return queue(`actor:${actor.uuid}`, async () => {
+    // выданное другим предметом (grantedBy) и эффект ауры (fromAura) не трогаем — как состояния в removeCondition
+    const hit = effectsOf(actor, spec).filter((e) => !e.grantedBy && !e.fromAura && (spec.of !== "origin" || e.system?.context?.origin?.actor === ctx.originActor?.uuid));
+    return hit.length ? dropEffects(hit, actor) : { op: "skipped" };
+  });
+}
+
+const ROUNDS_IN = { rounds: 1, minutes: 10, hours: 600, days: 14400 };
+/** Шаг extendEffect {slug, rounds}: продлить действующий эффект получателя на раунды (Затяжная композиция, Фортиссимо, Extend Boost). Срок в минутах/часах переводится в раунды; бессрочный и «до конца встречи» — пропуск. Повтор того же шага (meta.key) не продлевает дважды. */
+export function extendEffect(actor, spec, meta = {}) {
+  return queue(`actor:${actor.uuid}`, async () => {
+    const cur = effectsOf(actor, spec).find((e) => ROUNDS_IN[e.system?.duration?.unit] && e.system.duration.value >= 0);
+    const done = cur?.flags?.[MOD]?.bumped ?? [];
+    if (!cur || !meta.key || done.includes(meta.key)) return { op: "skipped" };
+    const d = cur.system.duration, prev = { value: d.value, unit: d.unit, expiry: d.expiry ?? null };
+    // expiry передаём явно: pf2e при смене unit без expiry подставляет turn-start (EffectPF2e#_preUpdate)
+    await cur.update({ "system.duration.value": d.value * ROUNDS_IN[d.unit] + spec.rounds, "system.duration.unit": "rounds", "system.duration.expiry": d.expiry ?? null, [`flags.${MOD}.bumped`]: [...done, meta.key] });
+    return { op: "extended", item: cur, prev, key: meta.key };
+  });
+}
+
+/** Шаг rollOption {domain, option, value?}: включить (по умолчанию) или выключить переключаемую опцию RollOption получателя (Mighty Rage, Quick-Tempered). Нет такого правила у актёра — пропуск с предупреждением. */
+export function setRollOption(actor, spec) {
+  return queue(`actor:${actor.uuid}`, async () => {
+    const want = spec.value !== false, prev = !!actor.rollOptions?.[spec.domain]?.[spec.option];
+    if (prev === want) return { op: "skipped" };
+    // toggle возвращает новое значение (в т.ч. false), null — нет правила или отказ; не-toggleable бросает исключение — другие шаги не обрываем
+    let res = null;
+    try { res = await actor.toggleRollOption(spec.domain, spec.option, null, want); } catch (e) { console.warn(`${MOD} | rollOption`, e); }
+    if (res === null || res === undefined) { notify("apply.noOption", { name: actor.name, option: spec.option }); return { op: "skipped" }; }
+    return { op: "option", prev, domain: spec.domain, option: spec.option };
+  });
+}
+
+/** Получатели «party» и «allies»: участники партий автора; союзники автора в радиусе range футов от его токена без преграды стен (как PA OnlyAllyWithinRange). */
+const partyOf = (actor) => [...new Map([...(actor?.parties ?? [])].flatMap((p) => [...p.members]).map((m) => [m.uuid, m])).values()];
+function alliesIn(actor, token, range, rel = "isAllyOf") {
+  const src = token?.object, scene = token?.parent;
+  if (!actor || !scene) return [];
+  // сцена не на холсте (нет .object): расстояние по документам (центры токенов), стены проверить нечем — предупреждаем ГМа
+  const live = !!src && scene === globalThis.canvas?.scene;
+  const center = (t) => { const s = scene.grid.size; return { x: t.x + (t.width * s) / 2, y: t.y + (t.height * s) / 2 }; };
+  const dist = (t) => (live && t.object ? src.distanceTo(t.object) : scene.grid.measurePath([center(token), center(t)]).distance);
+  if (range != null && !live) notify("apply.noWalls", { name: token.name ?? "" });
+  // range == null — вся сцена, без стен (выбор союзника/врага шагом choose)
+  const hit = scene.tokens.filter((t) => t.actor && t.actor !== actor && actor[rel](t.actor) && (range == null || dist(t) <= range)
+    && !(range != null && live && t.object && CONFIG.Canvas.polygonBackends.move.testCollision(t.object.center, src.center, { type: "move", mode: "any", ...(token.level && { level: token.level }) }))).map((t) => t.actor);
+  return [...new Map(hit.map((a) => [a.uuid, a])).values()];
+}
+
+/** Набор roll options для `when` (как getRollOptions у pf2e-automations): опции броска и origin сообщения + outcome + цель (target:*) + опции автора и предмета. */
+async function whenOptions({ use, message, selfActor, targetDoc, originItem, degree, rollOptions }) {
+  const set = new Set([...(rollOptions ?? []), ...(message.flags?.pf2e?.origin?.rollOptions ?? [])]);
+  if (degree != null) set.add(`outcome:${DEGREES[degree]}`);
+  const first = inRange(use.targets)[0]?.uuid;
+  const t = actorOf(targetDoc ?? (first ? await fromUuid(first) : null));
+  if (t) { set.add("target"); for (const o of t.getSelfRollOptions?.("target") ?? []) set.add(o); if (selfActor && t.uuid === selfActor.uuid) set.add("target:self"); }   // target:self — автор действует на самого себя (Возложение рук: бонус к КБ только другому)
+  for (const o of selfActor?.getRollOptions?.() ?? []) set.add(o);
+  for (const o of originItem?.getRollOptions?.("item") ?? []) set.add(o);
+  return set;
+}
+const whenPasses = (when, opts) => (globalThis.game?.pf2e?.Predicate?.test ? game.pf2e.Predicate.test(when, opts) : testPredicate(when, opts));
+
+/** ctx: { originActor, originToken, originItem (документы), rollOptions?, target (TokenDocument)?, roll?: {total, degreeOfSuccess} — pf2e по нему сам выбирает вариант ChoiceSet по исходу } */
+export function applyEffect(actor, spec /* {uuid, badge?} */, meta = {}, ctx = {}) {
+  return queue(`actor:${actor.uuid}`, async () => {
+    // badge:"decrement": значок существующего эффекта −1; на минимуме эффект снимается (откат возвращает его из data); нет эффекта — шаг пропущен, копия не создаётся
+    if (spec.badge === "decrement") {
+      const cur = actor.itemTypes.effect.find((i) => i._stats?.compendiumSource === spec.uuid);
+      const done = cur?.flags?.[MOD]?.bumped ?? [];
+      if (!cur || !meta.key || done.includes(meta.key)) return { op: "skipped" };
+      const b = cur.system.badge;
+      if (b?.type === "counter" && b.value - 1 >= (b.min ?? 1)) {
+        const prev = b.value;
+        await cur.update({ "system.badge.value": prev - 1, [`flags.${MOD}.bumped`]: [...done, meta.key] });
+        return { op: "badged", item: cur, prev, key: meta.key };
+      }
+      return dropEffects([cur]);
+    }
+    // badge:"increment": такой эффект уже есть — значок растёт на 1 (EffectPF2e.increase); ключ шага в флаге не даёт прибавить дважды при повторе
+    if (spec.badge === "increment") {
+      if (findByKey(actor, meta.key)) return { op: "skipped" };   // эффект создан этим же шагом: повтор (runUse, второй клик, вторая вкладка) значок не трогает
+      const cur = actor.itemTypes.effect.find((i) => i._stats?.compendiumSource === spec.uuid);
+      if (cur) {
+        const done = cur.flags?.[MOD]?.bumped ?? [];
+        const b = cur.system.badge;
+        if (!meta.key || done.includes(meta.key) || b?.type !== "counter" || (b.max != null && !b.loop && b.value >= b.max)) return { op: "skipped" };   // упёрлись в максимум значка — прибавлять некуда
+        const prev = cur.system.badge.value;
+        if (spec.by > 1) await cur.update({ "system.badge.value": b.max != null ? Math.min(b.max, prev + spec.by) : prev + spec.by });   // шаг больше 1 (Кража тени: +2)
+        else await cur.increase();
+        await cur.update({ [`flags.${MOD}.bumped`]: [...done, meta.key] });
+        return { op: "badged", item: cur, prev, key: meta.key };
+      }
+    }
+    // replace: прежний эффект того же источника и автора заканчивается до создания нового; хуки удаления и создания встают в очередь актёра в этом порядке (gear: броня возвращается до выдачи новой)
+    if (spec.replace && !(meta.key && findByKey(actor, meta.key))) {
+      // «any previous … ends»: прежний эффект снимается с любого актёра (Sweet Dream, Bit of Luck), а не только с текущей цели; без автора — только с этой цели
+      const pool = ctx.originActor == null ? [actor] : [actor, ...[...(game.actors ?? []), ...(game.scenes?.contents ?? []).flatMap((s) => s.tokens.filter((t) => !t.actorLink).map((t) => t.actor))].filter((a) => a && a !== actor)];
+      for (const a of pool) for (const e of a.itemTypes.effect.filter((i) => i._stats?.compendiumSource === spec.uuid && (ctx.originActor == null || i.system?.context?.origin?.actor === ctx.originActor.uuid))) await e.delete();
+    }
     if (hasEffect(actor, spec.uuid, ctx.originActor?.uuid, meta.key)) return { op: "skipped" };
     const src = await fromUuid(spec.uuid);
     if (!src || src.type !== "effect") { console.warn(`${MOD} | applyEffect: ${spec.uuid} не эффект`); return { op: "skipped" }; }
@@ -135,6 +320,7 @@ export function applyEffect(actor, spec /* {uuid} */, meta = {}, ctx = {}) {
     data._stats = { ...data._stats, compendiumSource: spec.uuid };
     const valid = CONFIG.PF2E.Item.documentClasses.effect.validTraits;
     const rollOptions = ctx.rollOptions ?? ctx.originItem?.getOriginData?.().rollOptions ?? [];
+    if (spec.start > 1 && data.system.badge?.type === "counter") data.system.badge.value = spec.start;   // значок нового эффекта (иначе — из источника)
     data.system = foundry.utils.mergeObject(data.system, {
       context: {
         origin: { actor: ctx.originActor?.uuid ?? null, token: ctx.originToken?.uuid ?? null, item: ctx.originItem?.uuid ?? null, spellcasting: null, rollOptions },
@@ -145,6 +331,11 @@ export function applyEffect(actor, spec /* {uuid} */, meta = {}, ctx = {}) {
     });
     // уровень эффекта = круг сотворения: формулы @item.level (твёрдость Щита, бонус Защиты, руны) растут как при перетаскивании из карточки
     if (ctx.castRank != null && data.system.level) data.system.level.value = ctx.castRank;
+    // срок шага (duration) заменяет срок эффекта; кубик («1d4» раундов) бросается здесь, expiry без указания берётся из эффекта
+    if (spec.duration) {
+      const d = spec.duration, value = typeof d.value === "string" ? (await new Roll(d.value).evaluate()).total : d.value;
+      data.system.duration = { ...data.system.duration, value, unit: d.unit, expiry: d.expiry ?? data.system.duration?.expiry ?? null };
+    }
     // метка TokenMark: без uuid pf2e берёт цель/запрос у ГМа (pf2e.mjs TokenMarkRuleElement.preCreate) — подставляем выбранного автором врага
     if (ctx.markUuid) for (const r of data.system.rules ?? []) if (r.key === "TokenMark" && !r.uuid) r.uuid = ctx.markUuid;
     if (ctx.choice != null) { const cs = (data.system.rules ?? []).find((r) => r.key === "ChoiceSet" && r.selection == null); if (cs) cs.selection = ctx.choice; }
@@ -159,6 +350,16 @@ export function applyEffect(actor, spec /* {uuid} */, meta = {}, ctx = {}) {
  *  выбирает автор-игрок у себя (сокет pickChoice) либо, если игрока нет (user = null), ГМ — общим окном во всех своих вкладках;
  *  selection пишется в источник — pf2e при создании берёт её без запроса. false — отказ. */
 const PICK_MS = 120000;
+/** Окно выбора одного из choices [{value, label}]: у игрока-автора (user) или общее окно ведущего. -> value | null (закрыто, тайм-аут PICK_MS — очередь актёра ждёт ответа). */
+export async function askChoice(user, title, prompt, choices) {
+  const ask = user
+    ? socket.executeAsUser("pickChoice", user.id, { title, prompt, choices: choices.map((c) => ({ value: c.value, label: c.label })) })
+    : sharedDialog({ title, content: choiceHtml(prompt, choices), buttons: [{ action: "ok", label: L("apply.choose") }] })
+      .then((r) => (r?.form ? choices[Number(r.form.choice)]?.value ?? null : null));
+  let timer;
+  try { return await Promise.race([ask, new Promise((r) => { timer = setTimeout(() => r(null), PICK_MS); })]); } finally { clearTimeout(timer); }
+}
+
 async function chooseChoices(actor, data, user) {
   const idx = (data.system.rules ?? []).flatMap((r, i) => (r.key === "ChoiceSet" && r.selection == null ? [i] : []));
   if (!idx.length) return true;
@@ -169,12 +370,7 @@ async function chooseChoices(actor, data, user) {
     const choices = re?.inflateChoices ? await re.inflateChoices(opts, []) : [];
     if (!choices.length) continue;   // считать нечего — пусть решает pf2e как обычно
     const prompt = re.prompt ? game.i18n.localize(re.prompt) : "";
-    const ask = user
-      ? socket.executeAsUser("pickChoice", user.id, { title: data.name, prompt, choices: choices.map((c) => ({ value: c.value, label: c.label })) })
-      : sharedDialog({ title: data.name, content: choiceHtml(prompt, choices), buttons: [{ action: "ok", label: L("apply.choose") }] })
-        .then((r) => (r?.form ? choices[Number(r.form.choice)]?.value ?? null : null));
-    const value = choices.length === 1 ? choices[0].value
-      : await Promise.race([ask, new Promise((r) => setTimeout(() => r(null), PICK_MS))]);   // очередь актёра ждёт ответа — не дольше PICK_MS
+    const value = choices.length === 1 ? choices[0].value : await askChoice(user, data.name, prompt, choices);
     if (value == null || !choices.some((c) => c.value === value)) return false;
     data.system.rules[i].selection = value;
   }
@@ -227,7 +423,7 @@ export async function applyOps(message, tokenKey, steps, ctx = {}) {
   const ectx = { originActor: selfActor, originToken, originItem, rollOptions: ctx.rollOptions,
     roll: ctx.degree != null && Number.isFinite(ctx.total) ? { total: ctx.total, degreeOfSuccess: ctx.degree } : null,
     castRank: originItem?.type === "spell" ? (message.flags?.pf2e?.origin?.castRank ?? originItem.rank ?? null) : null,
-    chooser: chooserOf(message, selfActor) };
+    chooser: chooserOf(message, selfActor) ?? (message.author ? null : ownerPlayer(selfActor)) };
   const traits = originItem?.system?.traits?.value ?? [];
   // переменные формул: круг (при сотворении — поднятый), уровень предмета (у заклинания это круг), уровень автора
   const rank = message.flags?.pf2e?.origin?.castRank ?? originItem?.rank ?? originItem?.level ?? 1;
@@ -235,14 +431,25 @@ export async function applyOps(message, tokenKey, steps, ctx = {}) {
   const myDisp = originToken?.disposition ?? 1;
   const ops = [];
 
-  for (const [i, step] of steps.entries()) {
-    const actor = step.to === "self" ? selfActor : actorOf(targetDoc);
-    if (!actor || (!step.condition && !step.effect && !step.visibility && !step.persistent)) continue;   // note — только текст в блоке
+  // шаг на группу (party, allies) раскладывается по получателям: дальше всё как у одиночного; «chosen» — получатель известен после шага choose (ищется в цикле)
+  const jobs = steps.flatMap((step, i) => (step.to === "self" || step.choose ? [selfActor] : step.to === "party" ? partyOf(selfActor) : step.to === "allies" ? alliesIn(selfActor, originToken, step.range) : step.to === "chosen" ? [null] : [actorOf(targetDoc)]).map((actor) => ({ i, step, actor })));
+  let wopts = null;   // roll options для `when`: считаем один раз и только если есть такой шаг
+  // выбор автора (шаг choose): вариант -> опция `choice:<value>` для when следующих шагов, существо -> получатель шагов to:"chosen". Общий на запись события (ctx.picks)
+  const picks = ctx.picks ?? { opts: new Set(), actor: null };
+  const statePath = scope === "challenge" ? flagPath("use", "state", "challenge", "applied", tokenKey) : flagPath("use", "state", "apply", tokenKey);
+  const doneOps = foundry.utils.getProperty(message, statePath)?.ops ?? [];   // ops уже исполненного: повтор шага без предмета (урон, снижение, выбор) по ключу пропускается
+
+  for (const job of jobs) {
+    const { i, step } = job;
+    const actor = step.to === "chosen" ? picks.actor : job.actor;
+    if (!actor || !isActiveStep(step)) continue;   // note — только текст в блоке
+    if (step.rank && (rank < (step.rank.min ?? 1) || rank > (step.rank.max ?? Infinity))) continue;   // круг сотворения вне границ шага
+    if (step.when && !whenPasses(step.when, new Set([...(wopts ??= await whenOptions({ use, message, selfActor, targetDoc, originItem, degree: ctx.degree, rollOptions: ctx.rollOptions })), ...picks.opts]))) continue;   // условие предиката не выполнено
     if (step.visibility && !visionActive()) continue;   // без PF2e Vision — заметка (текст «вручную» даёт чат)
     if (step.to !== "self") {
       const hostile = opposed(myDisp, targetDoc?.disposition ?? 0);
-      if (step.who && (step.who === "enemy") !== hostile) continue;
-      if (immuneToTraits(actor.attributes?.immunities, traits)) { notify("apply.immune", { name: actor.name }); continue; }
+      if (step.to === "target" && step.who && (step.who === "enemy") !== hostile) continue;
+      if ((step.condition || step.effect || step.persistent) && immuneToTraits(actor.attributes?.immunities, traits)) { notify("apply.immune", { name: actor.name }); continue; }
     }
     if (step.unlessEffect && actor.items.some((it) => it.type === "effect" && it._stats?.compendiumSource === step.unlessEffect)) {
       notify("apply.alreadyImmune", { name: actor.name }); continue;
@@ -258,11 +465,41 @@ export async function applyOps(message, tokenKey, steps, ctx = {}) {
     // проверка автора — бросок на каждую цель, и «self» считается по каждому броску; испытание — один бросок цели, self общий
     const selfKey = scope === "challenge" && use.rule?.onUse?.check && tokenKey !== "self" ? `self.${tokenKey}` : "self";
     const meta = {
-      key: `${message.id}:${step.to === "self" ? selfKey : tokenKey}:${stepKey}`,
+      key: `${message.id}:${step.to === "self" ? selfKey : step.to === "target" ? tokenKey : `grp.${actor.uuid}`}:${stepKey}`,
       rank: ectx.castRank,
       source: scope, message: message.id, region: ctx.region?.uuid ?? null,
       origin: use.item?.uuid ?? null, by: selfActor?.uuid ?? null
     };
+    if (step.choose) {
+      const c = step.choose, prev = doneOps.find((o) => o.op === "chose" && o.key === meta.key);
+      let value = prev?.value ?? null, chosen = prev?.actor ? actorOf(await fromUuid(prev.actor)) : null;
+      if (!prev) {
+        const title = originItem?.name ?? use.item?.name ?? "";
+        if (c.from === "options") {
+          const wset = new Set([...(wopts ??= await whenOptions({ use, message, selfActor, targetDoc, originItem, degree: ctx.degree, rollOptions: ctx.rollOptions })), ...picks.opts]);
+          const choices = c.options.filter((o) => !o.when || whenPasses(o.when, wset)).map((o) => ({ value: o.value, label: optionLabel(o) }));
+          if (!choices.length) continue;
+          value = choices.length === 1 ? choices[0].value : await askChoice(ectx.chooser, title, c.prompt ?? L("apply.prompt.options"), choices);
+        } else {
+          const centre = c.of === "target" ? targetDoc : originToken;   // of:"target" — расстояние от цели броска/карточки
+          const list = alliesIn(selfActor, centre, c.range ?? null, c.from === "enemies" ? "isEnemyOf" : "isAllyOf");
+          if (!list.length) { notify("apply.noCandidates", { name: title }); continue; }
+          const uuid = await askChoice(ectx.chooser, title, c.prompt ?? L(`apply.prompt.${c.from}`), list.map((a) => ({ value: a.uuid, label: a.token?.name ?? a.name })));
+          chosen = list.find((a) => a.uuid === uuid) ?? null;
+          value = chosen?.uuid ?? null;
+        }
+        if (value == null) continue;   // окно закрыто: ничего не выбрано, следующие шаги с выбором пропускаются
+        ops.push({ op: "chose", key: meta.key, value, ...(chosen && { actor: chosen.uuid }) });
+      }
+      if (c.from === "options") picks.opts.add(`choice:${value}`); else picks.actor = chosen;
+      continue;
+    }
+    if (step.damage) {
+      if (doneOps.some((o) => o.key === meta.key)) continue;
+      const r = await dealDamage(actor, step.damage, persVars, step.to === "target" && targetDoc?.actor ? targetDoc : step.to === "self" ? originToken : null, ctx.degree ?? null);
+      if (r) ops.push({ op: "damaged", actor: actor.uuid, amount: r.amount, key: meta.key });
+      continue;
+    }
     if (step.visibility) {
       const v = step.visibility, sourceKey = `auto:${meta.key}`;
       const [observer, subject] = [step.to === "self" ? originToken : targetDoc, v.of === "self" ? originToken : targetDoc];
@@ -277,10 +514,20 @@ export async function applyOps(message, tokenKey, steps, ctx = {}) {
       ops.push(skip ? { op: "vis", skipped: skip, key: sourceKey } : { op: "vis", scene: scene.id, key: sourceKey });
       continue;
     }
+    if (step.removeCondition) {
+      const r = await removeCondition(actor, step.removeCondition.slug);
+      if (r.op === "removed") ops.push({ op: "removed", slug: r.slug, actor: actor.uuid, ...(r.prev != null && { prev: r.prev }), ...(r.also && { also: r.also }) });
+      continue;
+    }
+    const tgt = step.to === "target" ? targetDoc : null;
+    if (step.condition?.policy === "reduce" && doneOps.some((o) => o.key === meta.key)) continue;
     const r = step.persistent ? await applyPersistent(actor, step.persistent, meta, persVars)
       : step.condition
-      ? await applyCondition(actor, step.duration ? { ...step.condition, duration: step.duration } : step.condition, meta, { ...ectx, target: step.to === "self" ? null : targetDoc })
-      : await applyEffect(actor, step.effect, meta, { ...ectx, markUuid, choice: step.choice, target: step.to === "self" ? null : targetDoc });
+      ? await applyCondition(actor, step.duration ? { ...step.condition, duration: step.duration } : step.condition, meta, { ...ectx, target: tgt })
+      : step.removeEffect ? await removeEffect(actor, step.removeEffect, ectx)
+      : step.extendEffect ? await extendEffect(actor, step.extendEffect, meta)
+      : step.rollOption ? await setRollOption(actor, step.rollOption)
+      : await applyEffect(actor, step.duration ? { ...step.effect, duration: step.duration } : step.effect, meta, { ...ectx, markUuid, choice: step.choice, target: tgt });
     if (step.escape && r.op === "created") {   // жертва вправе освободиться проверкой: шёпот с кнопками (вторичен — сбой не должен терять ops)
       try {
         let spellDc = null, statDc = null;
@@ -292,7 +539,7 @@ export async function applyOps(message, tokenKey, steps, ctx = {}) {
       } catch (e) { console.error(`${MOD} | escape`, e); }
     }
     if (r.reason === "vision") ops.push({ op: "vis", skipped: "marks", key: meta.key });   // видимость — метками: строка отработана
-    else if (r.op !== "skipped" && r.op !== "pending") ops.push({ op: r.op, item: r.item.uuid, ...(r.prev != null && { prev: r.prev }) });
+    else if (r.op !== "skipped" && r.op !== "pending") ops.push({ op: r.op, ...(r.item && { item: r.item.uuid }), ...((r.data || r.domain || r.slug) && { actor: actor.uuid }), ...(r.slug && { slug: r.slug }), ...(r.data && { data: r.data }), ...(r.domain && { domain: r.domain, option: r.option }), ...(r.prev != null && { prev: r.prev }), ...(r.key && { key: r.key }) });
   }
 
   if (ops.length) {
@@ -314,13 +561,36 @@ export async function undoOps(message, tokenKey) {
   for (const [scope, rec] of places) {
     if (!rec) continue;
     for (const o of [...(rec.ops ?? [])].reverse()) {
-      if (o.op === "vis" && o.skipped) continue;
+      if ((o.op === "vis" && o.skipped) || o.op === "chose" || o.op === "damaged") continue;   // выбор отменять нечем; урон pf2e откатывает своей карточкой
       if (o.op === "vis") { await dropSource(game.scenes.get(o.scene), o.key); undone++; continue; }
+      if (o.op === "removed") {   // снятое состояние возвращаем с прежним значением
+        const a = actorOf(await fromUuid(o.actor));
+        if (a) {
+          for (const x of o.also ?? []) {   // попутное: созданное снимаем, поднятое возвращаем к прежнему значению
+            const c = a.itemTypes.condition.find((y) => y.slug === x.slug && !y.isLocked && !y.grantedBy);
+            if (!c) continue;
+            if (x.prev == null) await queue(`actor:${a.uuid}`, () => a.decreaseCondition(x.slug, { forceRemove: true }));
+            else await queue(`actor:${a.uuid}`, () => game.pf2e.ConditionManager.updateConditionValue(c.id, a, x.prev));
+          }
+          await applyCondition(a, { slug: o.slug, ...(o.prev != null && { value: o.prev }), policy: "max" });
+          undone++;
+        }
+        continue;
+      }
+      if (o.op === "effRemoved" || o.op === "option") {   // снятые эффекты создаём заново, опцию возвращаем
+        const a = actorOf(await fromUuid(o.actor));
+        if (!a) continue;
+        await queue(`actor:${a.uuid}`, () => (o.op === "option" ? a.toggleRollOption(o.domain, o.option, null, o.prev) : a.createEmbeddedDocuments("Item", foundry.utils.deepClone(o.data))));
+        undone++;
+        continue;
+      }
       const item = await fromUuid(o.item);
       if (!item?.actor) continue;
       await queue(`actor:${item.actor.uuid}`, async () => {
         if (o.op === "created") await item.delete();
         else if (o.op === "raised") await game.pf2e.ConditionManager.updateConditionValue(item.id, item.actor, o.prev);
+        else if (o.op === "extended") await item.update({ "system.duration.value": o.prev.value, "system.duration.unit": o.prev.unit, "system.duration.expiry": o.prev.expiry ?? null, [`flags.${MOD}.bumped`]: (item.flags?.[MOD]?.bumped ?? []).filter((k) => k !== o.key) });
+        else if (o.op === "badged") await item.update({ "system.badge.value": o.prev, [`flags.${MOD}.bumped`]: (item.flags?.[MOD]?.bumped ?? []).filter((k) => k !== o.key) });
       });
       undone++;
     }

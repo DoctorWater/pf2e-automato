@@ -40,6 +40,12 @@
         <button type="button" data-action="addStep" data-list="{{list}}" data-kind="effect" name="addk-effect-{{list}}" data-q="">{{localize "PF2E_AUTOMATO.workshop.au.kindEffect"}}</button>
         <button type="button" data-action="addStep" data-list="{{list}}" data-kind="visibility" name="addk-vis-{{list}}" data-q="">{{localize "PF2E_AUTOMATO.workshop.au.kindVisibility"}}</button>
         <button type="button" data-action="addStep" data-list="{{list}}" data-kind="persistent" name="addk-pers-{{list}}" data-q="">{{localize "PF2E_AUTOMATO.workshop.au.kindPersistent"}}</button>
+        <button type="button" data-action="addStep" data-list="{{list}}" data-kind="remove" name="addk-remove-{{list}}" data-q="">{{localize "PF2E_AUTOMATO.workshop.au.kindRemove"}}</button>
+        <button type="button" data-action="addStep" data-list="{{list}}" data-kind="removeEffect" name="addk-removeEffect-{{list}}" data-q="">{{localize "PF2E_AUTOMATO.workshop.au.kindRemoveEffect"}}</button>
+        <button type="button" data-action="addStep" data-list="{{list}}" data-kind="extendEffect" name="addk-extendEffect-{{list}}" data-q="">{{localize "PF2E_AUTOMATO.workshop.au.kindExtendEffect"}}</button>
+        <button type="button" data-action="addStep" data-list="{{list}}" data-kind="rollOption" name="addk-rollOption-{{list}}" data-q="">{{localize "PF2E_AUTOMATO.workshop.au.kindRollOption"}}</button>
+        <button type="button" data-action="addStep" data-list="{{list}}" data-kind="damage" name="addk-damage-{{list}}" data-q="">{{localize "PF2E_AUTOMATO.workshop.au.kindDamage"}}</button>
+        <button type="button" data-action="addStep" data-list="{{list}}" data-kind="choose" name="addk-choose-{{list}}" data-q="">{{localize "PF2E_AUTOMATO.workshop.au.kindChoose"}}</button>
         <button type="button" data-action="addStep" data-list="{{list}}" data-kind="note" name="addk-note-{{list}}" data-q="">{{localize "PF2E_AUTOMATO.workshop.au.kindNote"}}</button>
         <div class="ws-pick-h" data-q="">{{localize "PF2E_AUTOMATO.workshop.au.pickConds"}}</div>
         {{#each @root.conds}}<button type="button" data-action="addStep" data-list="{{../list}}" data-slug="{{slug}}" name="addc-{{slug}}-{{../list}}" data-q="{{q}}">{{label}}</button>{{/each}}
@@ -81,6 +87,29 @@
           <div class="ws-sted-f">{{#each r.edit.fields}}{{> fld}}{{/each}}</div>
         </div>
         {{/if}}
+        {{/if}}
+        {{#if r.is_events}}
+        <div class="ws-evs ws-full">
+          <span class="ws-note">{{localize "PF2E_AUTOMATO.workshop.au.ev.hint"}}</span>
+          {{#each r.evs}}
+          <div class="ws-ev">
+            <div class="ws-ev-h"><span class="ws-lbl ws-accent">{{title}}</span>
+              <button type="button" class="ws-x" data-action="removeEvent" data-i="{{i}}" name="rmEvent-{{i}}" aria-label="{{localize "PF2E_AUTOMATO.workshop.au.ev.remove"}}"><i class="fa-solid fa-xmark" inert></i></button>
+            </div>
+            <div class="ws-pfields">{{#each fields}}{{> fld}}{{/each}}</div>
+            <div class="ws-lbl ws-dhead">{{apply.label}}</div>
+            {{> lst apply}}
+            {{#if cols}}<div class="ws-dgrid ws-full">{{#each cols}}<div class="ws-dcol"><div class="ws-lbl ws-dhead ws-d-{{deg}}">{{label}}</div>{{> lst}}</div>{{/each}}</div>{{/if}}
+          </div>
+          {{/each}}
+          <button type="button" class="ws-add" data-action="addEvent" name="addEvent"><i class="fa-solid fa-plus" inert></i> {{localize "PF2E_AUTOMATO.workshop.au.ev.add"}}</button>
+          {{#if r.edit}}
+          <div class="ws-sted ws-full">
+            <div class="ws-lbl ws-accent">{{r.edit.title}}</div>
+            <div class="ws-sted-f">{{#each r.edit.fields}}{{> fld}}{{/each}}</div>
+          </div>
+          {{/if}}
+        </div>
         {{/if}}
         {{#if r.is_macros}}
         <div class="ws-mlist ws-full">

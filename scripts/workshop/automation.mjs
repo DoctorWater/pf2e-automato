@@ -75,10 +75,13 @@ const plus = (n) => (n >= 0 ? `+${n}` : String(n));
 /** Строка формы (step) -> плашка. env: {t, conditionLabel, uuidName, valued?(slug)}. */
 export function plate(row, env) {
   const { t } = env;
-  const dv = num(row.durValue);
+  const dv = num(row.durValue) ?? (/^\d+d\d+$/i.test(String(row.durValue ?? "").trim()) ? String(row.durValue).trim() : null);
   let keep = {};
   try { keep = row.keep ? JSON.parse(row.keep) : {}; } catch { /* битая строка: пометок нет */ }
-  const note = [keep.who && t(`workshop.au.keep.${keep.who}`), keep.unlessEffect && t("workshop.au.keep.unless"), keep.mark && t("workshop.au.keep.mark"), keep.choice != null && t("workshop.au.keep.choice", { v: keep.choice }), keep.escape && t("workshop.au.keep.escape")].filter(Boolean).join(" · ");
+  const [lo, hi] = [num(row.rankMin), num(row.rankMax)];
+  const range = lo !== null && hi !== null ? (lo === hi ? lo : `${lo}–${hi}`) : lo !== null ? `${lo}+` : hi !== null ? `≤${hi}` : null;
+  const note = [range !== null && t("workshop.au.keep.rank", { range }), row.kind === "effect" && row.stack && t("workshop.au.keep.stack"), row.kind === "effect" && row.unstack && !row.stack && t("workshop.au.keep.unstack"), row.kind === "removeEffect" && row.ofOrigin && t("workshop.au.keep.ofOrigin"),
+    row.to === "party" && t("workshop.au.keep.party"), row.to === "chosen" && t("workshop.au.keep.chosen"), row.to === "allies" && t("workshop.au.keep.allies", { range: num(row.range) ?? "?" }), String(row.when ?? "").trim() && t("workshop.au.keep.when", { when: String(row.when).trim() }), keep.who && t(`workshop.au.keep.${keep.who}`), keep.unlessEffect && t("workshop.au.keep.unless"), keep.mark && t("workshop.au.keep.mark"), keep.choice != null && t("workshop.au.keep.choice", { v: keep.choice }), keep.escape && t("workshop.au.keep.escape"), keep.dmgBasic && t("workshop.au.keep.basic")].filter(Boolean).join(" · ");
   const base = { kind: row.kind, valued: false, value: "", dur: "", self: row.to === "self", note };
   if (row.kind === "condition") {
     const value = num(row.value);
@@ -87,7 +90,13 @@ export function plate(row, env) {
       valued: value !== null || !!env.valued?.(row.text), dur: dv !== null ? t("workshop.au.dur", { value: dv, unit: t(`workshop.unitShort.${row.durUnit}`) }) : ""
     };
   }
-  if (row.kind === "effect") return { ...base, name: row.text ? env.uuidName(row.text) ?? row.text : "?" };
+  if (row.kind === "remove") return { ...base, name: t("workshop.au.removePlate", { name: row.text ? env.conditionLabel(row.text) : "?" }) };
+  if (row.kind === "removeEffect") return { ...base, name: t("workshop.au.removePlate", { name: row.text ? env.uuidName(row.text) ?? row.text : "?" }) };
+  if (row.kind === "extendEffect") return { ...base, name: t("workshop.au.extendPlate", { slug: row.text || "?", rounds: num(row.value) ?? "?" }) };
+  if (row.kind === "rollOption") return { ...base, name: t(row.optOff ? "workshop.au.optionOffPlate" : "workshop.au.optionPlate", { option: row.text || "?" }) };
+  if (row.kind === "effect") return { ...base, name: row.text ? env.uuidName(row.text) ?? row.text : "?", dur: String(row.durValue ?? "").trim() ? t("workshop.au.dur", { value: String(row.durValue).trim(), unit: t(`workshop.unitShort.${row.durUnit}`) }) : "" };
+  if (row.kind === "damage") return { ...base, name: `${String(row.text ?? "").trim() || "?"} · ${row.pType === "healing" ? t("workshop.au.healing") : env.damageLabel?.(row.pType) ?? row.pType}` };
+  if (row.kind === "choose") return { ...base, name: t("workshop.au.choosePlate") };
   if (row.kind === "persistent") return { ...base, name: `${String(row.text ?? "").trim() || "?"} · ${env.damageLabel?.(row.pType) ?? row.pType}` };
   if (row.kind === "visibility") return { ...base, name: t(`chat.visLevel.${row.visLevel}`) };
   return { ...base, name: String(row.text ?? "").trim() || "?" };
@@ -106,6 +115,7 @@ function dcLabel(ch, env) {
 
 function vsLabel(k, env) {
   const { t } = env, x = String(k.vsText ?? "").trim();
+  if (k.vsType === "none") return t("workshop.au.vsNone");
   if (k.vsType === "dc") return t("workshop.au.vsDc", { dc: x || "?" });
   return x === "ac" ? t("checks.ac") : t("workshop.au.vsStat", { stat: env.statLabel(x) });
 }
@@ -116,6 +126,17 @@ const whoText = (f, env) => {
   if (f.targets === "area") return t("workshop.au.who.area", { shape: t(`workshop.au.shape.${env.area.shape}`), size: env.area.size });
   return t("workshop.au.who.selected");
 };
+
+/** Одна запись onEvent (форма) -> строка: событие · сторона · условие: шаги [· испытание]. */
+export function evLine(e, env) {
+  const { t } = env, when = String(e.when ?? "").trim();
+  const steps = plates(e.apply, env), ch = e.ch?.on ? t("workshop.au.ev.chLine", { stat: env.statLabel(e.ch.statistic), dc: dcLabel(e.ch, { ...env, dc: null }) }) : "";
+  return {
+    head: `${t(`workshop.au.ev.on.${e.on}`)} · ${t(`workshop.au.ev.side.${e.side}`)}${when ? ` · ${when}` : ""}${e.once ? ` · ${t("workshop.au.ev.onceShort")}` : ""}`,
+    body: [steps, ch].filter(Boolean).join("; ") || t("workshop.au.nothing")
+  };
+}
+const evSummary = (f, env) => ((f.ev ?? []).length ? f.ev.map((e) => { const l = evLine(e, env); return `${l.head}: ${l.body}`; }).join(" · ") : env.t("workshop.au.ev.none"));
 
 /** Все сводки свёрнутых строк. env: {t, statLabel, conditionLabel, uuidName, valued?, dc, area:{shape,size}}. */
 export function summaries(f, env) {
@@ -132,7 +153,7 @@ export function summaries(f, env) {
     : t(`workshop.au.targets.${f.targets}`);
 
   const roll = mode === "save" ? t("workshop.au.roll.save", { basic: f.ch.basic ? t("workshop.au.basic") : "", stat: env.statLabel(f.ch.statistic), dc: dcLabel(f.ch, env) })
-    : mode === "check" ? t("workshop.au.roll.check", { stat: stats(f.ck.statistic, env) || "?", vs: vsLabel(f.ck, env) }) + (num(f.ck.map) ? ` · ${t("workshop.au.map", { n: num(f.ck.map) })}` : "")
+    : mode === "check" ? t(f.ck.vsType === "none" ? "workshop.au.roll.checkSelf" : "workshop.au.roll.check", { stat: stats(f.ck.statistic, env) || "?", vs: vsLabel(f.ck, env) }) + (num(f.ck.map) ? ` · ${t("workshop.au.map", { n: num(f.ck.map) })}` : "")
     : t("workshop.au.roll.none");
 
   const degLists = mode === "none" ? [] : COLS.map((d) => ({ deg: d, text: plates((mode === "save" ? f.ch : f.ck).deg[d], env) }));
@@ -143,7 +164,7 @@ export function summaries(f, env) {
   const zone = f.targets !== "area" ? t("workshop.au.zoneNeedsArea") : !z.on ? t("workshop.au.zoneOff")
     : t("workshop.au.zoneOn", { what: z.cond ? `${env.conditionLabel(z.cond)}${num(z.condValue) ? ` ${z.condValue}` : ""}` : z.effect ? env.uuidName(z.effect) ?? z.effect : "?" });
   const macros = f.macros.length ? t("workshop.au.macrosN", { n: f.macros.length }) : t("workshop.au.macrosNone");
-  return { when, targets: onUse ? targets : "", roll: onUse ? roll : "", outcome: onUse ? outcome : "", zone: onUse ? zone : "", macros, mode, degLists };
+  return { when, targets: onUse ? targets : "", roll: onUse ? roll : "", outcome: onUse ? outcome : "", zone: onUse ? zone : "", macros, events: evSummary(f, env), mode, degLists };
 }
 
 /** Связный текст правила и строки по степеням для правой панели. */
@@ -151,10 +172,11 @@ export function story(f, env) {
   const { t } = env, s = summaries(f, env), mode = s.mode;
   if (f.kind === "onAttacked") return { text: t("workshop.au.story.onAttacked", { value: plus(num(f.react.value) ?? 0), type: t(`workshop.btype.${f.react.type}`) }), degrees: [] };
   if (f.kind === "none") return { text: t("workshop.au.story.none"), degrees: [] };
+  if (f.kind === "onEvent") return { text: t("workshop.au.story.onEvent"), degrees: (f.ev ?? []).map((e) => { const l = evLine(e, env); return { deg: "ev", label: l.head, text: l.body }; }) };
   const who = whoText(f, env);
   const immediate = plates(f.apply, env);
   const text = mode === "save" ? t("workshop.au.story.save", { who, basic: f.ch.basic ? t("workshop.au.basic") : "", stat: env.statLabel(f.ch.statistic), dc: dcLabel(f.ch, env) })
-    : mode === "check" ? t("workshop.au.story.check", { stat: stats(f.ck.statistic, env) || "?", vs: vsLabel(f.ck, env) })
+    : mode === "check" ? t(f.ck.vsType === "none" ? "workshop.au.story.checkSelf" : "workshop.au.story.check", { stat: stats(f.ck.statistic, env) || "?", vs: vsLabel(f.ck, env) })
     : t(immediate ? "workshop.au.story.none-apply" : "workshop.au.story.none-empty", { who, list: immediate });
   const degrees = s.degLists.filter((x) => x.text).map((x) => ({ deg: x.deg, label: t(`sheet.degree.${x.deg}`), text: x.text }));
   if (mode !== "none" && immediate) degrees.unshift({ deg: "", label: t("workshop.au.immediate"), text: immediate });
@@ -186,7 +208,7 @@ export function tokenOdds(rule, tokens, env) {
       const st = pickStatistic(actor, ch.statistic);
       if (!st) row.problems.push(t("saves.noStatistic", { name, stat: ch.statistic }));
       else { mod = modOf(st); dc = env.dc; row.vs = t("workshop.au.vsSave", { stat: env.statLabel(ch.statistic), mod: plus(mod), dc: dc ?? "?" }); }
-    } else if (ck) {
+    } else if (ck?.vs) {   // без vs СЛ задаёт система: шансов не посчитать
       dc = defenseDc(actor, ck.vs);
       mapPenalty = 5 * (ck.mapIncreases ?? 0);   // agile (-4) не различаем: шансы приблизительные
       if (dc == null) row.problems.push(t("checks.dcUnknown", { name }));

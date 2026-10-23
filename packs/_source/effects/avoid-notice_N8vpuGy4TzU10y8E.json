@@ -1,0 +1,72 @@
+{
+  "_id": "N8vpuGy4TzU10y8E",
+  "name": "Avoid Notice",
+  "type": "effect",
+  "img": "icons/magic/perception/silhouette-stealth-shadow.webp",
+  "system": {
+    "description": {
+      "value": "<p>@UUID[Compendium.pf2e.actionspf2e.Item.IE2nThCmoyhQA0Jn]</p>"
+    },
+    "duration": {
+      "expiry": "turn-end",
+      "sustained": false,
+      "unit": "unlimited",
+      "value": -1
+    },
+    "level": {
+      "value": 1
+    },
+    "rules": [
+      {
+        "key": "ActiveEffectLike",
+        "mode": "override",
+        "path": "system.attributes.speed.value",
+        "phase": "afterDerived",
+        "predicate": [
+          {
+            "not": "feat:swift-sneak"
+          },
+          {
+            "not": "feat:legendary-sneak"
+          }
+        ],
+        "value": "floor(@actor.attributes.speed.total/2) -(@actor.attributes.speed.totalModifier)"
+      }
+    ],
+    "source": {
+      "value": ""
+    },
+    "start": {
+      "initiative": null,
+      "value": 0
+    },
+    "target": null,
+    "tokenIcon": {
+      "show": true
+    },
+    "traits": {
+      "rarity": "common",
+      "value": []
+    },
+    "slug": "action-effect-avoid-notice"
+  },
+  "effects": [],
+  "folder": null,
+  "sort": 0,
+  "ownership": {
+    "default": 0
+  },
+  "flags": {},
+  "_stats": {
+    "coreVersion": "14.366",
+    "systemId": "pf2e",
+    "systemVersion": "8.6.1",
+    "createdTime": null,
+    "modifiedTime": null,
+    "lastModifiedBy": null,
+    "compendiumSource": null,
+    "duplicateSource": null,
+    "exportSource": null
+  },
+  "_key": "!items!N8vpuGy4TzU10y8E"
+}

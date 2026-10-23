@@ -8,7 +8,7 @@
   <input type="number" data-r="value" value="{{value}}" min="1" class="af-narrow" title="{{localize 'PF2E_AUTOMATO.sheet.row.value'}}">
   <select data-r="policy" title="{{localize 'PF2E_AUTOMATO.sheet.row.policy'}}">{{selectOptions @root.ch.policy selected=policy valueAttr="value" labelAttr="label"}}</select>
   <span class="af-dur" title="{{localize 'PF2E_AUTOMATO.sheet.duration'}}">
-    <input type="number" data-r="durValue" value="{{durValue}}" min="1" class="af-narrow" placeholder="{{localize 'PF2E_AUTOMATO.sheet.duration'}}">
+    <input type="text" data-r="durValue" value="{{durValue}}" class="af-narrow" placeholder="{{localize 'PF2E_AUTOMATO.sheet.duration'}}">
     <select data-r="durUnit">{{selectOptions @root.ch.durUnit selected=durUnit valueAttr="value" labelAttr="label"}}</select>
     <select data-r="durExpiry">{{selectOptions @root.ch.expiry selected=durExpiry valueAttr="value" labelAttr="label"}}</select>
     <select data-r="durOf">{{selectOptions @root.ch.durOf selected=durOf valueAttr="value" labelAttr="label"}}</select>
@@ -19,6 +19,18 @@
     <input type="text" data-r="visUntil" value="{{visUntil}}" placeholder="{{localize 'PF2E_AUTOMATO.sheet.row.until'}}">
   </span>
   <select data-r="pType" title="{{localize 'PF2E_AUTOMATO.sheet.row.pType'}}">{{selectOptions @root.ch.dmgType selected=pType valueAttr="value" labelAttr="label"}}</select>
+  <input type="text" data-r="domain" value="{{domain}}" class="af-domain" placeholder="all" title="{{localize 'PF2E_AUTOMATO.sheet.row.domain'}}">
+  <label class="af-optoff"><input type="checkbox" data-r="optOff" {{checked optOff}}> {{localize 'PF2E_AUTOMATO.sheet.row.optOff'}}</label>
+  <label class="af-ofo"><input type="checkbox" data-r="ofOrigin" {{checked ofOrigin}}> {{localize 'PF2E_AUTOMATO.sheet.row.ofOrigin'}}</label>
+  <input type="number" data-r="range" value="{{range}}" min="5" class="af-narrow af-range" placeholder="{{localize 'PF2E_AUTOMATO.sheet.row.range'}}" title="{{localize 'PF2E_AUTOMATO.sheet.row.rangeTip'}}">
+  <input type="text" data-r="when" value="{{when}}" class="af-when" placeholder="{{localize 'PF2E_AUTOMATO.sheet.row.when'}}" title="{{localize 'PF2E_AUTOMATO.sheet.row.whenTip'}}">
+  <span class="af-rank" title="{{localize 'PF2E_AUTOMATO.sheet.row.rank'}}">
+    <input type="number" data-r="rankMin" value="{{rankMin}}" min="1" max="10" class="af-narrow" placeholder="{{localize 'PF2E_AUTOMATO.sheet.row.rankMin'}}">
+    <input type="number" data-r="rankMax" value="{{rankMax}}" min="1" max="10" class="af-narrow" placeholder="{{localize 'PF2E_AUTOMATO.sheet.row.rankMax'}}">
+  </span>
+  <label class="af-stack" title="{{localize 'PF2E_AUTOMATO.sheet.row.stackTip'}}"><input type="checkbox" data-r="stack" {{checked stack}}> {{localize 'PF2E_AUTOMATO.sheet.row.stack'}} <input type="number" data-r="stackBy" value="{{stackBy}}" min="1" max="10" class="af-narrow" placeholder="1" title="{{localize 'PF2E_AUTOMATO.sheet.row.stackBy'}}"> <input type="number" data-r="stackStart" value="{{stackStart}}" min="1" max="10" class="af-narrow" placeholder="1" title="{{localize 'PF2E_AUTOMATO.sheet.row.stackStart'}}"></label>
+  <label class="af-stack" title="{{localize 'PF2E_AUTOMATO.sheet.row.unstackTip'}}"><input type="checkbox" data-r="unstack" {{checked unstack}}> {{localize 'PF2E_AUTOMATO.sheet.row.unstack'}}</label>
+  <label class="af-stack" title="{{localize 'PF2E_AUTOMATO.sheet.row.replaceTip'}}"><input type="checkbox" data-r="replace" {{checked replace}}> {{localize 'PF2E_AUTOMATO.sheet.row.replace'}}</label>
   <a data-action="remove-row" title="{{localize 'PF2E_AUTOMATO.sheet.remove'}}"><i class="fa-solid fa-trash"></i></a>
 </div>
 {{/inline}}
@@ -111,9 +123,20 @@
           <label>{{localize "PF2E_AUTOMATO.sheet.traits"}} <input type="text" data-f="ch.traits" value="{{f.ch.traits}}" placeholder="fear, mental"></label>
           <label>{{localize "PF2E_AUTOMATO.sheet.options"}} <input type="text" data-f="ch.options" value="{{f.ch.options}}"></label>
         </div>
+        <div class="af-line">
+          <label><input type="checkbox" data-f="ch.imm.on" {{checked f.ch.imm.on}}> {{localize "PF2E_AUTOMATO.sheet.immunity"}}</label>
+          <span data-showif="ch.imm.on=true">
+            <input type="text" data-f="ch.imm.slug" value="{{f.ch.imm.slug}}" placeholder="slug">
+            <input type="text" data-f="ch.imm.label" value="{{f.ch.imm.label}}" placeholder="{{localize 'PF2E_AUTOMATO.sheet.label'}}">
+            <input type="text" data-f="ch.imm.uuid" data-drop="uuid" value="{{f.ch.imm.uuid}}" placeholder="UUID">
+            <input type="number" min="1" class="af-narrow" data-f="ch.imm.value" value="{{f.ch.imm.value}}">
+            <select data-f="ch.imm.unit">{{selectOptions ch.immUnit selected=f.ch.imm.unit valueAttr="value" labelAttr="label"}}</select>
+            <label><input type="checkbox" data-f="ch.imm.any" {{checked f.ch.imm.any}}> {{localize "PF2E_AUTOMATO.sheet.immAny"}}</label>
+          </span>
+        </div>
         {{#each degrees}}
           <div class="af-degree">
-            <h5>{{label}}</h5>
+            <h5>{{label}} <label data-showif="ch.imm.on=true"><input type="checkbox" data-f="ch.imm.deg.{{key}}" {{checked immOn}}> {{localize "PF2E_AUTOMATO.sheet.immHere"}}</label></h5>
             <div class="af-rows" data-list="ch.deg.{{key}}">{{#each rows}}{{> afRow}}{{/each}}</div>
             <button type="button" data-action="add-row" data-list="ch.deg.{{key}}" data-proto="row"><i class="fa-solid fa-plus"></i> {{localize "PF2E_AUTOMATO.sheet.add"}}</button>
           </div>
@@ -144,11 +167,12 @@
             <input type="text" data-f="ck.imm.uuid" data-drop="uuid" value="{{f.ck.imm.uuid}}" placeholder="UUID">
             <input type="number" min="1" class="af-narrow" data-f="ck.imm.value" value="{{f.ck.imm.value}}">
             <select data-f="ck.imm.unit">{{selectOptions ch.immUnit selected=f.ck.imm.unit valueAttr="value" labelAttr="label"}}</select>
+            <label><input type="checkbox" data-f="ck.imm.any" {{checked f.ck.imm.any}}> {{localize "PF2E_AUTOMATO.sheet.immAny"}}</label>
           </span>
         </div>
         {{#each ckDegrees}}
           <div class="af-degree">
-            <h5>{{label}}</h5>
+            <h5>{{label}} <label data-showif="ck.imm.on=true"><input type="checkbox" data-f="ck.imm.deg.{{key}}" {{checked immOn}}> {{localize "PF2E_AUTOMATO.sheet.immHere"}}</label></h5>
             <div class="af-rows" data-list="ck.deg.{{key}}">{{#each rows}}{{> afRow}}{{/each}}</div>
             <button type="button" data-action="add-row" data-list="ck.deg.{{key}}" data-proto="row"><i class="fa-solid fa-plus"></i> {{localize "PF2E_AUTOMATO.sheet.add"}}</button>
           </div>
@@ -165,6 +189,11 @@
         <label><input type="checkbox" data-f="react.owner" {{checked f.react.owner}}> {{localize "PF2E_AUTOMATO.sheet.notifyOwner"}}</label>
         <label><input type="checkbox" data-f="react.gm" {{checked f.react.gm}}> {{localize "PF2E_AUTOMATO.sheet.notifyGM"}}</label>
       </div>
+    </fieldset>
+
+    <fieldset class="af-block" data-showif="kind=onEvent">
+      <legend>{{localize "PF2E_AUTOMATO.workshop.au.row.events"}}</legend>
+      <p class="notes">{{localize "PF2E_AUTOMATO.sheet.eventNote"}}</p>
     </fieldset>
 
     <fieldset class="af-block">

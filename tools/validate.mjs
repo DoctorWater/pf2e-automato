@@ -9,7 +9,7 @@ import { ruleToForm, formToRule } from "../scripts/sheet.mjs";
 import { BUILTIN } from "../scripts/builtin/index.mjs";
 import { stepCount } from "./triage.mjs";
 
-const en = readJson(join(ROOT, "lang/en/rules.json")).PF2E_AUTOMATO.rules.err;
+const en = { ...readJson(join(ROOT, "lang/en/rules.json")).PF2E_AUTOMATO.rules.err, ...readJson(join(ROOT, "lang/en/events.json")).PF2E_AUTOMATO.rules.err };   // ошибки onEvent (ev.*) — в events.json
 const fmtErr = (e) => {
   const tpl = e.key.split(".").reduce((o, k) => o?.[k], en);
   return typeof tpl === "string" ? tpl.replace(/\{(\w+)\}/g, (_, k) => e.data?.[k] ?? "") : String(e);
@@ -52,6 +52,7 @@ export function semanticErrors(rule, refs, html = null) {
   if (!stepCount(rule)) bad.push("the rule has no steps: it does nothing; answer null if there is nothing to automate");
   for (const s of stepsOf(rule)) {
     if (s.condition && !refs.conditions[s.condition.slug]) bad.push(`condition "${s.condition.slug}" does not exist in pf2e`);
+    if (s.removeCondition && !refs.conditions[s.removeCondition.slug]) bad.push(`condition "${s.removeCondition.slug}" does not exist in pf2e`);
     for (const x of [s.effect?.uuid, s.unlessEffect]) if (x && !refs.effects[x]) bad.push(`effect ${x} not found: copy the UUID exactly from the item text`);
     for (const x of [s.effect?.uuid, s.unlessEffect]) if (x && html !== null && !html.includes(x)) bad.push(`effect ${x} is not mentioned in this item's text: use only effects linked in the text`);
   }
@@ -67,7 +68,7 @@ export function semanticErrors(rule, refs, html = null) {
   const k = u?.check;
   if (k) {
     for (const s of [k.statistic].flat()) if (!CHECK_STATS.has(s) && !isLore(s)) bad.push(`check.statistic "${s}" must be a skill, perception or spell-attack`);
-    if (k.vs.against && !VS_AGAINST.has(k.vs.against)) bad.push(`vs.against "${k.vs.against}" is unknown`);
+    if (k.vs?.against && !VS_AGAINST.has(k.vs.against)) bad.push(`vs.against "${k.vs.against}" is unknown`);
   }
   for (const m of rule.macros ?? []) if (!m.builtin || !BUILTIN[m.builtin]) bad.push(`macro ${m.builtin ?? m.uuid} is not available: do not use macros`);
   return bad;

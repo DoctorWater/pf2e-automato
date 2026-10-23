@@ -7,6 +7,7 @@ import { hintsView, hintList } from "./hints.mjs";
 import { resolveDC, safeUuid } from "./saves.mjs";
 import { defenseDc, pickStatistic, hasImmunity } from "./checks.mjs";
 import { stepText } from "./chat.mjs";
+import { parseWhen, whenText } from "./predicate.mjs";
 
 export const DENY = new Set(["condition", "effect", "ancestry", "heritage", "background", "class", "deity", "kit", "lore", "campaignFeature", "affliction", "melee"]);
 const TEMPLATE = `modules/${MOD}/templates/sheet-tab.hbs`;
@@ -25,17 +26,33 @@ const csv = (s) => String(s ?? "").split(",").map((x) => x.trim()).filter(Boolea
 const DUR_BLANK = { durValue: "", durUnit: "rounds", durExpiry: "turn-start", durOf: "origin" };
 const VIS_BLANK = { visLevel: "hidden", visOf: "self", visUntil: "" };
 const PERS_BLANK = { pType: "fire" };   // продолжительный урон: формула — text, СЛ очистки — value
-export const blankRow = () => ({ to: "target", kind: "condition", text: "", value: "", policy: "max", keep: "", ...DUR_BLANK, ...VIS_BLANK, ...PERS_BLANK });
+const STEP_BLANK = { rankMin: "", rankMax: "", stack: false, stackBy: "", stackStart: "", unstack: false, replace: false, range: "", when: "", domain: "all", optOff: false, ofOrigin: false };
+// у любого шага: круг от/до, условие when (строка опций через запятую или JSON), радиус союзников range; у эффекта: повтор увеличивает/уменьшает значок; rollOption — domain и «выключить»; removeEffect — ofOrigin
+export const blankRow = () => ({ to: "target", kind: "condition", text: "", value: "", policy: "max", keep: "", ...DUR_BLANK, ...VIS_BLANK, ...PERS_BLANK, ...STEP_BLANK });
 
 // поля шага, которых нет в форме (who/mark/choice/unlessEffect): едут в строке JSON-ом и разворачиваются обратно в applyOf
 const KEEP = ["who", "mark", "choice", "unlessEffect", "escape"];
-const keepOf = (a) => { const k = Object.fromEntries(KEEP.filter((n) => a[n] != null).map((n) => [n, a[n]])); return Object.keys(k).length ? JSON.stringify(k) : ""; };
+const keepOf = (a) => { const k = Object.fromEntries(KEEP.filter((n) => a[n] != null).map((n) => [n, a[n]])); if (a.damage?.basic) k.dmgBasic = true; return Object.keys(k).length ? JSON.stringify(k) : ""; };   // dmgBasic — «обычное» испытание у шага damage
 
 function rowOf(a) {
+  return { ...rowCore(a), rankMin: a.rank?.min ?? "", rankMax: a.rank?.max ?? "", stack: a.effect?.badge === "increment", stackBy: a.effect?.by ?? "", stackStart: a.effect?.start ?? "", unstack: a.effect?.badge === "decrement", replace: !!a.effect?.replace,
+    range: a.range ?? "", when: whenText(a.when), domain: a.rollOption?.domain ?? "all", optOff: a.rollOption?.value === false, ofOrigin: a.removeEffect?.of === "origin" };
+}
+
+function rowCore(a) {
   const keep = keepOf(a), d = a.duration;
   const dur = d ? { durValue: d.value, durUnit: d.unit, durExpiry: d.expiry ?? "", durOf: d.of ?? "origin" } : DUR_BLANK;
   if (a.condition) return { to: a.to, kind: "condition", text: a.condition.slug, value: a.condition.value ?? "", policy: a.condition.policy ?? "max", keep, ...dur, ...VIS_BLANK, ...PERS_BLANK };
-  if (a.effect) return { to: a.to, kind: "effect", text: a.effect.uuid, value: "", policy: "max", keep, ...DUR_BLANK, ...VIS_BLANK, ...PERS_BLANK };
+  // срок эффекта (переопределение): значение — число или кубик, единица и конец хода; «чей ход» у эффекта не бывает
+  if (a.effect) return { to: a.to, kind: "effect", text: a.effect.uuid, value: "", policy: "max", keep, ...(d ? { ...dur, durOf: "origin" } : DUR_BLANK), ...VIS_BLANK, ...PERS_BLANK };
+  // damage: формула — text, тип (или «healing») — pType; choose — JSON {from, options?, prompt?, range?} в text
+  if (a.damage) return { to: a.to, kind: "damage", text: a.damage.formula, value: "", policy: "max", keep, ...DUR_BLANK, ...VIS_BLANK, pType: a.damage.damageType };
+  if (a.choose) return { to: "self", kind: "choose", text: JSON.stringify(a.choose), value: "", policy: "max", keep, ...DUR_BLANK, ...VIS_BLANK, ...PERS_BLANK };
+  if (a.removeCondition) return { to: a.to, kind: "remove", text: a.removeCondition.slug, value: "", policy: "max", keep, ...DUR_BLANK, ...VIS_BLANK, ...PERS_BLANK };
+  const plain = (kind, text, value = "") => ({ to: a.to, kind, text, value, policy: "max", keep, ...DUR_BLANK, ...VIS_BLANK, ...PERS_BLANK });
+  if (a.removeEffect) return plain("removeEffect", a.removeEffect.slug ?? a.removeEffect.uuid);
+  if (a.extendEffect) return plain("extendEffect", a.extendEffect.slug, a.extendEffect.rounds);
+  if (a.rollOption) return plain("rollOption", a.rollOption.option);
   if (a.visibility) return { to: a.to, kind: "visibility", text: "", value: "", policy: "max", keep, ...DUR_BLANK, visLevel: a.visibility.level, visOf: a.visibility.of, visUntil: (a.visibility.until ?? []).join(", "), ...PERS_BLANK };
   if (a.persistent) return { to: a.to, kind: "persistent", text: a.persistent.formula, value: a.persistent.dc ?? "", policy: "max", keep, ...DUR_BLANK, ...VIS_BLANK, pType: a.persistent.damageType };
   return { to: a.to, kind: "note", text: a.note ?? "", value: "", policy: "max", keep, ...DUR_BLANK, ...VIS_BLANK, ...PERS_BLANK };
@@ -47,25 +64,59 @@ export function applyOf(r) {
   let keep = {};
   try { keep = r.keep ? JSON.parse(r.keep) : {}; } catch { /* битая строка: прочие поля не восстанавливаем */ }
   for (const n of KEEP) if (keep[n] != null && !((n === "mark" || n === "choice") && !out.effect)) out[n] = keep[n];   // mark/choice валидны только у effect
+  if (keep.dmgBasic && out.damage) out.damage.basic = true;
+  const lo = num(r.rankMin), hi = num(r.rankMax);
+  if (lo !== undefined || hi !== undefined) out.rank = { ...(lo !== undefined && { min: lo }), ...(hi !== undefined && { max: hi }) };
+  const when = parseWhen(r.when);
+  if (when !== undefined) out.when = when;
+  if (out.to === "allies" && num(r.range) !== undefined) out.range = num(r.range);
   return out;
 }
 
 function applyCore(r) {
   const text = String(r.text ?? "").trim();
-  const to = r.to === "self" ? "self" : "target";
+  const to = ["self", "party", "allies", "chosen"].includes(r.to) ? r.to : "target";
+  if (r.kind === "choose") {
+    let choose = null;
+    try { choose = JSON.parse(text); } catch { /* битый JSON уйдёт в валидатор как пустой выбор */ }
+    return { to: "self", choose: choose ?? {} };
+  }
+  if (r.kind === "damage") return text ? { to, damage: { formula: text, damageType: r.pType } } : null;
   if (r.kind === "visibility") {
     const until = csv(r.visUntil);
     return { to, visibility: { level: r.visLevel, of: r.visOf === "target" ? "target" : "self", ...(until.length && { until }) } };
   }
   if (!text) return null;
-  if (r.kind === "effect") return { to, effect: { uuid: text } };
+  if (r.kind === "effect") {
+    const dt = String(r.durValue ?? "").trim(), dice = /^\d+d\d+$/i.test(dt) ? dt.toLowerCase() : num(dt);
+    return { to, effect: { uuid: text, ...(r.stack ? { badge: "increment", ...(num(r.stackBy) > 1 && { by: num(r.stackBy) }), ...(num(r.stackStart) > 1 && { start: num(r.stackStart) }) } : r.unstack && { badge: "decrement" }), ...(r.replace && { replace: true }) },
+      ...(dice !== undefined && { duration: { value: dice, unit: r.durUnit, expiry: r.durExpiry || null } }) };
+  }
+  if (r.kind === "removeEffect") return { to, removeEffect: { ...(/^[a-z0-9-]+$/.test(text) ? { slug: text } : { uuid: text }), ...(r.ofOrigin && { of: "origin" }) } };
+  if (r.kind === "extendEffect") return { to, extendEffect: { slug: text, rounds: num(r.value) } };
+  if (r.kind === "rollOption") return { to, rollOption: { domain: String(r.domain ?? "").trim() || "all", option: text, ...(r.optOff && { value: false }) } };
+  if (r.kind === "remove") return { to, removeCondition: { slug: text } };
   if (r.kind === "persistent") { const dc = num(r.value); return { to, persistent: { formula: text, damageType: r.pType, ...(dc !== undefined && { dc }) } }; }
   if (r.kind === "note") return { to, note: text };
   const value = num(r.value);
-  const dv = num(r.durValue);
+  const dt = String(r.durValue ?? "").trim(), dv = /^\d+d\d+$/i.test(dt) ? dt.toLowerCase() : num(dt);
   return {
-    to, condition: { slug: text, ...(value !== undefined && { value }), policy: r.policy === "add" ? "add" : "max" },
+    to, condition: { slug: text, ...(value !== undefined && { value }), policy: ["add", "reduce"].includes(r.policy) ? r.policy : "max" },
     ...(dv !== undefined && { duration: { value: dv, unit: r.durUnit, expiry: r.durExpiry || null, of: r.durOf === "target" ? "target" : "origin" } })
+  };
+}
+
+// иммунитет после действия: общий для испытания и проверки; нет degrees = при любой степени (все четыре отмечены)
+const immForm = (im) => ({ on: !!im, slug: im?.slug ?? "", label: im?.label ?? "", uuid: im?.uuid ?? "", value: im?.duration?.value ?? "", unit: im?.duration?.unit ?? "minutes", any: im?.scope === "slug", deg: Object.fromEntries(DEGREES.map((d) => [d, !im?.degrees || im.degrees.includes(d)])) });
+function immRule(im) {
+  if (!im?.on) return null;
+  const iv = num(im.value), on = DEGREES.filter((d) => im.deg?.[d] ?? true);
+  return {
+    slug: String(im.slug ?? "").trim(),
+    ...(im.label?.trim() && { label: im.label.trim() }), ...(im.uuid?.trim() && { uuid: im.uuid.trim() }),
+    ...(iv !== undefined && { duration: { value: iv, unit: im.unit } }),
+    ...(im.any && { scope: "slug" }),
+    ...(on.length < DEGREES.length && { degrees: on })
   };
 }
 
@@ -76,13 +127,25 @@ const degSteps = (deg) => {
   return byDegree;
 };
 
+// onEvent (0.5g3): запись события <-> форма. Испытание записи переиспользует форму ch правила onUse (через временное правило), шаги — те же строки.
+const chForm = (c) => ruleToForm(c ? { v: 1, onUse: { targets: "selected", challenge: c, apply: [] } } : null).ch;
+const chRule = (ch) => formToRule({ kind: "onUse", targets: "selected", ch: { ...ch, on: true }, apply: [], macros: [] }).onUse.challenge;
+/** Пустая запись для кнопки «добавить событие». */
+export const blankEvent = () => ({ on: "attack-roll", side: "self", when: "", once: false, apply: [], ch: chForm(null) });
+const evForm = (e) => ({ on: e.on, side: e.side ?? "self", when: whenText(e.when), once: !!e.once, apply: (e.apply ?? []).map(rowOf), ch: { ...chForm(e.challenge), on: !!e.challenge } });
+function evRule(e) {
+  const when = parseWhen(e.when);
+  return { on: e.on, side: e.side, ...(when !== undefined && { when }), ...(e.once && { once: true }), apply: (e.apply ?? []).map(applyOf).filter(Boolean), ...(e.ch?.on && { challenge: chRule(e.ch) }) };
+}
+
 export function ruleToForm(rule) {
   const u = rule?.onUse, c = u?.challenge, k = u?.check, z = u?.zone, r = rule?.onAttacked;
-  const vs = k?.vs ?? {}, im = k?.immunity;
+  const vs = k?.vs ?? {};
   const dc = c?.dc ?? {};
   return {
     label: rule?.label ?? "", yield: tri(rule?.yield),
-    kind: u ? "onUse" : r ? "onAttacked" : "none",
+    kind: u ? "onUse" : r ? "onAttacked" : rule?.onEvent?.length ? "onEvent" : "none",
+    ev: (rule?.onEvent ?? []).map(evForm),
     targets: u?.targets ?? "self", excludeSelf: tri(u?.excludeSelf),
     zone: { on: !!z, cond: z?.condition?.slug ?? "", condValue: z?.condition?.value ?? "", effect: z?.effect?.uuid ?? "", seconds: z?.duration?.seconds ?? "", rounds: z?.duration?.rounds ?? "" },
     ch: {
@@ -90,13 +153,14 @@ export function ruleToForm(rule) {
       dcType: dc.expr === "markup" ? "markup" : dc.source ? "source" : dc.against != null ? "against" : dc.expr != null ? "expr" : "value",
       dcText: dc.value ?? (dc.expr === "markup" ? "" : dc.expr ?? dc.against ?? ""),
       basic: !!c?.basic, traits: (c?.traits ?? []).join(", "), options: (c?.options ?? []).join(", "),
+      imm: immForm(c?.immunity),
       deg: degRows(c?.byDegree)
     },
     ck: {
       on: !!k, statistic: [k?.statistic ?? "athletics"].flat().join(", "),
-      vsType: vs.dc != null ? "dc" : vs.against != null ? "against" : "defense", vsText: vs.defense ?? vs.dc ?? vs.against ?? "will",
+      vsType: !k ? "defense" : vs.dc != null ? "dc" : vs.against != null ? "against" : vs.defense != null ? "defense" : "none", vsText: vs.defense ?? vs.dc ?? vs.against ?? "will",
       traits: (k?.traits ?? []).join(", "), options: (k?.options ?? []).join(", "), map: String(k?.mapIncreases ?? ""), roll: k?.roll ?? "",
-      imm: { on: !!im, slug: im?.slug ?? "", label: im?.label ?? "", uuid: im?.uuid ?? "", value: im?.duration?.value ?? "", unit: im?.duration?.unit ?? "minutes" },
+      imm: immForm(k?.immunity),
       deg: degRows(k?.byDegree)
     },
     apply: (u?.apply ?? []).map(rowOf),
@@ -127,24 +191,20 @@ export function formToRule(f) {
       const dc = { value: () => ({ value: num(t) }), expr: () => ({ expr: t }), against: () => ({ against: t }), markup: () => ({ expr: "markup" }), source: () => ({ source: "spell" }) }[c.dcType]?.() ?? {};
       u.challenge = {
         statistic: c.statistic, dc, basic: !!c.basic, rollerRole: "target", byDegree: degSteps(c.deg),
-        ...(csv(c.traits).length && { traits: csv(c.traits) }), ...(csv(c.options).length && { options: csv(c.options) })
+        ...(csv(c.traits).length && { traits: csv(c.traits) }), ...(csv(c.options).length && { options: csv(c.options) }),
+        ...(c.imm?.on && { immunity: immRule(c.imm) })
       };
     }
     const k = f.ck;
     if (k?.on) {
-      const stats = csv(k.statistic), t = String(k.vsText ?? "").trim(), map = num(k.map), im = k.imm ?? {}, iv = num(im.value);
+      const stats = csv(k.statistic), t = String(k.vsText ?? "").trim(), map = num(k.map);
       const vs = { defense: () => ({ defense: t }), dc: () => ({ dc: num(t) }), against: () => ({ against: t }) }[k.vsType]?.() ?? {};
+      const none = k.vsType === "none";   // бросок без цели: СЛ задаёт система
       u.check = {
-        statistic: stats.length > 1 ? stats : stats[0] ?? "", vs, byDegree: degSteps(k.deg),
+        statistic: stats.length > 1 ? stats : stats[0] ?? "", ...(!none && { vs }), byDegree: degSteps(k.deg),
         ...(csv(k.traits).length && { traits: csv(k.traits) }), ...(csv(k.options).length && { options: csv(k.options) }),
-        ...(map !== undefined && { mapIncreases: map }), ...(k.roll === "system" && { roll: "system" }),
-        ...(im.on && {
-          immunity: {
-            slug: String(im.slug ?? "").trim(),
-            ...(im.label?.trim() && { label: im.label.trim() }), ...(im.uuid?.trim() && { uuid: im.uuid.trim() }),
-            ...(iv !== undefined && { duration: { value: iv, unit: im.unit } })
-          }
-        })
+        ...(map !== undefined && { mapIncreases: map }), ...((none || k.roll === "system") && { roll: "system" }),
+        ...(k.imm?.on && { immunity: immRule(k.imm) })
       };
     }
     rule.onUse = u;
@@ -154,6 +214,7 @@ export function formToRule(f) {
       notify: [f.react.owner && "owner", f.react.gm && "gm"].filter(Boolean)
     };
   }
+  if (f.ev?.length) rule.onEvent = f.ev.map(evRule);   // события живут рядом с любым видом правила
   rule.macros = (f.macros ?? []).filter((m) => String(m.uuid ?? "").trim())
     .map((m) => ({ ...(m.form === "builtin" && m.uuid.trim().startsWith("builtin:") ? { builtin: m.uuid.trim().slice(8) } : { uuid: m.uuid.trim() }), phase: m.phase, ...(m.phase === "onDegree" && m.degree && { degree: m.degree }) }));
   return rule;
@@ -178,8 +239,9 @@ export function dropSpec(data, doc) {
 /** Все UUID правила (эффекты, иммунитет, зона, макросы) — для предварительного разрешения имён. */
 export function ruleUuids(rule) {
   const u = rule.onUse, ch = u?.challenge, ck = u?.check, z = u?.zone;
-  const steps = [...(u?.apply ?? []), ...DEGREES.flatMap((d) => [...(ch?.byDegree?.[d] ?? []), ...(ck?.byDegree?.[d] ?? [])])];
-  return [...new Set([...steps.map((a) => a.effect?.uuid), z?.effect?.uuid, ck?.immunity?.uuid, ...(rule.macros ?? []).map((m) => m.uuid)].filter((u) => u && !u.startsWith("builtin:")))];
+  const evs = (rule.onEvent ?? []).flatMap((e) => [...(e.apply ?? []), ...DEGREES.flatMap((d) => e.challenge?.byDegree?.[d] ?? [])]);
+  const steps = [...(u?.apply ?? []), ...DEGREES.flatMap((d) => [...(ch?.byDegree?.[d] ?? []), ...(ck?.byDegree?.[d] ?? [])]), ...evs];
+  return [...new Set([...steps.flatMap((a) => [a.effect?.uuid, a.removeEffect?.uuid]), z?.effect?.uuid, ch?.immunity?.uuid, ck?.immunity?.uuid, ...(rule.onEvent ?? []).map((e) => e.challenge?.immunity?.uuid), ...(rule.macros ?? []).map((m) => m.uuid)].filter((u) => u && !u.startsWith("builtin:")))];
 }
 
 const signed = (n) => (n >= 0 ? `+${n}` : String(n));
@@ -198,10 +260,11 @@ export function buildReport(rule, tokens, env) {
   const uuidCheck = (uuid) => { if (!env.uuidName(uuid)) problems.add(t("sheet.test.badUuid", { uuid })); };
   const byDeg = (bd) => DEGREES.slice().reverse().filter((d) => bd?.[d]?.length).map((d) => `${t(`sheet.degree.${d}`)}: ${bd[d].map(step).join("; ")}`);
   const steps = [...(u?.apply ?? []), ...DEGREES.flatMap((d) => [...(ch?.byDegree?.[d] ?? []), ...(ck?.byDegree?.[d] ?? [])])];
-  for (const a of steps) { if (a.condition) slugCheck(a.condition.slug); if (a.effect) uuidCheck(a.effect.uuid); }
+  for (const a of steps) { if (a.condition) slugCheck(a.condition.slug); if (a.removeCondition) slugCheck(a.removeCondition.slug); if (a.effect) uuidCheck(a.effect.uuid); if (a.removeEffect?.uuid) uuidCheck(a.removeEffect.uuid); }
   const z = u?.zone;
   if (z?.condition) slugCheck(z.condition.slug);
   if (z?.effect) uuidCheck(z.effect.uuid);
+  if (ch?.immunity?.uuid) uuidCheck(ch.immunity.uuid);
   if (ck?.immunity?.uuid) uuidCheck(ck.immunity.uuid);
   for (const m of rule.macros ?? []) if (m.uuid && !m.uuid.startsWith("builtin:")) uuidCheck(m.uuid);   // builtin:<id> — встроенный обработчик, не UUID
 
@@ -216,12 +279,13 @@ export function buildReport(rule, tokens, env) {
       const st = pickStatistic(actor, ch.statistic);
       if (!st) tp.push(t("saves.noStatistic", { name, stat: ch.statistic }));
       else lines.push(t("sheet.test.challenge", { stat: env.statLabel(ch.statistic), mod: signed(modOf(st)), dc: env.dc ?? "?" }));
+      if (hasImmunity(actor, ch.immunity, env.author?.uuid)) lines.push(t("sheet.test.immune"));
       lines.push(...byDeg(ch.byDegree));
     }
     if (ck) {
-      const dc = defenseDc(actor, ck.vs);
-      if (dc == null) tp.push(t("checks.dcUnknown", { name }));
-      if (authorStat) lines.push(t("sheet.test.check", { stat: env.statLabel(authorStat.slug ?? ck.statistic), mod: signed(modOf(authorStat)), dc: dc ?? "?" }));
+      const dc = ck.vs ? defenseDc(actor, ck.vs) : null;
+      if (ck.vs && dc == null) tp.push(t("checks.dcUnknown", { name }));
+      if (authorStat) lines.push(t(ck.vs ? "sheet.test.check" : "sheet.test.checkSelf", { stat: env.statLabel(authorStat.slug ?? ck.statistic), mod: signed(modOf(authorStat)), dc: dc ?? "?" }));
       if (hasImmunity(actor, ck.immunity, env.author?.uuid)) lines.push(t("sheet.test.immune"));
       lines.push(...byDeg(ck.byDegree));
     }
@@ -322,12 +386,12 @@ function buildContext(item, draft) {
     lockedFlag: !item.isOwner || !!item.compendium?.locked,
     noSource: !sourceUuid, noSlug: !slug,
     ch: {
-      kind: choices(keys("kind", ["onUse", "onAttacked", "none"])),
+      kind: choices(keys("kind", ["onUse", "onAttacked", "onEvent", "none"])),
       yield: choices(keys("yield", ["auto", "yes", "no"])),
       targets: choices(keys("targets", ["self", "selected", "area"])),
       tri: choices({ auto: T("yield.auto"), yes: T("yes"), no: T("no") }),
       dcType: choices(keys("dc", ["value", "expr", "markup", "source", "against"])),
-      vsType: choices(keys("vs", ["defense", "dc", "against"])),
+      vsType: choices(keys("vs", ["defense", "dc", "against", "none"])),
       defense: ["ac", "fortitude", "reflex", "will", "perception"],
       durUnit: choices(keys("unit", ["rounds", "minutes", "hours", "days"])),
       immUnit: choices(keys("unit", ["minutes", "hours", "days"])),
@@ -335,17 +399,17 @@ function buildContext(item, draft) {
       durOf: choices(keys("of", ["origin", "target"])),
       map: ["", "0", "1", "2"].map((v) => ({ value: v, label: v || "-" })),
       stat: choices(keys("stat", ["reflex", "fortitude", "will", "perception", "flat"])),
-      to: choices(keys("to", ["self", "target"])),
-      rowKind: choices(keys("row", ["condition", "effect", "note", "visibility", "persistent"])),
-      dmgType: DAMAGE_TYPES.map((v) => ({ value: v, label: damageLabel(v) })),
+      to: choices(keys("to", ["self", "target", "party", "allies", "chosen"])),
+      rowKind: choices(keys("row", ["condition", "effect", "note", "visibility", "persistent", "remove", "removeEffect", "extendEffect", "rollOption", "damage", "choose"])),
+      dmgType: [{ value: "healing", label: L("workshop.au.healing") }, ...DAMAGE_TYPES.map((v) => ({ value: v, label: damageLabel(v) }))],   // «лечение» — только у шага damage
       visLevel: choices(keys("vis.level", ["concealed", "hidden", "undetected", "unnoticed"])),
       visOf: choices(keys("vis.of", ["self", "target"])),
-      policy: choices(keys("policy", ["max", "add"])),
+      policy: choices(keys("policy", ["max", "add", "reduce"])),
       phase: choices(keys("phase", ["onUse", "afterChallenge", "onDegree", "zoneEnter", "zoneExit", "onReaction"])),
       degree: choices({ "": T("anyDegree"), ...keys("degree", DEGREES) })
     },
-    degrees: [...DEGREES].reverse().map((d) => ({ key: d, label: T(`degree.${d}`), rows: f.ch.deg[d] ?? [] })),
-    ckDegrees: [...DEGREES].reverse().map((d) => ({ key: d, label: T(`degree.${d}`), rows: f.ck.deg[d] ?? [] })),
+    degrees: [...DEGREES].reverse().map((d) => ({ key: d, label: T(`degree.${d}`), rows: f.ch.deg[d] ?? [], immOn: f.ch.imm.deg[d] })),
+    ckDegrees: [...DEGREES].reverse().map((d) => ({ key: d, label: T(`degree.${d}`), rows: f.ck.deg[d] ?? [], immOn: f.ck.imm.deg[d] })),
     blankRow: blankRow(), blankMacro: { uuid: "", phase: "onUse", degree: "" }
   };
 }
@@ -360,7 +424,8 @@ async function inject(app, $html) {
   const wasActive = !!app._afTab;
   nav.addEventListener("click", (e) => { const t = e.target.closest("[data-tab]"); if (t) app._afTab = t.dataset.tab === TAB; });
   nav.insertAdjacentHTML("beforeend", `<a class="list-row" data-tab="${TAB}">${L("sheet.tab")}</a>`);
-  const html = await foundry.applications.handlebars.renderTemplate(TEMPLATE, buildContext(item, app._afDraft));
+  const bc = buildContext(item, app._afDraft);
+  const html = await foundry.applications.handlebars.renderTemplate(TEMPLATE, bc);
   if (!root.isConnected || body.querySelector(`.tab.${TAB}`)) return;   // лист успел перерисоваться
   body.insertAdjacentHTML("beforeend", html);
   // bind() Tabs отработал до нас и сбросил активную вкладку на первую — вернуть нашу
@@ -368,9 +433,10 @@ async function inject(app, $html) {
 
   const sec = body.querySelector(`.tab.${TAB}`);
   const errBox = sec.querySelector(".af-errors");
-  const draft = () => { app._afDraft = readForm(sec); syncUi(sec); };
+  const read = () => ({ ...readForm(sec), ev: bc.f.ev });   // события на вкладке не правятся (Мастерская) — едут как были, иначе сохранение их потеряет
+  const draft = () => { app._afDraft = read(); syncUi(sec); };
   const build = () => {
-    const v = validateRule(formToRule(readForm(sec)));
+    const v = validateRule(formToRule(read()));
     errBox.replaceChildren(...v.errors.map((e) => Object.assign(document.createElement("li"), { textContent: errText(e) })));
     return v.ok ? v.rule : null;
   };

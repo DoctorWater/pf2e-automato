@@ -1,0 +1,65 @@
+{
+  "_id": "CnjrBoltEffect01",
+  "name": "Effect: Conjure Bullet (Bolt)",
+  "type": "effect",
+  "img": "icons/svg/aura.svg",
+  "system": {
+    "description": {
+      "value": "<p>You conjure an ordinary level-0 bolt. If it isn't fired before the end of your turn, the effect is wasted.</p>"
+    },
+    "duration": {
+      "expiry": "turn-end",
+      "sustained": false,
+      "value": 0,
+      "unit": "rounds"
+    },
+    "level": {
+      "value": 0
+    },
+    "publication": {
+      "license": "",
+      "remaster": false,
+      "title": ""
+    },
+    "rules": [
+      {
+        "key": "GrantItem",
+        "uuid": "Compendium.pf2e.equipment-srd.Item.AITVZmakiu3RgfKo",
+        "onDeleteActions": {
+          "granter": "cascade"
+        }
+      }
+    ],
+    "start": {
+      "initiative": null,
+      "value": 0
+    },
+    "tokenIcon": {
+      "show": true
+    },
+    "traits": {
+      "rarity": "common",
+      "value": []
+    },
+    "slug": "effect-conjure-bullet-bolt"
+  },
+  "effects": [],
+  "folder": null,
+  "sort": 0,
+  "ownership": {
+    "default": 0
+  },
+  "flags": {},
+  "_stats": {
+    "coreVersion": "14.366",
+    "systemId": "pf2e",
+    "systemVersion": "8.6.1",
+    "createdTime": null,
+    "modifiedTime": null,
+    "lastModifiedBy": null,
+    "compendiumSource": null,
+    "duplicateSource": null,
+    "exportSource": null
+  },
+  "_key": "!items!CnjrBoltEffect01"
+}

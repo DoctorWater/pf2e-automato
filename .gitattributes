@@ -1,4 +1,6 @@
 # git archive (релизный zip): служебное в архив не попадает; README, LICENSE, CHANGELOG остаются
+# источники пака в релиз не нужны: готовый LevelDB добавляется при сборке релиза (README)
+packs/_source/** export-ignore
 tools/** export-ignore
 tests/** export-ignore
 prototypes/** export-ignore

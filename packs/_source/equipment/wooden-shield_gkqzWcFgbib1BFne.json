@@ -1,0 +1,94 @@
+{
+  "_id": "gkqzWcFgbib1BFne",
+  "name": "Wooden Shield",
+  "type": "shield",
+  "img": "icons/equipment/shield/round-wooden-boss-steel-yellow-blue.webp",
+  "system": {
+    "description": {
+      "gm": "",
+      "value": ""
+    },
+    "rules": [],
+    "slug": "wooden-shield",
+    "_migration": {
+      "version": 0.959,
+      "previous": null
+    },
+    "traits": {
+      "otherTags": [],
+      "value": [],
+      "rarity": "common",
+      "integrated": null
+    },
+    "publication": {
+      "title": "",
+      "authors": "",
+      "license": "OGL",
+      "remaster": false
+    },
+    "level": {
+      "value": 0
+    },
+    "quantity": 1,
+    "baseItem": "wooden-shield",
+    "bulk": {
+      "value": 1
+    },
+    "hp": {
+      "value": 12,
+      "max": 12
+    },
+    "hardness": 3,
+    "price": {
+      "value": {}
+    },
+    "equipped": {
+      "carryType": "worn"
+    },
+    "containerId": null,
+    "size": "med",
+    "material": {
+      "type": null,
+      "grade": null
+    },
+    "identification": {
+      "status": "identified",
+      "unidentified": {
+        "name": "",
+        "img": "",
+        "data": {
+          "description": {
+            "value": ""
+          }
+        }
+      }
+    },
+    "acBonus": 2,
+    "grade": null,
+    "runes": {
+      "reinforcing": 0
+    },
+    "specific": null,
+    "speedPenalty": 0,
+    "subitems": []
+  },
+  "effects": [],
+  "folder": null,
+  "sort": 0,
+  "ownership": {
+    "default": 0
+  },
+  "flags": {},
+  "_stats": {
+    "coreVersion": "14.366",
+    "systemId": "pf2e",
+    "systemVersion": "8.6.1",
+    "createdTime": null,
+    "modifiedTime": null,
+    "lastModifiedBy": null,
+    "compendiumSource": null,
+    "duplicateSource": null,
+    "exportSource": null
+  },
+  "_key": "!items!gkqzWcFgbib1BFne"
+}

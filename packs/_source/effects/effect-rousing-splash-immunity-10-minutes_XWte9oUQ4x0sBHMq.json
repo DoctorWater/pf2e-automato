@@ -1,0 +1,57 @@
+{
+  "_id": "XWte9oUQ4x0sBHMq",
+  "name": "Effect: Rousing Splash Immunity 10 minutes",
+  "type": "effect",
+  "img": "icons/svg/aura.svg",
+  "system": {
+    "description": {
+      "value": "<p>The creature is temporarily immune to the temporary Hit Points from rousing splash for 10 minutes.</p>"
+    },
+    "duration": {
+      "expiry": null,
+      "sustained": false,
+      "value": 10,
+      "unit": "minutes"
+    },
+    "level": {
+      "value": 0
+    },
+    "publication": {
+      "license": "",
+      "remaster": false,
+      "title": ""
+    },
+    "rules": [],
+    "start": {
+      "initiative": null,
+      "value": 0
+    },
+    "tokenIcon": {
+      "show": true
+    },
+    "traits": {
+      "rarity": "common",
+      "value": []
+    },
+    "slug": "effect-rousing-splash-immunity-10-minutes"
+  },
+  "effects": [],
+  "folder": null,
+  "sort": 0,
+  "ownership": {
+    "default": 0
+  },
+  "flags": {},
+  "_stats": {
+    "coreVersion": "14.366",
+    "systemId": "pf2e",
+    "systemVersion": "8.6.1",
+    "createdTime": null,
+    "modifiedTime": null,
+    "lastModifiedBy": null,
+    "compendiumSource": null,
+    "duplicateSource": null,
+    "exportSource": null
+  },
+  "_key": "!items!XWte9oUQ4x0sBHMq"
+}

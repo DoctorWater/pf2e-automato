@@ -2,6 +2,7 @@
   "PF2E_AUTOMATO": {
     "checks": {
       "head": "Проверка: {stat} против {vs}",
+      "headSelf": "Проверка: {stat}",
       "ac": "КБ",
       "immune": "невосприимчива",
       "noTargets": "Выберите цель до использования.",

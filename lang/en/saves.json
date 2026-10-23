@@ -9,12 +9,23 @@
       "macroNoPerm": "the GM lacks the MACRO_SCRIPT permission",
       "macroTimeout": "timed out"
     },
+    "choose": {
+      "opt": {
+        "armor": "Armor", "weapon": "Weapon", "bullet": "Bullet", "bolt": "Bolt", "paralyzed": "Paralyzed for 4 rounds", "unconscious": "Unconscious for 2 hours", "killed": "Kill",
+        "confused": "Confused", "disease": "Disease", "poison": "Poison", "sickened": "Sickened", "injuries": "Injuries",
+        "speed": "Speed penalty", "enfeebled": "Enfeebled 1", "flanking": "Can't flank", "cover": "No bonus from cover", "precision": "Extra precision damage", "heartless": "Weakness to bleed and poison", "vicious": "Weakness to physical damage"
+      }
+    },
     "apply": {
       "immune": "\"{name}\" is immune to this effect — not applied.",
       "alreadyImmune": "\"{name}\" is temporarily immune to this effect — not applied.",
       "needEnemy": "\"{name}\": target exactly one enemy (for the mark) — effect not applied.",
       "noChoice": "\"{name}\": no option chosen — effect not applied.",
+      "noCandidates": "\"{name}\": nobody to choose on the scene — steps for the chosen creature skipped.",
+      "prompt": { "allies": "Choose an ally", "enemies": "Choose an enemy", "options": "Choose an option" },
       "zeroPersistent": "\"{name}\": persistent damage is 0 at this level — not applied.",
+      "noOption": "\"{name}\": no toggleable option {option} — not turned on.",
+      "noWalls": "\"{name}\": the scene is not open — allies in range are counted without walls.",
       "choose": "Choose"
     }
   }

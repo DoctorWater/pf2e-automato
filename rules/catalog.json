@@ -42,6 +42,7 @@
       "onUse": { "targets": "selected", "zone": null,
         "challenge": { "statistic": "will", "dc": { "expr": "markup" }, "basic": false, "traits": ["fear", "mental", "emotion"],
           "rollerRole": "target",
+          "immunity": { "slug": "frightful-presence", "label": "Пугающее присутствие", "duration": { "value": 1, "unit": "minutes" } },
           "byDegree": {
             "success":         [ { "to": "target", "condition": { "slug": "frightened", "value": 1, "policy": "max" } } ],
             "failure":         [ { "to": "target", "condition": { "slug": "frightened", "value": 2, "policy": "max" } } ],

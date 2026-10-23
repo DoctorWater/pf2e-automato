@@ -90,9 +90,12 @@ const emanationDefault = (region) => region?.flags?.pf2e?.areaShape === "emanati
 
 /* ---------- клиент автора (синхронно) ---------- */
 
+/** Снимок use уже есть. Другие флаги модуля (castTargets, preyTargets встроенных обработчиков) снимку не мешают. */
+export const hasSnapshot = (message) => !!message.flags?.[MOD]?.use;
+
 function onPreCreateMessage(message, data, options, userId) {
   if (userId !== game.user.id) return;
-  if (message.flags?.[MOD]) return;
+  if (hasSnapshot(message)) return;
   const kind = useKindOf(message);
   if (!kind) return;
   const origin = message.flags.pf2e.origin;
@@ -205,7 +208,7 @@ const allRegions = () => game.scenes.contents.flatMap((s) => s.regions.contents)
 /** Общая часть execUse/applyUse: onUse.apply одним разбиением на self/target — от него зависят индексы meta.key (K7 п.11). */
 async function applyUseSteps(message, use, { self = true, targets = true, only = null } = {}) {
   const steps = use.rule?.onUse?.apply ?? [];
-  const selfSteps = steps.filter((s) => (s.to ?? "self") === "self").map((s) => ({ ...s, to: "self" }));
+  const selfSteps = steps.filter((s) => s.to !== "target").map((s) => ({ ...s, to: s.to ?? "self" }));   // не на цель: себе и группе (party, allies) — один раз, без цикла по целям
   const tgtSteps = steps.filter((s) => s.to === "target");
   if (self && !only && selfSteps.length) await apply.applyOps(message, "self", selfSteps, { scope: "apply" });
   if (!targets || !tgtSteps.length) return;
@@ -274,7 +277,7 @@ export function applyDerived(messageId, stepKey) {
         for (const { key, doc, region } of await stepTargets(use)) {
           if (doc) await apply.applyOps(message, key, [step], { ...ctx, target: doc, ...(region && { region }) });
         }
-      } else await apply.applyOps(message, "self", [{ ...step, to: "self" }], ctx);
+      } else await apply.applyOps(message, "self", [{ ...step, to: step.to ?? "self" }], ctx);
     }
     await setState(message, { derived: { pending: d.pending, applied: [...applied, stepKey] } });
     return true;

@@ -2,6 +2,20 @@
   "PF2E_AUTOMATO": {
     "builtin": {
       "unknown": "built-in handler not found",
+      "gear": { "askShield": "A hand is free: also create the shield?", "yes": "Create", "no": "No", "proficiency": "Temporary armor: best proficiency" },
+      "suffocation": {
+        "effect": "Effect: Suffocating",
+        "hint": "Out of air: unconscious and suffocating. At the end of each turn: a Fortitude saving throw against DC 20, +5 for each earlier check. Failure: 1d10 damage per check made; critical failure: death.",
+        "start": "<p><b>{name}</b> has run out of air: falls unconscious and starts suffocating. At the end of each turn: a Fortitude saving throw against DC {dc} (+5 for each further check).</p>",
+        "startHidden": "<p><b>{name}</b> has run out of air: falls unconscious and starts suffocating. At the end of each turn: a Fortitude saving throw (the DC grows with each check).</p>",
+        "dead": "<p><b>{name}</b> dies of suffocation (critical failure on the Fortitude save). The module does not apply death: that is up to the GM.</p>",
+        "damage": "Suffocation: damage"
+      },
+      "follow": {
+        "hint": "<p><b>{name}</b>: the Strike \"{strike}\" hit \"{target}\". The creature can spend an action on it: {act}.</p>",
+        "act": { "grapple": "Grapple", "trip": "Trip", "shove": "Shove" }
+      },
+      "hunt": { "needTarget": "\"{name}\": target exactly one creature before using Hunt Prey.", "needTargets": "\"{name}\": target one or two creatures before using Hunt Prey." },
       "needOneTarget": "\"{name}\": exactly one target is required (target it before using).",
       "blood": {
         "title": "Blood Magic",
@@ -51,6 +65,40 @@
       "surprise": {
         "effect": "Surprise Attack: creatures yet to act",
         "hint": "<p><b>Surprise Attack</b>: {name} rolled Deception or Stealth for initiative. In the first round, creatures that have not acted yet are off-guard to them until their turn starts.</p>"
+      },
+      "ward": {
+        "hint": "<p><b>{guard}</b>: cover {ally} with your shield? Shield Block, Hardness {hardness}.</p>",
+        "button": "Cover with shield",
+        "needTarget": "{name}: target an ally before using this.",
+        "needShield": "{name}: the shield is not raised.",
+        "needAdjacent": "{name}: the ward must be adjacent.",
+        "guardianEffect": "Effect: Devoted Guardian ({name})",
+        "guardianLabel": "Devoted Guardian",
+        "guardianText": "<b>{name}</b> shields you: a circumstance bonus to AC while the shield is raised."
+      },
+      "link": {
+        "lifeLink": "Life Link with {name}: the first damage each round is reduced, the caster loses HP.",
+        "shareLife": "Share Life with {name}: the target takes half damage, the caster takes the rest.",
+        "needTarget": "{name}: target the spell before casting.",
+        "effect": "Effect: {name}",
+        "card": "<p>{spell}: {caster} takes {n} damage instead of {name} (no resistances).</p>"
+      },
+      "channeling": {
+        "title": "Channeling Block",
+        "button": "Block + {label}",
+        "done": "<p><b>{name}</b>: expended {spell} (rank {rank}), shield Hardness +{bonus} for this block.</p>"
+      },
+      "apparition": {
+        "found": "<p><b>{name}</b> feels the presence nearby of: {list}.</p>",
+        "none": "<p><b>{name}</b> feels no spirits, haunts or undead nearby.</p>"
+      },
+      "share": {
+        "title": "Shared prey",
+        "prompt": "{name}: who gets the prey and the hunter's edge?",
+        "none": "No one",
+        "done": "<p>{ally} gains {hunter}'s prey and hunter's edge.</p>",
+        "needPrey": "{name}: no prey yet, use Hunt Prey first.",
+        "needAlly": "{name}: target an ally."
       },
       "shieldBlock": {
         "hint": "<p><b>{name}</b>: Shield Block? Hardness {hardness}.</p>",

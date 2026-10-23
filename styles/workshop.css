@@ -307,3 +307,10 @@
 .pf2e-automato-workshop .ws-ghost.is-off { cursor: help; opacity: .7; }
 .pf2e-automato-workshop .ws-ghost.is-off:hover { color: #5b5048; background: transparent; border-color: #baa991; }
 .pf2e-automato-workshop .ws-hintx { padding-bottom: 0; font-style: italic; }
+
+/* Событие (onEvent): запись — рамка с полями, шагами владельца и испытанием другого участника */
+.pf2e-automato-workshop .ws-sdeg .ws-d-ev { width: 150px; color: #443730; }
+.pf2e-automato-workshop .ws-evs { display: flex; flex-direction: column; align-items: flex-start; gap: 12px; }
+.pf2e-automato-workshop .ws-ev { width: 100%; box-sizing: border-box; padding: 10px 12px; display: flex; flex-direction: column; gap: 10px; background: #fff; border: 1px solid #ddd2c0; border-radius: 3px; }
+.pf2e-automato-workshop .ws-ev-h { display: flex; align-items: center; gap: 8px; }
+.pf2e-automato-workshop .ws-ev-h .ws-lbl { flex: 1; }

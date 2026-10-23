@@ -1,5 +1,6 @@
 import { MOD, DEGREES, errText, sluggify } from "./util.mjs";
 import { S, rev } from "./settings.mjs";
+import { isPredicate } from "./predicate.mjs";
 
 export const RULE_VERSION = 1;
 
@@ -80,32 +81,101 @@ const E = (key, path, more) => ({ key, data: { path, ...more }, toString() { ret
 
 export const ESCAPE_STATS = ["athletics", "acrobatics", "unarmed"];
 
+/** Шаг apply делает что-то с получателем (есть вид шага); note — только текст в блоке. */
+export const STEP_KINDS = ["condition", "effect", "visibility", "persistent", "removeCondition", "removeEffect", "extendEffect", "rollOption", "damage", "choose"];
+export const isActiveStep = (a) => STEP_KINDS.some((k) => a?.[k]);
+// получатели шага: self — автор, target — цель, party — участники партий автора, allies — союзники автора в радиусе range футов от его токена,
+// chosen — существо, которое автор выбрал предыдущим шагом choose (from: allies | enemies)
+export const APPLY_TO = ["self", "target", "party", "allies", "chosen"];
+export const CHOOSE_FROM = ["allies", "enemies", "options"];
+/** Урон шага damage: типы урона и лечение (healing — формула лечит). */
+export const STEP_DAMAGE_TYPES = ["healing", ...DAMAGE_TYPES];
+
 function vApply(a, path, defTo, err) {
   if (!isObj(a)) { err.push(E("notObj", path)); return null; }
-  const out = { to: a.to ?? defTo };
-  if (!["self", "target"].includes(out.to)) err.push(E("apply.to", `${path}.to`));
-  const kinds = ["condition", "effect", "note", "visibility", "persistent"].filter((k) => a[k] != null);
+  const out = { to: a.choose != null && a.to == null ? "self" : a.to ?? defTo };   // choose — выбор делает автор: получатель шага всегда «self»
+  if (!APPLY_TO.includes(out.to) || (a.choose != null && out.to !== "self")) err.push(E("apply.to", `${path}.to`));
+  // choose: автор-игрок выбирает союзника/врага (дальше шаги to:"chosen") или вариант (дальше шаги when: "choice:<value>"); prompt — вопрос в окне
+  if (a.choose != null) {
+    const c = a.choose, opts = Array.isArray(c?.options) ? c.options.map((o) => (typeof o === "string" ? { value: o } : o)) : null;
+    if (!isObj(c) || !CHOOSE_FROM.includes(c.from) || (c.prompt != null && !isStr(c.prompt))
+      || (c.from === "options" ? !(opts?.length && opts.every((o) => isObj(o) && isStr(o.value) && SLUG.test(o.value) && (o.label == null || isStr(o.label)) && (o.when == null || isPredicate(o.when))) && new Set(opts.map((o) => o.value)).size === opts.length) : c.options != null)
+      || (c.range != null && !(c.from !== "options" && isInt(c.range) && c.range >= 5))
+      || (c.of != null && !(c.from !== "options" && c.of === "target"))) err.push(E("choose.bad", `${path}.choose`));
+    // option.when — вариант виден, только если у автора выполнено условие (черта даёт вариант); of:"target" — радиус считается от цели события/карточки, а не от автора
+    else out.choose = { from: c.from, ...(opts && { options: opts.map((o) => ({ value: o.value, ...(o.label && { label: o.label }), ...(o.when && { when: o.when }) })) }), ...(c.prompt && { prompt: c.prompt }), ...(c.range != null && { range: c.range }), ...(c.of && { of: c.of }) };
+  }  const kinds = [...STEP_KINDS, "note"].filter((k) => a[k] != null);
   if (kinds.length !== 1) err.push(E("apply.kind", path));
+  // range — радиус в футах, только у союзников (Живые щиты, Сеятель)
+  if (a.range != null) { if (out.to !== "allies" || !(isInt(a.range) && a.range >= 5)) err.push(E("apply.range", `${path}.range`)); else out.range = a.range; }
+  else if (out.to === "allies") err.push(E("apply.range", `${path}.range`));
+  if ((out.to === "party" || out.to === "allies" || out.to === "chosen") && a.visibility != null) err.push(E("apply.groupKind", path));
+  // when — условие на шаге: предикат pf2e по roll options (черта, заклинание, исход, цель…); не выполнено — шаг пропускается
+  if (a.when != null) { if (!isPredicate(a.when)) err.push(E("apply.when", `${path}.when`)); else out.when = a.when; }
+  // шаги над эффектом получателя: снять (по slug/uuid, of:"origin" — только созданный автором), продлить на раунды, включить опцию RollOption
+  if (a.removeEffect != null) {
+    const r = a.removeEffect;
+    if (!isObj(r) || (r.slug == null) === (r.uuid == null) || (r.slug != null && !(isStr(r.slug) && SLUG.test(r.slug))) || (r.uuid != null && !isStr(r.uuid)) || (r.of != null && r.of !== "origin")) err.push(E("rmEff.bad", `${path}.removeEffect`));
+    else out.removeEffect = { ...(r.slug != null ? { slug: r.slug } : { uuid: r.uuid }), ...(r.of && { of: "origin" }) };
+  }
+  if (a.extendEffect != null) {
+    const x = a.extendEffect;
+    if (!isObj(x) || !isStr(x.slug) || !SLUG.test(x.slug) || !(isInt(x.rounds) && x.rounds >= 1)) err.push(E("extEff.bad", `${path}.extendEffect`));
+    else out.extendEffect = { slug: x.slug, rounds: x.rounds };
+  }
+  if (a.rollOption != null) {
+    const o = a.rollOption;
+    if (!isObj(o) || !isStr(o.domain) || !SLUG.test(o.domain) || !isStr(o.option) || /\s/.test(o.option) || (o.value != null && typeof o.value !== "boolean")) err.push(E("rollOpt.bad", `${path}.rollOption`));
+    else out.rollOption = { domain: o.domain, option: o.option, ...(o.value === false && { value: false }) };
+  }
+  // снять состояние (Встать, Стабилизация): удаляется целиком, значение не уменьшается
+  if (a.removeCondition != null) {
+    if (!isObj(a.removeCondition) || !isStr(a.removeCondition.slug) || !SLUG.test(a.removeCondition.slug)) err.push(E("rm.slug", `${path}.removeCondition.slug`));
+    else out.removeCondition = { slug: a.removeCondition.slug };
+  }
+  // rank — шаг только при круге сотворения в пределах min..max (сравнения круга в предикатах PA); у предмета не заклинания считается уровень предмета
+  if (a.rank != null) {
+    const r = a.rank;
+    if (!isObj(r) || (r.min == null && r.max == null) || [r.min, r.max].some((x) => x != null && !(isInt(x) && x >= 1 && x <= 10)) || (r.min != null && r.max != null && r.min > r.max)) err.push(E("apply.rank", `${path}.rank`));
+    else out.rank = { ...(r.min != null && { min: r.min }), ...(r.max != null && { max: r.max }) };
+  }
   if (a.condition != null) {
     const c = a.condition;
     if (!isObj(c) || !isStr(c.slug)) err.push(E("cond.slug", `${path}.condition.slug`));
     else {
       if (c.value != null && !(isInt(c.value) && c.value >= 1)) err.push(E("cond.value", `${path}.condition.value`));
-      if (c.policy != null && !["max", "add"].includes(c.policy)) err.push(E("cond.policy", `${path}.condition.policy`));
+      // reduce — снизить действующее значение на value (по умолчанию 1), на нуле состояние снимается; нет состояния — пропуск (Аура отваги)
+      if (c.policy != null && !["max", "add", "reduce"].includes(c.policy)) err.push(E("cond.policy", `${path}.condition.policy`));
+      else if (c.policy === "reduce" && a.duration != null) err.push(E("cond.reduceDur", `${path}.condition.policy`));
       out.condition = { slug: c.slug, ...(c.value != null && { value: c.value }), policy: c.policy ?? "max" };
     }
   }
+  // duration: у состояния — срок обёртки-эффекта (of: чей ход считает); у эффекта — переопределение срока созданного эффекта (value — число или кубик «1d4», бросается при создании)
   if (a.duration != null) {
-    const d = a.duration;
-    if (a.condition == null) err.push(E("dur.needCond", `${path}.duration`));
-    else if (!isObj(d) || !(isInt(d.value) && (d.value >= 1 || (d.value === 0 && d.expiry === "turn-end"))) || !APPLY_UNITS.includes(d.unit)) err.push(E("dur.bad", `${path}.duration`));
+    const d = a.duration, dice = isStr(d?.value) && /^\d+d\d+$/i.test(d.value.trim());
+    if (a.condition == null && a.effect == null) err.push(E("dur.needCond", `${path}.duration`));
+    else if (!isObj(d) || !(dice || (isInt(d.value) && (d.value >= 1 || (d.value === 0 && d.expiry === "turn-end")))) || !APPLY_UNITS.includes(d.unit)) err.push(E("dur.bad", `${path}.duration`));
     else if (d.expiry != null && !["turn-start", "turn-end"].includes(d.expiry)) err.push(E("dur.expiry", `${path}.duration.expiry`));
-    else if (d.of != null && !["origin", "target"].includes(d.of)) err.push(E("dur.of", `${path}.duration.of`));
-    else if (out.condition) out.duration = { value: d.value, unit: d.unit, expiry: d.expiry ?? null, of: d.of ?? "origin" };
+    else if (d.of != null && (a.effect != null || !["origin", "target"].includes(d.of))) err.push(E("dur.of", `${path}.duration.of`));
+    else if (out.condition) out.duration = { value: dice ? d.value.trim().toLowerCase() : d.value, unit: d.unit, expiry: d.expiry ?? null, of: d.of ?? "origin" };
+    else if (a.effect != null) out.duration = { value: dice ? d.value.trim().toLowerCase() : d.value, unit: d.unit, expiry: d.expiry ?? null };
+  }
+  // damage — урон (или лечение, type "healing") по формуле: бросок и применение pf2e без кнопок, с учётом сопротивлений
+  if (a.damage != null) {
+    const g = a.damage;
+    // basic: true — «обычное» испытание: по степени ×0 / ×½ / ×1 / ×2 (крит. успех — ничего), как у карточки урона pf2e; не лечению
+    if (!isObj(g) || !isPersFormula(g.formula) || !STEP_DAMAGE_TYPES.includes(g.damageType) || (g.basic != null && (typeof g.basic !== "boolean" || (g.basic && g.damageType === "healing")))) err.push(E("dmg.bad", `${path}.damage`));
+    else out.damage = { formula: g.formula.trim().replace(/\s+/g, ""), damageType: g.damageType, ...(g.basic && { basic: true }) };
   }
   if (a.effect != null) {
     if (!isObj(a.effect) || !isStr(a.effect.uuid)) err.push(E("effect.uuid", `${path}.effect.uuid`));
-    else out.effect = { uuid: a.effect.uuid };
+    else if (a.effect.badge != null && !["increment", "decrement", -1].includes(a.effect.badge)) err.push(E("effect.badge", `${path}.effect.badge`));
+    // badge:"increment" — если такой эффект у получателя уже есть, его значок растёт на 1 вместо второй копии (Кража тени, Благословение);
+    // badge:"decrement" (или -1) — значок уменьшается на 1, на нуле эффект снимается; нет эффекта — шаг пропущен, копия не создаётся
+    else if (a.effect.replace != null && (a.effect.replace !== true || a.effect.badge != null)) err.push(E("effect.replace", `${path}.effect.replace`));   // replace:true — прежний эффект того же источника и автора на цели заканчивается, создаётся новый (Доспех из земли); со значком несовместимо
+    else if (a.effect.by != null && !(a.effect.badge === "increment" && isInt(a.effect.by) && a.effect.by >= 1 && a.effect.by <= 10)) err.push(E("effect.badge", `${path}.effect.by`));   // by — на сколько растёт значок (Кража тени: 2)
+    else if (a.effect.start != null && !(a.effect.badge === "increment" && isInt(a.effect.start) && a.effect.start >= 1 && a.effect.start <= 10)) err.push(E("effect.badge", `${path}.effect.start`));   // start — значок нового эффекта (Кража тени: Enfeebled 2 при первом применении)
+    else out.effect = { uuid: a.effect.uuid, ...(a.effect.badge && { badge: a.effect.badge === "increment" ? "increment" : "decrement" }), ...(a.effect.by > 1 && { by: a.effect.by }), ...(a.effect.start > 1 && { start: a.effect.start }), ...(a.effect.replace && { replace: true }) };
   }
   if (a.note != null) {
     if (!isStr(a.note)) err.push(E("note.text", `${path}.note`)); else out.note = a.note;
@@ -144,7 +214,14 @@ function vApply(a, path, defTo, err) {
 function vApplyList(list, path, defTo, err) {
   if (list == null) return [];
   if (!Array.isArray(list)) { err.push(E("notArr", path)); return []; }
-  return list.map((a, i) => vApply(a, `${path}[${i}]`, defTo, err)).filter(Boolean);
+  const out = list.map((a, i) => vApply(a, `${path}[${i}]`, defTo, err));
+  // to:"chosen" — только после шага choose из allies/enemies в этом же списке
+  let picked = false;
+  out.forEach((a, i) => {
+    if (a?.choose && a.choose.from !== "options") picked = true;
+    else if (a?.to === "chosen" && !picked) err.push(E("apply.chosen", `${path}[${i}].to`));
+  });
+  return out.filter(Boolean);
 }
 
 function vZone(z, path, err) {
@@ -202,6 +279,7 @@ function vChallenge(c, path, err) {
     if (c[k] == null) continue;
     if (!Array.isArray(c[k]) || !c[k].every(isStr)) err.push(E("strList", `${path}.${k}`)); else out[k] = [...c[k]];
   }
+  if (c.immunity != null) { const im = vImmunity(c.immunity, `${path}.immunity`, err); if (im) out.immunity = im; }
   if (c.rollerRole != null && c.rollerRole !== "target") err.push(E("ch.roller", `${path}.rollerRole`));
   out.rollerRole = "target";
   out.byDegree = {};
@@ -231,6 +309,14 @@ function vImmunity(im, path, err) {
     if (!isObj(d) || !(isInt(d.value) && d.value >= 1) || !IMM_UNITS.includes(d.unit)) err.push(E("imm.dur", `${path}.duration`));
     else out.duration = { value: d.value, unit: d.unit };
   }
+  // scope:"slug" — иммунитет к способности любого автора («ко всем существам вида»); без поля — только к этому автору
+  if (im.scope != null) { if (im.scope !== "slug") err.push(E("imm.scope", `${path}.scope`)); else out.scope = "slug"; }
+  // degrees — при каких степенях ставится; нет поля или все четыре = при любой
+  if (im.degrees != null) {
+    const g = im.degrees;
+    if (!Array.isArray(g) || !g.length || !g.every((x) => DEGREES.includes(x))) err.push(E("imm.degrees", `${path}.degrees`));
+    else { const l = DEGREES.filter((x) => g.includes(x)); if (l.length < DEGREES.length) out.degrees = l; }
+  }
   if (!out.uuid && !out.duration) err.push(E("imm.empty", path));
   return out;
 }
@@ -243,7 +329,9 @@ function vCheck(c, path, err) {
   if (!stats.length || !stats.every((x) => isStr(x) && SLUG.test(x))) err.push(E("chk.stat", `${path}.statistic`));
   else out.statistic = Array.isArray(c.statistic) ? [...c.statistic] : c.statistic;
   const v = c.vs;
-  if (!isObj(v)) err.push(E("chk.vsNone", `${path}.vs`));
+  // без vs — бросок только за степень (Прыжок, Подъём): СЛ задаёт система, модуль не бросает (roll:"system"), шаги — на самого автора
+  if (v == null && c.roll === "system") { /* бросок без цели */ }
+  else if (!isObj(v)) err.push(E("chk.vsNone", `${path}.vs`));
   else {
     const keys = ["defense", "dc", "against"].filter((k) => v[k] != null);
     if (keys.length !== 1) err.push(E(keys.length ? "chk.vsMany" : "chk.vsNone", `${path}.vs`));
@@ -271,7 +359,8 @@ function vCheck(c, path, err) {
     if (!isObj(c.byDegree)) err.push(E("degrees.obj", `${path}.byDegree`));
     else for (const [k, v2] of Object.entries(c.byDegree)) {
       if (!DEGREES.includes(k)) { err.push(E("degrees.unknown", `${path}.byDegree.${k}`, { k })); continue; }
-      const list = vApplyList(v2, `${path}.byDegree.${k}`, "target", err);
+      const list = vApplyList(v2, `${path}.byDegree.${k}`, out.vs ? "target" : "self", err);
+      if (!out.vs && v2 != null && list.some((a) => a.to === "target")) err.push(E("chk.selfSteps", `${path}.byDegree.${k}`));
       if (list.length) out.byDegree[k] = list;
     }
   }
@@ -293,8 +382,9 @@ function vOnUse(u, err) {
   out.check = null;
   if (u.check != null) {
     if (u.challenge != null) err.push(E("use.both", "onUse.check"));
-    if (u.targets === "self") err.push(E("use.checkSelf", "onUse.check"));
     out.check = vCheck(u.check, "onUse.check", err);
+    if (u.targets === "self" && out.check?.vs) err.push(E("use.checkSelf", "onUse.check"));
+    if (out.check && !out.check.vs && (u.targets !== "self" || out.check.immunity)) err.push(E("chk.noVsSelf", "onUse.check"));
   }
   out.apply = vApplyList(u.apply, "onUse.apply", "self", err);
   // self-шаги onUse.apply идут без цели: наблюдатель-автор не видит субъекта-«цель»
@@ -314,6 +404,34 @@ function vReaction(r, err) {
   if (r.notify != null && !(Array.isArray(r.notify) && r.notify.every((n) => NOTIFY.includes(n)))) err.push(E("react.notify", "onAttacked.notify"));
   out.notify = Array.isArray(r.notify) ? [...r.notify] : ["owner", "gm"];
   return out;
+}
+
+// onEvent (0.5g3): правило на предмете актёра срабатывает по событию. side — кто из участников события держит предмет:
+// self — тот, кто бросает / получает урон / ходит / у кого эффект; target — цель броска (onAttacked — частный случай); origin — источник (автор эффекта, чья СЛ у броска).
+export const EVENT_ON = ["attack-roll", "skill-check", "saving-throw", "damage-roll", "damage-taken", "spell-cast", "turn-start", "turn-end", "effect-created", "effect-deleted"];
+export const EVENT_SIDES = ["self", "target", "origin"];
+export const EVENT_TARGETED = new Set(["attack-roll", "skill-check", "damage-roll", "spell-cast"]);   // у остальных событий цели нет: side:"target" бессмысленна
+
+function vEvent(e, i, err) {
+  const path = `onEvent[${i}]`;
+  if (!isObj(e)) { err.push(E("notObj", path)); return null; }
+  const out = { on: e.on, side: e.side ?? "self" };
+  if (!EVENT_ON.includes(e.on)) err.push(E("ev.on", `${path}.on`));
+  if (!EVENT_SIDES.includes(out.side)) err.push(E("ev.side", `${path}.side`));
+  else if (out.side === "target" && !EVENT_TARGETED.has(e.on)) err.push(E("ev.sideTarget", `${path}.side`));
+  if (e.when != null) { if (!isPredicate(e.when)) err.push(E("apply.when", `${path}.when`)); else out.when = e.when; }
+  if (e.once != null) { if (typeof e.once !== "boolean") err.push(E("ev.once", `${path}.once`)); else if (e.once) out.once = true; }   // once — один раз на эффект/состояние получателя, а не на каждое событие
+  const apply = vApplyList(e.apply, `${path}.apply`, "self", err);
+  if (apply.length) out.apply = apply;
+  if (e.challenge != null) { const c = vChallenge(e.challenge, `${path}.challenge`, err); if (c) out.challenge = c; }
+  if (!apply.length && e.challenge == null) err.push(E("ev.empty", path));
+  return out;
+}
+
+function vEvents(list, err) {
+  if (list == null) return [];
+  if (!Array.isArray(list)) { err.push(E("notArr", "onEvent")); return []; }
+  return list.map((e, i) => vEvent(e, i, err)).filter(Boolean);
 }
 
 function vMacros(list, err) {
@@ -351,7 +469,9 @@ export function validateRule(raw) {
     macros: vMacros(raw.macros, err),
     onTurn: null
   };
-  if (!rule.onUse && !rule.onAttacked && !rule.macros.length && !err.length) err.push(E("rule.empty", ""));
+  const events = vEvents(raw.onEvent, err);
+  if (events.length) rule.onEvent = events;   // нет событий — поля нет (правила без него не меняются)
+  if (!rule.onUse && !rule.onAttacked && !rule.macros.length && !events.length && !err.length) err.push(E("rule.empty", ""));
   return err.length ? { ok: false, rule: null, errors: err } : { ok: true, rule, errors: [] };
 }
 
@@ -453,6 +573,13 @@ function stripBlocks(html, markers) {
   return out + html.slice(pos);
 }
 
+const REF_DEG = { "critical success": "criticalSuccess", "critical failure": "criticalFailure", success: "success", failure: "failure", "критическом успехе": "criticalSuccess", "критическом провале": "criticalFailure", успехе: "success", провале: "failure" };
+/** Блок начинается с «As failure, but…» / «Как при провале, но…» -> ключ степени, с которой он сделан. */
+function refDegree(text) {
+  const m = /^[\s:,.-]*(?:(?:same )?as|like)\s+(?:a\s+|an\s+)?(critical success|critical failure|success|failure)(?![\p{L}])|^[\s:,.-]*как при\s+(критическом\s+(?:успехе|провале)|успехе|провале)/iu.exec(text.replace(/<[^>]*>/g, " "));
+  return m ? REF_DEG[(m[1] ?? m[2]).toLowerCase().replace(/\s+/g, " ")] ?? null : null;
+}
+
 function linksOf(html, condSlug, hints) {
   const conds = [], effects = [], timed = [];
   for (const m of html.matchAll(/@UUID\[([^\]]+)\](?:\{([^}]*)\})?/g)) {
@@ -488,7 +615,7 @@ const DUR = /(?<!\p{L})(?:в течение|на|for)\s+(\d+)\s*(раунд|ми
 const NEXT_TURN = /(?<!\p{L})(?:до|until)\s+(?:the\s+)?(начала|конца|start|end)\s+(?:of\s+)?(своего|его|ее|их|вашего|its|their|his|her|your)\s+(?:следующего|next)\s+(?:хода|turn)/giu;
 // pf2e допускает «stunned на срок» вместо значения; шагом правила это не выразить: createTimed даёт значение 1 (теряет 1 действие, а не все)
 export const DURATION_ONLY = new Set(["stunned"]);
-const durNext = (s) => [DUR, NEXT_TURN].some((re) => new RegExp("^\\s*(?:" + re.source + ")", "iu").test(s));
+const durNext = (s) => [DUR, NEXT_TURN].some((re) => new RegExp("^[\\s,]*(?:(?:both|all|each)\\s+)?(?:" + re.source + ")", "iu").test(s));
 const UNIT_OF = { р: "rounds", r: "rounds", м: "minutes", m: "minutes", ч: "hours", h: "hours", д: "days", d: "days" };
 // перед состоянием без смысла «цель получает»: избавление, избегание, иммунитет, отрицание, условие
 const STOP = /(?<!\p{L})(?:из(?![\p{L}-])|без|уже|если|не|ни|избег\p{L}*|избав\p{L}*|тер(?:я|ет|ял)\p{L}*|утрач\p{L}*|высвобо\p{L}*|снима\p{L}*|снят\p{L}*|прекращ\p{L}*|иммун\p{L}*|невосприимч\p{L}*|no longer|not|can't|can’t|cannot|immune|if|unless|removes?|removed|free from|recovers? from)(?![\p{L}])|(?<!\p{L})от\s+(?:\p{L}+\s+)?$|(?<!\p{L})ends?(?![\p{L}])(?!\s+of\b)/iu;
@@ -539,7 +666,16 @@ function addPlainConds(text, conds, terms, linkedAll) {
       else if (value > prev.value) prev.value = value;
     }
   }
-  // «A, B или C» / «либо A, либо B»: выбор, не наложение — найденные простым текстом уходят в подсказку (ссылки остаются, как раньше)
+  // условная оговорка перед ссылкой («if the creature ends its turn adjacent…, it is Slowed 1»): состояние не безусловное — в подсказку
+  for (const c of [...conds]) {
+    // закрывшаяся скобка («(if flying)») не действует дальше; «if it's a creature / living» почти всегда выполнено — не условие
+    const pre = flat.slice(sentStart(c.at), c.at).replace(/\([^()]*\)/g, " ");
+    const kw = [...pre.matchAll(/(?<!\p{L})(?:if|unless|whenever|each time)(?!\p{L})/gu)].pop();
+    if (!kw || (kw[0] === "if" && /^\s*(?:it'?s|it is|the (?:creature|target) is|they are)\s+(?:a |an )?(?:living|alive|creature|object)\b/u.test(pre.slice(kw.index + 2)))) continue;
+    conds.splice(conds.indexOf(c), 1);
+    if (!possible.includes(c.slug)) possible.push(c.slug);
+  }
+  // «A, B или C» / «либо A, либо B»: выбор, не наложение (в схеме выбора нет — prompt, ROADMAP §3): в подсказку, ссылки тоже, если вариантов не меньше двух
   const byAt = [...conds].sort((x, y) => x.at - y.at);
   const OR = /(?<!\p{L})(?:или|либо|or|either)(?!\p{L})/u;
   for (let i = 0, j; i < byAt.length; i = j) {
@@ -549,16 +685,40 @@ function addPlainConds(text, conds, terms, linkedAll) {
       if (!/^[\s,]*(?:(?:или|либо|or|either|and|и)[\s,]*)?$/u.test(gap)) break;
       alt ||= OR.test(gap);
     }
-    if (alt) for (const c of byAt.slice(i, j)) if (c.plain) { conds.splice(conds.indexOf(c), 1); if (!possible.includes(c.slug)) possible.push(c.slug); }
+    if (alt) for (const c of byAt.slice(i, j)) if (c.plain || j - i > 1) { conds.splice(conds.indexOf(c), 1); if (!possible.includes(c.slug)) possible.push(c.slug); }
   }
   // срок — только состоянию, после которого он стоит вплотную (между ними одни пробелы)
-  const attach = (at, d) => {
-    const c = conds.find((c) => c.end <= at && !flat.slice(c.end, at).trim());
-    if (c && !c.duration) c.duration = d;
+  const attach = (at, d, chain = false) => {
+    let c = conds.find((c) => c.end <= at && !flat.slice(c.end, at).trim());
+    // «A and B until the start of its next turn»: срок и первому, если между ними только «and»/«и» (chain); у «A and B for 1 minute» — только ближайшему; испуг сам снижается каждый ход, срок не ему
+    while (c) {
+      if (!c.duration) c.duration = d;
+      const prev = conds.filter((p) => p.slug !== "frightened" && p.end <= c.at && /^\s*(?:and|и)\s*$/u.test(flat.slice(p.end, c.at))).pop();
+      c = chain ? prev : null;
+    }
   };
-  for (const m of flat.matchAll(DUR)) if (+m[1] >= 1 && UNIT_OF[m[2][0]]) attach(m.index, { value: +m[1], unit: UNIT_OF[m[2][0]] });
+  for (const m of flat.matchAll(DUR)) {
+    if (!(+m[1] >= 1 && UNIT_OF[m[2][0]])) continue;
+    const d = { value: +m[1], unit: UNIT_OF[m[2][0]] };
+    // «X and Y, both for 1 minute»: срок обоим (всем состояниям фразы без срока)
+    if (/(?<!\p{L})(?:both|all|each)\s*$/u.test(flat.slice(0, m.index))) for (const c of conds) { if (c.at >= sentStart(m.index) && c.end <= m.index && !c.duration) c.duration = d; }
+    else attach(m.index, d);
+  }
   for (const m of flat.matchAll(NEXT_TURN)) {
-    attach(m.index, { value: 1, unit: "rounds", expiry: /^(начала|start)/.test(m[1]) ? "turn-start" : "turn-end", of: /^(вашего|your)/.test(m[2]) ? "origin" : "target" });
+    attach(m.index, { value: 1, unit: "rounds", expiry: /^(начала|start)/.test(m[1]) ? "turn-start" : "turn-end", of: /^(вашего|your)/.test(m[2]) ? "origin" : "target" }, true);
+  }
+  // срок броском («for [[/gmr 1d4 #rounds]]{1d4 rounds}»): condition.duration.value — кубик (apply.mjs бросает его сам); не дотянулся — состояние бессрочно ставить нельзя, в подсказку
+  const ROLL_DUR = /\[\[\/g?m?r(?:oll)?\s+(\d+d\d+)[^\]]*?(?:#\s*(round|minute|hour|day)|\]\]\{[^}]*?(round|minute|hour|day))/giu;
+  for (const m of flat.matchAll(ROLL_DUR)) {
+    const unit = UNIT_OF[(m[2] ?? m[3])[0]], before = flat.slice(0, m.index);
+    if (/(?<!\p{L})(?:for|в течение|на)\s*$/u.test(before)) attach(before.search(/(?<!\p{L})(?:for|в течение|на)\s*$/u), { value: m[1].toLowerCase(), unit });
+  }
+  const byPos = [...conds].sort((a, b) => a.at - b.at);
+  for (const c of [...conds]) {
+    if (c.duration) continue;
+    // только текст до следующего состояния: бросок после него — срок того состояния, а не этого
+    const next = byPos.find((x) => x.at >= c.end)?.at ?? Infinity, tail = flat.slice(c.end, Math.min(sentEnd(c.end), next));
+    if (/(?:for|на|в течение)\s+\[\[\/g?m?r(?:oll)?\s+\d+d\d+[^\]]*?(?:#\s*(?:round|minute|hour|day)|\]\]\{[^}]*?(?:round|minute|hour|day))/i.test(tail)) { conds.splice(conds.indexOf(c), 1); if (!possible.includes(c.slug)) possible.push(c.slug); }
   }
   conds.sort((a, b) => a.at - b.at);
   return possible;
@@ -641,6 +801,85 @@ export function persistentOf(text, { outside = "", html = "" } = {}) {
   return { steps, possible };
 }
 
+/* ---------- провал и критический провал прозой (описание без подписанных блоков) ---------- */
+
+const MASK = /@\w+\[(?:[^\[\]]|\[[^\]]*\])*\](?:\{[^}]*\})?/g;
+const THEY = String.raw`(?:it|they|(?:the|that|a)\s+(?:creature|target))`;
+const FAIL_RE = new RegExp(String.raw`\bon\s+a\s+fail(?:ure|ed\s+save)\b|\bif\s+${THEY}\s+fails?(?:\s+(?:the|its|their)\s+(?:save|saving\s+throw))?\b|\bcreatures?\s+(?:that|who)\s+fails?\s+(?:its|their|the|this)\s+(?:save|saving\s+throw)(?:\s+against\s+[^,.]*?)?(?=\s+(?:also\s+)?(?:becomes?|is|are|takes?|gains?)\b)|\b(?:succeed\s+at|attempt)\s+(?:an?\s+|the\s+)?(?:\w+\s+)?(?:save|saving\s+throw)\b[^.;]{0,80}?\bor\b[^.;]{0,160}?(?=\b(?:be|becomes?|gains?)\b)`);
+const CRIT_RE = new RegExp(String.raw`\bon\s+a\s+critical(?:ly)?\s+fail(?:ure|ed\s+save)\b|\bif\s+${THEY}\s+critically\s+fails?\b|\bcreatures?\s+(?:that|who)\s+critically\s+fails?\b(?:\s+(?:its|their|the|this)\s+(?:save|saving\s+throw)\b)?|\bcritical\s+failure\s+(?=increases?\b)`);
+const FAIL_PRE_RE = new RegExp(String.raw`\bif\s+${THEY}\s+fails?\s+(?:an?|the|its|their)\s+(?:\w+\s+)?(?:save|saving\s+throw)\b`);
+// состояние «пока оно ещё действует»: срок не выразить правилом — в подсказку (possible), не в шаг
+const DEPENDENT = /^[^.;()@]{0,40}?\b(?:for\s+as\s+long\s+as|as\s+long\s+as|for\s+the\s+same\s+duration|while\s+(?:it|they|the\s+creature)\b)/i;
+
+/**
+ * Провал и критический провал, описанные предложением («must succeed at a save or become X (plus Y on a critical failure)», «On a failure, the creature is X»,
+ * «A creature that fails its save becomes X», «A critical failure increases this condition to Y»), а не подписанными блоками. -> { blocks: {failure?, criticalFailure?}, possible: ["degree:slug"] }.
+ * Блок критического провала без своих состояний (или с другими) начинается с «As failure»: наследует провал, как в подписанных блоках. Сомнительная форма — не разбирается вовсе.
+ * ponytail: только эти обороты; успех и крит. успех прозой не берутся (там обычно иммунитет).
+ */
+export function proseBlocks(html, condSlug) {
+  // «(… on a critical hit)» — не критический провал спасброска: скобку не читаем
+  const text = html.replace(/<[^>]*>/g, " ").replace(/&nbsp;/g, " ").replace(/\([^()]*critical\s+(?:hit|strike)[^()]*\)/gi, blank);
+  const flat = text.replace(MASK, blank).toLowerCase();
+  const bounds = [-1, ...[...flat.matchAll(/[.!?](?=\s|$)/g)].map((m) => m.index), flat.length];
+  let fail = null, crit = null;
+  for (let i = 0; i < bounds.length - 1; i++) {
+    const a = bounds[i] + 1, b = bounds[i + 1], s = flat.slice(a, b);
+    // «The target becomes X if it fails a Will save (or Y on a critical failure)»: состояние стоит перед оборотом — провал — всё предложение
+    const f = FAIL_PRE_RE.test(s) ? { index: 0, 0: "" } : FAIL_RE.exec(s), c = CRIT_RE.exec(s);
+    // приказ на потом («compelled to drop Prone as its first action») — не состояние сейчас
+    if ((!f && !c) || /\b(?:athletics|acrobatics|attack|flat)\b/.test(s) || /\b(?:compelled|forced)\s+to\b[^.]{0,80}\b(?:first\s+action|next\s+turn)\b|\bspend\s+all\s+(?:three|\w+)\s+actions?\b/.test(s)) continue;
+    if (c && f && c.index < f.index) return { blocks: {}, possible: [] };
+    const fe = f ? a + f.index + f[0].length : 0, cs = c ? a + c.index : 0, ce = c ? a + c.index + c[0].length : 0;
+    let ft = f ? text.slice(fe, c ? cs : b) : null, ct = c ? text.slice(ce, b) : null;
+    const bad = { blocks: {}, possible: [] }, letters = (x) => /[\p{L}\d]/u.test(x.replace(/^[\s,.:;)]+/, ""));
+    if (c && !f && !letters(ct)) return bad;   // «X on a critical failure» без провала: форма неясна
+    if (f && c) {
+      const pre = ft, after = ct, open = pre.lastIndexOf("("), unclosed = open > pre.lastIndexOf(")");
+      if (unclosed) {   // «… (or Y on a critical failure) for 1 round», «(on a critical failure, they are also Y)», «(plus Y on a critical failure for as long as…)»
+        const inner = pre.slice(open + 1), j = after.indexOf(")"), inParen = j >= 0 ? after.slice(0, j) : after, rest = j >= 0 ? after.slice(j + 1) : "";
+        ft = `${pre.slice(0, open)} ${rest}`;
+        ct = `${/[\p{L}\d@]/u.test(inner) ? inner : ""} ${inParen}${/^\s*(?:for|until)\b/i.test(rest) ? rest : ""}`;
+      } else if ([...pre.matchAll(/@UUID\[/g)].length >= 2 && !/@UUID\[/.test(after)) {   // «X, or Y on a critical failure»: Y стоит перед пометкой
+        const cut = [...pre.matchAll(/@UUID\[/g)].at(-1).index;
+        ft = pre.slice(0, cut); ct = `${pre.slice(cut)} ${after}`;
+      } else if (!letters(after)) return bad;
+      if (!/@UUID\[/.test(ct) && /^\s*(?:or\s+)?(?:for\s+)?\d+\s+(?:round|minute|hour|day)s?\W*$/i.test(ct)) {   // «(1 minute on a critical failure)», «(or for 1 minute on …)»: те же состояния на другой срок
+        const ph = /for\s+\d+\s+(?:round|minute|hour|day)s?|until\s+the\s+end\s+of\s+its\s+next\s+turn/i;
+        if (ph.test(ft)) ct = ft.replace(ph, `for ${/\d+\s+\w+/.exec(ct)[0]}`);   // иначе крит. провал наследует провал как есть
+      } else if (!/@UUID\[/.test(ct)) {   // «([[/gmr 2d4 #rounds]] on a critical failure)», «(or [[/gmr 1d4 #rounds]]{1d4 rounds} on …)»: тот же срок броском
+        const roll = /^\s*(?:or\s+)?(?:for\s+)?(\[\[\/g?m?r(?:oll)?\s+\d+d\d+[^\]]*\]\](?:\{[^}]*\})?)\W*$/i.exec(ct), ph = /for\s+\d+\s+(?:round|minute|hour|day)s?|until\s+the\s+end\s+of\s+its\s+next\s+turn/i;
+        if (roll && ph.test(ft)) ct = ft.replace(ph, `for ${roll[1]}`);
+      }
+    }
+    if (ft != null && fail == null && !/^[\s,:]*(?:you|your)\b/i.test(ft)) fail = ft;
+    if (ct != null && crit == null) crit = ct;
+  }
+  const possible = [];
+  // force — состояния, зависимые на провале: то же состояние крит. провала зависит так же («Frightened 1 as long as … in the aura (Frightened 2 on a critical failure)»)
+  const strip = (t, deg, force = new Set()) => t.replace(/@UUID\[([^\]]+)\](?:\{[^}]*\})?/g, (m, u, off) => {
+    const slug = condSlug(u);
+    if (!slug) return m;
+    const rest = t.slice(off + m.length), next = rest.indexOf("@UUID["), seg = next < 0 ? rest : rest.slice(0, next);
+    if (!DEPENDENT.test(seg) && !force.has(slug)) return m;
+    possible.push(`${deg}:${slug}`);
+    return " ";
+  });
+  const slugs = (t) => new Set([...t.matchAll(/@UUID\[([^\]]+)\]/g)].map((m) => condSlug(m[1])).filter(Boolean));
+  const blocks = {};
+  if (fail != null) blocks.failure = strip(fail, "failure");
+  if (crit == null && fail != null) blocks.criticalFailure = "As failure";   // pf2e: нет строки крит. провала — он равен провалу
+  if (crit != null) {
+    let t = strip(crit, "criticalFailure", new Set(possible.filter((x) => x.startsWith("failure:")).map((x) => x.slice(8))));
+    if (t !== crit && !slugs(t).size) t = t.replace(/\binstead\b/gi, "also");   // «instead Doomed 2 for as long as…»: заменённое состояние ушло в подсказку, остальное от провала остаётся
+    const mine = slugs(t), theirs = slugs(blocks.failure ?? "");
+    // «(or Stunned 1 on a critical failure)» без общих состояний с провалом — замена, а не добавка (Otherworldly Laugh); с общими («(or Slowed 2 …)») — остальное от провала сохраняется
+    const replaces = /^\s*or\b/i.test(crit) && mine.size > 0 && ![...mine].some((x) => theirs.has(x));   // без своих состояний у крит. провала — он наследует провал («or twice that», «or for 1 minute»)
+    blocks.criticalFailure = fail != null && !/\bpermanent/i.test(t) && !replaces ? `As failure, ${t}` : t;
+  }
+  return { blocks, possible };
+}
+
 /** [термин, slug] для простого текста: имена от вызывающего + подписи ссылок на состояния этого описания. */
 function plainTerms(html, condNames, condSlug) {
   const out = new Map();
@@ -663,6 +902,12 @@ function plainTerms(html, condNames, condSlug) {
  * labels = rules/labels.json; conditionSlugByUuid = (uuid) => slug|null.
  * Ветки взаимоисключающи, confidence — у правила целиком (см. README/отчёт).
  */
+/** Текст «use this … again, any existing one ends» (Timber Sentinel, Living Bonfire, Hallowed Ground): повтор заканчивает прежний эффект. */
+export const REPLACES = /\bagain\b[^.]{0,80}(?<!\b(?:until|once)\s+(?:the\s+)?)\b(?:existing|previous)\b[^.]{0,60}\bends?\b/i;   // «until/once the previous one ends» — запрет повтора, не замена (Turn the Wheel of Seasons)
+/** Шагам effect (кроме значка) onUse ставит replace: true. */
+export function markReplace(onUse) {
+  for (const l of [onUse?.apply, ...Object.values(onUse?.challenge?.byDegree ?? {}), ...Object.values(onUse?.check?.byDegree ?? {})]) for (const a of l ?? []) if (a.effect && !a.effect.badge) a.effect.replace = true;
+}
 export function deriveFromMarkup(itemLike, labels, conditionSlugByUuid, condNames = null) {
   const html = itemLike?.system?.description?.value;
   if (!isStr(html)) return null;
@@ -680,11 +925,15 @@ export function deriveFromMarkup(itemLike, labels, conditionSlugByUuid, condName
 
   // @Check: первое испытание-спасбросок
   let check = null;
+  const saveAts = [];
   for (const m of html.matchAll(/@Check\[([^\]]*)\]/g)) {
     const c = parseCheck(m[1]);
+    if (SAVES.includes((c.type ?? "").split(",")[0])) saveAts.push(m.index);
     for (const i of (c.params.options ?? "").split(",")) if (i.startsWith("inflicts:")) hints.inflicts.push(i.slice(9));
     const t = (c.type ?? "").split(",")[0];
-    if (!check && SAVES.includes(t)) check = { ...c, type: t };
+    // из нескольких спасбросков берём тот, что накладывает состояние (inflicts:), а не «or die» (Bloody Guillotine)
+    const infl = (x) => (x.params.options ?? "").includes("inflicts:");
+    if (SAVES.includes(t) && (!check || (!infl(check) && infl(c)))) check = { ...c, type: t, at: m.index };
   }
   const save = sys.defense?.save;
 
@@ -693,6 +942,7 @@ export function deriveFromMarkup(itemLike, labels, conditionSlugByUuid, condName
   hints.effects = outLinks.effects;
 
   const mk = (onUse, confidence) => {
+    if (REPLACES.test(plainOf(html))) markReplace(onUse);
     const v = validateRule({ v: RULE_VERSION, ...(itemLike.name && { label: itemLike.name }), onUse });
     return v.ok ? { rule: v.rule, confidence, hints } : null;
   };
@@ -714,13 +964,39 @@ export function deriveFromMarkup(itemLike, labels, conditionSlugByUuid, condName
     const opts = (check?.params.options ?? "").split(",").filter((o) => o && !o.startsWith("inflicts:"));
     if (check?.params.traits) challenge.traits = check.params.traits.split(",");
     if (opts.length) challenge.options = opts;
+    // подписанных блоков нет — провал и крит. провал берём из предложений
+    if (!Object.keys(blocks).length) {
+      // только текст этого спасброска: от его предложения до предложения со следующим спасброском (у документа их несколько — Holy Host, Bloody Guillotine)
+      const sentAt = (i) => Math.max(html.lastIndexOf(". ", i), html.lastIndexOf("</p>", i), html.lastIndexOf("<p>", i), html.lastIndexOf("<hr", i)) + 1;
+      const nextAt = saveAts.find((x) => x > (check?.at ?? -1) && check);
+      const p = proseBlocks(check ? html.slice(sentAt(check.at), nextAt != null ? sentAt(nextAt) : html.length) : html, condSlug);
+      Object.assign(blocks, p.blocks);
+      for (const x of p.possible) if (!hints.possible.includes(x)) hints.possible.push(x);
+    }
+    const entries = {};
     for (const [deg, text] of Object.entries(blocks)) {
       const { conds, effects, timed } = linksOf(text, condSlug, hints);
       for (const slug of [...timed, ...addPlainConds(text, conds, terms, linkedAll)]) if (!hints.possible.includes(`${deg}:${slug}`)) hints.possible.push(`${deg}:${slug}`);   // имя без ссылки и значения — только подсказка
       for (const c of conds) if (NOT_ON_TARGET.has(c.slug)) hints.excluded.push(`${deg}:${c.slug}`);
       const pers = persistentOf(text, { outside, html });
       if (pers.possible && !hints.possible.includes(`${deg}:persistent-damage`)) hints.possible.push(`${deg}:persistent-damage`);
-      const list = [...conds.filter((c) => !NOT_ON_TARGET.has(c.slug)).map((c) => condApply(c, "target")), ...effects.map((uuid) => ({ to: "target", effect: { uuid } })), ...pers.steps.map((p) => ({ to: "target", persistent: p }))];
+      entries[deg] = { conds, effects, pers: pers.steps, ref: refDegree(text), neg: /(?<!\p{L})(?:instead|value|increase[sd]?|decrease[sd]?|вместо|значение)(?!\p{L})/iu.test(text.replace(/<[^>]*>/g, " ")) };
+    }
+    // «As failure, but Clumsy 2»: то, что блок не переопределил, берётся у названной степени; срок — у состояния с тем же именем. «but not/instead» — наследуем только срок
+    for (let pass = 0; pass < 2; pass++) for (const e of Object.values(entries)) {
+      const r = e.ref && entries[e.ref];
+      if (!r || r === e) continue;
+      for (const rc of r.conds) {
+        const mine = e.conds.find((c) => c.slug === rc.slug);
+        if (mine) { if (!mine.duration && rc.duration) mine.duration = rc.duration; } else if (!e.neg) e.conds.push({ ...rc });
+      }
+      if (!e.neg) {
+        for (const u of r.effects) if (!e.effects.includes(u)) e.effects.push(u);
+        if (!e.pers.length) e.pers = [...r.pers];
+      }
+    }
+    for (const [deg, e] of Object.entries(entries)) {
+      const list = [...e.conds.filter((c) => !NOT_ON_TARGET.has(c.slug)).map((c) => condApply(c, "target")), ...e.effects.map((uuid) => ({ to: "target", effect: { uuid } })), ...e.pers.map((p) => ({ to: "target", persistent: p }))];
       if (list.length) challenge.byDegree[deg] = list;
     }
     return mk({ targets: targetsOf(), excludeSelf: null, zone: null, challenge, apply: [] }, "high");
@@ -791,9 +1067,9 @@ export async function loadCatalog() {
     if (!resp.ok) { if (!optional) warn(`не загружен rules/${name}: ${resp.status}`); return null; }
     try { return await resp.json(); } catch (e) { warn(`rules/${name}: битый JSON`, e); if (!optional) throw e; return null; }   // битый необязательный файл не должен ронять остальные каталоги
   };
-  const [cat, campaign, pa, labels] = await Promise.all([get("catalog.json"), get("catalog.campaign.json", true), get("catalog.pa.json", true), get("labels.json")]);
+  const [cat, campaign, pa, onhit, labels] = await Promise.all([get("catalog.json"), get("catalog.campaign.json", true), get("catalog.pa.json", true), get("catalog.onhit.json", true), get("labels.json")]);
   // при совпадении ключа побеждает последний: автоматический перенос PA — первым, проверенные вручную — после
-  return initCatalog([pa, cat, campaign].filter(Boolean), labels);
+  return initCatalog([pa, onhit, cat, campaign].filter(Boolean), labels);   // onhit (tools/onhit.mjs): «при попадании Удара — состояние» по тексту; ручные каталоги главнее
 }
 export const ready = loadCatalog;
 
@@ -844,6 +1120,21 @@ export function onAttackedIndex() {
   return out;
 }
 
+/** Правила с onEvent из каталогов (ключ = source uuid | slug) — для events.mjs. Пересборка только при смене каталога (встроенный/мировой). */
+let evCache = { b: null, w: null, idx: null };
+export function onEventIndex() {
+  const w = worldCatalog();
+  if (evCache.b === builtin && evCache.w === w) return evCache.idx;
+  const idx = new Map();
+  for (const cat of [builtin, w]) {   // мировой перекрывает встроенный
+    for (const m of [cat.bySlug, cat.bySource]) for (const [k, r] of m) {
+      if (r.onEvent?.length) idx.set(k, r); else idx.delete(k);
+    }
+  }
+  evCache = { b: builtin, w, idx };
+  return idx;
+}
+
 /** [имя, slug] состояний: slug (англ.) и локализованное имя из CONFIG.PF2E.conditionTypes. */
 function runtimeCondNames() {
   const out = [];
@@ -851,6 +1142,92 @@ function runtimeCondNames() {
     out.push([slug.replace(/-/g, " "), slug], [game.i18n.localize(key), slug]);
   }
   return out;
+}
+
+/** Ключ bySlug с типом: "slug@type" — правило только для документов этого типа (у тёзки другого типа свой смысл). Без типа — для любого. */
+export const slugTypeKey = (slug, type) => `${slug}@${type}`;
+export const bySlugOf = (map, slug, type) => (type && map.get(slugTypeKey(slug, type))) || (type !== "campaignFeature" && map.get(slug)) || null;   // армейские способности (Kingmaker) делят slug с обычными действиями: общий slug-ключ их не касается
+
+/** Правило — ровно selfEffect самого документа: pf2e применяет его сам, второй раз не нужно. */
+export function isSelfEffectOnly(rule, selfEffect) {
+  const u = rule?.onUse;
+  return !!selfEffect && !!u && !u.challenge && !u.check && !u.zone && !rule.onAttacked && !rule.onEvent?.length && !rule.macros?.length && u.apply.length > 0
+    && u.apply.every((a) => a.to === "self" && a.effect?.uuid === selfEffect && !a.effect.replace && !a.duration);
+}
+
+/**
+ * Правило по slug (без источника у документа) не годится документу-тёзке: ручное правило «проверка автора» против способности NPC со спасброском (ловушка «Shove»).
+ * derived — правило, выведенное из разметки этого документа.
+ */
+export const slugCollides = (rule, derived, slug = null, html = "") => !!rule?.onUse?.check && (!!derived?.onUse?.challenge || (!!slug && new RegExp(String.raw`\[\[/act ${slug}\b`).test(html)));
+
+/**
+ * Правило-проверка (onUse.check) или правило-макрос по slug не годится тёзке без источника, в чьём описании нет собственного броска: ни `[[/act <slug>]]`, ни `@Check` нужной статистики
+ * (у макроса — любого `@Check`). Intimidating Strike у Zashathal делегирует `[[/act demoralize]]` (наш обработчик бросил бы Удар), Disarm у Werendegar бросков не имеет.
+ */
+export const lacksOwnRoll = (rule, slug, html) => {
+  const stats = rule?.onUse?.check ? [rule.onUse.check.statistic].flat() : null, text = html ?? "";
+  if (!stats && !rule?.macros?.length) return false;
+  if (slug && new RegExp(String.raw`\[\[/act ${slug}\b`).test(text)) return false;
+  // макрос — только копия, делегирующая чужому действию (`[[/act X]]`, X ≠ slug): Удар сам по себе нашей обработкой не лишний
+  if (!stats) return [...text.matchAll(/\[\[\/act\s+([a-z0-9-]+)/g)].some((m) => m[1] !== slug);
+  return !new RegExp(String.raw`@Check\[(?:${stats.join("|")})\b|\b(?:${stats.join("|")})\b`, "i").test(text);
+};
+
+/** dc {expr:"markup"}: голова испытания (статистика, СЛ, «базовое», опции) — из спасброска в тексте самого документа; копии одной способности у разных NPC различаются именно этим. */
+const plainOf = (html) => String(html ?? "").replace(/<hr\s*\/?>/gi, "\n---\n").replace(/<\/(p|li|tr|h\d|div)>|<br\s*\/?>/gi, "\n").replace(/<[^>]*>/g, "").replace(/&nbsp;/g, " ").replace(/&rsquo;/g, "'").replace(/\s+/g, " ").trim();
+const IMM_RE = /immun|(?:isn['’]t|can['’]t|cannot)\s+(?:be\s+)?affected\s+by\b[^.]*\bfor\s+\d+\s+(?:minute|hour|day)/i;
+
+/**
+ * Что текст говорит об иммунитете после испытания: {has, degrees: null (при любой) | [степени] | undefined (текст не уточняет), anySource: «ко всем существам вида»}.
+ * Подпись степени перед фразой («Critical Success … immune») важнее оборота в предложении.
+ */
+export function immunityFromText(html) {
+  html = String(html ?? "");
+  const text = plainOf(html.replace(/@UUID\[[^\]]*\](?:\{([^}]*)\})?/g, "$1"));   // точки внутри Compendium.pf2e… не должны рвать предложения
+  if (!IMM_RE.test(text)) return { has: false };
+  const at = html.search(IMM_RE);
+  const noCrit = !/<(?:strong|b)>\s*Critical Success/i.test(html);   // pf2e: нет строки крит. успеха — крит. успех = успех
+  const mark = [...html.slice(0, at).matchAll(/<(?:strong|b)>\s*(Critical Success|Success|Failure|Critical Failure)\s*<\/(?:strong|b)>/gi)].pop();
+  const sent = text.split(/(?<=[.!?])\s+/).find((s) => IMM_RE.test(s)) ?? "";
+  const lc = (s) => s[0].toLowerCase() + s.slice(1).replace(/ (\w)/, (_, c) => c.toUpperCase());
+  let degrees;
+  if (mark && at - (mark.index + mark[0].length) < 400 && !/<hr/i.test(html.slice(mark.index, at))) degrees = lc(mark[1]) === "success" && noCrit ? ["success", "criticalSuccess"] : [lc(mark[1])];
+  else if (/regardless|whether or not|no matter|after the (?:saving throw|save)/i.test(sent) || (/\b(?:is|are|it is) then\b|\bthen (?:temporarily )?immune/i.test(sent) && !/succe|fail/i.test(sent))) degrees = null;
+  else if (/\b(?:and|,)\s+(?:is|are|it is|they are)\s+then\s+(?:temporarily\s+)?immun/i.test(sent)) degrees = null;   // «…or be X and is then immune» (Commanding Presence): при любом исходе
+  else if (/\bon a (?:success|successful save)\b|\bif (?:it|they|the creature) succeeds\b/i.test(sent)) degrees = ["success", "criticalSuccess"];   // «…or become X; on a success, … immune» (Mindfog Aura)
+  else if (/\bsave or (?:be|become)\b[^.]*\b(?:and|is|become|becomes)\b[^.]*immun/i.test(sent)) degrees = ["failure", "criticalFailure"];
+  else if (/critical(?:ly)? succe/i.test(sent)) degrees = ["criticalSuccess"];
+  else if (/succe(?:ed|ss)/i.test(sent)) degrees = ["success", "criticalSuccess"];
+  else if (/\bfail/i.test(sent)) degrees = ["failure", "criticalFailure"];
+  return { has: true, degrees, anySource: /(?:immune\s+to|affected\s+by)\s+(?:all|any|further)\b/i.test(sent) };
+}
+
+/** Срок иммунитета из предложения про него («immune … for 24 hours») -> {value, unit} | null. */
+export function immunityDuration(html) {
+  const text = plainOf(String(html ?? "").replace(/@UUID\[[^\]]*\](?:\{([^}]*)\})?/g, "$1"));
+  const sent = text.split(/(?<=[.!?])\s+/).find((s) => IMM_RE.test(s)) ?? "";
+  const FOR = /\bfor\s+(\d+)\s+(minute|hour|day)s?\b/i, at = sent.search(IMM_RE);
+  const m = FOR.exec(sent.slice(Math.max(at, 0))) ?? FOR.exec(sent);   // срок, что после «immune» (Aura of Blinding Light: «Blinded for 1 minute and … immune for 1 day»)
+  return m && +m[1] >= 1 ? { value: +m[1], unit: `${m[2].toLowerCase()}s` } : null;
+}
+
+/**
+ * dc {expr:"markup"}: «текст копии решает». Голова испытания (статистика, СЛ, «базовое», опции) — из спасброска в тексте; степени — из текста, если в каталоге их нет;
+ * иммунитет: каталог даёт slug, а степени, охват (scope) и срок — текст копии; английский текст без иммунитета — правило без иммунитета.
+ */
+function withMarkupHead(rule, derived, html = "") {
+  const c = rule.onUse?.challenge, d = derived?.onUse?.challenge;
+  if (c?.dc?.expr !== "markup" || !d || d.dc.source) return rule;
+  const { options, traits, immunity, ...rest } = c;
+  const byDegree = Object.keys(c.byDegree ?? {}).length ? c.byDegree : d.byDegree;
+  // английский текст об иммунитете молчит — его нет и в правиле (PA ставит иммунитет и там, где текст требует повторять спасбросок); русский текст разбирать нечем — иммунитет каталога как есть
+  let imm = immunity && (immunityFromText(html).has || /[Ѐ-ӿ]/.test(html)) ? immunity : null;
+  if (immunity && immunityFromText(html).has) {
+    const t = immunityFromText(html), { degrees, scope, duration, ...head } = immunity, du = immunityDuration(html);
+    imm = { ...head, duration: du ?? duration, ...(t.degrees === undefined ? { ...(degrees && { degrees }) } : t.degrees && t.degrees.length < DEGREES.length && { degrees: DEGREES.filter((x) => t.degrees.includes(x)) }), ...(t.anySource && { scope: "slug" }) };
+  }
+  return { ...rule, onUse: { ...rule.onUse, challenge: { ...rest, byDegree, ...(imm && { immunity: imm }), statistic: d.statistic, dc: d.dc, basic: d.basic, ...(d.options && { options: d.options }), ...(d.traits && { traits: d.traits }) } } };
 }
 
 /** Порядок §1.2: флаг -> world.bySource -> world.bySlug -> builtin.bySource -> builtin.bySlug -> разметка. */
@@ -864,20 +1241,31 @@ export function resolveRule(source) {
   const flag = itemFlagRule(item);
   if (flag) return found(flag, "flag");
   const w = worldCatalog();
-  const r = (sourceUuid && w.bySource.get(sourceUuid)) || (slug && w.bySlug.get(slug));
+  const type = item?.type ?? origin?.type ?? null;
+  const r = (sourceUuid && w.bySource.get(sourceUuid)) || (slug && bySlugOf(w.bySlug, slug, type));
   if (r) return found(r, "world");
   // byName — способности NPC без slug и источника (имя предмета как в мире; slug pf2e из имени ненадёжен для кириллицы)
   const named = !sourceUuid && !(item?.system?.slug) ? (item?.name ?? origin?.name ?? null) : null;
-  const b = (sourceUuid && builtin.bySource.get(sourceUuid)) || (slug && builtin.bySlug.get(slug)) || (named && builtin.byName?.get(named));
-  if (b) return found(b, "catalog");
-
-  if (item?.system && labelsData) {
-    const d = deriveFromMarkup(
-      { type: item.type, slug, name: item.name, system: item.system }, labelsData,
-      (uuid) => game.pf2e.ConditionManager.conditions.get(uuid)?.slug ?? null,
-      runtimeCondNames()
-    );
-    if (d) return found(d.rule, "markup", d.confidence, d.hints);
+  const bySrc = sourceUuid ? builtin.bySource.get(sourceUuid) : null;
+  let memo, memoed = false;   // вывод из разметки один раз на вызов (ограждение тёзок, голова испытания и сам вывод)
+  const derive = () => {
+    if (!memoed) {
+      memoed = true;
+      memo = item?.system && labelsData ? deriveFromMarkup({ type: item.type, slug, name: item.name, system: item.system }, labelsData, (uuid) => game.pf2e.ConditionManager.conditions.get(uuid)?.slug ?? null, runtimeCondNames()) : null;
+    }
+    return memo;
+  };
+  let b = bySrc || (slug && bySlugOf(builtin.bySlug, slug, type)) || (named && builtin.byName?.get(named));
+  if (b && !bySrc && item?.system) {   // правило нашлось только по slug: проверить, что это та же способность
+    if (isSelfEffectOnly(b, item.system.selfEffect?.uuid)) b = null;
+    else if (!sourceUuid && b.onUse?.check && slugCollides(b, derive()?.rule, slug, item.system.description?.value ?? "")) b = null;
+    else if (!sourceUuid && slug && lacksOwnRoll(b, slug, item.system.description?.value ?? "")) b = null;
+    // «СЛ из текста» у тёзки, в чьём описании спасброска нет (пассив с тем же slug): не его способность
+    else if (!sourceUuid && b.onUse?.challenge?.dc?.expr === "markup" && labelsData && !derive()?.rule?.onUse?.challenge) b = null;
   }
+  if (b) return found(b.onUse?.challenge?.dc?.expr === "markup" ? withMarkupHead(b, derive()?.rule, item?.system?.description?.value ?? "") : b, "catalog");
+
+  const d = derive();
+  if (d) return found(d.rule, "markup", d.confidence, d.hints);
   return null;
 }

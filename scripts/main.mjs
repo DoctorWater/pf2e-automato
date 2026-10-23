@@ -22,6 +22,7 @@ import * as hud from "./hud.mjs";
 import * as damageGate from "./damage-gate.mjs";
 import * as turnConditions from "./turn-conditions.mjs";
 import * as escape from "./escape.mjs";
+import * as events from "./events.mjs";
 
 const { S } = settings;
 
@@ -83,11 +84,14 @@ export const HANDLERS = {
     const uuid = game.messages.get(messageId)?.flags?.[MOD]?.strike?.actor;
     return { owns: uuid ? ownsActor(await fromUuid(uuid), user) : false };
   }),
-  useShieldBlock: gm("useShieldBlock", (hintId) => shieldBlock.useBlock(hintId), "owner", async (user, hintId) => {
-    const uuid = game.messages.get(hintId)?.flags?.[MOD]?.shieldBlock?.token;   // урон уходит в токен, а не в actor из подсказки
+  useShieldBlock: gm("useShieldBlock", (hintId, cb) => shieldBlock.useBlock(hintId, cb), "owner", async (user, hintId) => {
+    const h = game.messages.get(hintId)?.flags?.[MOD]?.shieldBlock;
+    if (h?.guard) return { owns: ownsActor(await fromUuid(h.guard), user) };   // прикрывает держатель щита, а не цель
+    const uuid = h?.token;   // урон уходит в токен, а не в actor из подсказки
     return { owns: uuid ? ownsActor((await fromUuid(uuid))?.actor, user) : false };
   }),
   markDamageApplied: gm("markDamageApplied", (messageId, tokenUuid) => shieldBlock.markApplied(messageId, tokenUuid), "owner", async (user, _m, tokenUuid) => ({ owns: ownsActor((await fromUuid(tokenUuid))?.actor, user) })),
+  settleLink: gm("settleLink", (targetUuid, rows, round) => shieldBlock.settleLink(targetUuid, rows, round), "owner", async (user, targetUuid) => ({ owns: ownsActor(await fromUuid(targetUuid), user) })),
   dropSpellShield: gm("dropSpellShield", (actorUuid, effectId, layers) => shieldBlock.dropSpellShield(actorUuid, effectId, layers), "owner", async (user, actorUuid) => ({ owns: ownsActor(await fromUuid(actorUuid), user) })),
   applyRetch: gm("applyRetch", (actorUuid, degree) => turnConditions.applyRetch(actorUuid, degree), "owner", async (user, actorUuid) => ({ owns: ownsActor(await fromUuid(actorUuid), user) })),
   applyEscape: gm("applyEscape", (actorUuid, items, degree) => escape.applyEscape(actorUuid, items, degree), "owner", async (user, actorUuid) => ({ owns: ownsActor(await fromUuid(actorUuid), user) })),
@@ -108,7 +112,7 @@ Hooks.once("socketlib.ready", () => {
 Hooks.once("setup", () => leader.start());
 
 Hooks.once("init", () => {
-  settings.init(); compat.init(); zone.init(); height.init(); saves.init(); use.init(); actions.init(); chat.init(); reactions.init(); sheet.init(); badge.init(); vision.init(); invis.init(); workshop.init(); hud.init(); damageGate.init(); turnConditions.init(); escape.init();
+  settings.init(); compat.init(); zone.init(); height.init(); saves.init(); use.init(); actions.init(); chat.init(); reactions.init(); sheet.init(); badge.init(); vision.init(); invis.init(); workshop.init(); hud.init(); damageGate.init(); turnConditions.init(); escape.init(); events.init();
   game.modules.get(MOD).api = {
     // контракт plan.md §2 main
     attachZone: zone.attachZone, sweepZone: zone.sweepZone, closeZone: zone.closeZone, expireZones: zone.expireZones,

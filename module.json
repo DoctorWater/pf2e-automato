@@ -22,6 +22,10 @@
   "documentTypes": {
     "RegionBehavior": { "zone": {}, "height": {} }
   },
+  "packs": [
+    { "name": "effects", "label": "PF2e AuTOMATO: Effects", "type": "Item", "path": "packs/effects", "system": "pf2e", "ownership": { "PLAYER": "OBSERVER", "ASSISTANT": "OWNER" } },
+    { "name": "equipment", "label": "PF2e AuTOMATO: Equipment", "type": "Item", "path": "packs/equipment", "system": "pf2e", "ownership": { "PLAYER": "OBSERVER", "ASSISTANT": "OWNER" } }
+  ],
   "socket": true,
   "esmodules": ["scripts/main.mjs"],
   "styles": ["styles/chat.css", "styles/dialog.css", "styles/sheet.css", "styles/workshop.css"],
@@ -40,6 +44,7 @@
     { "lang": "ru", "name": "Русский", "path": "lang/ru/rules.json" },
     { "lang": "ru", "name": "Русский", "path": "lang/ru/hud.json" },
     { "lang": "ru", "name": "Русский", "path": "lang/ru/turn.json" },
+    { "lang": "ru", "name": "Русский", "path": "lang/ru/events.json" },
     { "lang": "en", "name": "English", "path": "lang/en/common.json" },
     { "lang": "en", "name": "English", "path": "lang/en/settings.json" },
     { "lang": "en", "name": "English", "path": "lang/en/zone.json" },
@@ -53,6 +58,7 @@
     { "lang": "en", "name": "English", "path": "lang/en/workshop.json" },
     { "lang": "en", "name": "English", "path": "lang/en/rules.json" },
     { "lang": "en", "name": "English", "path": "lang/en/hud.json" },
-    { "lang": "en", "name": "English", "path": "lang/en/turn.json" }
+    { "lang": "en", "name": "English", "path": "lang/en/turn.json" },
+    { "lang": "en", "name": "English", "path": "lang/en/events.json" }
   ]
 }

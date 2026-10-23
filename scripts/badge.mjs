@@ -1,6 +1,6 @@
 // Значок «автоматизировано» у предметов в листах актёров pf2e (AppV1: renderActorSheet, строки li[data-item-id]).
 import { MOD, L } from "./util.mjs";
-import { resolveRule } from "./rules.mjs";
+import { resolveRule, isActiveStep } from "./rules.mjs";
 import { automationsGroups, shouldYield } from "./compat.mjs";
 import { DENY } from "./sheet.mjs";
 import { rev } from "./settings.mjs";
@@ -8,7 +8,7 @@ import { itemUseKind, wantsSnapshot } from "./use.mjs";
 
 /* ---------- Чистая часть: текст подсказки (node-тесты) ---------- */
 
-const hasSteps = (list) => (list ?? []).some((a) => a.condition || a.effect || a.visibility || a.persistent);
+const hasSteps = (list) => (list ?? []).some(isActiveStep);
 const byDegSteps = (c) => Object.values(c?.byDegree ?? {}).some(hasSteps);
 
 /** Короткие части описания правила: «испытание Воли», «состояния», «зона»... t(key, data) = L. */
@@ -19,6 +19,7 @@ export function ruleParts(rule, t, statLabel = (s) => s) {
   if (hasSteps(u?.apply) || byDegSteps(ch) || byDegSteps(ck)) out.push(t("sheet.badge.states"));
   if (u?.zone) out.push(t("sheet.badge.zone"));
   if (rule?.onAttacked) out.push(t("sheet.badge.reaction"));
+  if (rule?.onEvent?.length) out.push(t("sheet.badge.event"));
   if (rule?.macros?.length) out.push(t("sheet.badge.macros"));
   return out;
 }
@@ -57,7 +58,7 @@ function decorate(app, $html) {
     const kind = itemUseKind(item);   // те же фильтры, что при использовании (use.mjs) и в реакциях (onAttacked)
     if (!kind) continue;
     const res = resolved(item);
-    if (!res || !(wantsSnapshot(kind, res.rule) || res.rule.onAttacked)) continue;
+    if (!res || !(wantsSnapshot(kind, res.rule) || res.rule.onAttacked || res.rule.onEvent?.length)) continue;
     const groups = automationsGroups({ slug: res.slug, sourceUuid: res.sourceUuid });
     const yielded = shouldYield(res.rule, { slug: res.slug, sourceUuid: res.sourceUuid });
     const anchor = row.querySelector('a[data-action="toggle-summary"]') ?? row.querySelector(".name");

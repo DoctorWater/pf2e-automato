@@ -19,6 +19,17 @@ import * as surprise from "./surprise-attack.mjs";
 import * as tentacles from "./tentacular-limbs.mjs";
 import * as spellshape from "./spellshape.mjs";
 import * as variableCast from "./variable-cast.mjs";
+import * as suffocation from "./suffocation.mjs";
+import * as strikeEffects from "./strike-effects.mjs";
+import * as rage from "./rage.mjs";
+import * as gear from "./gear.mjs";
+import * as huntPrey from "./hunt-prey.mjs";
+import * as oscillatingWave from "./oscillating-wave.mjs";
+import * as shieldWard from "./shield-ward.mjs";
+import * as damageLink from "./damage-link.mjs";
+import * as apparitionSense from "./apparition-sense.mjs";
+import * as preyShare from "./prey-share.mjs";
+import * as smite from "./smite.mjs";
 
 const DIALOG_MS = 180000;
 
@@ -32,16 +43,19 @@ export const BUILTIN = {
   // окно «Магии крови» у игрока-заклинателя: ГМ шлёт сюда runPlayerBuiltin (blood-magic.mjs onMessage), выбор возвращается ГМу
   "blood-magic-pick": { run: bloodMagic.pick, player: true, timeoutMs: DIALOG_MS },
   // тот же обработчик, что и в хуке, но по правилу на заклинании (scope.message — карточка каста)
-  "blood-magic-aberrant": { run: (scope) => scope.message && bloodMagic.onMessage(scope.message), timeoutMs: DIALOG_MS }
+  "blood-magic-aberrant": { run: (scope) => scope.message && bloodMagic.onMessage(scope.message), timeoutMs: DIALOG_MS },
+  // окно доли добычи (союзник) у игрока-владельца: ГМ шлёт сюда runPlayerBuiltin через askOwner (lib.mjs)
+  "share-pick": { run: preyShare.pick, player: true, timeoutMs: DIALOG_MS },
+  "gear-shield": { run: gear.pickShield, player: true, timeoutMs: DIALOG_MS }
 };
 
 // Обработчики по сообщениям чата без правила: кровь — тег заклинания, статуэтка — карточка предмета (kind "card" конвейер не исполняет).
-const MESSAGE_HOOKS = [["blood-magic", bloodMagic.onMessage], ["reactive-strike", reactiveStrike.onMessage], ["onyx-dog", onyxDog.onMessage], ["one-shot-one-kill", oneShot.onMessage], ["surprise-attack", surprise.onMessage], ["spellshape", spellshape.onMessage], ["tentacular-limbs", tentacles.onMessage]];
+const MESSAGE_HOOKS = [["blood-magic", bloodMagic.onMessage], ["reactive-strike", reactiveStrike.onMessage], ["onyx-dog", onyxDog.onMessage], ["one-shot-one-kill", oneShot.onMessage], ["surprise-attack", surprise.onMessage], ["spellshape", spellshape.onMessage], ["tentacular-limbs", tentacles.onMessage], ["strike-effects", strikeEffects.onMessage], ["hunt-prey", huntPrey.onMessage], ["oscillating-wave", oscillatingWave.onMessage], ["shield-ward", shieldWard.onMessage], ["damage-link", damageLink.onMessage], ["apparition-sense", apparitionSense.onMessage], ["prey-share", preyShare.onMessage], ["smite", smite.onMessage]];
 
 export function initBuiltinHooks() {
   if (!globalThis.Hooks) return;   // node-тесты
   // число действий переменного заклинания спрашивает автор сообщения (игрок у себя, ГМ у себя), не ГМ-исполнитель
-  Hooks.on("preCreateChatMessage", (message) => { if (modeOf("macro") !== "off") variableCast.snapTargets(message); });
+  Hooks.on("preCreateChatMessage", (message) => { if (modeOf("macro") !== "off") { variableCast.snapTargets(message); huntPrey.snapTargets(message); } });
   Hooks.on("createChatMessage", (message) => {
     if (modeOf("macro") === "off") return;
     variableCast.onMessage(message).catch((e) => console.error(`${MOD} | builtin variable-cast`, e));
@@ -85,6 +99,14 @@ export function initBuiltinHooks() {
   Hooks.on("renderChatMessageHTML", shieldBlock.trackApplyClicks);
   Hooks.on("createChatMessage", shieldBlock.onDamageTaken);
   Hooks.once("ready", shieldBlock.wrapApplyDamage);
+  // нехватка воздуха и конец ярости: хуки pf2e / документов, исполняет только активный ведущий
+  const gmMacro = (id, fn) => (...a) => { if (isActiveGM() && modeOf("macro") !== "off") Promise.resolve().then(() => fn(...a)).catch((e) => console.error(`${MOD} | builtin ${id}`, e)); };
+  Hooks.on("pf2e.endTurn", gmMacro("suffocation turn", suffocation.onEndTurn));
+  Hooks.on("deleteItem", gmMacro("suffocation", suffocation.onDelete));
+  Hooks.on("deleteItem", gmMacro("rage", rage.onDelete));
+  Hooks.on("createItem", gmMacro("prey-share hunt", preyShare.onCreate));
+  gear.init();   // выдача и уборка временного снаряжения (уборка не зависит от режима макросов)
+  Hooks.on("renderChatMessageHTML", strikeEffects.bind);
   Hooks.on("moveToken", (doc, movement) => {
     if (!isActiveGM() || modeOf("macro") === "off") return;
     reactiveStrike.onMove(doc, movement).catch((e) => console.error(`${MOD} | builtin reactive-strike move`, e));

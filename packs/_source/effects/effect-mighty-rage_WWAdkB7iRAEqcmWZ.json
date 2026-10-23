@@ -1,0 +1,66 @@
+{
+  "_id": "WWAdkB7iRAEqcmWZ",
+  "name": "Effect: Mighty Rage",
+  "type": "effect",
+  "img": "icons/magic/symbols/mask-yellow-orange.webp",
+  "system": {
+    "description": {
+      "value": "The first Strike you make during your first turn deals additional damage equal to your @UUID[Compendium.pf2e.actionspf2e.Item.Ah5g9pDwWF9b9VW9] damage."
+    },
+    "duration": {
+      "expiry": "turn-start",
+      "sustained": false,
+      "unit": "rounds",
+      "value": 1
+    },
+    "level": {
+      "value": 1
+    },
+    "rules": [
+      {
+        "key": "AdjustModifier",
+        "mode": "multiply",
+        "predicate": [],
+        "priority": 200,
+        "selector": "strike-damage",
+        "slug": "rage",
+        "value": 2
+      }
+    ],
+    "source": {
+      "value": ""
+    },
+    "start": {
+      "initiative": null,
+      "value": 0
+    },
+    "target": null,
+    "tokenIcon": {
+      "show": true
+    },
+    "traits": {
+      "rarity": "common",
+      "value": []
+    },
+    "slug": "effect-mighty-rage"
+  },
+  "effects": [],
+  "folder": null,
+  "sort": 0,
+  "ownership": {
+    "default": 0
+  },
+  "flags": {},
+  "_stats": {
+    "coreVersion": "14.366",
+    "systemId": "pf2e",
+    "systemVersion": "8.6.1",
+    "createdTime": null,
+    "modifiedTime": null,
+    "lastModifiedBy": null,
+    "compendiumSource": null,
+    "duplicateSource": null,
+    "exportSource": null
+  },
+  "_key": "!items!WWAdkB7iRAEqcmWZ"
+}

@@ -1,6 +1,6 @@
 // Проверки автора против защиты цели (onUse.check, plan.md §1.1a): бросает АВТОР, результат принимает общий движок saves.mjs.
 // Чистые функции (defenseDc, hasImmunity, ...) не трогают Foundry — tests/checks.test.mjs.
-import { MOD, L, flagPath, degreeFromTotal, isActiveGM } from "./util.mjs";
+import { MOD, L, DEGREES, flagPath, degreeFromTotal, isActiveGM } from "./util.mjs";
 import { S } from "./settings.mjs";
 import { useOf, safeUuid, marker, isPcActor, challengeOf, challengeTargets, recordResult, markTried } from "./saves.mjs";
 import { applyEffect } from "./apply.mjs";
@@ -43,16 +43,19 @@ export function pickStatistic(actor, statistic) {
   return list.reduce((best, s) => (!best || (s.check?.mod ?? s.mod ?? 0) > (best.check?.mod ?? best.mod ?? 0) ? s : best), null);
 }
 
-/** Эффект-иммунитет цели к этому действию ОТ ЭТОГО автора: тот же источник (uuid) либо наш флаг slug, origin.actor = автор. */
+/** Эффект-иммунитет цели к этому действию ОТ ЭТОГО автора (scope:"slug" — от любого): тот же источник (uuid) либо наш флаг slug, origin.actor = автор; истёкший не в счёт. */
 export function hasImmunity(actor, imm, authorUuid) {
-  if (!actor || !imm || !authorUuid) return false;
-  return actor.items.some((i) => i.type === "effect" && i.system?.context?.origin?.actor === authorUuid
+  if (!actor || !imm || (!authorUuid && imm.scope !== "slug")) return false;
+  return actor.items.some((i) => i.type === "effect" && !i.system?.expired && (imm.scope === "slug" || i.system?.context?.origin?.actor === authorUuid)
     && ((imm.uuid && i._stats?.compendiumSource === imm.uuid) || i.flags?.[MOD]?.immunity?.slug === imm.slug));
 }
 
-export const immunityName = (imm) => imm.label ?? L("checks.immunityName", { name: imm.slug });
+/** Ставится ли иммунитет при этой степени (индекс 0..3): нет `degrees` — при любой. */
+export const immunityAt = (imm, degree) => !!imm && (!imm.degrees || imm.degrees.includes(DEGREES[degree]));
 
-/** Цель иммунна к этому действию от автора сообщения (для применения по уже сделанному броску). */
+export const immunityName = (imm, itemName = null) => L("checks.immunityName", { name: imm.label ?? itemName ?? imm.slug });
+
+/** Цель иммунна к этому действию от автора сообщения: испытание или проверка (token — что угодно с .actor). */
 export async function isImmune(use, token, check) {
   const author = check?.immunity ? await authorOf(use) : null;
   return !!author && hasImmunity(token?.actor, check.immunity, author.uuid);
@@ -163,7 +166,7 @@ export async function findCheckByOrigin(message, ctx) {
  */
 export async function applyImmunity(message, tokenKey, token, imm, degree) {
   const use = useOf(message), tActor = token?.actor, author = await authorOf(use);
-  if (!tActor || !author || hasImmunity(tActor, imm, author.uuid)) return [];
+  if (!immunityAt(imm, degree) || !tActor || !author || hasImmunity(tActor, imm, author.uuid)) return [];
   const key = `${message.id}:${tokenKey}:imm`;
   let item;
   if (imm.uuid) {
@@ -173,7 +176,7 @@ export async function applyImmunity(message, tokenKey, token, imm, degree) {
     item = r.item;
   } else {
     const source = effectSource({
-      name: immunityName(imm), duration: { ...imm.duration, expiry: "turn-start" },
+      name: immunityName(imm, use.item?.name), duration: { ...imm.duration, expiry: "turn-start" },
       origin: { actor: author.uuid, token: use.token, item: use.item?.uuid }, target: { actor: tActor.uuid, token: token.uuid }
     });
     source.flags = { [MOD]: { immunity: { slug: imm.slug } } };

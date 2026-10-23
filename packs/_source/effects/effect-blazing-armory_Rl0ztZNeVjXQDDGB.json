@@ -1,0 +1,116 @@
+{
+  "_id": "Rl0ztZNeVjXQDDGB",
+  "name": "Effect: Blazing Armory",
+  "type": "effect",
+  "img": "icons/skills/melee/strike-sword-dagger-runes-red.webp",
+  "system": {
+    "description": {
+      "value": ""
+    },
+    "duration": {
+      "value": 5,
+      "unit": "minutes",
+      "expiry": "turn-end",
+      "sustained": false
+    },
+    "level": {
+      "value": 1
+    },
+    "rules": [
+      {
+        "adjustName": false,
+        "choices": {
+          "filter": [
+            "item:rarity:common",
+            "item:level:0",
+            "item:melee",
+            {
+              "or": [
+                "item:category:simple",
+                "item:category:martial"
+              ]
+            }
+          ],
+          "itemType": "weapon"
+        },
+        "flag": "addBlazingArmory",
+        "key": "ChoiceSet"
+      },
+      {
+        "key": "GrantItem",
+        "uuid": "{item|flags.pf2e.rulesSelections.addBlazingArmory}",
+        "flag": "elvenBranchedSpear",
+        "onDeleteActions": {
+          "granter": "cascade"
+        }
+      },
+      {
+        "key": "WeaponPotency",
+        "predicate": [
+          "item:granter:slug:effect-blazing-armory"
+        ],
+        "selector": "attack",
+        "value": "ternary(gte(@item.level,10),3,ternary(gte(@item.level,6),2,1))"
+      },
+      {
+        "key": "Striking",
+        "predicate": [
+          "item:granter:slug:effect-blazing-armory"
+        ],
+        "selector": "damage",
+        "value": "ternary(gte(@item.level,10),3,ternary(gte(@item.level,6),2,1))"
+      },
+      {
+        "key": "DamageAlteration",
+        "mode": "override",
+        "predicate": [
+          "item:granter:slug:effect-blazing-armory"
+        ],
+        "property": "damage-type",
+        "selectors": [
+          "damage"
+        ],
+        "value": "fire"
+      }
+    ],
+    "source": {
+      "value": ""
+    },
+    "start": {
+      "initiative": null,
+      "value": 0
+    },
+    "target": null,
+    "tokenIcon": {
+      "show": true
+    },
+    "traits": {
+      "rarity": "common",
+      "value": []
+    },
+    "slug": "effect-blazing-armory",
+    "_migration": {
+      "version": 0.959,
+      "previous": null
+    }
+  },
+  "effects": [],
+  "folder": null,
+  "sort": 0,
+  "ownership": {
+    "default": 0
+  },
+  "flags": {},
+  "_stats": {
+    "coreVersion": "14.366",
+    "systemId": "pf2e",
+    "systemVersion": "8.6.1",
+    "createdTime": null,
+    "modifiedTime": null,
+    "lastModifiedBy": null,
+    "compendiumSource": null,
+    "duplicateSource": null,
+    "exportSource": null
+  },
+  "_key": "!items!Rl0ztZNeVjXQDDGB"
+}

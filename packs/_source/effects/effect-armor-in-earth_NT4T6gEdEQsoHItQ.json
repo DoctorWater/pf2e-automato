@@ -1,0 +1,74 @@
+{
+  "_id": "NT4T6gEdEQsoHItQ",
+  "name": "Effect: Armor in Earth",
+  "type": "effect",
+  "img": "icons/equipment/chest/breastplate-banded-steel-gold.webp",
+  "system": {
+    "description": {
+      "value": "<p>Worn armor - @UUID[Compendium.pf2e-automato.equipment.Item.TDvicwRah0zBhsYg]</p>"
+    },
+    "duration": {
+      "expiry": "turn-end",
+      "sustained": false,
+      "unit": "minutes",
+      "value": 10
+    },
+    "level": {
+      "value": 1
+    },
+    "rules": [],
+    "source": {
+      "value": ""
+    },
+    "start": {
+      "initiative": null,
+      "value": 0
+    },
+    "target": null,
+    "tokenIcon": {
+      "show": true
+    },
+    "traits": {
+      "rarity": "common",
+      "value": []
+    },
+    "slug": "effect-armor-in-earth",
+    "_migration": {
+      "version": 0.959,
+      "previous": null
+    }
+  },
+  "effects": [],
+  "folder": null,
+  "sort": 0,
+  "ownership": {
+    "default": 0
+  },
+  "flags": {
+    "pf2e-automato": {
+      "gear": {
+        "armor": "Compendium.pf2e-automato.equipment.Item.TDvicwRah0zBhsYg",
+        "upgrade": {
+          "level": 3,
+          "acBonus": 5,
+          "traits": [
+            "bulwark"
+          ],
+          "category": "heavy"
+        }
+      }
+    }
+  },
+  "_stats": {
+    "coreVersion": "14.366",
+    "systemId": "pf2e",
+    "systemVersion": "8.6.1",
+    "createdTime": null,
+    "modifiedTime": null,
+    "lastModifiedBy": null,
+    "compendiumSource": null,
+    "duplicateSource": null,
+    "exportSource": null
+  },
+  "_key": "!items!NT4T6gEdEQsoHItQ"
+}

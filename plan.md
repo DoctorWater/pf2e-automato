@@ -54,12 +54,13 @@ pf2e 8.6.1 `.../systems/pf2e/pf2e.mjs` (далее `pf2e:NNNN` — номер с
     "apply": [ Apply ]                      // безусловные эффекты/состояния без броска (на себя/цели)
   } | null,
   "onAttacked": Reaction | null,            // реакция ЗАЩИЩАЮЩЕГОСЯ: правило лежит на предмете/черте, которая у цели атаки
+  "onEvent": [ OnEvent ]?,                  // (0.5g3) правило на предмете актёра срабатывает по событию: бросок, урон, ход, эффект, сотворение (§1.1b); нет событий — поля нет
   "macros": [ MacroRef ],                   // макросы по фазам (аналог OnUse в MIDI), см. ниже; по умолчанию []
   "onTurn": null                            // ЗАРЕЗЕРВИРОВАНО (v2), валидатор принимает только null
 }
 ```
 
-Правило содержит `onUse` **или** `onAttacked` (не оба; отдельные случаи — два правила на разных предметах). `macros` допустимы к любому.
+Правило содержит `onUse` **или** `onAttacked` (не оба; отдельные случаи — два правила на разных предметах). `macros` и `onEvent` допустимы к любому.
 `source` (`"flag"|"world"|"catalog"|"markup"`) и `confidence` (`"high"|"low"`) **не хранятся** в правиле — их выставляет резолвер;
 в снимке (§1.4) они сохраняются. Правило из разметки с `confidence:"low"` не исполняется молча (§1.3, §3.G).
 
@@ -75,7 +76,8 @@ Challenge := {
   "statistic": "fortitude"|"reflex"|"will"|"perception"|"<skill slug>"|"flat",
   "dc": { "value": 17 }                       // число
       | { "expr": "resolve(...)" }            // выражение pf2e из @Check dc:, доделывает ГМ через enrichHTML
-      | { "expr": "markup" }                  // СЛ берётся ГМом из первого @Check описания предмета с тем же statistic
+      | { "expr": "markup" }                  // СЛ берётся ГМом из первого @Check описания предмета с тем же statistic; resolveRule подставляет в правило из каталога и всю голову
+                                              // испытания (statistic, СЛ, basic, options, traits) из первого спасброска в тексте самого документа (копии NPC различаются именно этим)
                                               // (enrichHTML(description) -> a.inline-check[data-pf2-dc]); нет такого -> блок «СЛ неизвестен», кнопка ввода ГМу
       | { "source": "spell" }                 // СЛ заклинателя: item.spellcasting.statistic.dc (заклинания и монстры)
       | { "against": "class"|"spell"|"..." }, // как @Check[..|against:...]: СЛ от статистики автора
@@ -83,22 +85,35 @@ Challenge := {
   "traits": ["fear","mental"]?,               // идут в extraRollOptions/traits броска
   "options": ["..."]?,                        // доп. roll options
   "rollerRole": "target",                     // всегда цель; поле для совместимости с @Check
+  "immunity": Immunity?,                      // «после испытания цель невосприимчива к этой способности этого автора» (Immunity — в §1.1a; ауры: «к Пугающему присутствию этого существа»)
   "byDegree": {                               // что применить цели по результату (все ключи необязательны)
     "criticalSuccess": [Apply]?, "success": [Apply]?, "failure": [Apply]?, "criticalFailure": [Apply]?
   }
 }
 
 Apply := {
-  "to": "self" | "target",                    // кому; в byDegree по умолчанию "target", в onUse.apply по умолчанию "self"
-  "condition": { "slug": "frightened", "value": 2?, "policy": "max" } // policy: "max" (по умолчанию: поднять до value, не снижать) | "add"
+  "to": "self" | "target" | "party" | "allies" | "chosen",  // "chosen" (0.5g4) — существо, выбранное шагом choose выше; кому; в byDegree по умолчанию "target", в onUse.apply по умолчанию "self"; party — участники групп (party) автора, allies (+ range) — союзники в радиусе (0.5g2); группа получает шаг один раз, не на каждую цель
+  "condition": { "slug": "frightened", "value": 2?, "policy": "max" } // policy: "max" (по умолчанию: поднять до value, не снижать) | "add" | "reduce" (0.5g4: снизить на value, на нуле снять)
             | null,
   "duration": { "value": 1, "unit": "rounds"|"minutes"|"hours"|"days", "expiry": "turn-start"|"turn-end"|null, "of": "origin"|"target" }?,
                                               // только с condition: состояние живёт в эффекте-обёртке pf2e (GrantItem + alterations badge-value, system.duration);
                                               // of: "origin" (по умолчанию) — срок по ходам автора (context.origin.actor = автор), "target" — по ходам получателя шага;
                                               // снимается вместе с обёрткой; без duration — прямое состояние (policy max/add)
-  "effect": { "uuid": "Compendium...Item.xxx" } | null,
+  "effect": { "uuid": "Compendium...Item.xxx", "badge": "increment" | "decrement"? } | null,   // decrement (0.5g2, допустим и -1): значок -1, на минимуме эффект снимается, нет эффекта — пропуск
+                                              // badge:"increment" (0.5f): эффект у получателя уже есть -> его значок (counter) +1 вместо второй копии, нет -> создать;
+                                              // не выше max значка; ключ шага пишется в flags.pf2e-automato.bumped эффекта (повтор не прибавляет), откат возвращает значение
+  "damage": { "formula": "2d6+@actor.level", "damageType": "fire"|"healing"|…, "basic": true? } | null,   // (0.5g4) бросок DamageRoll и applyDamage pf2e без карточки; basic — ×2/×1/×½/×0 по степени; op damaged {amount}, откат не предусмотрен
+  "choose": { "from": "allies"|"enemies"|"options", "options": [{"value","label"?,"when"?}]?, "prompt"?, "range"?, "of": "target"? } | null,   // (0.5g4) выбор игрока-автора (окно у него/у ГМа); to у шага всегда "self"; allies/enemies -> шаги to:"chosen" ниже в том же списке, options -> опция choice:<value> для when; op chose {value, actor?}
+                                              // у condition (0.5g4): policy "reduce" — снизить значение на value, на нуле снять (op raised/removed); duration у condition — число или кубик "1d4"; duration у effect {value, unit, expiry?} — срок созданного эффекта
+  "removeCondition": { "slug": "prone" } | null, // (0.5f) снять состояние целиком (Встать, Стабилизация); нет состояния — шаг пропущен; значение запоминается в op, откат возвращает; иммунитет к чертам источника не мешает
+  "when": [predicate]?,                         // (0.5g2) условие шага: предикат pf2e (массив И из строк-опций, {and|or|nor|nand|xor|not|if}, {gte|lte|gt|lt|eq:[a,b]}); набор опций — ctx.rollOptions + origin.rollOptions сообщения + outcome:* + target:* (getSelfRollOptions("target")) + actor.getRollOptions() + item:*; не выполнено — шаг пропущен. Любого вида шаг (scripts/predicate.mjs)
+  "removeEffect": { "slug": "rage" | "uuid": "Compendium...", "of": "origin"? } | null,  // (0.5g2) снять эффект получателя; of:"origin" — созданный автором; откат создаёт заново по сохранённым данным (op effRemoved)
+  "extendEffect": { "slug": "inspire-courage", "rounds": 1 } | null,   // (0.5g2) продлить действующий эффект на раунды (op extended: prev {value, unit}); повтор по meta.key не продлевает
+  "rollOption": { "domain": "all", "option": "mighty-rage-attack", "value": false? } | null,   // (0.5g2) toggleRollOption получателя; value:false — выключить; op option {prev}
+  "range": 30?,                               // (0.5g2) только при to:"allies": радиус в футах, целое >= 5
+  "rank": { "min": 3?, "max": 5? }?,           // (0.5f) шаг только если круг сотворения (castRank, у не-заклинания — уровень предмета) в границах; 1..10, min<=max. Любого вида шаг
   "note": "string?"                           // текст в блоке (для "ничего не делается", напр. «урон ×½»)
-}                                              // ровно одно из condition/effect/note
+}                                              // ровно одно из condition/effect/note/visibility/persistent/removeCondition/removeEffect/extendEffect/rollOption (rank, when, range, who, mark, … — модификаторы)
 
 Reaction := {
   "trigger": "attack-on-self",                // v1: единственный триггер (остальные — v2)
@@ -124,14 +139,45 @@ outcome ("criticalSuccess"…|null), results ({tokenId:{degree,total}}), region 
 - идемпотентность: ключ `"<messageId>|<phase>|<tokenKey|->|<macroUuid>"` в `state.macros.done`; повторный запуск фазы не вызывает макрос второй раз. Для зоны макрос вызывается ровно тогда, когда `hold`/`release` реально создал/снял состояние (повторный `tokenEnter` — нет);
 - режим `mode.macro` (`auto|off`, по умолчанию `auto`).
 
-**Отложено в v2 (явно)**: триггеры «начало/конец хода» владельца и цели (`onTurn`), «при попадании по цели» (`onHit`), события зоны `tokenTurnStart/End` (`Zone.events`),
+**Отложено в v2 (явно)**: поле `onTurn` (триггеры хода теперь — `onEvent`, §1.1b), «при попадании по цели» (`onHit` — теперь `onEvent` + `item:attack-effect:*`, `tools/onhit.mjs`), события зоны `tokenTurnStart/End` (`Zone.events`),
 сопровождение «поддерживаемых» эффектов, автоприменение урона, длительные состояния без обёртки-эффекта. Поля зарезервированы, чтобы схему не ломать.
+
+### 1.1b Событие (`onEvent`, 0.5g3)
+
+Правило лежит на **предмете актёра** (фит, эффект, снаряжение, способность NPC) и срабатывает не от его использования, а от события с участием актёра. `onAttacked` — частный случай (`attack-roll`, `side:"target"`) и не меняется.
+
+```jsonc
+OnEvent := {
+  "on": "attack-roll" | "skill-check" | "saving-throw" | "damage-roll" | "damage-taken" | "spell-cast"
+      | "turn-start" | "turn-end" | "effect-created" | "effect-deleted",
+  "side": "self" | "target" | "origin",   // кто держит предмет; по умолчанию self
+                                          // self — бросает / получает урон / ходит / у него эффект; target — цель броска (только attack-roll, skill-check, damage-roll, spell-cast);
+                                          // origin — источник: автор эффекта (у события эффекта и хода), чья СЛ у броска
+  "when": [predicate]?,                   // предикат pf2e (как Apply.when) по roll options события; нет — на любое событие
+  "once": true?,                          // один раз на эффект/состояние получателя: ключ шага не зависит от события (Боевое выступление продлевает каждую композицию один раз)
+  "apply": [ Apply ]?,                    // шаги: to:"self" — владелец, to:"target" — другой участник (side self: цель броска; target/origin: бросавший / носитель эффекта)
+  "challenge": Challenge?                 // другой участник бросает испытание против СЛ владельца (byDegree: self — владелец, target — бросающий)
+}                                         // нужен хотя бы apply или challenge
+```
+
+Набор опций `when` (как у pf2e-automations): `flags.pf2e.context.options`, `origin.rollOptions`, `outcome:<степень>`, `domain:<область>`, `target` и `target:*`, опции бросавшего (`actor.getRollOptions`, `self:*`), `item:attack-effect:<slug>` у Удара
+(связь пассивной способности NPC с Ударом), `damage-taken`, `damage-taken:hp|shield|healing` у урона, `effect:<slug>` у событий эффекта.
+
+Хуки и защита от двойного исполнения (`scripts/events.mjs`):
+- `createChatMessage` — по `flags.pf2e.context.type` (`attack-roll`/`spell-attack-roll`, `skill-check`/`perception-check`, `saving-throw`, `damage-roll`, `damage-taken`); сотворение — карточка заклинания, `useKindOf(message) === "use"`; `pf2e.startTurn` / `pf2e.endTurn`; `createItem` / `deleteItem` эффектов.
+- Исполняет **только** `isActiveGM()` (активный ГМ и лидер своих вкладок); `mode.effect` должен быть `auto`; `compat.shouldYield` по носителю — как у `onUse`.
+- Идемпотентность: ключ `<msgId|id события>:<itemUuid>:<i>` — журнал `flags[MOD].events` на сообщении (`[{key, recs:[{tk, ops}], host?}]`) и память ГМа; у шагов — `meta.key` (`ev:<ключ>:<цель>:<i>.<шаг>`, у `once` — `ev:once:<itemUuid>:<i>…`). Шаги идут через `apply.applyOps` на сообщении-двойнике: на самом сообщении события общий снимок `flags[MOD].use` не пишется.
+- `challenge` получает собственную карточку чата со снимком `use` (`state.event` = ключ; бросок по этой карточке события не запускает) — дальше обычный путь `saves` (кнопка игроку, `mode.apply`, иммунитет).
+- Переброс: pf2e удаляет старое сообщение и создаёт новое с `isReroll` — журнал старого откладывается под `(актёр, событие)` на 60 с и откатывается через `undoOps` при новом сообщении; простое удаление сообщения ничего не откатывает.
+- Эффект, созданный шагом события (`meta.message` с префиксом `ev:`), новых событий effect-created/-deleted не вызывает — цепочек нет.
+- 0.5g4: шаги записи идут по одному (`applyOps` на шаг), поэтому выбор шага `choose` (`ctx.picks`: `opts` — опции `choice:*`, `actor` — выбранный) общий на запись. У двойника нет автора сообщения — окно выбора получает игрок онлайн, владеющий актёром-владельцем, иначе ГМ.
+- Носители: правило ищется и у эффектов актёра (по `flag` / каталогу по источнику эффекта — `tools/pa-carriers.mjs`: Маска ужаса, Репеллент от паразитов с `side:"target"`) и у предметов, вложенных в оружие (`item.subitems`; опция `sub-item:<slug>` у броска — Защитная статуэтка).
 
 ### 1.1a Проверка автора против защиты цели (`onUse.check`)
 
 Общие действия pf2e, где **бросает автор** (Атлетика/Обман/Запугивание/Медицина…) против СЛ защиты цели, а исход по степени накладывается на цель или автора
 (Demoralize, Trip, Grapple, Disarm, Shove, Feint, Escape, Treat Wounds, Battle Medicine, Aid). Поле `onUse.check` — **брат** `onUse.challenge`, взаимоисключающи
-(`targets` — `selected|area`, не `self`). Общий движок (saves.mjs): результаты `state.challenge.results`, применение `state.challenge.applied`,
+(`targets` — `selected|area`, не `self`; исключение — проверка без `vs`, ниже). Общий движок (saves.mjs): результаты `state.challenge.results`, применение `state.challenge.applied`,
 `applyByDegree`/`undoApplied`, режимы `mode.challenge`/`mode.apply`, yield, low — те же; отличие только в том, **кто бросает и откуда СЛ**.
 
 ```jsonc
@@ -149,7 +195,9 @@ Check := {
 }
 Immunity := { "slug": "demoralize", "label": "…"?,
               "uuid": "Compendium.pf2e.feat-effects.Item.…"?,        // эффект-иммунитет pf2e, если есть (наложится с origin.actor = автор)
-              "duration": { "value": 10, "unit": "minutes"|"hours"|"days" }? }  // иначе — встроенный эффект с флагом flags.pf2e-automato.immunity.slug; нужно uuid или duration
+              "duration": { "value": 10, "unit": "minutes"|"hours"|"days" }?,   // иначе — встроенный эффект с флагом flags.pf2e-automato.immunity.slug; нужно uuid или duration
+              "scope": "slug"?,                                                  // иммунитет к способности ЛЮБОГО автора («ко всем существам вида»); без поля — только к этому автору
+              "degrees": ["criticalSuccess","success"]? }                        // при каких степенях ставится; нет поля (или все четыре) — при любой. Одинаков у check и challenge
 ```
 
 Поведение:
@@ -158,6 +206,7 @@ Immunity := { "slug": "demoralize", "label": "…"?,
   Бросает клиент автора, если актёр-автор PC (`hasPlayerOwner`; кнопка «Бросить» у владельца и ГМа); автора-NPC за ГМа бросает активный ГМ (`skipDialog`) автоматически или кнопкой (`mode.challenge`).
   Несколько целей — по броску на цель (ключ цели = tokenKey).
 - **Приём**: `acceptSavingThrow` принимает `skill-check|perception-check|flat-check`: по маркеру либо (бросок кликнут вручную) по `origin.uuid` предмета + автору + `context.target.token`. Перебросы — как у спасбросков. В результат пишется `dc`.
+- **Иммунитет у `challenge`** (0.5c, «невосприимчив на N после испытания» — Пугающее присутствие, ауры, дыхание): тот же `Immunity`, автор = `use.actor`. Цель с таким эффектом (`origin.actor` = автор, тот же slug/uuid) **не бросает** (`rollSave`, `runChallenge`, кнопка в чате: «невосприимчива») и **ничего не получает** (`applyByDegree` пропускает; применённое ранее не трогается). Эффект ставится вместе со степенями (`applyByDegree`) только при `degrees` (нет поля — при любой), откатывается вместе с ними. Эффекта-маркера PA `<x>-immunity` не нужно.
 - **Иммунитет**: проверяется **до броска** (`hasImmunity`: эффект на цели с `origin.actor` = автор и тем же `uuid`/slug) — блок пишет «иммунна», броска и кнопки нет. Эффект-иммунитет накладывается вместе с применением степеней (`applyByDegree`, любая степень, откатывается вместе с ней).
 - `to:"self"` шаги проверки считаются **по броску на каждую цель**: ключ идемпотентности `<msg>:self.<tokenKey>:c<степень>.<i>`, откат — вместе с целью. У `challenge` ключ прежний (`<msg>:self:c<степень>.<i>`, один раз на использование).
 
@@ -188,6 +237,8 @@ Immunity := { "slug": "demoralize", "label": "…"?,
   "byDegree": { "criticalSuccess":[{"note":"лечение 4d8 — вручную"}], "success":[{"note":"лечение 2d8 — вручную"}], "criticalFailure":[{"note":"урон 1d8 — вручную"}] } } } }
 ```
 
+**Проверка без цели (0.5f).** `check` без `vs` — бросок только за степень: Прыжок в высоту, Прыжок в длину, Лазание (крит. провал — `prone` на себя). Допустим только с `roll:"system"` (СЛ задаёт система, модуль не бросает), `targets:"self"`, шагами по степеням `to:"self"` (по умолчанию) и без `immunity`. Рантайм: `onRollMessage` берёт «целью» токен автора (ключ — его id), дальше те же `recordResult`/`applyByDegree`; нет исхода в контексте (СЛ не задана) — результата нет. Форма: `vsType:"none"`; в Мастерской — «без цели (бросок системы)». Если правило PA привязано к чужому броску (Panache: любой навык с чертой bravado), оно не этот примитив — 0.5g.
+
 **Бросок действия без карточки (`scripts/actions.mjs`).** Базовые действия из листа, `game.pf2e.actions.*` и Token Action HUD дают check-сообщение pf2e без предмета: `flags.pf2e.context = {type:"skill-check"|"perception-check"|"attack-roll"|"flat-check", options:[…"action:<slug>"…] (отсортированы; `action:cost:N` и `action:<slug>:<вариант>` не считаются), origin:{actor,token}, target:{actor,token}|null, dc:{value,slug,…}|null, outcome:"success"|…|null, isReroll}`, `rolls[0].degreeOfSuccess`. Активный ГМ в `createChatMessage` (после `acceptSavingThrow`: бросок с карточки/нашим маркером принимается там и здесь пропускается) ищет правило `onUse.check` по slug (`resolveRule({origin:{slug}})`), пишет на это же сообщение снимок `kind:"roll"` (автор = `origin.actor`, цель = `context.target`, СЛ = `context.dc`, `state.done`), результат — из броска (`src:"action"`), и дальше те же `afterRecord`/`applyByDegree` (`mode.challenge` off — не обрабатывать; `mode.apply` — как у обычных проверок). Иммунная цель: результат виден, ничего не применяется (проверка в `applyByDegree`). Без цели — блок «нет цели». Переброс pf2e удаляет старое сообщение и создаёт новое без наших флагов: снимок откладывается (память ГМа, 60 с) по ключу (актёр, цель, slug) и переносится на новое; изменение степени после применения — «результат изменён» + шёпот. `yield` к pf2e-automations уважается (тихо пропускаем). Предмет не нужен, поэтому `item.uuid = null`; markup-вывод не используется.
 
 ### 1.2 Хранилища и порядок поиска
@@ -203,6 +254,14 @@ Immunity := { "slug": "demoralize", "label": "…"?,
 (одноимённые способности разных монстров). Источник предмета: `item._stats.compendiumSource ?? item.flags.core?.sourceId ?? origin.sourceId`.
 `resolveRule(item|originInfo) -> {rule, source, slug, sourceUuid, confidence}|null` — синхронный (нужен в `preCreateChatMessage`/`preCreateRegion`).
 Slug — только запасной ключ; имена не используются (русские, Babele).
+
+**Контракт `bySlug` (после 0.5b).** Поиск по slug идёт через `bySlugOf(map, slug, type)`, тип — `item.type ?? origin.type`:
+- ключ `"<slug>@<type>"` (например `arcane-cascade@action`) — правило только для документов этого типа, проверяется первым; общий ключ `"<slug>"` — для любого типа;
+- **`campaignFeature` (армейские способности Kingmaker) общий ключ не берёт** — они делят slug с обычными действиями (Taunt, Feint, Darkvision); им годится только ключ с типом;
+- правило по slug, совпадающее ровно с `selfEffect` самого документа (`isSelfEffectOnly`), пропускается: pf2e применяет его сам, второй раз не нужно;
+- ограждение тёзок (документ без источника): ручное правило-проверка автора (`onUse.check`) не применяется, если из разметки документа выводится спасбросок (ловушка «Shove») либо в тексте `[[/act <slug>]]` (делегирует базовому действию, бросок идёт через `actions.mjs`) — тогда работает вывод из разметки;
+- `challenge.dc = { "expr": "markup" }` у правила каталога: голова испытания (statistic, dc, basic, options, traits) берётся из первого спасброска в тексте самого документа, степени — из каталога (копии одной способности у разных NPC различаются именно головой).
+Тот же поиск использует `reactions.ruleOfItem` (индекс `onAttackedIndex`).
 
 ### 1.3 Вывод из разметки (`deriveFromMarkup`, синхронно, по `item.system.description.value` + данным предмета)
 
@@ -397,6 +456,7 @@ export function worldCatalog() -> { bySource:Map, bySlug:Map }
 export async function saveWorldRule(key /* {source?|slug?} */, rule|null)   // только ГМ
 export function itemFlagRule(item) -> Rule|null
 export function onAttackedIndex() -> Map<string(source|slug), Rule>    // для reactions
+export function onEventIndex() -> Map<string(source|slug), Rule>       // 0.5g3: правила с onEvent, для events.mjs (кэш до смены каталога)
 ```
 Хуки: нет (чистый модуль), кроме `ready()` -> `loadCatalog()`.
 

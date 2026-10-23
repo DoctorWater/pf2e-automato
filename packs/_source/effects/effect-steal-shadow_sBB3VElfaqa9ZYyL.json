@@ -1,0 +1,77 @@
+{
+  "_id": "sBB3VElfaqa9ZYyL",
+  "name": "Effect: Steal Shadow",
+  "type": "effect",
+  "img": "icons/svg/circle.svg",
+  "system": {
+    "description": {
+      "value": ""
+    },
+    "badge": {
+      "type": "counter",
+      "value": 1,
+      "max": 4
+    },
+    "duration": {
+      "expiry": "turn-end",
+      "sustained": false,
+      "unit": "unlimited",
+      "value": -1
+    },
+    "level": {
+      "value": 1
+    },
+    "rules": [
+      {
+        "key": "GrantItem",
+        "onDeleteActions": {
+          "grantee": "restrict"
+        },
+        "uuid": "Compendium.pf2e.conditionitems.Item.MIRkyAjyBeXivMa7",
+        "alterations": [
+          {
+            "mode": "override",
+            "property": "badge-value",
+            "value": "@item.badge.value"
+          }
+        ],
+        "inMemoryOnly": true
+      }
+    ],
+    "source": {
+      "value": ""
+    },
+    "start": {
+      "initiative": null,
+      "value": 0
+    },
+    "target": null,
+    "tokenIcon": {
+      "show": true
+    },
+    "traits": {
+      "rarity": "common",
+      "value": []
+    },
+    "slug": "effect-steal-shadow"
+  },
+  "effects": [],
+  "folder": null,
+  "sort": 0,
+  "ownership": {
+    "default": 0
+  },
+  "flags": {},
+  "_stats": {
+    "coreVersion": "14.366",
+    "systemId": "pf2e",
+    "systemVersion": "8.6.1",
+    "createdTime": null,
+    "modifiedTime": null,
+    "lastModifiedBy": null,
+    "compendiumSource": null,
+    "duplicateSource": null,
+    "exportSource": null
+  },
+  "_key": "!items!sBB3VElfaqa9ZYyL"
+}

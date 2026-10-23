@@ -1,0 +1,75 @@
+{
+  "PF2E_AUTOMATO": {
+    "events": {
+      "host": "\"{item}\": {target} must attempt a challenge against the ability's owner."
+    },
+    "rules": {
+      "err": {
+        "ev": {
+          "on": "An event entry has no event from the list ({path})",
+          "side": "The event side is owner, roll target or origin ({path})",
+          "sideTarget": "\"Roll target\" exists only for rolls and spell casting ({path})",
+          "once": "\"Once\" is yes or no only ({path})",
+          "empty": "The event entry is empty: add steps or a challenge ({path})"
+        }
+      }
+    },
+    "sheet": {
+      "kind": {
+        "onEvent": "On event (edit in the Workshop)"
+      },
+      "eventNote": "The rule's events (roll, damage, turn, effect) are edited in the Workshop; they are kept unchanged here.",
+      "badge": {
+        "event": "on event"
+      }
+    },
+    "workshop": {
+      "au": {
+        "kind": {
+          "onEvent": "When: event"
+        },
+        "when": {
+          "onEvent": "On event · run by the GM"
+        },
+        "row": {
+          "events": "Events"
+        },
+        "story": {
+          "onEvent": "The rule fires on events. Each has its own condition, steps and challenge."
+        },
+        "ev": {
+          "none": "no events yet",
+          "hint": "\"Self\" is the rule's owner. \"Target\" is the other party of the event: the roll's target, the roller, or whoever bears the effect.",
+          "add": "Add event",
+          "remove": "Remove event",
+          "onLabel": "Event",
+          "sideLabel": "Rule owner",
+          "whenLabel": "Condition",
+          "whenHint": "A pf2e predicate: options separated by commas (all at once) or JSON. Outcome is outcome:success.",
+          "once": "Once per effect",
+          "onceShort": "once",
+          "challenge": "Challenge for the other party",
+          "apply": "Steps",
+          "chLine": "challenge ({stat}) against DC {dc}",
+          "on": {
+            "attack-roll": "Attack roll",
+            "skill-check": "Skill check",
+            "saving-throw": "Saving throw",
+            "damage-roll": "Damage roll",
+            "damage-taken": "Damage taken",
+            "spell-cast": "Spell cast",
+            "turn-start": "Start of turn",
+            "turn-end": "End of turn",
+            "effect-created": "Effect created",
+            "effect-deleted": "Effect removed"
+          },
+          "side": {
+            "self": "rolls or takes it (owner)",
+            "target": "roll target",
+            "origin": "origin (effect's author)"
+          }
+        }
+      }
+    }
+  }
+}

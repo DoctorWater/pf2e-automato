@@ -17,5 +17,90 @@
   "seed": 4,
   "n": 50,
   "pool": 86
+ },
+ "pa-port:pa-port:seed5": {
+  "seed": 5,
+  "n": 50,
+  "pool": 53
+ },
+ "pa-port:pa-port+immunity:seed6": {
+  "seed": 6,
+  "n": 50,
+  "pool": 69
+ },
+ "pa-port:pa-port@0.5b:seed8": {
+  "seed": 8,
+  "n": 50,
+  "pool": 117
+ },
+ "pa-port:pa-port@0.5d:seed7": {
+  "seed": 7,
+  "n": 43,
+  "pool": 43
+ },
+ "pa-port:pa-port+immunity:seed10": {
+  "seed": 10,
+  "n": 50,
+  "pool": 61
+ },
+ "pa-port:pa-port@0.5d:seed11": {
+  "seed": 11,
+  "n": 37,
+  "pool": 37
+ },
+ "pa-port:pa-port@0.5f:seed9": {
+  "seed": 9,
+  "n": 12,
+  "pool": 12
+ },
+ "pa-port:pa-port+immunity:seed12": {
+  "seed": 12,
+  "n": 50,
+  "pool": 62
+ },
+ "pa-port:pa-port@0.5f:seed14": {
+  "seed": 14,
+  "n": 9,
+  "pool": 9
+ },
+ "pa-port:pa-port@0.5g2:seed13": {
+  "seed": 13,
+  "n": 3,
+  "pool": 3
+ },
+ "pa-port:pa-port@0.5g3:seed15": {
+  "seed": 15,
+  "n": 12,
+  "pool": 12
+ },
+ "pa-port:pa-port@0.5b:seed16": {
+  "seed": 16,
+  "n": 50,
+  "pool": 165
+ },
+ "pa-port:pa-port@0.5g1:seed17": {
+  "seed": 17,
+  "n": 18,
+  "pool": 18
+ },
+ "pa-port:pa-port@0.5g3:seed20": {
+  "seed": 20,
+  "n": 16,
+  "pool": 16
+ },
+ "pa-port:pa-port@0.5b:seed19": {
+  "seed": 19,
+  "n": 50,
+  "pool": 174
+ },
+ "pa-port:pa-port@0.5b:seed21": {
+  "seed": 21,
+  "n": 50,
+  "pool": 182
+ },
+ "pa-port:pa-port@0.5g4:seed18": {
+  "seed": 18,
+  "n": 20,
+  "pool": 20
  }
 }

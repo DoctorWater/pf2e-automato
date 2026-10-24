@@ -65,13 +65,16 @@ async () => {
       const bad = items.filter((it) => rules.resolveRule(it)?.diverged || rules.divergedOf(it)).map((it) => `${it.name}: ${JSON.stringify(rules.divergedOf(it))}`);
       return bad.length ? `отключены: ${bad.join("; ")}` : true;
     });
-    await check("reaction", "атака по NPC с Nimble Dodge: реакции собираются без ошибки, подсказка есть", async () => {
+    await check("reaction", "Nimble Dodge (персонаж): реакции собираются без ошибки, правило onAttacked найдено", async () => {
       const reactions = await import(`/modules/${MOD}/scripts/reactions.mjs`);
       const dodge = await fromPack("pf2e.feats-srd", "nimble-dodge");
-      await actor.createEmbeddedDocuments("Item", [dodge]);
-      let list;
-      try { list = reactions.reactionItems(actor); } catch (e) { return `reactionItems упал: ${e.message}`; }
-      return list.some((x) => x.item.slug === "nimble-dodge") || `Nimble Dodge не найден среди реакций: [${list.map((x) => x.item.name)}] — в каталоге нет onAttacked или копия огорожена`;
+      const pc = await Actor.create({ name: NAME, type: "character" });   // черту (feat) pf2e кладёт только персонажу
+      try {
+        await pc.createEmbeddedDocuments("Item", [dodge]);
+        let list;
+        try { list = reactions.reactionItems(pc); } catch (e) { return `reactionItems упал: ${e.message}`; }
+        return list.some((x) => x.item.slug === "nimble-dodge") || `Nimble Dodge не найден среди реакций: [${list.map((x) => x.item.name)}] — в каталоге нет onAttacked`;
+      } finally { await pc.delete(); }
     });
     await check("player-copy", "тот же текст у предмета персонажа не огораживается", async () => {
       const pc = await Actor.create({ name: NAME, type: "character" });

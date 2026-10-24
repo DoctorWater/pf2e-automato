@@ -5,7 +5,7 @@ import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { readOut, readJson, writeText, serializeDrafts, stripHtml, ACCEPTED, arg, cmp, isMain } from "./lib.mjs";
 import { afflictionStages, validateRule, AFFLICTION_KINDS } from "../scripts/rules.mjs";
-import { afflictionRule } from "./affliction.mjs";
+import { afflictionRule, outsideText } from "./affliction.mjs";
 import { roundTrip, semanticErrors, mergeAccepted } from "./validate.mjs";
 import { readModelAccepted } from "./drafts.mjs";
 import { pick } from "./sample.mjs";
@@ -31,13 +31,20 @@ export function checkAffliction(rule, html, item, refs) {
   });
   const dcs = [...html.slice(0, marks[0]?.index ?? 0).matchAll(/@Check\[(?:fortitude|reflex|will)[^\]]*?\|dc:(\d+)/g)].map((m) => +m[1]);
   if (dcs.length && (def.save.dc !== dcs[0] || ch.dc?.value !== dcs[0])) bad.push(`dc ${def.save.dc}/${ch.dc?.value} != text ${dcs[0]}`);
+  const last = def.stages.length - 1;
+  def.stages.forEach((s, i) => { if (!s.duration && (def.maxDuration || i < last || def.kind === "poison")) bad.push(`stage ${i + 1}: duration null`); });
+  const head = html.slice(0, marks[0]?.index ?? 0);
+  if (/<strong>\s*Onset/i.test(head) && def.onset == null) bad.push("onset lost");
+  if ([...head.matchAll(/@Check\[(?:fortitude|reflex|will)/g)].length > 1) bad.push("second save check in head");
+  const outside = outsideText(html);
+  if (outside) bad.push(`text outside stages: ${outside.slice(0, 60)}`);
   const kinds = AFFLICTION_KINDS.filter((k) => item.traits.includes(k));
   if (kinds.length && !kinds.includes(def.kind)) bad.push(`kind ${def.kind} not in traits ${kinds}`);
   if (item.traits.includes("virulent") !== def.virulent && item.traits.includes("virulent")) bad.push("virulent lost");
   return bad;
 }
 
-const short = (u) => /^dc$/.test(u) ? "dc not in text" : `stage text: ${u.replace(/^stage \d+: /, "").slice(0, 70)}`;
+const short = (u) => /^dc$/.test(u) ? "dc not in text" : /^stage \d+: /.test(u) ? `stage text: ${u.replace(/^stage \d+: /, "").slice(0, 70)}` : u;
 
 export function buildBatch() {
   const html = readOut("html.json"), { items } = readOut("items.json"), refs = readOut("refs.json"), tri = new Map(readOut("triage.json").items.map((t) => [t.uuid, t]));
@@ -53,7 +60,8 @@ export function buildBatch() {
     const d = { uuid: it.uuid, slug: it.slug, type: it.type, name: it.name, nameRu: it.nameRu, layer: t.layer, batch: t.batchName, dupCount: it.dupCount };
     const r = afflictionRule(h, { name: it.name, traits: it.traits ?? [], condSlug, save: it.defense ? { statistic: it.defense.save } : null });
     let why = null, diffs = [];
-    if (!r) why = "no save/kind or stage marks";
+    if (it.type === "weapon" || (it.traits ?? []).includes("injury")) why = "injury poison on weapon";   // примитива нанесения яда на оружие пока нет
+    else if (!r) why = "no save/kind or stage marks";
     else if (!r.rule) why = `invalid rule: ${r.unsure.at(-1)?.slice(0, 80)}`;
     else if (r.unsure.length) why = r.unsure.map(short)[0];
     else if ((diffs = checkAffliction(r.rule, h, it, refs)).length) why = `check: ${diffs[0]}`;
@@ -67,7 +75,7 @@ export function buildBatch() {
 function main() {
   const { ok, debt, html, items } = buildBatch();
   const cat = {};
-  for (const d of debt) { const k = d.reason.replace(/^needs-primitive: missing: affliction: /, "").replace(/^(stage text|check|invalid rule): .*/, "$1"); cat[k] = (cat[k] ?? 0) + 1; }
+  for (const d of debt) { const k = d.reason.replace(/^needs-primitive: missing: affliction: /, "").replace(/^(stage text|check|invalid rule|duration|text outside stages|onset): .*/, "$1"); cat[k] = (cat[k] ?? 0) + 1; }
   const weight = (l) => l.reduce((s, d) => s + d.dupCount, 0);
   console.log(`catalog ${ok.length} (copies ${weight(ok)}); debt ${debt.length} (copies ${weight(debt)}); by reason`, cat);
   const strip = ({ batch, dupCount, ...d }) => d;

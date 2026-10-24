@@ -660,3 +660,54 @@ test("раунд недуга берётся из CONFIG.time.roundTime", () => 
   delete CONFIG.time;
   assert.equal(A.secondsOf({ value: 2, unit: "rounds" }), 12);
 });
+
+// Находки Критика по пакету недугов: срок стадии, Onset, второй @Check, текст вне стадий, injury
+const P = (html, o = {}) => parseAffliction(html, { name: "X", traits: ["poison"], condSlug, ...o });
+const stage = (n, body) => `<p><strong>Stage ${n}</strong> ${body}</p>`;
+const SV = `<p><strong>Saving Throw</strong> @Check[fortitude|dc:20]</p>`;
+
+test("«As stage N» без своего срока наследует срок названной стадии; свой срок сохраняется", () => {
+  const h = SV + `<p><strong>Maximum Duration</strong> 6 rounds</p>` + stage(1, `@Damage[1d6[poison]] damage (1 round)`) + stage(2, "As stage 1") + stage(3, `@Damage[2d6[poison]] damage (2 rounds)`);
+  const r = P(h);
+  assert.deepEqual(r.def.stages.map((s) => s.duration), [{ value: 1, unit: "rounds" }, { value: 1, unit: "rounds" }, { value: 2, unit: "rounds" }]);
+  assert.deepEqual(r.unsure, []);
+});
+
+test("стадия без срока: срок соседа, если однозначен; иначе в долг; конец без срока — только болезнь без Maximum Duration", () => {
+  const mk = (max, ...ss) => SV + (max ? `<p><strong>Maximum Duration</strong> 6 rounds</p>` : "") + ss.map((b, i) => stage(i + 1, b)).join("");
+  const d = "@Damage[1d6[poison]] damage";
+  assert.deepEqual(P(mk(true, `${d} (1 round)`, `${d} (1 round)`, d)).def.stages[2].duration, { value: 1, unit: "rounds" });
+  assert.deepEqual(P(mk(true, `${d} (1 round)`, `${d} (2 rounds)`, d)).unsure, ["duration: stage 3 has none, neighbours differ"]);
+  assert.deepEqual(P(mk(true, d, d)).unsure, ["duration: no stage has one"]);
+  assert.deepEqual(P(mk(false, `${d} (1 round)`, d)).def.stages[1].duration, { value: 1, unit: "rounds" });   // яд: конечной стадии без срока нет
+  const dis = P(mk(false, `${d} (1 day)`, `${d} (1 day)`, d), { traits: ["disease"] });
+  assert.equal(dis.def.stages[2].duration, null);
+  assert.deepEqual(dis.unsure, []);
+  assert.deepEqual(P(mk(false, d, d, d), { traits: ["disease"] }).unsure, ["duration: no stage has one"]);
+});
+
+test("Onset не числом, второй @Check в голове и механика вне стадий — unsure; вводное описание допустимо", () => {
+  const st = stage(1, `@Damage[1d6[poison]] damage (1 round)`) + stage(2, `@Damage[2d6[poison]] damage (1 round)`);
+  const ok = `<p>A bitter poison.</p><hr />` + SV + `<p><strong>Onset</strong> 1 round</p>` + st;
+  assert.deepEqual(P(ok).unsure, []);
+  assert.deepEqual(P(ok).def.onset, { value: 1, unit: "rounds" });
+  assert.match(P(ok.replace("1 round</p>", "[[/gmr 1d4 #days]]{1d4 days}</p>")).unsure[0], /^onset:/);
+  assert.match(P(SV.replace("</p>", " @Check[will|dc:21]</p>") + st).unsure[0], /second save check/);
+  assert.match(P(`<p>Any drained value is reduced by 1 every hour.</p>` + SV + st).unsure[0], /^text outside stages/);
+  assert.match(P(SV + st + `<p><strong>Note</strong> The clumsy condition persists.</p>`).unsure[0], /^text outside stages/);
+});
+
+test("checkAffliction: срок null при Maximum Duration, потерянный Onset, второй @Check, текст вне стадий", async () => {
+  const { checkAffliction } = await import("../tools/affliction-batch.mjs");
+  const st = stage(1, `@Damage[1d6[poison]] damage (1 round)`) + stage(2, `@Damage[2d6[poison]] damage (1 round)`);
+  const html = SV + `<p><strong>Maximum Duration</strong> 6 rounds</p>` + st;
+  const item = { traits: ["poison"] }, refs = { conditions: {}, effects: {} };
+  const rule = afflictionRule(html, { name: "X", traits: ["poison"], condSlug }).rule;
+  assert.deepEqual(checkAffliction(rule, html, item, refs), []);
+  const bad = structuredClone(rule);
+  bad.onUse.challenge.byDegree.failure[0].affliction.def.stages[1].duration = null;
+  assert.ok(checkAffliction(bad, html, item, refs).some((x) => /duration null/.test(x)));
+  assert.ok(checkAffliction(rule, html.replace("<p><strong>Maximum", "<p><strong>Onset</strong> 1d4 days</p><p><strong>Maximum"), item, refs).includes("onset lost"));
+  assert.ok(checkAffliction(rule, html.replace(SV, SV.replace("</p>", " @Check[will|dc:21]</p>")), item, refs).includes("second save check in head"));
+  assert.ok(checkAffliction(rule, html + `<p>Any drained value is reduced by 1 every hour.</p>`, item, refs).some((x) => /^text outside stages/.test(x)));
+});

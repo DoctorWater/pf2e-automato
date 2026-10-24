@@ -65,6 +65,33 @@ function parseStage(html, { condSlug, known }) {
   return { stage: out, ref, unsure: bad };
 }
 
+// признаки механики в тексте вне стадий: такое правило не собираем, а в долг
+const MECH = /n't\b|cannot|immune|persist|reduc|instead|remain|\bonly\b|\bnote\b|cumulative|\blasts\b|whenever|each round|\btrigger\b|critical|doubl|halve|regain|\bGM\b|@UUID|@Check|@Damage|\bDC\b|saving throw|\d+ (?:round|minute|hour|day)|\bcondition\b|\bmust\b/i;
+const LABELS = /^(saving throw|onset|maximum duration|activate|craft requirements|price|frequency|requirements)$/i;
+
+/**
+ * Первый непустой текст вне блоков «Stage N» -> строка | "". Допустимо только вводное описание до первой стадии и без механики (MECH).
+ * Общий для конвертера и checkAffliction.
+ */
+export function outsideText(html) {
+  const secs = [[]];
+  for (const m of html.matchAll(/<hr\s*\/?>|<p[^>]*>[\s\S]*?<\/p>/gi)) {
+    if (/^<hr/i.test(m[0])) secs.push([]); else secs.at(-1).push(m[0]);
+  }
+  for (const ps of secs) {
+    const items = ps.map((p) => ({ p, plain: stripHtml(p).trim(), label: /^<p[^>]*>\s*<strong>\s*([^<]*?)\s*<\/strong>/i.exec(p)?.[1] })).filter((x) => x.plain);
+    const first = items.findIndex((x) => x.label != null && /^stage\s+\d+$/i.test(x.label));
+    for (const [i, x] of items.entries()) {
+      if (x.label == null) { if (MECH.test(x.plain) || (first >= 0 && i > first)) return x.plain; continue; }
+      if (/^stage\s+\d+$/i.test(x.label)) {
+        const extra = x.p.replace(/^<p[^>]*>|<\/p>$/gi, "").split(/<br\s*\/?>/i).map((t) => t.trim()).find((t) => stripHtml(t).trim() && !/^<strong>\s*Stage\s+\d+/i.test(t));
+        if (extra) return stripHtml(extra).trim();
+      } else if (!LABELS.test(x.label) && !/^\([a-z, -]+\)$/i.test(x.plain.slice(x.label.length).trim())) return x.plain;   // «Название (poison)» — заголовок, не текст
+    }
+  }
+  return "";
+}
+
 /**
  * html документа -> { def, unsure: [строки], dcMissing } | null (нет блоков Stage, нет спасброска или вида недуга).
  * opts: { name, traits: [трейты предмета], kind?, save?: { statistic, dc? } (защита из defense.save у заклинания), condSlug(uuid) -> slug | null }
@@ -85,7 +112,11 @@ export function parseAffliction(html, { name, traits = [], kind = null, save = n
   const k = kind ?? AFFLICTION_KINDS.find((x) => traitList.includes(x)) ?? /\((poison|disease|curse)\)/i.exec(stripHtml(head))?.[1]?.toLowerCase() ?? null;
   if (!sv || !AFFLICTION_KINDS.includes(k)) return null;
   const plainHead = stripHtml(head), unsure = [];
-  const du = /Maximum Duration\s+(\d+)\s*(round|minute|hour|day)s?/i.exec(plainHead), on = /Onset\s+(\d+)\s*(round|minute|hour|day)s?/i.exec(plainHead);
+  const du = /Maximum Duration\s+(\d+)\s*(round|minute|hour|day)s?/i.exec(plainHead), on = /Onset\s+(\d+)(?!\w)\s*(round|minute|hour|day)s?/i.exec(plainHead);
+  if (/<strong>\s*Onset/i.test(head) && !on) unsure.push("onset: not a plain number");
+  if ([...head.matchAll(/@Check\[(?:fortitude|reflex|will)/g)].length > 1) unsure.push("second save check in head");
+  const outside = outsideText(html);
+  if (outside) unsure.push(`text outside stages: ${outside.slice(0, 70)}`);
   const known = [...new Set([...html.matchAll(/@UUID\[([^\]]+)\]/g)].map((m) => condSlug(m[1])).filter(Boolean))];
   const stages = [], refs = [];
   marks.forEach((m, i) => {
@@ -98,8 +129,19 @@ export function parseAffliction(html, { name, traits = [], kind = null, save = n
   // «as stage 2»: содержимое названной стадии, срок свой
   refs.forEach((ref, i) => {
     const src = ref && stages[ref - 1];
-    if (src) stages[i] = { ...structuredClone(src), duration: stages[i].duration };
+    if (src) stages[i] = { ...structuredClone(src), duration: stages[i].duration ?? src.duration };
   });
+  // срок стадии: без него — срок соседа, если однозначен; «конечная» стадия без срока — только у болезни/проклятия без Maximum Duration
+  const have = stages.filter((x) => x.duration), missing = stages.map((x, i) => (x.duration ? -1 : i)).filter((i) => i >= 0);
+  if (missing.length) {
+    const uniq = [...new Map(have.map((x) => [`${x.duration.value}${x.duration.unit}`, x.duration])).values()];
+    const endOk = !du && k !== "poison" && missing.length === 1 && missing[0] === stages.length - 1;
+    if (!have.length) unsure.push("duration: no stage has one");
+    else if (!endOk) {
+      if (uniq.length === 1) missing.forEach((i) => { stages[i].duration = structuredClone(uniq[0]); });
+      else unsure.push(`duration: stage ${missing[0] + 1} has none, neighbours differ`);
+    }
+  }
   if (!sv.dc) unsure.push("dc");
   const virulent = traits.includes("virulent") || /\bvirulent\b/i.test(plainHead);
   return {

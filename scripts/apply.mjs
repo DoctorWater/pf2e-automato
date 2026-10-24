@@ -10,6 +10,7 @@ import { testPredicate } from "./predicate.mjs";
 import { setSource, dropSource, visionActive } from "./vision.mjs";
 import { escapeDC, offerEscape } from "./escape.mjs";
 import { repeatMeta, sameCarrier } from "./repeat.mjs";
+import { forcedMove, undoMove } from "./move.mjs";
 
 const metaOf = (item) => item?.flags?.[MOD]?.meta;
 const notify = (key, data) => globalThis.ui?.notifications?.warn?.(L(key, data));
@@ -520,6 +521,17 @@ export async function applyOps(message, tokenKey, steps, ctx = {}) {
       if (r) ops.push({ op: "damaged", actor: actor.uuid, amount: r.amount, key: meta.key });
       continue;
     }
+    if (step.move) {
+      // Ключ без степени (как dkey у урона): переброс успех → крит не двигает второй раз. Очередь msg: не берём — вызывающий её уже держит.
+      const mkey = scope === "challenge" && !ctx.stepKey ? `${meta.key.slice(0, -stepKey.length)}c.${i}` : meta.key;
+      if (doneOps.some((o) => o.op === "moved" && o.key === mkey)) continue;
+      const r = await forcedMove(targetDoc, originToken, step.move);
+      if (r.skipped) {
+        notify(`moveSkip.${r.skipped}`, { name: use.item?.name ?? "", target: targetDoc?.name ?? "" });
+        ops.push({ op: "moved", skipped: r.skipped, key: mkey });   // строка отработана; причина — уведомлением ГМу
+      } else ops.push({ op: "moved", token: targetDoc.uuid, from: r.from, to: r.to, id: r.id, key: mkey });
+      continue;
+    }
     if (step.visibility) {
       const v = step.visibility, sourceKey = `auto:${meta.key}`;
       const [observer, subject] = [step.to === "self" ? originToken : targetDoc, v.of === "self" ? originToken : targetDoc];
@@ -594,7 +606,11 @@ export async function undoOps(message, tokenKey) {
   for (const [scope, rec] of places) {
     if (!rec) continue;
     for (const o of [...(rec.ops ?? [])].reverse()) {
-      if ((o.op === "vis" && o.skipped) || o.op === "chose" || o.op === "damaged") continue;   // выбор отменять нечем; урон pf2e откатывает своей карточкой
+      if ((o.op === "vis" && o.skipped) || o.op === "chose" || o.op === "damaged" || (o.op === "moved" && o.skipped)) continue;   // выбор отменять нечем; урон pf2e откатывает своей карточкой
+      if (o.op === "moved") {   // позиция возвращается, только если токен всё ещё там, куда его сдвинули
+        if (await undoMove(await fromUuid(o.token), o)) undone++; else notify("moveSkip.undone", { target: (await fromUuid(o.token))?.name ?? "" });
+        continue;
+      }
       if (o.op === "vis") { await dropSource(game.scenes.get(o.scene), o.key); undone++; continue; }
       if (o.op === "removed") {   // снятое состояние возвращаем с прежним значением
         const a = actorOf(await fromUuid(o.actor));

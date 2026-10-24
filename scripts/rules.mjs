@@ -84,7 +84,7 @@ export const REPEAT_ON = ["turn-start", "turn-end"];
 export const REPEAT_END = ["success", "criticalSuccess"];
 
 /** Шаг apply делает что-то с получателем (есть вид шага); note — только текст в блоке. */
-export const STEP_KINDS = ["condition", "effect", "visibility", "persistent", "removeCondition", "removeEffect", "extendEffect", "rollOption", "damage", "choose"];
+export const STEP_KINDS = ["condition", "effect", "visibility", "persistent", "removeCondition", "removeEffect", "extendEffect", "rollOption", "damage", "choose", "move"];
 export const isActiveStep = (a) => STEP_KINDS.some((k) => a?.[k]) || !!a?.removeKey;   // removeKey — внутренний шаг карточки повтора (repeat.mjs), в схему не входит
 // получатели шага: self — автор, target — цель, party — участники партий автора, allies — союзники автора в радиусе range футов от его токена,
 // chosen — существо, которое автор выбрал предыдущим шагом choose (from: allies | enemies)
@@ -168,6 +168,12 @@ function vApply(a, path, defTo, err, basicOk = false) {
     // basic: true — только в challenge.byDegree (нужна степень испытания); «обычное» испытание: по степени ×0 / ×½ / ×1 / ×2 (крит. успех — ничего), как у карточки урона pf2e; не лечению
     if (!isObj(g) || !isPersFormula(g.formula) || !STEP_DAMAGE_TYPES.includes(g.damageType) || (g.basic != null && (typeof g.basic !== "boolean" || (g.basic && (!basicOk || g.damageType === "healing"))))) err.push(E("dmg.bad", `${path}.damage`));
     else out.damage = { formula: g.formula.trim().replace(/\s+/g, ""), damageType: g.damageType, ...(g.basic && { basic: true }) };
+  }
+  // move — принудительное перемещение цели: push — от токена автора, pull — к нему; distance в футах (кратно 5). Только to:"target"; дистанция по степени — отдельными шагами в byDegree
+  if (a.move != null) {
+    const m = a.move;
+    if (!isObj(m) || !["push", "pull"].includes(m.mode) || !(isInt(m.distance) && m.distance >= 5 && m.distance % 5 === 0) || out.to !== "target" || Object.keys(m).some((k) => !["mode", "distance"].includes(k))) err.push(E("move.bad", `${path}.move`));
+    else out.move = { mode: m.mode, distance: m.distance };
   }
   if (a.effect != null) {
     if (!isObj(a.effect) || !isStr(a.effect.uuid)) err.push(E("effect.uuid", `${path}.effect.uuid`));

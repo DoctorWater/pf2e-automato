@@ -35,7 +35,8 @@ STEP      = { "to": "self"|"target", ONE of:
               "condition": {"slug": "frightened", "value": 1}         // "value" ONLY for the numbered conditions: clumsy, doomed, drained, dying, enfeebled, frightened, sickened, slowed, stunned, stupefied, wounded
               "effect": {"uuid": "Compendium.pf2e.spell-effects.Item.xxxx"}
               "note": "<Russian text for the GM: what to do manually>"
-              "persistent": {"formula": "2d6", "damageType": "fire"} }
+              "persistent": {"formula": "2d6", "damageType": "fire"}
+              "move": {"mode": "push"|"pull", "distance": 10}      // forced movement of the TARGET ("to":"target" only): push = straight away from the user, pull = straight toward the user (stops adjacent); distance in feet, multiple of 5. Different distance per degree = a separate move step in each degree. "up to N feet" = N. }
             + optional "duration": {"value": 1, "unit": "rounds"|"minutes"|"hours"|"days", "expiry": "turn-start"|"turn-end", "of": "origin"|"target"} on a condition step
               ("expiry" turn-end/turn-start = ends at the end/start of a turn; "of" = whose turn: "origin" (the user, default) or "target" (the affected creature: "until the end of ITS next turn");
                use value 0 + expiry turn-end for "until the end of this turn")
@@ -57,7 +58,7 @@ Rules of thumb:
 - A condition that some degree avoids or ends goes into `byDegree` of those degrees, never into `apply` (apply runs for every target regardless of the save).
 - "The target must spend its first action / one action to …" (a command, a forced action) is NOT a condition: do not use fleeing/prone/etc. for it. Use a condition only when the text names it. Otherwise `unsure: true`, note "missing: forced action".
 - Afflictions with stages ("Stage 1 … Stage 2 …", diseases, poisons) and healing modifiers ("regains half as many Hit Points from healing", "can't be healed") are real mechanics: never `null`; use a linked effect if the text has one, else `unsure: true` with "missing: affliction stages" / "missing: healing modifier".
-- `null` (nothing to automate) ONLY when the text has no condition, effect, persistent damage, forced movement (push, pull, knock prone), numeric bonus/penalty, weakness/resistance, immunity or duration: pure damage/healing, narrative, GM judgment, objects/terrain, information. If any of these is there but the schema cannot express it, answer `unsure: true` and name the missing piece in `note` (e.g. "missing: push 10 ft", "missing: -2 penalty without effect link").
+- `null` (nothing to automate) ONLY when the text has no condition, effect, persistent damage, forced movement (push, pull, knock prone), numeric bonus/penalty, weakness/resistance, immunity or duration: pure damage/healing, narrative, GM judgment, objects/terrain, information. If any of these is there but the schema cannot express it, answer `unsure: true` and name the missing piece in `note` (e.g. "missing: teleport target 30 ft", "missing: -2 penalty without effect link"). Push and pull of the target are NOT missing: use the "move" step. Teleport, "move the target to a square you choose" and "force it to Stride" stay unsure.
 
 # When to answer unsure (do NOT write an onUse rule for these)
 - The effect happens on a trigger rather than on use: "when it hits / Strikes", "when it dies", "when a creature enters or starts its turn in the aura", "whenever ...". Answer `unsure: true` (put `rule: null`).
@@ -117,7 +118,11 @@ Rules of thumb:
 ```json
 {"v":1,"label":"Spun Cloud","onUse":{"targets":"area","zone":{"duration":{"seconds":60},"triggers":[{"on":"turn-end","challenge":{"statistic":"fortitude","dc":{"value":25},"traits":["olfactory","poison"],"basic":false,"byDegree":{"failure":[{"to":"target","condition":{"slug":"sickened","value":1}}],"criticalFailure":[{"to":"target","condition":{"slug":"sickened","value":2}}]}}}]},"apply":[]}}
 ```
-15. Repeat save at the end of the target's turn (spell `save will`): "Failure: the target is slowed 1. At the end of each of its turns it can attempt another Will save to end the effect."
+15. Save with a push and prone (spell `save fortitude`): "Success: the target is pushed 5 feet. Failure: the target is pushed 10 feet and knocked prone. Critical Failure: pushed 20 feet and prone." Prone and push are two steps; push distance differs per degree:
+```json
+{"v":1,"label":"Gust","onUse":{"targets":"selected","challenge":{"statistic":"fortitude","dc":{"source":"spell"},"basic":false,"byDegree":{"success":[{"to":"target","move":{"mode":"push","distance":5}}],"failure":[{"to":"target","condition":{"slug":"prone"}},{"to":"target","move":{"mode":"push","distance":10}}],"criticalFailure":[{"to":"target","condition":{"slug":"prone"}},{"to":"target","move":{"mode":"push","distance":20}}]}}}}
+```
+16. Repeat save at the end of the target's turn (spell `save will`): "Failure: the target is slowed 1. At the end of each of its turns it can attempt another Will save to end the effect."
 ```json
 {"v":1,"label":"Undermine Reality","onUse":{"targets":"selected","challenge":{"statistic":"will","dc":{"source":"spell"},"basic":false,"byDegree":{"failure":[{"to":"target","condition":{"slug":"slowed","value":1},"repeat":{"on":"turn-end","end":["success","criticalSuccess"]}}]}}}}
 ```

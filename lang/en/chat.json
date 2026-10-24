@@ -41,6 +41,7 @@
       "stepChoose": { "allies": "choose an ally", "enemies": "choose an enemy", "options": "choose an option: {options}" },
       "stepDamage": "{formula} damage ({type})",
       "stepHeal": "{formula} healing",
+      "stepMove": { "push": "push {distance} ft away from the author", "pull": "pull up to {distance} ft toward the author" },
       "stepBasic": "(basic save)",
       "stepReduce": "reduce {what} by {n}",
       "stepRemoveParty": "remove {what} from party members",
@@ -105,6 +106,14 @@
       "ask": "Did {name}'s invisibility end? (hostile action)",
       "remove": "Remove effect",
       "askUnknown": "{name} took a hostile action, but this invisibility was not applied by the module (spell rank unknown). Did it end?"
+    },
+    "moveSkip": {
+      "noOrigin": "{name}: {target} not moved — author token not found.",
+      "scene": "{name}: {target} not moved — tokens must be on the current scene.",
+      "grid": "{name}: {target} not moved — needs a square or hex grid of 5 ft cells.",
+      "same": "{name}: {target} not moved — target and author are at the same point.",
+      "blocked": "{name}: {target} not moved — the way is blocked (wall or creature).",
+      "undone": "{target}: position not restored — the token was moved since."
     },
     "visSkip": {
       "noToken": "{name}: visibility not set — author or target token not found.",

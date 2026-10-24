@@ -75,7 +75,7 @@ function stepFields(row, p, names) {
   const out = [
     F.seg(`${p}.to`, t("workshop.au.stepTo"), row.to, ["target", "self", "party", "allies", "chosen"].map((k) => [k, t(`sheet.to.${k}`)])),
     ...(row.to === "allies" ? [F.num(`${p}.range`, t("sheet.row.range"), row.range, { min: 5, placeholder: "30" })] : []),
-    F.sel(`${p}.kind`, t("workshop.au.stepKind"), row.kind, sheetChoices("row", ["condition", "effect", "note", "visibility", "persistent", "remove", "removeEffect", "extendEffect", "rollOption", "damage", "choose"]))
+    F.sel(`${p}.kind`, t("workshop.au.stepKind"), row.kind, sheetChoices("row", ["condition", "effect", "note", "visibility", "persistent", "remove", "removeEffect", "extendEffect", "rollOption", "damage", "choose", "move"]))
   ];
   const rank = [F.num(`${p}.rankMin`, t("sheet.row.rankMin"), row.rankMin, { min: 1 }), F.num(`${p}.rankMax`, t("sheet.row.rankMax"), row.rankMax, { min: 1 })];
   if (row.kind === "remove") out.push(F.sel(`${p}.text`, t("workshop.au.condition"), row.text, { "": "—", ...Object.fromEntries(grantable().map((c) => [c.slug, c.label])) }));
@@ -99,6 +99,7 @@ function stepFields(row, p, names) {
     F.sel(`${p}.pType`, t("workshop.au.persType"), row.pType, [["healing", t("workshop.au.healing")], ...DAMAGE_TYPES.map((v) => [v, damageLabel(v)])]),
     F.chk(`${p}.dmgBasic`, t("workshop.au.dmgBasic"), row.dmgBasic)
   );
+  else if (row.kind === "move") out.push(F.num(`${p}.text`, t("workshop.au.moveDist"), row.text, { min: 5, placeholder: "10" }), F.sel(`${p}.moveMode`, t("workshop.au.moveMode"), row.moveMode, sheetChoices("moveMode", ["push", "pull"])));
   else if (row.kind === "choose") out.push(F.text(`${p}.text`, t("workshop.au.chooseJson"), row.text, { cls: "ws-grow", placeholder: "{\"from\":\"allies\"}" }));
   else if (row.kind === "removeEffect") out.push(F.text(`${p}.text`, t("workshop.au.effectRef"), row.text, { drop: "effect", cls: "ws-grow", hint: names.get(row.text) ?? "" }), F.chk(`${p}.ofOrigin`, t("workshop.au.ofOrigin"), row.ofOrigin));
   else if (row.kind === "extendEffect") out.push(F.text(`${p}.text`, t("workshop.au.effectSlug"), row.text, { cls: "ws-grow" }), F.num(`${p}.value`, t("workshop.au.extendRounds"), row.value, { min: 1 }));
@@ -306,6 +307,7 @@ export class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
     const a = this.#au, rows = foundry.utils.getProperty(a, list), row = { ...blankRow(), kind, text, to: /^f\.ev\.\d+\.apply$/.test(list) || a.f.targets === "self" ? "self" : "target" };
     if (kind === "condition" && condValued(text)) row.value = "1";
     if (kind === "persistent" || kind === "damage") row.text = "1d6";
+    if (kind === "move") Object.assign(row, { text: "10", to: "target" });
     if (kind === "choose") Object.assign(row, { text: "{\"from\":\"allies\"}", to: "self" });
     rows.push(row);
     a.sel = `${list}.${rows.length - 1}`;

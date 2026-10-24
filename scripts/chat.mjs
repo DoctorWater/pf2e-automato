@@ -100,6 +100,7 @@ export function stepText(a, env, defTo) {
   if (a.removeEffect) return say("stepRemove", t("chat.stepEffect", { name: a.removeEffect.uuid ? env.uuidName(a.removeEffect.uuid) ?? a.removeEffect.uuid : a.removeEffect.slug }));
   if (a.extendEffect) return say("step", t("chat.stepExtend", a.extendEffect));
   if (a.rollOption) return say("step", t(a.rollOption.value === false ? "chat.stepOptionOff" : "chat.stepOption", { option: a.rollOption.option }));
+  if (a.move) return say("step", t(`chat.stepMove.${a.move.mode}`, { distance: a.move.distance }));
   if (a.damage) return say("step", t(a.damage.damageType === "healing" ? "chat.stepHeal" : "chat.stepDamage", { formula: persFormulaText(a.damage.formula, t), type: env.damageLabel?.(a.damage.damageType) ?? a.damage.damageType }) + (a.damage.basic ? ` ${t("chat.stepBasic")}` : ""));
   if (a.condition?.policy === "reduce") return say("step", t("chat.stepReduce", { what: env.conditionLabel(a.condition.slug), n: a.condition.value ?? 1 }));
   const what = p ? t("chat.stepPersistent", { formula: persFormulaText(p.formula, t), type: env.damageLabel?.(p.damageType) ?? p.damageType }) + (p.dc && p.dc !== 15 ? ` (${t("chat.dc", { dc: p.dc })})` : "")

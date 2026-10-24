@@ -173,8 +173,8 @@ function vApply(a, path, defTo, err, basicOk = false) {
   // move — принудительное перемещение цели: push — от токена автора, pull — к нему; distance в футах (кратно 5). Только to:"target"; дистанция по степени — отдельными шагами в byDegree
   if (a.move != null) {
     const m = a.move;
-    if (!isObj(m) || !["push", "pull"].includes(m.mode) || !(isInt(m.distance) && m.distance >= 5 && m.distance % 5 === 0) || out.to !== "target" || Object.keys(m).some((k) => !["mode", "distance"].includes(k))) err.push(E("move.bad", `${path}.move`));
-    else out.move = { mode: m.mode, distance: m.distance };
+    if (!isObj(m) || !["push", "pull"].includes(m.mode) || !(isInt(m.distance) && m.distance >= 5 && m.distance % 5 === 0) || out.to !== "target" || (m.from != null && !["origin", "point"].includes(m.from)) || Object.keys(m).some((k) => !["mode", "distance", "from"].includes(k))) err.push(E("move.bad", `${path}.move`));
+    else out.move = { mode: m.mode, distance: m.distance, ...(m.from === "point" && { from: "point" }) };   // from:"point" — центр области этого использования; где она есть, решает vOnUse
   }
   if (a.effect != null) {
     // mods — inline-эффект из кубиков (scripts/inline-effect.mjs): срок обязателен и конечный (APPLY_UNITS без unlimited); значок/замена/метка/выбор/unlessEffect с ним не сочетаются
@@ -254,6 +254,7 @@ function vApplyList(list, path, defTo, err, basicOk = false) {
 export const TRIGGER_ON = ["enter", "turn-start", "turn-end"];
 export const TRIGGER_PER = ["round", "turn"];
 const hasMove = (list) => list.some((a) => a?.move);
+const movesOf = (list) => list.filter((a) => a?.move).map((a) => a.move);
 function vTrigger(t, path, err) {
   if (!isObj(t)) { err.push(E("notObj", path)); return null; }
   const out = {};
@@ -443,8 +444,10 @@ function vOnUse(u, err) {
     if (out.check && !out.check.vs && (u.targets !== "self" || out.check.immunity)) err.push(E("chk.noVsSelf", "onUse.check"));
   }
   out.apply = vApplyList(u.apply, "onUse.apply", "self", err);
-  // ponytail: эманацию вокруг автора от области не отличить (формы зоны в схеме нет) — move при targets:"area" запрещён целиком
-  if (u.targets === "area" && [out.apply, ...Object.values(out.challenge?.byDegree ?? {}), ...Object.values(out.check?.byDegree ?? {})].some(hasMove)) err.push(E("move.bad", "onUse.targets"));
+  // ponytail: эманацию вокруг автора от области не отличить (формы зоны в схеме нет) — в области move только from:"point" (эманация = центр рамки, т.е. автор)
+  // from:"point" — только с областью; в области толкать от автора нельзя (см. выше)
+  const moves = [out.apply, ...Object.values(out.challenge?.byDegree ?? {}), ...Object.values(out.check?.byDegree ?? {})].flatMap(movesOf);
+  if (moves.some((m) => (u.targets === "area") !== (m.from === "point"))) err.push(E("move.bad", "onUse.targets"));
   // self-шаги onUse.apply идут без цели: наблюдатель-автор не видит субъекта-«цель»
   out.apply.forEach((a, i) => { if (a.visibility && a.to === "self") err.push(E("vis.selfNoTarget", `onUse.apply[${i}].visibility`)); });
   return out;
@@ -497,6 +500,8 @@ function vEvent(e, i, err) {
   if (apply.length) out.apply = apply;
   if (e.challenge != null) { const c = vChallenge(e.challenge, `${path}.challenge`, err); if (c) out.challenge = c; }
   if (!apply.length && e.challenge == null) err.push(E("ev.empty", path));
+  // у события нет области использования: from:"point" некуда указывать
+  if ([apply, ...Object.values(out.challenge?.byDegree ?? {})].some((l) => movesOf(l).some((m) => m.from === "point"))) err.push(E("move.bad", `${path}.apply`));
   return out;
 }
 

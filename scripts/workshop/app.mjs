@@ -99,7 +99,7 @@ function stepFields(row, p, names) {
     F.sel(`${p}.pType`, t("workshop.au.persType"), row.pType, [["healing", t("workshop.au.healing")], ...DAMAGE_TYPES.map((v) => [v, damageLabel(v)])]),
     F.chk(`${p}.dmgBasic`, t("workshop.au.dmgBasic"), row.dmgBasic)
   );
-  else if (row.kind === "move") out.push(F.num(`${p}.text`, t("workshop.au.moveDist"), row.text, { min: 5, placeholder: "10" }), F.sel(`${p}.moveMode`, t("workshop.au.moveMode"), row.moveMode, sheetChoices("moveMode", ["push", "pull"])));
+  else if (row.kind === "move") out.push(F.num(`${p}.text`, t("workshop.au.moveDist"), row.text, { min: 5, placeholder: "10" }), F.sel(`${p}.moveMode`, t("workshop.au.moveMode"), row.moveMode, sheetChoices("moveMode", ["push", "pull"])), F.sel(`${p}.moveFrom`, t("workshop.au.moveFrom"), row.moveFrom ?? "origin", sheetChoices("moveFrom", ["origin", "point"])));
   else if (row.kind === "choose") out.push(F.text(`${p}.text`, t("workshop.au.chooseJson"), row.text, { cls: "ws-grow", placeholder: "{\"from\":\"allies\"}" }));
   else if (row.kind === "removeEffect") out.push(F.text(`${p}.text`, t("workshop.au.effectRef"), row.text, { drop: "effect", cls: "ws-grow", hint: names.get(row.text) ?? "" }), F.chk(`${p}.ofOrigin`, t("workshop.au.ofOrigin"), row.ofOrigin));
   else if (row.kind === "extendEffect") out.push(F.text(`${p}.text`, t("workshop.au.effectSlug"), row.text, { cls: "ws-grow" }), F.num(`${p}.value`, t("workshop.au.extendRounds"), row.value, { min: 1 }));

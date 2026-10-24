@@ -266,6 +266,44 @@ async () => {
     t.ok(!e.msgs(t0).some((x) => String(x.content).includes("data-af-react-strike")), "шёпота реакции нет");
   });
 
+  // Область (from:"point"): карточка использования с targets:"area" + круглый регион pf2e (burst) с messageId; цели NPC бросают сами при d20=1.
+  const areaRule = (distance) => ({ v: 1, onUse: { targets: "area", challenge: { statistic: "fortitude", dc: { value: 20 }, basic: false, rollerRole: "target",
+    byDegree: { failure: [{ to: "target", move: { mode: "push", distance, from: "point" } }], criticalFailure: [{ to: "target", move: { mode: "push", distance, from: "point" } }] } } } });
+  /** Автор далеко в стороне (150,1050), цели NPC в клетках (x, 500) для x из xs; круг радиуса r в (cx, 550). Возвращает токены целей и сообщение. */
+  const burst = async (e, distance, xs, cx, r) => {
+    openChat(); needMode("mode.challenge", "off"); needMode("mode.apply", "off", "button");
+    const pc = await e.pc("автор"), tP = await e.tok(pc, 100, 1000, 1);
+    const toks = [];
+    for (const [i, x] of xs.entries()) toks.push(await e.tok(await e.foe(`цель ${i}`), x, 500, -1));
+    await wait(700);
+    const item = await e.ruleItem(pc, areaRule(distance));
+    await e.fix(1);
+    const t0 = e.since();
+    await e.aim(tP);
+    await bound("item.toMessage", item.toMessage(undefined, { create: true }));
+    const m = await waitFor(() => e.msgs(t0).find((x) => x.flags?.pf2e?.origin?.uuid === item.uuid && x.flags?.[MOD]?.use), 10000);
+    if (!m) throw new Error("у карточки области нет снимка use");
+    if (e.use(m).state?.yielded) throw new Skip(`правило уступает pf2e-automations (${e.use(m).state.yielded})`);
+    await e.scene.createEmbeddedDocuments("Region", [{ name: `${PFX}взрыв`, color: "#aa0000", shapes: [{ type: "circle", hole: false, x: cx, y: 550, radius: r }], behaviors: [], flags: { pf2e: { messageId: m.id, areaShape: "burst" } } }]);
+    await waitFor(() => (e.use(m)?.state?.area?.keys?.length ?? 0) >= xs.length, 10000);
+    await wait(2500);
+    return { toks, m };
+  };
+
+  sc("point", "from:point: цель (600) вытолкнута от центра взрыва (550) вправо на 10 фт (-> 800), а не по лучу от автора (он внизу слева)", async (e, t) => {
+    const { toks: [v], m } = await burst(e, 10, [600], 550, 150);
+    t.ok((e.use(m)?.state?.area?.keys ?? []).includes(v.id), `цель не попала в область: ${JSON.stringify(e.use(m)?.state?.area)}; проверка testInsideRegion`);
+    t.ok(await waitFor(() => at(posOf(v, e), 800, 500), 6000), `позиция ${JSON.stringify(posOf(v, e))}, ждали (800,500); от автора вышло бы по диагонали вверх-вправо`);
+    const ops = e.use(m)?.state?.challenge?.applied?.[v.id]?.ops ?? [];
+    t.ok(ops.some((o) => o.op === "moved" && o.to?.x === 800), `журнал: ${JSON.stringify(ops)}`);
+  });
+
+  sc("order", "Порядок в auto: три цели в ряд (600/700/800) выталкиваются на 5 фт от центра (550) — все сдвинуты (700/800/900), дальняя первой", async (e, t) => {
+    const { toks, m } = await burst(e, 5, [600, 700, 800], 550, 400);
+    t.ok(Object.keys(e.use(m)?.state?.challenge?.results ?? {}).length === 3, `результатов ${Object.keys(e.use(m)?.state?.challenge?.results ?? {}).length} из 3: ${JSON.stringify(e.results(m))}`);
+    for (const [i, v] of toks.entries()) t.ok(await waitFor(() => at(posOf(v, e), 700 + i * 100, 500), 6000), `цель ${i}: ${JSON.stringify(posOf(v, e))}, ждали (${700 + i * 100},500) — ближняя упёрлась в неподвинутую соседку, если порядок «ближние первыми»`);
+  });
+
   // ---------- прогон ----------
   const rows = [];
   const pick = S.filter((s) => (!opts.only || opts.only.includes(s.id)) && !opts.skip.includes(s.id));

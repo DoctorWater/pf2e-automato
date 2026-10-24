@@ -6,7 +6,7 @@ import { headOf } from "./builtin/lib.mjs";
 import { inRange } from "./range.mjs";
 import { toolbeltTargetHelper, toolbeltMessageTargets } from "./compat.mjs";
 import { applyOps, opposed } from "./apply.mjs";
-import { moveOrder } from "./move.mjs";
+import { moveOrder, areaPoint } from "./move.mjs";
 import { challengeWho } from "./rules.mjs";
 import { testPredicate } from "./predicate.mjs";
 import { runMacros } from "./macros.mjs";
@@ -323,8 +323,14 @@ async function afterRecord(messageId, tokenKey) {
     const hasSteps = DEGREES.some((d) => by[d]?.length) || !!ch.immunity;
     const hasMacros = useOf(message).rule.macros?.some((m) => m.phase === "onDegree");
     const apply = modeOf("apply");
-    if (apply === "auto" && useOf(message).confidence !== "low" && (hasSteps || hasMacros)) await applyByDegree(messageId, tokenKey);
-    if (await allResolved(message)) await afterChallenge(message);
+    // шаг move: в auto ждём результаты всех целей и применяем разом (дальние первыми); applyByDegree("all") сам зовёт afterChallenge
+    const hasMove = Object.values(by).flat().some((s) => s?.move);
+    let ranAll = false;
+    if (apply === "auto" && useOf(message).confidence !== "low" && (hasSteps || hasMacros)) {
+      if (!hasMove) await applyByDegree(messageId, tokenKey);
+      else if (await allResolved(message)) { await applyByDegree(messageId, "all"); ranAll = true; }
+    }
+    if (!ranAll && await allResolved(message)) await afterChallenge(message);
   } catch (e) { console.error(`${MOD} | afterRecord`, e); }
   if (modeOf("apply") === "auto" && useOf(game.messages.get(messageId))?.confidence !== "low") await markTried(messageId, "autoTried", tokenKey);
 }
@@ -346,9 +352,12 @@ export function applyByDegree(messageId, tokenKey) {
     const all = tokenKey === "all";
     const ops = [];
     // толчок идёт от дальних целей к ближним, притяжение — наоборот (передний не мешает заднему)
+    const moveSteps = Object.values(ch.byDegree ?? {}).flat();
+    const fromPoint = moveSteps.find((s) => s?.move)?.move.from === "point";   // отсчёт от центра области, не от автора
     const originDoc = all && use.token ? await fromUuid(use.token) : null;
     const centreOf = (t) => ({ x: t.x + (t.width * (t.parent?.grid?.size ?? 100)) / 2, y: t.y + (t.height * (t.parent?.grid?.size ?? 100)) / 2 });
-    const order = originDoc ? moveOrder(Object.values(ch.byDegree ?? {}).flat(), targets.map((e) => ({ ...centreOf(e.token), e })), centreOf(originDoc)).map((i) => i.e) : targets;
+    const from = all ? (fromPoint && areaPoint(use)) || (originDoc ? centreOf(originDoc) : null) : null;   // нет точки — как при откате шага: от автора
+    const order = from ? moveOrder(moveSteps, targets.map((e) => ({ ...centreOf(e.token), e })), from).map((i) => i.e) : targets;
     for (const { key, token } of order) {
       if (!all && key !== tokenKey) continue;
       const r = useOf(message).state?.challenge?.results?.[key];

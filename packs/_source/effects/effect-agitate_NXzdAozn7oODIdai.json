@@ -1,0 +1,57 @@
+{
+  "_id": "NXzdAozn7oODIdai",
+  "name": "Effect: Agitate",
+  "type": "effect",
+  "img": "icons/svg/aura.svg",
+  "system": {
+    "description": {
+      "value": "<p>You are restless and hyperactive. You must Stride, Fly, or Swim at least once each turn or take 2d8 mental damage at the end of your turn (more if the spell was heightened).</p>"
+    },
+    "duration": {
+      "expiry": "turn-start",
+      "sustained": false,
+      "value": 1,
+      "unit": "rounds"
+    },
+    "level": {
+      "value": 1
+    },
+    "publication": {
+      "license": "",
+      "remaster": false,
+      "title": ""
+    },
+    "rules": [],
+    "start": {
+      "initiative": null,
+      "value": 0
+    },
+    "tokenIcon": {
+      "show": true
+    },
+    "traits": {
+      "rarity": "common",
+      "value": []
+    },
+    "slug": "effect-agitate"
+  },
+  "effects": [],
+  "folder": null,
+  "sort": 0,
+  "ownership": {
+    "default": 0
+  },
+  "flags": {},
+  "_stats": {
+    "coreVersion": "14.366",
+    "systemId": "pf2e",
+    "systemVersion": "8.6.1",
+    "createdTime": null,
+    "modifiedTime": null,
+    "lastModifiedBy": null,
+    "compendiumSource": null,
+    "duplicateSource": null,
+    "exportSource": null
+  },
+  "_key": "!items!NXzdAozn7oODIdai"
+}

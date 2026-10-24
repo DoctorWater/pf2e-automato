@@ -20,7 +20,16 @@ const MASK = {
     byDegree: { failure: [afraid(2)], criticalFailure: [afraid(2)] } } }]
 };
 
+/** Убеждение (Agitate): цель должна Идти/Лететь/Плыть каждый ход, иначе 2d8 психического урона в конце хода (на круг заклинания больше). Носитель — эффект на цели: его уровень = круг сотворения, от него растёт урон; двигалась ли цель, спрашивает окно (шаг choose). Урон не помечен нелетальным: признак nonlethal схема не передаёт. */
+const AGITATE = {
+  v: 1, label: "Agitate",
+  onEvent: [{ on: "turn-end", side: "self", apply: [
+    { to: "self", choose: { from: "options", options: [{ value: "agitate-moved" }, { value: "agitate-idle" }] } },
+    { to: "self", when: ["choice:agitate-idle"], damage: { formula: "(@item.rank*2)d8", damageType: "mental" } }] }]
+};
+
 export const CARRIERS = {
   "Compendium.pf2e.equipment-effects.Item.UhV9TLdFjtSOppog": VERMIN,
-  "Compendium.pf2e-automato.effects.Item.Pdq3C29GY18nbVg9": MASK
+  "Compendium.pf2e-automato.effects.Item.Pdq3C29GY18nbVg9": MASK,
+  "Compendium.pf2e-automato.effects.Item.NXzdAozn7oODIdai": AGITATE
 };

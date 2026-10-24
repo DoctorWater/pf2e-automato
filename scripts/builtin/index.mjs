@@ -103,7 +103,7 @@ export function initBuiltinHooks() {
   const gmMacro = (id, fn) => (...a) => { if (isActiveGM() && modeOf("macro") !== "off") Promise.resolve().then(() => fn(...a)).catch((e) => console.error(`${MOD} | builtin ${id}`, e)); };
   Hooks.on("pf2e.endTurn", gmMacro("suffocation turn", suffocation.onEndTurn));
   Hooks.on("deleteItem", gmMacro("suffocation", suffocation.onDelete));
-  Hooks.on("deleteItem", gmMacro("rage", rage.onDelete));
+  Hooks.on("deleteItem", (item, options, ...rest) => { if (!options?.[MOD]?.undo) return gmMacro("rage", rage.onDelete)(item, options, ...rest); });   // откат модулем — ярости не было, иммунитета нет
   Hooks.on("createItem", gmMacro("prey-share hunt", preyShare.onCreate));
   gear.init();   // выдача и уборка временного снаряжения (уборка не зависит от режима макросов)
   Hooks.on("renderChatMessageHTML", strikeEffects.bind);

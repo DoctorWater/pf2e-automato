@@ -186,15 +186,28 @@ export async function runEntry(ev, owner, { item, rule }, { i, entry }, sink = n
   return res.recs.length || res.host ? res : null;
 }
 
+/** Опции `origin-effect:<slug>` для владельца side:origin: эффекты «другого» (носителя), автор которых — именно этот владелец (не любой автор любого эффекта). */
+export async function originEffectOptions(carrier, owner) {
+  const out = [];
+  for (const e of carrier?.items?.filter?.((i) => i.type === "effect") ?? []) {
+    const au = e.system?.context?.origin?.actor;
+    if (!au || (au !== owner.uuid && (await safeDoc(au))?.uuid !== owner.uuid)) continue;
+    const slug = e.slug ?? e.system?.slug;
+    if (slug) for (const s of new Set([slug, slug.replace(/^(?:spell-)?effect-/, "")])) out.push(`origin-effect:${s}`);
+  }
+  return out;
+}
+
 /** Все владельцы события с подходящими записями. parties: { self:[Actor], target:[Actor], origin:[Actor] }. */
 async function runEvent(ev, on, parties) {
   const log = [];
   for (const side of ["self", "target", "origin"]) {
     for (const owner of parties[side] ?? []) {
+      const options = side === "origin" ? new Set([...ev.options, ...(await originEffectOptions(ev.otherFor(side), owner))]) : ev.options;
       for (const found of eventItems(owner)) {
         if (compat.shouldYield(found.rule, { slug: rules.slugOf(null, found.item), sourceUuid: rules.sourceOf(null, found.item) })) continue;
-        for (const m of matchEntries(found.rule, on, side, ev.options)) {
-          try { await runEntry({ ...ev, other: ev.otherFor(side), otherToken: ev.otherTokenFor(side) }, owner, found, m, log); }
+        for (const m of matchEntries(found.rule, on, side, options)) {
+          try { await runEntry({ ...ev, options, other: ev.otherFor(side), otherToken: ev.otherTokenFor(side) }, owner, found, m, log); }
           catch (e) { console.error(`${MOD} | event ${found.item.name}[${m.i}]`, e); }   // одна запись не должна ронять остальные
         }
       }
@@ -327,8 +340,8 @@ async function actorEvent(on, evId, actor, { extra = [], effect = null } = {}) {
 }
 
 const onTurn = (on) => (combatant, encounter) => actorEvent(on, `turn:${encounter?.id}:${encounter?.round}:${encounter?.turn}:${combatant?.id}:${on}`, combatant?.actor).catch((e) => console.error(`${MOD} | events ${on}`, e));
-const onItem = (on) => (item) => {
-  if (item?.type !== "effect" || !item.parent?.items || isOwnEffect(item) || !guardActiveGM()) return;
+const onItem = (on) => (item, options) => {
+  if (item?.type !== "effect" || !item.parent?.items || isOwnEffect(item) || options?.[MOD]?.undo || !guardActiveGM()) return;
   actorEvent(on, `item:${item.id}:${on}`, item.parent, { extra: [...(item.getRollOptions?.("item") ?? []), ...effectOptions(item)], effect: item }).catch((e) => console.error(`${MOD} | events ${on}`, e));
 };
 

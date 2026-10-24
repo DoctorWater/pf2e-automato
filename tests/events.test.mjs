@@ -572,3 +572,55 @@ test("spell-cast: самоприменяемое заклинание без ц�
   assert.equal(msgs.get("SS1").flags[MOD].events[0].recs[0].tk, "self");
   assert.equal(created.length, 0);
 });
+
+test("side:origin на ходе цели: опции origin-effect:<slug> только по эффектам этого автора; откат кнопкой «Отменить» не даёт effect-deleted", async () => {
+  const handlers = {};
+  globalThis.Hooks = { on: (name, fn) => { (handlers[name] ??= []).push(fn); } };
+  ev.init();
+  const rule = validate({ v: 1, onEvent: [{ on: "turn-end", side: "origin", when: ["origin-effect:mark"], apply: [{ to: "target", removeEffect: { slug: "tag" } }] }] }).rule;
+  const ally = mkActor("Actor.ally", [mkFeat("spellcaster", rule)]);
+  const fx = (id, slug, origin) => mkEffect({ id, slug, actor: "victim", origin });
+  // метку поставил другой автор, у союзника только его Героизм — правило союзника молчит
+  const tag1 = fx("t1", "tag", "Actor.ally");
+  const victim = mkActor("Actor.victim", [fx("m1", "mark", "Actor.wizard"), fx("h1", "heroism", "Actor.ally"), tag1]);
+  const endTurn = (round) => handlers["pf2e.endTurn"][0]({ id: "c1", actor: victim }, { id: "E1", round, turn: 0 }).then(() => new Promise((r) => setTimeout(r, 5)));
+  await endTurn(1);
+  assert.equal(tag1.deleted, false);
+  assert.deepEqual(await ev.originEffectOptions(victim, ally), ["origin-effect:heroism", "origin-effect:tag"]);
+  // метка союзника — срабатывает
+  victim.items.push(fx("m2", "mark", "Actor.ally")); victim.items.at(-1).actor = victim; victim.items.at(-1).parent = victim; victim.itemTypes.effect.push(victim.items.at(-1));
+  await endTurn(2);
+  assert.equal(tag1.deleted, true);
+
+  // effect-deleted: обычное снятие запускает событие, откат (опция undo) — нет
+  const rule2 = validate({ v: 1, onEvent: [{ on: "effect-deleted", side: "origin", when: ["effect:origin", "effect:slug:bites"], apply: [{ to: "target", removeEffect: { slug: "imm" } }] }] }).rule;
+  mkActor("Actor.wizard", [mkFeat("bites-rule", rule2)]);
+  const imm1 = fx("i1", "imm", "Actor.wizard"), imm2 = fx("i2", "imm", "Actor.wizard");
+  const v2 = mkActor("Actor.victim2", [imm1, imm2]);
+  const bites = (id) => { const b = mkEffect({ id, slug: "bites", actor: "victim2", origin: "Actor.wizard" }); b.actor = b.parent = v2; return b; };
+  handlers.deleteItem[0](bites("b1"), { [MOD]: { undo: true } });
+  await new Promise((r) => setTimeout(r, 5));
+  assert.equal(imm1.deleted, false);
+  handlers.deleteItem[0](bites("b2"), {});
+  await new Promise((r) => setTimeout(r, 5));
+  assert.equal(imm1.deleted, true);
+});
+
+test("Окаменение / Плоть в камень: на успехе метка снимается до снижения Замедления; есть метка и нет Замедления — метка снимается", async () => {
+  const { readFileSync } = await import("node:fs");
+  const cat = JSON.parse(readFileSync(new URL("../rules/catalog.pa.json", import.meta.url), "utf8"));
+  const MARK = "Compendium.pf2e-automato.effects.Item.PtrfyFailEffect1";
+  for (const rule of [cat.bySlug.petrify, cat.bySlug["flesh-to-stone"]]) {
+    const [turn, orphan] = rule.onEvent;
+    for (const d of ["criticalSuccess", "success"]) {
+      const steps = turn.challenge.byDegree[d];
+      const rm = steps.findIndex((s) => s.removeEffect?.uuid === MARK), red = steps.findIndex((s) => s.condition?.policy === "reduce");
+      assert.ok(rm >= 0 && rm < red, `${d}: removeEffect (when по Замедлению) должен идти до reduce`);
+    }
+    assert.deepEqual(turn.when, ["origin-effect:petrify-failure", "self:condition:slowed"]);
+    assert.equal(ev.matchEntries(rule, "turn-end", "origin", new Set(["origin-effect:petrify-failure"])).length, 1);   // только запись «метка без Замедления»
+    assert.equal(ev.matchEntries(rule, "turn-end", "origin", new Set(["origin-effect:petrify-failure"]))[0].entry, orphan);
+    assert.equal(ev.matchEntries(rule, "turn-end", "origin", new Set(["origin-effect:petrify-failure", "self:condition:slowed"])).length, 1);
+    assert.equal(orphan.apply[0].removeEffect.uuid, MARK);
+  }
+});

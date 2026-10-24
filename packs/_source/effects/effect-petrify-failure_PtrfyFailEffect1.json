@@ -1,0 +1,57 @@
+{
+  "_id": "PtrfyFailEffect1",
+  "name": "Effect: Petrify (Failure)",
+  "type": "effect",
+  "img": "icons/svg/aura.svg",
+  "system": {
+    "description": {
+      "value": "<p>Stone is spreading over your body. At the end of each of your turns you attempt a Fortitude save (incapacitation): on a failure the slowed condition increases by 1 (2 on a critical failure), on a success it decreases by 1. When you are fully unable to act because of slowed, you become @UUID[Compendium.pf2e.conditionitems.Item.dTwPJuKgBQCMxixg]{Petrified} permanently and the spell ends. The spell also ends if slowed is removed.</p>"
+    },
+    "duration": {
+      "expiry": null,
+      "sustained": false,
+      "value": -1,
+      "unit": "unlimited"
+    },
+    "level": {
+      "value": 6
+    },
+    "publication": {
+      "license": "",
+      "remaster": false,
+      "title": ""
+    },
+    "rules": [],
+    "start": {
+      "initiative": null,
+      "value": 0
+    },
+    "tokenIcon": {
+      "show": true
+    },
+    "traits": {
+      "rarity": "common",
+      "value": []
+    },
+    "slug": "effect-petrify-failure"
+  },
+  "effects": [],
+  "folder": null,
+  "sort": 0,
+  "ownership": {
+    "default": 0
+  },
+  "flags": {},
+  "_stats": {
+    "coreVersion": "14.366",
+    "systemId": "pf2e",
+    "systemVersion": "8.6.1",
+    "createdTime": null,
+    "modifiedTime": null,
+    "lastModifiedBy": null,
+    "compendiumSource": null,
+    "duplicateSource": null,
+    "exportSource": null
+  },
+  "_key": "!items!PtrfyFailEffect1"
+}

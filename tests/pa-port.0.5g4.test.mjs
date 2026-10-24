@@ -85,7 +85,7 @@ test("правила-носители на эффектах: валидны, ф�
     const v = validateRule(rule);
     assert.equal(v.ok, true, `${uuid}: ${v.errors?.join(";")}`);
     assert.equal(roundTrip(v.rule), true, uuid);
-    assert.ok(v.rule.onEvent.every((x) => x.side === "target" && x.challenge), uuid);
+    assert.ok(v.rule.onEvent.every((x) => (x.side === "target" && x.challenge) || (x.side === "self" && x.on === "turn-end" && x.apply)), uuid);   // Убеждение (0.5g «длящиеся»): носитель на цели, ход цели
   }
   const vermin = validateRule(CARRIERS["Compendium.pf2e.equipment-effects.Item.UhV9TLdFjtSOppog"]).rule;
   const hit = (opts) => events.matchEntries(vermin, "attack-roll", "target", new Set(opts)).length;
@@ -102,4 +102,21 @@ test("вложенные предметы оружия — носители пр
   const weapon = { type: "weapon", name: "Sword", slug: "sword", subitems: [statuette], flags: {}, system: {} };
   assert.deepEqual(events.eventItems({ items: [weapon] }).map((x) => x.item.name), ["Warding Statuette"]);
   assert.equal(validateRule({ v: 1, onEvent: [{ on: "attack-roll", apply: [{ to: "self", choose: { from: "options", options: ["a"], of: "target" } }] }] }).ok, false);   // of — только у существ
+});
+
+test("0.5g «длящиеся»: Окаменение, Обезвоживание, Убеждение, Жужжащие укусы, Колесо энтропии — правила в каталоге; событие хода цели срабатывает только с меткой", async () => {
+  const { readFileSync } = await import("node:fs");
+  const cat = JSON.parse(readFileSync(new URL("../rules/catalog.pa.json", import.meta.url), "utf8"));
+  const S = "Compendium.pf2e.spells-srd.Item.";
+  for (const id of ["znv4ECL7ZtuiagtA", "f9m9DayyGy3meqUX", "r8g7oSumKOHDqJsd", "BItahht2hEHvR9Bt", "X4T5RlQBrdpmA35n"]) {
+    const v = validateRule(cat.bySource[S + id]);
+    assert.equal(v.ok, true, `${id}: ${v.errors?.join(";")}`);
+    assert.equal(roundTrip(v.rule), true, id);
+  }
+  assert.ok(cat.bySlug["agitate@spell"] && !cat.bySlug.agitate, "заклинание — по slug с типом: ловушка-тёзка без спасброска правило не получает");
+  const petrify = validateRule(cat.bySource[S + "znv4ECL7ZtuiagtA"]).rule;
+  const turnEnd = (opts) => events.matchEntries(petrify, "turn-end", "origin", new Set(opts)).length;
+  assert.equal(turnEnd(["origin-effect:petrify-failure", "self:condition:slowed"]), 1);
+  assert.equal(turnEnd(["self:condition:slowed"]), 0);   // нет метки — Замедление от чего-то другого
+  assert.equal(turnEnd(["origin-effect:petrify-failure"]), 1);   // Замедление снято — срабатывает только запись «снять метку» (не спасбросок)
 });

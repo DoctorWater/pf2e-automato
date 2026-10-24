@@ -595,7 +595,7 @@ export async function undoOps(message, tokenKey) {
       const item = await fromUuid(o.item);
       if (!item?.actor) continue;
       await queue(`actor:${item.actor.uuid}`, async () => {
-        if (o.op === "created") await item.delete();
+        if (o.op === "created") await item.delete({ [MOD]: { undo: true } });   // откат — не «снятие эффекта»: events.onItem такие удаления игнорирует
         else if (o.op === "raised") await game.pf2e.ConditionManager.updateConditionValue(item.id, item.actor, o.prev);
         else if (o.op === "extended") await item.update({ "system.duration.value": o.prev.value, "system.duration.unit": o.prev.unit, "system.duration.expiry": o.prev.expiry ?? null, [`flags.${MOD}.bumped`]: (item.flags?.[MOD]?.bumped ?? []).filter((k) => k !== o.key) });
         else if (o.op === "badged") await item.update({ "system.badge.value": o.prev, [`flags.${MOD}.bumped`]: (item.flags?.[MOD]?.bumped ?? []).filter((k) => k !== o.key) });

@@ -705,7 +705,12 @@
   },
   "NXzdAozn7oODIdai": {
    "name": "Effect: Agitate",
-   "kind": "script"
+   "kind": "own",
+   "dur": {
+    "value": 1,
+    "unit": "rounds"
+   },
+   "authored": true
   },
   "O9UXbhiFWfAv6fEE": {
    "name": "Effect: Albatross Curse (Failure)",
@@ -967,7 +972,12 @@
   },
   "Vn57RpGjnNBtAfnj": {
    "name": "Spell Effect: Buzzing Bites",
-   "kind": "script"
+   "kind": "own",
+   "dur": {
+    "value": 1,
+    "unit": "minutes"
+   },
+   "authored": true
   },
   "WWAdkB7iRAEqcmWZ": {
    "name": "Effect: Mighty Rage",
@@ -1607,6 +1617,39 @@
    "dur": {
     "value": 0,
     "unit": "rounds"
+   },
+   "authored": true
+  },
+  "PtrfyFailEffect1": {
+   "name": "Effect: Petrify (Failure)",
+   "kind": "own",
+   "dur": null,
+   "authored": true
+  },
+  "DhydrateEffect01": {
+   "name": "Effect: Dehydrate",
+   "kind": "own",
+   "dur": {
+    "value": 1,
+    "unit": "minutes"
+   },
+   "authored": true
+  },
+  "BzzBitesCritEf01": {
+   "name": "Spell Effect: Buzzing Bites (Critical Failure)",
+   "kind": "own",
+   "dur": {
+    "value": 1,
+    "unit": "minutes"
+   },
+   "authored": true
+  },
+  "BzzBitesImmune01": {
+   "name": "Effect: Buzzing Bites Immunity",
+   "kind": "own",
+   "dur": {
+    "value": 1,
+    "unit": "minutes"
    },
    "authored": true
   }

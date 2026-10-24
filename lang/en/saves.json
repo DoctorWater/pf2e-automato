@@ -12,6 +12,7 @@
     "choose": {
       "opt": {
         "armor": "Armor", "weapon": "Weapon", "bullet": "Bullet", "bolt": "Bolt", "paralyzed": "Paralyzed for 4 rounds", "unconscious": "Unconscious for 2 hours", "killed": "Kill",
+        "agitate-moved": "Strode, flew or swam this turn (no damage)", "agitate-idle": "Did not move (takes damage)",
         "confused": "Confused", "disease": "Disease", "poison": "Poison", "sickened": "Sickened", "injuries": "Injuries",
         "speed": "Speed penalty", "enfeebled": "Enfeebled 1", "flanking": "Can't flank", "cover": "No bonus from cover", "precision": "Extra precision damage", "heartless": "Weakness to bleed and poison", "vicious": "Weakness to physical damage"
       }

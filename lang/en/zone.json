@@ -4,6 +4,7 @@
       "label": "pf2e-automato Zone",
       "hint": "Applies a condition/effect to tokens inside the area, removes it on exit and when the duration ends.",
       "name": "Zone",
+      "stayUnlinkFailed": "Could not detach the area from the caster token: it will close together with the token.",
       "FIELDS": {
         "condition": { "label": "Condition (slug)" },
         "conditionValue": { "label": "Condition value" },

@@ -236,3 +236,149 @@ test("fireZoneTrigger: токен не существо (isOfType) — карт�
   await ev.fireZoneTrigger(mkSysFull([{ on: "turn-end", challenge: CH }]), tok, "turn-end", { ...TURN_END, evId: "creature:turn-end", round: 41 });
   assert.equal(created.length, 1);
 });
+
+/* ---------- T4: эманация следует за токеном ---------- */
+
+const BASE = { x: 100, y: 200, width: 1, height: 1, shape: 4 };
+const tokenAt = (id, o = {}) => ({ id, _source: { ...BASE, ...o } });
+const emRegion = (o = {}) => ({ id: "R1", shapes: [{ type: "emanation", base: { type: "token", ...BASE }, radius: 15 }], parent: { tokens: [tokenAt("other", { x: 0 }), tokenAt("caster")] }, ...o });
+
+test("emanationToken: токен выводится из фигуры (x/y/размер/форма), не эманация и чужая база — null", async () => {
+  const { emanationToken } = await import("../scripts/zone.mjs");
+  assert.equal(emanationToken(emRegion()).id, "caster");
+  assert.equal(emanationToken({ ...emRegion(), shapes: [{ type: "circle", x: 100, y: 200, radius: 5 }] }), null);
+  assert.equal(emanationToken({ ...emRegion(), shapes: [{ type: "emanation", base: { type: "template", ...BASE } }] }), null);
+  assert.equal(emanationToken(emRegion({ parent: { tokens: [tokenAt("other", { y: 1 })] } })), null);
+  // отложенный запуск: заклинатель ушёл, точного совпадения нет — единственный токен актёра-автора
+  const moved = emRegion({ parent: { tokens: [{ ...tokenAt("a1", { x: 900 }), actor: { uuid: "Actor.A" } }, { ...tokenAt("b1", { x: 800 }), actor: { uuid: "Actor.B" } }] } });
+  assert.equal(emanationToken(moved), null);
+  assert.equal(emanationToken(moved, undefined, "Actor.A").id, "a1");
+  assert.equal(emanationToken(moved, undefined, "Actor.Z"), null);
+  const twins = emRegion({ parent: { tokens: [{ ...tokenAt("a1", { x: 900 }), actor: { uuid: "Actor.A" } }, { ...tokenAt("a2", { x: 800 }), baseActor: { uuid: "Actor.A" } }] } });
+  assert.equal(emanationToken(twins, undefined, "Actor.A"), null);   // двое — не гадаем
+  assert.equal(emanationToken({ ...moved, shapes: [{ type: "circle", x: 1, y: 2, radius: 5 }] }, undefined, "Actor.A"), null);
+});
+
+test("follow: валидатор пропускает только false", () => {
+  assert.equal(validate(zoneRule([{ on: "enter", challenge: CH }], { follow: false })).rule.onUse.zone.follow, false);
+  assert.equal(validate(zoneRule([{ on: "enter", challenge: CH }], { follow: true })).ok, false);
+  assert.equal(validate(zoneRule([{ on: "enter", challenge: CH }])).rule.onUse.zone.follow, undefined);
+});
+
+test("attachZone: эманация привязывается к токену ядром; follow:false и чужая фигура — нет", async () => {
+  const { attachZone } = await import("../scripts/zone.mjs");
+  game.time = { worldTime: 0 };
+  const run = async (z, o) => {
+    const updates = [], behaviors = [];
+    const region = { uuid: "Scene.s.Region.r", flags: {}, behaviors, ...emRegion(o), _source: {}, async update(d) { updates.push(d); }, async createEmbeddedDocuments(_, [d]) { const b = { ...d, system: d.system }; behaviors.push(b); return [b]; } };
+    await attachZone(region, zoneRule([{ on: "enter", challenge: CH }], z), {});
+    return updates;
+  };
+  assert.deepEqual(await run({}), [{ "attachment.token": "caster" }]);
+  assert.deepEqual(await run({ follow: false }), []);
+  assert.deepEqual(await run({}, { shapes: [{ type: "circle", x: 1, y: 1, radius: 5 }] }), []);
+});
+
+test("вход при наезде: boundary снимает состав, moveToken докладывает ход, tokenEnter(null) — новичку один раз; undo/config, снятие hidden, чужой регион — нет", async () => {
+  const calls = [], sys = { ...mkSys(calls), hold: async () => {} };
+  game.combats = [{ id: "C", started: true, round: 2, turn: 1, combatants: [{ tokenId: "t1" }] }];
+  let n = 0;
+  // порядок ядра: regionBoundary (наехавших в region.tokens ещё нет) -> moveToken заклинателя -> tokenEnter(null)
+  const mk = (tid, inside = []) => {
+    const carrier = { id: "caster" }, tokens = new Map([["caster", carrier]]);
+    const region = { id: `R${++n}`, _source: { attachment: { token: tid } }, tokens: new Set(inside.map((id) => ({ id }))), behaviors: [], parent: { tokens, regions: [] } };
+    region.parent.regions.push(region); carrier.parent = region.parent;
+    return { region, carrier };
+  };
+  const boundary = (r) => ZoneBehaviorType.events.regionBoundary.call({}, { region: r, data: {} });
+  const enter = (r, token = "t1") => ZoneBehaviorType.events.tokenEnter.call({ ...sys, region: r }, { data: { token: { id: token }, movement: null } });
+  const moved = (c, mv) => ZoneBehaviorType.onCarrierMoved(c, mv);
+
+  let { region, carrier } = mk("caster");
+  await boundary(region); await moved(carrier, { id: "mv1", method: "walk" });
+  await enter(region); await enter(region);   // второй раз тот же токен — не вход
+  assert.deepEqual(calls.map((c) => [c[1], c[2].evId]), [["enter", "enter:mv1"]]);
+
+  calls.length = 0;
+  await enter(region, "t2");   // другой новичок того же хода — вход
+  assert.equal(calls.length, 1);
+
+  calls.length = 0;
+  ({ region, carrier } = mk("caster", ["t1"]));   // уже внутри до хода (продолжение хода с тем же id) — не вход
+  await boundary(region); await moved(carrier, { id: "mv1", method: "walk" }); await enter(region);
+  assert.equal(calls.length, 0);
+  ({ region, carrier } = mk("caster"));   // продолжение хода: вторая граница с тем же movement.id снова даёт вход новичку
+  await boundary(region); await moved(carrier, { id: "mv1", method: "walk" });
+  await enter(region, "t3");
+  assert.equal(calls.length, 1);
+
+  calls.length = 0;
+  for (const mv of [{ id: "mv2", method: "undo" }, { id: "mv3", method: "config" }]) {
+    ({ region, carrier } = mk("caster")); await boundary(region); await moved(carrier, mv); await enter(region);
+  }
+  ({ region, carrier } = mk("caster")); await enter(region);   // снятие hidden / включение поведения: boundary не было — записи нет
+  ({ region, carrier } = mk(null)); await boundary(region); await moved(carrier, { id: "mv4", method: "walk" }); await enter(region);   // не привязан
+  assert.equal(calls.length, 0);
+
+  // сама жертва: config и undo — не вход, обычный ход — вход
+  const direct = (movement) => ZoneBehaviorType.events.tokenEnter.call({ ...sys, region }, ent({ movement }));
+  await direct({ id: "m1", method: "config" }); await direct({ id: "m2", method: "undo" });
+  assert.equal(calls.length, 0);
+  await direct({ id: "m3", method: "walk" });
+  assert.deepEqual(calls.map((c) => c[2].evId), ["enter:m3"]);
+});
+
+test("onCarrierMoved: enterBy:path пропускает отключённое поведение", async () => {
+  const parent = { grid: { size: 100, distance: 5 }, tokens: [], regions: [] };
+  const tk = (id, x, y) => ({ id, x, y, width: 1, height: 1, elevation: 0, depth: 1, actor: {}, parent });
+  const carrier = tk("c", 900, 300), near = tk("near", 500, 500);
+  parent.tokens.push(carrier, near);
+  game.combats = [];
+  const calls = [];
+  const mkR = (disabled) => ({ id: "R", _source: { attachment: { token: "c" } }, shapes: [{ type: "emanation", radius: 200, base: { type: "token" } }], behaviors: [{ type: `${MOD}.zone`, disabled, system: { enterBy: "path", trigger: async (t, on, e) => calls.push([t.id, e.evId]) } }] });
+  const mv = { id: "m", method: "walk", origin: { x: 100, y: 300, width: 1, height: 1 }, destination: { x: 900, y: 300, width: 1, height: 1 }, passed: { waypoints: [] } };
+  parent.regions = [mkR(true)]; await ZoneBehaviorType.onCarrierMoved(carrier, mv);
+  assert.equal(calls.length, 0);
+  parent.regions = [mkR(false)]; await ZoneBehaviorType.onCarrierMoved(carrier, mv);
+  assert.deepEqual(calls, [["near", "enter:m"]]);
+});
+
+test("markZoneGone: удаление региона не нами закрывает карточку; уже истёкшая не перезаписывается", async () => {
+  const { markZoneGone } = await import("../scripts/zone.mjs");
+  const mk = (status) => {
+    const m = { id: "m1", flags: { [MOD]: { use: { state: { zone: { regionUuid: "Scene.s.Region.r", status } } } } }, updates: [], async update(u) { this.updates.push(u); } };
+    msgs.set("m1", m);
+    return { m, region: { uuid: "Scene.s.Region.r", behaviors: [{ type: `${MOD}.zone`, system: { messageId: "m1" } }] } };
+  };
+  let t = mk("active"); await markZoneGone(t.region);
+  assert.deepEqual(t.m.updates, [{ [`flags.${MOD}.use.state.zone.status`]: "closed" }]);
+  t = mk("expired"); await markZoneGone(t.region);
+  assert.equal(t.m.updates.length, 0);
+});
+
+test("enterBy/onCarrierGone: валидатор и форма мастерской туда-обратно", () => {
+  const tr = [{ on: "enter", challenge: CH }];
+  const z = validate(zoneRule(tr, { enterBy: "path", onCarrierGone: "stay", follow: false })).rule.onUse.zone;
+  assert.deepEqual([z.enterBy, z.onCarrierGone, z.follow], ["path", "stay", false]);
+  assert.equal(validate(zoneRule(tr, { enterBy: "never" })).ok, false);
+  assert.equal(validate(zoneRule(tr, { onCarrierGone: "x" })).ok, false);
+  const plain = validate(zoneRule(tr)).rule.onUse.zone;
+  assert.deepEqual([plain.enterBy, plain.onCarrierGone], [undefined, undefined]);   // по умолчанию — без ключей
+  const rule = validate(zoneRule(tr, { enterBy: "path", onCarrierGone: "stay", follow: false })).rule;
+  assert.deepEqual(formToRule(ruleToForm(rule)).onUse.zone, validate(formToRule(ruleToForm(rule))).rule.onUse.zone);
+  const back = formToRule(ruleToForm(rule)).onUse.zone;
+  assert.deepEqual([back.enterBy, back.onCarrierGone, back.follow], ["path", "stay", false]);
+});
+
+test("pathEntrants: задетый по пути, но не накрытый в конце; уже внутри и сам заклинатель — нет", async () => {
+  const { pathEntrants } = await import("../scripts/zone.mjs");
+  const parent = { grid: { size: 100, distance: 5 }, tokens: [] };
+  const tk = (id, x, y) => ({ id, x, y, width: 1, height: 1, elevation: 0, depth: 1, actor: {}, parent });
+  const carrier = tk("c", 900, 300), near = tk("near", 500, 500), far = tk("far", 500, 1500), inside = tk("in", 200, 300);
+  parent.tokens.push(carrier, near, far, inside);
+  const region = { shapes: [{ type: "emanation", gridBased: true, radius: 200, base: { type: "token" } }] };
+  const mv = { origin: { x: 100, y: 300, width: 1, height: 1 }, destination: { x: 900, y: 300, width: 1, height: 1 }, passed: { waypoints: [] } };
+  // carrier в документе уже в конце пути; inside стоит вплотную к началу
+  assert.deepEqual(pathEntrants(region, carrier, mv).map((t) => t.id), ["near"]);
+  assert.deepEqual(pathEntrants({ shapes: [] }, carrier, mv), []);
+});

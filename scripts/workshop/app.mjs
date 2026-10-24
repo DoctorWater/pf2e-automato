@@ -499,7 +499,10 @@ export class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
     const z = f.zone, zoneFields = f.targets !== "area" ? [] : [F.chk("f.zone.on", t("sheet.zoneOn"), z.on)];
     if (f.targets === "area" && z.on) zoneFields.push(
       F.sel("f.zone.cond", t("sheet.zoneCond"), z.cond, [["", "—"], ...allConds], { drop: "condition" }), F.num("f.zone.condValue", t("sheet.row.value"), z.condValue, { min: 1 }),
-      F.text("f.zone.effect", t("sheet.zoneEffect"), z.effect, { drop: "effect", cls: "ws-grow" }), F.num("f.zone.seconds", t("sheet.seconds"), z.seconds, { min: 1 }), F.num("f.zone.rounds", t("sheet.rounds"), z.rounds, { min: 1 })
+      F.text("f.zone.effect", t("sheet.zoneEffect"), z.effect, { drop: "effect", cls: "ws-grow" }), F.num("f.zone.seconds", t("sheet.seconds"), z.seconds, { min: 1 }), F.num("f.zone.rounds", t("sheet.rounds"), z.rounds, { min: 1 }),
+      F.chk("f.zone.noFollow", t("sheet.zoneNoFollow"), z.noFollow),
+      F.sel("f.zone.enterBy", t("sheet.zoneEnterBy"), z.enterBy, [["end", t("sheet.zoneEnterEnd")], ["path", t("sheet.zoneEnterPath")]]),
+      F.sel("f.zone.gone", t("sheet.zoneGone"), z.gone, [["close", t("sheet.zoneGoneClose")], ["stay", t("sheet.zoneGoneStay")]])
     );
 
     // триггеры зоны: событие, «не чаще», шаги существа и (по желанию) его испытание

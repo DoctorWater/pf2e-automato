@@ -6,6 +6,7 @@ import { applyCondition, applyEffect, removeByKey } from "./apply.mjs";
 import { runMacros } from "./macros.mjs";
 import { resolveDC } from "./saves.mjs";
 import { emanationDefault } from "./use.mjs";
+import { pathRects, rectOf, insideAura } from "./aura.mjs";
 import { visionActive, refreshZone, dropSource } from "./vision.mjs";
 
 const TYPE = `${MOD}.zone`;
@@ -24,6 +25,55 @@ async function syncMarks(sys) {
   for (const [ids, phase] of [[entered, "zoneEnter"], [exited, "zoneExit"]])
     for (const id of ids) { const t = sys.region.parent.tokens.get(id); if (t) await zoneMacros(phase, sys, t); }
 }
+// Порядок ядра при ходе заклинателя (проверено живой пробой): regionBoundary (region.tokens — ещё без наехавших) -> moveToken заклинателя ->
+// tokenEnter стоящих с movement:null. Boundary снимает состав region.tokens, moveToken докладывает id хода, tokenEnter(null) засчитывается
+// токену, которого в снимке не было, один раз за ход. Снятие hidden и включение поведения boundary не шлют — записи нет.
+// ponytail: бросок токена внутрь области в течение MOVE_TTL после хода заклинателя засчитается входом; различить нечем (тот же tokenEnter(null)).
+const bounds = new Map();
+const MOVE_TTL = 3000;
+const carrierOf = (region) => region?.parent?.tokens.get(region._source?.attachment?.token);
+const realMove = (mv) => (mv?.id && !["undo", "config"].includes(mv.method) ? mv : null);   // откат и настройка — не ход
+const followedMove = (region, token) => {
+  const b = bounds.get(region?.id);
+  if (!b?.id || Date.now() - b.at > MOVE_TTL || b.snap.has(token.id) || b.done.has(token.id)) return null;
+  b.done.add(token.id);
+  return b.id;
+};
+
+/** Токен, от которого построена эманация региона: у фигуры `emanation` с `base.type:"token"` те же x/y/размер/форма, что в `_source` токена сцены
+ *  (признак самого ядра при сдвиге). tokens — коллекция/массив токенов сцены. Точного совпадения нет (отложенный запуск: заклинатель уже ушёл) —
+ *  единственный токен сцены актёра-автора `actorUuid` (ядро само сдвинет фигуру на дельту ходов); иначе null. */
+export function emanationToken(region, tokens = region.parent?.tokens ?? [], actorUuid = "") {
+  const list = [...tokens];
+  let onToken = false;
+  for (const s of region.shapes ?? []) {
+    const b = s.base;
+    if (s.type !== "emanation" || b?.type !== "token") continue;
+    onToken = true;
+    const t = list.find((t) => ["x", "y", "width", "height", "shape"].every((k) => t._source?.[k] === b[k]));
+    if (t) return t;
+  }
+  if (!onToken || !actorUuid) return null;
+  const own = list.filter((t) => t.actor?.uuid === actorUuid || t.baseActor?.uuid === actorUuid);
+  return own.length === 1 ? own[0] : null;
+}
+
+const fightOf = (token) => { const c = game.combats.find((x) => x.started && x.combatants.some((m) => m.tokenId === token.id)); return { combat: c?.id, round: c?.round, turn: c?.turn }; };
+
+/** enterBy:"path": стоящие токены сцены, оказавшиеся в радиусе эманации в какой-либо клетке пути заклинателя, будучи вне её в начале хода. */
+export function pathEntrants(region, carrier, movement) {
+  const shape = (region.shapes ?? []).find((s) => s.type === "emanation");
+  if (!shape) return [];
+  const grid = carrier.parent?.grid ?? {}, unit = grid.distance || 5;
+  const feet = (shape.radius / (grid.size || 100)) * unit;   // radius фигуры ядра — всегда в пикселях (gridBased лишь выбирает метрику)
+  const [from, ...rects] = pathRects(carrier, movement);
+  return [...carrier.parent.tokens].filter((t) => {
+    if (t.id === carrier.id || !t.actor) return false;
+    const r = rectOf(t);
+    return !insideAura(feet, from, r, unit) && rects.some((c) => insideAura(feet, c, r, unit));
+  });
+}
+
 const hasZoneItem = (actor, regionUuid) => actor.items.some((i) => i.flags?.[MOD]?.meta?.key?.startsWith(KEY(regionUuid)));
 
 async function zoneMacros(phase, sys, tokenDoc) {
@@ -53,12 +103,15 @@ export class ZoneBehaviorType extends foundry.data.regionBehaviors.RegionBehavio
       dc: new f.NumberField({ nullable: true, initial: null }),   // СЛ триггеров на момент создания (автор мог исчезнуть): запасная
       dcs: new f.ArrayField(new f.NumberField({ nullable: true, initial: null })),   // СЛ по каждому триггеру (по индексу)
       castRank: new f.NumberField({ integer: true, nullable: true, initial: null }),   // круг сотворения: @item.rank и уровень эффекта шагов триггеров
+      enterBy: new f.StringField({ initial: "end" }),   // "path": вход и по пути заклинателя (эманация)
+      onCarrierGone: new f.StringField({ initial: "close" }),   // "stay": токен удалён — область остаётся
       skipOrigin: new f.BooleanField()   // автор области (эманация) триггеров не получает
     };
   }
 
   // Статические события: работают при любом system.events и не редактируются в UI.
   static events = {
+    regionBoundary: ZoneBehaviorType.#boundary,
     tokenEnter: ZoneBehaviorType.#enter,
     tokenExit: ZoneBehaviorType.#exit,
     tokenTurnStart: ZoneBehaviorType.#turn("turn-start"),
@@ -69,10 +122,28 @@ export class ZoneBehaviorType extends foundry.data.regionBehaviors.RegionBehavio
     if (!isActiveGM()) return;
     const { token, movement } = event.data;
     await this.hold(token);
-    // movement == null: регион создан/включён поверх токена или снят hidden — это не вход, стартовое испытание выдаёт сам запуск
-    if (movement && movement.method !== "undo") {   // откат движения — не вход
-      const c = game.combats.find((x) => x.started && x.combatants.some((m) => m.tokenId === token.id));
-      await this.trigger(token, "enter", { evId: `enter:${movement.id}`, combat: c?.id, round: c?.round, turn: c?.turn });
+    // movement == null: регион создан/включён поверх токена или снят hidden — это не вход, стартовое испытание выдаёт сам запуск;
+    // исключение — регион, поехавший за своим токеном: ход заклинателя доложили regionBoundary + moveToken
+    const id = movement ? realMove(movement)?.id : followedMove(this.region, token);
+    if (id) {   // откат и настройка — не вход
+      await this.trigger(token, "enter", { evId: `enter:${id}`, ...fightOf(token) });
+    }
+  }
+  // Граница региона, привязанного к токену, сменилась: снимок region.tokens (наехавших ещё нет); id хода доложит moveToken.
+  static async #boundary(event) {
+    const { region } = event;
+    if (carrierOf(region)) bounds.set(region.id, { snap: new Set([...region.tokens].map((t) => t.id)), at: Date.now(), id: null, done: new Set() });
+  }
+  /** moveToken заклинателя: докладывает id хода своим регионам (для tokenEnter(null)); enterBy:"path" — входы задетых по пути (весь ход уже известен). */
+  static async onCarrierMoved(doc, mv) {
+    if (!isActiveGM() || !realMove(mv)) return;
+    for (const r of doc.parent?.regions ?? []) {
+      if (r._source.attachment?.token !== doc.id) continue;
+      const rec = bounds.get(r.id);
+      if (rec && Date.now() - rec.at < MOVE_TTL) rec.id = mv.id;
+      const b = zoneBehavior(r);
+      if (b?.disabled || b?.system.enterBy !== "path") continue;
+      for (const t of pathEntrants(r, doc, mv)) await b.system.trigger(t, "enter", { evId: `enter:${mv.id}`, ...fightOf(t) });
     }
   }
   static #turn(on) {
@@ -179,9 +250,15 @@ export async function attachZone(region, rule, originInfo = {}) {
         originActor: originInfo.originActor ?? "",
         messageId: originInfo.messageId ?? "",
         triggers: trg, dcs, dc: dcs.find((x) => x != null) ?? originInfo.dc ?? null, castRank,
+        enterBy: z.enterBy ?? "end", onCarrierGone: z.onCarrierGone ?? "close",
         skipOrigin: !!trg.length && !!(rule?.onUse?.excludeSelf ?? emanationDefault(region))
       }
     }]);
+  }
+  // эманация едет за токеном средствами ядра (сдвиг фигуры, членство автора, удаление вместе с токеном, hidden); follow:false — стоит на месте
+  if (z.follow !== false && !region._source?.attachment?.token) {
+    const t = emanationToken(region, undefined, originInfo.originActor);
+    if (t) await region.update({ "attachment.token": t.id });
   }
   await sweepZone(region);
   return behavior;
@@ -219,6 +296,12 @@ export async function closeZone(regionUuid) {
 /** messageId из поведения зоны региона (для проверки прав сокета closeZone); null — региона/поведения нет. */
 export function zoneMessageId(regionUuid) {
   try { return zoneBehavior(fromUuidSync(regionUuid))?.system.messageId || null; } catch { return null; }
+}
+
+/** Регион удалён не нами (ядро: удаление токена-источника, ГМ): карточка зоны закрывается. Истёкшая/закрытая через deleteRegionOnce уже помечена. */
+export async function markZoneGone(region) {
+  const m = game.messages.get(zoneBehavior(region)?.system.messageId);
+  if (m?.flags?.[MOD]?.use?.state?.zone?.status === "active") await setZoneStatus(region, "closed");
 }
 
 /** Страховка: снять всё с ключом зоны у актёров сцены региона и у мировых актёров. */
@@ -297,7 +380,21 @@ export function init() {
   Hooks.on("updateCombat", onUpdateCombat);
   Hooks.on("userConnected", () => { if (isActiveGM()) reconcileZones(); });
   Hooks.on("pf2e-automato.visionMarks", onMarksToggle);
-  Hooks.on("updateRegion", (region, changes) => { if (isActiveGM() && "hidden" in changes) sweepZone(region); });
+  Hooks.on("moveToken", (doc, mv) => { ZoneBehaviorType.onCarrierMoved(doc, mv).catch((e) => debug("path", e)); });
+  // onCarrierGone:"stay": ядро удаляет привязанные регионы в своём _onDeleteOperation, отвязать надо ДО удаления: отменяем удаление,
+  // ждём отвязку (ядро по ней чистит token.attachments) и удаляем токен заново с пометкой.
+  Hooks.on("preDeleteToken", (token, options) => {
+    if (!game.user.isGM || options.afUnlinked) return;
+    const stay = [...(token.parent?.regions ?? [])].filter((r) => r._source.attachment?.token === token.id && zoneBehavior(r)?.system.onCarrierGone === "stay");
+    if (!stay.length) return;
+    // отвязка не удалась — токен всё равно удаляем (удаление не должно зависнуть), область закроет ядро; ГМу об этом говорим
+    Promise.allSettled(stay.map((r) => r.update({ "attachment.token": null }))).then((rs) => {
+      if (rs.some((x) => x.status === "rejected")) ui.notifications.warn(game.i18n.localize("PF2E_AUTOMATO.zone.stayUnlinkFailed"));
+      return token.delete({ ...options, afUnlinked: true });
+    }).catch((e) => debug("stay", e));
+    return false;
+  });
+  Hooks.on("updateRegion", (region, changes) => { if (isActiveGM() && "hidden" in changes) { bounds.delete(region.id); sweepZone(region); } });
   Hooks.on("createItem", itemHook("pf2e-automato.zoneEnter"));
   Hooks.on("deleteItem", itemHook("pf2e-automato.zoneExit"));
 }

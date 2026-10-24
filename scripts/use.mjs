@@ -190,6 +190,7 @@ async function onCreateRegion(region) {
 
 async function onDeleteRegion(region) {
   if (!guardActiveGM()) return;
+  await tolerate("markZoneGone", () => zone.markZoneGone(region));
   await tolerate("purgeZoneState", () => zone.purgeZoneState(region.uuid));
 }
 

@@ -133,11 +133,11 @@
 - шаг `move` — толчок/притяжение (`plan-forced-movement.md`, `forced-move.js` 5/5);
 - `effect.mods` — inline-эффект из кубиков (бонус/штраф, скорость, сопротивление, слабость, запрет реакций; `plan-modifier-effect.md`, `inline-effect.js` 14/15).
 - `onEvent side:"near"` — спасбросок от ауры носителя: вход (в т.ч. сквозной проход, носитель подходит сам), начало/конец хода внутри, `per`, высота 3D, только существа (T3, `plan-triggered-save.md`, `aura-trigger.js` 5/5).
+- эманация заклинателя едет за токеном (T4, ядерная `region.attachment.token`): вход при наезде области, настройки зоны `enterBy: end|path`, `onCarrierGone: close|stay`, `follow:false` (`plan-triggered-save.md` §9, `emanation-follow.js` 7/7).
 Попутно исправлено (2026-10-24, вторая сессия): `resolveRule(документ эффекта)` брал геттер pf2e `origin` (актёр-автор) за origin карточки — `TypeError` в `slugOf` у эффектов без slug; «эффект не истекал» в `inline-effect.js` — тестовый бой не был просматриваемым при живом бое в мире (pf2e берёт `start.initiative` из `game.combat`); `suite.js` 16/16 (записи заклинаний по имени, а не по порядку ответа; устаревшие ожидания `range-reach`, `tangle-vine`, `shield-block`).
 Попутно исправлено: incapacitation не попадала в опции броска; дедлок очереди у шага `damage` в степенях испытания; таймеры от NPC с несвязанным токеном не истекали (автор писался базовым актёром); уровень сцены в `testCollision` передавался id, а не документом.
 
 **Открыто на следующую сессию:**
-- T4 (движущаяся эманация) из `plan-triggered-save.md`;
 - прогнать моделями долг пачки 1 в новых формах (`repeat`, `zone.triggers`, `move`, `effect.mods`): метки `missing: …` в `rules/drafts-accepted/b01-save-conditions.json`;
 - `move`: порядок «дальние → ближние» только при «Применить всем», в `auto` — по приходу спасбросков; `from: "point"` (толчок от центра области) не сделан;
 

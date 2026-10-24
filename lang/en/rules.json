@@ -23,6 +23,9 @@
         "zone": {
           "onlyArea": "A zone is only possible when the target is an \"area\" ({path})",
           "events": "Zone events are not supported yet — remove them ({path})",
+          "follow": "Zone follow accepts only false (an emanation follows its caster by itself) ({path})",
+          "enterBy": "enterBy must be end or path ({path})",
+          "onCarrierGone": "onCarrierGone must be close or stay ({path})",
           "empty": "Zone: specify a condition and/or an effect ({path})",
           "durObj": "Zone: the duration is set incorrectly ({path})",
           "durNum": "Zone: the duration must be a number greater than zero ({path})"

@@ -162,7 +162,7 @@ export function ruleToForm(rule) {
     kind: u ? "onUse" : r ? "onAttacked" : rule?.onEvent?.length ? "onEvent" : "none",
     ev: (rule?.onEvent ?? []).map(evForm),
     targets: u?.targets ?? "self", excludeSelf: tri(u?.excludeSelf),
-    zone: { on: !!z, cond: z?.condition?.slug ?? "", condValue: z?.condition?.value ?? "", effect: z?.effect?.uuid ?? "", seconds: z?.duration?.seconds ?? "", rounds: z?.duration?.rounds ?? "", trig: (z?.triggers ?? []).map(trgForm) },
+    zone: { on: !!z, cond: z?.condition?.slug ?? "", condValue: z?.condition?.value ?? "", effect: z?.effect?.uuid ?? "", seconds: z?.duration?.seconds ?? "", rounds: z?.duration?.rounds ?? "", noFollow: z?.follow === false, enterBy: z?.enterBy ?? "end", gone: z?.onCarrierGone ?? "close", trig: (z?.triggers ?? []).map(trgForm) },
     ch: {
       on: !!c, statistic: c?.statistic ?? "reflex",
       dcType: dc.expr === "markup" ? "markup" : dc.source ? "source" : dc.against != null ? "against" : dc.expr != null ? "expr" : "value",
@@ -199,6 +199,9 @@ export function formToRule(f) {
         duration: s !== undefined || r !== undefined ? { ...(s !== undefined && { seconds: s }), ...(r !== undefined && { rounds: r }) } : null,
         events: null
       };
+      if (z.noFollow) u.zone.follow = false;
+      if (z.enterBy === "path") u.zone.enterBy = "path";
+      if (z.gone === "stay") u.zone.onCarrierGone = "stay";
       if (z.trig?.length) u.zone.triggers = z.trig.map(trgRule);
     }
     const c = f.ch;

@@ -273,6 +273,12 @@ function vZone(z, path, err) {
   if (!isObj(z)) { err.push(E("notObj", path)); return null; }
   const out = { condition: null, effect: null, duration: null, events: null };
   if (z.events != null) err.push(E("zone.events", `${path}.events`));
+  if (z.follow != null) {   // эманация следует за заклинателем сама; в схеме только отказ
+    if (z.follow !== false) err.push(E("zone.follow", `${path}.follow`)); else out.follow = false;
+  }
+  for (const [k, ok] of [["enterBy", ["end", "path"]], ["onCarrierGone", ["close", "stay"]]]) {   // настройки эманации, следующей за заклинателем
+    if (z[k] != null) { if (!ok.includes(z[k])) err.push(E(`zone.${k}`, `${path}.${k}`)); else out[k] = z[k]; }
+  }
   if (z.condition != null) {
     if (!isObj(z.condition) || !isStr(z.condition.slug)) err.push(E("cond.slug", `${path}.condition.slug`));
     else {

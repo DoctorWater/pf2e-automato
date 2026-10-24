@@ -22,7 +22,7 @@ test("схема: нет events и min у expiresAt; static events — enter/exi
   assert.equal("events" in s, false);
   assert.equal(s.expiresAt.o.min, undefined);
   assert.equal(s.expiresAt.o.nullable, true);
-  assert.deepEqual(Object.keys(ZoneBehaviorType.events).sort(), ["tokenEnter", "tokenExit", "tokenTurnEnd", "tokenTurnStart"]);
+  assert.deepEqual(Object.keys(ZoneBehaviorType.events).sort(), ["regionBoundary", "tokenEnter", "tokenExit", "tokenTurnEnd", "tokenTurnStart"]);
 });
 
 test("static tokenEnter/Exit: не-ГМ ничего не делает, активный ГМ вызывает hold/release", async () => {

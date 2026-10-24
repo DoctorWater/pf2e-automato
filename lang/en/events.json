@@ -10,6 +10,7 @@
           "side": "The event side is owner, roll target or origin ({path})",
           "sideTarget": "\"Roll target\" exists only for rolls and spell casting ({path})",
           "once": "\"Once\" is yes or no only ({path})",
+          "afterUse": "\"After use\" is yes or no, and only for the owner's own roll (attack, check, save, damage) ({path})",
           "empty": "The event entry is empty: add steps or a challenge ({path})"
         }
       }
@@ -48,6 +49,8 @@
           "whenHint": "A pf2e predicate: options separated by commas (all at once) or JSON. Outcome is outcome:success.",
           "once": "Once per effect",
           "onceShort": "once",
+          "afterUse": "Only for the roll right after this item's card",
+          "afterUseShort": "after use",
           "challenge": "Challenge for the other party",
           "apply": "Steps",
           "chLine": "challenge ({stat}) against DC {dc}",

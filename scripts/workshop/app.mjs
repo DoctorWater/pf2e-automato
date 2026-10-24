@@ -4,7 +4,7 @@
 import { MOD, L, errText, DEGREES, callGM, forcedReplace, forcedDelete, flagPath, damageLabel } from "../util.mjs";
 import { modeOf } from "../settings.mjs";
 import { DENY, dropSpec, ruleToForm, formToRule, blankRow, blankEvent, reportEnv, pickedTokens, ruleUuids, buildReport } from "../sheet.mjs";
-import { validateRule, resolveRule, slugOf, sourceOf, DAMAGE_TYPES, EVENT_ON, EVENT_SIDES, EVENT_TARGETED } from "../rules.mjs";
+import { validateRule, resolveRule, slugOf, sourceOf, DAMAGE_TYPES, EVENT_ON, EVENT_SIDES, EVENT_TARGETED, EVENT_AFTER_USE } from "../rules.mjs";
 import { automationsGroups } from "../compat.mjs";
 import { safeUuid } from "../saves.mjs";
 import * as fx from "./effect.mjs";
@@ -292,7 +292,9 @@ export class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
     if (path === "f.targets" && v === "self") a.sel = null;
     // событие без цели (ход, эффект, урон по носителю): сторона «цель броска» невозможна — вернуть «владелец»
     const ev = /^(f\.ev\.\d+)\.on$/.exec(path);
-    if (ev) { const e = foundry.utils.getProperty(a, ev[1]); if (e.side === "target" && !EVENT_TARGETED.has(v)) e.side = "self"; }
+    if (ev) { const e = foundry.utils.getProperty(a, ev[1]); if (e.side === "target" && !EVENT_TARGETED.has(v)) e.side = "self"; if (!EVENT_AFTER_USE.has(v)) e.afterUse = false; }
+    const sd = /^(f\.ev\.\d+)\.side$/.exec(path);   // скрытый флажок «после использования» не должен давать ошибку валидации
+    if (sd) { const e = foundry.utils.getProperty(a, sd[1]); if (v !== "self") e.afterUse = false; }
     // проверка без цели бросается на себя; вернули цель — «на выбранных»
     if (path === "f.ck.vsType") { if (v === "none") { f.targets = "self"; f.ck.imm.on = false; } else if (f.targets === "self") f.targets = "selected"; }
   }
@@ -513,6 +515,7 @@ export class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
           F.sel(`${p}.side`, t("workshop.au.ev.sideLabel"), e.side, choices(EVENT_SIDES.filter((s) => s !== "target" || EVENT_TARGETED.has(e.on)), "au.ev.side")),
           F.text(`${p}.when`, t("workshop.au.ev.whenLabel"), e.when, { cls: "ws-grow", placeholder: "outcome:success, target:condition:off-guard", hint: t("workshop.au.ev.whenHint") }),
           F.chk(`${p}.once`, t("workshop.au.ev.once"), e.once),
+          ...(EVENT_AFTER_USE.has(e.on) && e.side === "self" ? [F.chk(`${p}.afterUse`, t("workshop.au.ev.afterUse"), e.afterUse)] : []),
           F.chk(`${p}.ch.on`, t("workshop.au.ev.challenge"), c.on),
           ...(c.on ? [
             F.text(`${p}.ch.statistic`, t("sheet.statistic"), c.statistic, { list: "ws-skills" }), F.sel(`${p}.ch.dcType`, t("sheet.dcLabel"), c.dcType, sheetChoices("dc", ["value", "expr", "markup", "source", "against"])),

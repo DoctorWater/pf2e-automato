@@ -413,6 +413,9 @@ export const EVENT_ON = ["attack-roll", "skill-check", "saving-throw", "damage-r
 export const EVENT_SIDES = ["self", "target", "origin"];
 export const EVENT_TARGETED = new Set(["attack-roll", "skill-check", "damage-roll", "spell-cast"]);   // у остальных событий цели нет: side:"target" бессмысленна
 
+// afterUse: бросок владельца сразу после карточки этого предмета (strike-gate: «Make a Strike. If it hits…»). Сотворение (spell-cast) — отдельной пачкой.
+export const EVENT_AFTER_USE = new Set(["attack-roll", "skill-check", "saving-throw", "damage-roll"]);
+
 function vEvent(e, i, err) {
   const path = `onEvent[${i}]`;
   if (!isObj(e)) { err.push(E("notObj", path)); return null; }
@@ -422,6 +425,7 @@ function vEvent(e, i, err) {
   else if (out.side === "target" && !EVENT_TARGETED.has(e.on)) err.push(E("ev.sideTarget", `${path}.side`));
   if (e.when != null) { if (!isPredicate(e.when)) err.push(E("apply.when", `${path}.when`)); else out.when = e.when; }
   if (e.once != null) { if (typeof e.once !== "boolean") err.push(E("ev.once", `${path}.once`)); else if (e.once) out.once = true; }   // once — один раз на эффект/состояние получателя, а не на каждое событие
+  if (e.afterUse != null) { if (typeof e.afterUse !== "boolean" || (e.afterUse && !(EVENT_AFTER_USE.has(e.on) && out.side === "self"))) err.push(E("ev.afterUse", `${path}.afterUse`)); else if (e.afterUse) out.afterUse = true; }
   const apply = vApplyList(e.apply, `${path}.apply`, "self", err);
   if (apply.length) out.apply = apply;
   if (e.challenge != null) { const c = vChallenge(e.challenge, `${path}.challenge`, err); if (c) out.challenge = c; }
@@ -1287,9 +1291,17 @@ export function immunityDuration(html) {
  * dc {expr:"markup"}: «текст копии решает». Голова испытания (статистика, СЛ, «базовое», опции) — из спасброска в тексте; степени — из текста, если в каталоге их нет;
  * иммунитет: каталог даёт slug, а степени, охват (scope) и срок — текст копии; английский текст без иммунитета — правило без иммунитета.
  */
-function withMarkupHead(rule, derived, html = "") {
-  const c = rule.onUse?.challenge, d = derived?.onUse?.challenge;
-  if (c?.dc?.expr !== "markup" || !d || d.dc.source) return rule;
+/** Испытания правила с СЛ «из текста»: onUse и все записи onEvent (strike-gate: испытание живёт в записи события). */
+export const markupChallenges = (rule) => [rule?.onUse?.challenge, ...(rule?.onEvent ?? []).map((e) => e.challenge)].filter((c) => c?.dc?.expr === "markup");
+export function withMarkupHead(rule, derived, html = "") {
+  const d = derived?.onUse?.challenge;
+  if (!d || d.dc.source) return rule;
+  const out = { ...rule };
+  if (rule.onUse?.challenge?.dc?.expr === "markup") out.onUse = { ...rule.onUse, challenge: markupHead(rule.onUse.challenge, d, html) };
+  if (rule.onEvent?.some((e) => e.challenge?.dc?.expr === "markup")) out.onEvent = rule.onEvent.map((e) => (e.challenge?.dc?.expr === "markup" ? { ...e, challenge: markupHead(e.challenge, d, html) } : e));
+  return out;
+}
+function markupHead(c, d, html) {
   const { options, traits, immunity, ...rest } = c;
   const byDegree = Object.keys(c.byDegree ?? {}).length ? c.byDegree : d.byDegree;
   // английский текст об иммунитете молчит — его нет и в правиле (PA ставит иммунитет и там, где текст требует повторять спасбросок); русский текст разбирать нечем — иммунитет каталога как есть
@@ -1298,7 +1310,7 @@ function withMarkupHead(rule, derived, html = "") {
     const t = immunityFromText(html), { degrees, scope, duration, ...head } = immunity, du = immunityDuration(html);
     imm = { ...head, duration: du ?? duration, ...(t.degrees === undefined ? { ...(degrees && { degrees }) } : t.degrees && t.degrees.length < DEGREES.length && { degrees: DEGREES.filter((x) => t.degrees.includes(x)) }), ...(t.anySource && { scope: "slug" }) };
   }
-  return { ...rule, onUse: { ...rule.onUse, challenge: { ...rest, byDegree, ...(imm && { immunity: imm }), statistic: d.statistic, dc: d.dc, basic: d.basic, ...(d.options && { options: d.options }), ...(d.traits && { traits: d.traits }) } } };
+  return { ...rest, byDegree, ...(imm && { immunity: imm }), statistic: d.statistic, dc: d.dc, basic: d.basic, ...(d.options && { options: d.options }), ...(d.traits && { traits: d.traits }) };
 }
 
 /** Есть ли у правила шаги, которые что-то применяют (apply, степени испытания/проверки, зона). */
@@ -1335,9 +1347,9 @@ export function resolveRule(source) {
     else if (!sourceUuid && b.onUse?.check && slugCollides(b, derive()?.rule, slug, item.system.description?.value ?? "")) b = null;
     else if (!sourceUuid && slug && lacksOwnRoll(b, slug, item.system.description?.value ?? "")) b = null;
     // «СЛ из текста» у тёзки, в чьём описании спасброска нет (пассив с тем же slug): не его способность
-    else if (!sourceUuid && b.onUse?.challenge?.dc?.expr === "markup" && labelsData && !derive()?.rule?.onUse?.challenge) b = null;
+    else if (!sourceUuid && markupChallenges(b).length && labelsData && !derive()?.rule?.onUse?.challenge) b = null;
   }
-  if (b) return found(b.onUse?.challenge?.dc?.expr === "markup" ? withMarkupHead(b, derive()?.rule, item?.system?.description?.value ?? "") : b, "catalog");
+  if (b) return found(markupChallenges(b).length ? withMarkupHead(b, derive()?.rule, item?.system?.description?.value ?? "") : b, "catalog");
 
   const d = derive();
   // живой вывод из разметки сам не исполняется (выборки: ~половина high неверна): шаги — только кнопкой ведущего (low);

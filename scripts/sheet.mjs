@@ -131,11 +131,11 @@ const degSteps = (deg) => {
 const chForm = (c) => ruleToForm(c ? { v: 1, onUse: { targets: "selected", challenge: c, apply: [] } } : null).ch;
 const chRule = (ch) => formToRule({ kind: "onUse", targets: "selected", ch: { ...ch, on: true }, apply: [], macros: [] }).onUse.challenge;
 /** Пустая запись для кнопки «добавить событие». */
-export const blankEvent = () => ({ on: "attack-roll", side: "self", when: "", once: false, apply: [], ch: chForm(null) });
-const evForm = (e) => ({ on: e.on, side: e.side ?? "self", when: whenText(e.when), once: !!e.once, apply: (e.apply ?? []).map(rowOf), ch: { ...chForm(e.challenge), on: !!e.challenge } });
+export const blankEvent = () => ({ on: "attack-roll", side: "self", when: "", once: false, afterUse: false, apply: [], ch: chForm(null) });
+const evForm = (e) => ({ on: e.on, side: e.side ?? "self", when: whenText(e.when), once: !!e.once, afterUse: !!e.afterUse, apply: (e.apply ?? []).map(rowOf), ch: { ...chForm(e.challenge), on: !!e.challenge } });
 function evRule(e) {
   const when = parseWhen(e.when);
-  return { on: e.on, side: e.side, ...(when !== undefined && { when }), ...(e.once && { once: true }), apply: (e.apply ?? []).map(applyOf).filter(Boolean), ...(e.ch?.on && { challenge: chRule(e.ch) }) };
+  return { on: e.on, side: e.side, ...(when !== undefined && { when }), ...(e.once && { once: true }), ...(e.afterUse && { afterUse: true }), apply: (e.apply ?? []).map(applyOf).filter(Boolean), ...(e.ch?.on && { challenge: chRule(e.ch) }) };
 }
 
 export function ruleToForm(rule) {

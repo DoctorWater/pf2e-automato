@@ -1,7 +1,7 @@
 // 0.5g3: onEvent — правило на предмете актёра (черта, эффект, снаряжение) срабатывает по событию: бросок, урон, ход, эффект, сотворение. plan.md §1.1b.
 // Исполняет только активный ГМ. Шаги идут через apply.applyOps на сообщении-двойнике (в чат не пишется): снимок use и запись ops живут в нём,
 // а в самом сообщении события — только свой флаг `events` (журнал для переброса). Испытание (challenge) получает свою карточку со снимком use — дальше всё как у onUse.
-import { MOD, L, DEGREES, flagPath, guardActiveGM, queue, debug } from "./util.mjs";
+import { MOD, L, DEGREES, flagPath, guardActiveGM, queue, debug, sluggify } from "./util.mjs";
 import { modeOf, rev } from "./settings.mjs";
 import * as compat from "./compat.mjs";
 import * as rules from "./rules.mjs";
@@ -9,7 +9,7 @@ import * as apply from "./apply.mjs";
 import { testPredicate } from "./predicate.mjs";
 import { useKindOf, buildSnapshot } from "./use.mjs";
 import { card } from "./card.mjs";
-import { messageTargets, esc } from "./builtin/lib.mjs";
+import { messageTargets, esc, combatOf } from "./builtin/lib.mjs";
 import { parseMarker } from "./saves.mjs";
 
 /* ---------- чистые функции ---------- */
@@ -23,6 +23,46 @@ export function eventOfMessage(message) {
   const on = MSG_EVENT[pf?.context?.type];
   if (on) return on;
   return pf?.origin?.type === "spell" && useKindOf(message) === "use" ? "spell-cast" : null;
+}
+
+/* afterUse (strike-gate): запись срабатывает только на бросок владельца сразу после карточки этого предмета. Состояний нет — лента чата:
+ * идём назад по сообщениям этого актёра; карточка того же предмета — связь есть; бросок того же вида или карточка другого предмета — обрыв
+ * (одна карточка = один бросок: второй Удар, как и Удар после промаха, уже не «по этому использованию»). */
+export const AFTER_USE_MS = 10 * 60000;   // вне боя / нет начала хода: карточка не старше; ponytail: без боя «залежавшуюся» карточку отличает только время
+const actorUuidOf = (m) => m?.flags?.pf2e?.origin?.actor ?? m?.actor?.uuid ?? null;   // не speaker.actor: он общий у несвязанных копий NPC
+const cardSlug = (m) => rules.slugOf(m?.flags?.pf2e?.origin ?? null, null);
+/** Slug предмета-носителя: так же схлопываются action и feat одного slug в eventItems. */
+export const carrierSlug = (item) => rules.slugOf(null, item) || sluggify(item?.name ?? "") || null;
+
+/**
+ * Карточка предмета, к которой относится бросок message, или null. before — сообщения чата до него (по возрастанию),
+ * stopId — последнее сообщение ленты на начало текущего хода актёра в бою: карточка не раньше него (позиция, не часы:
+ * game.time.serverTime в v14 — не эпоха, а message.timestamp ставит сервер); AFTER_USE_MS действует всегда.
+ */
+export function strikeCardFor(before, message, item, { stopId = null, slugOf = cardSlug } = {}) {
+  const who = actorUuidOf(message), on = eventOfMessage(message), t = message.timestamp ?? 0;
+  if (!(item?.uuid || item?.slug) || !who || !on) return null;
+  for (const m of [...before].slice(-50).reverse()) {
+    if (stopId && m.id === stopId) return null;   // граница хода — любое сообщение, не только этого актёра
+    if (m.id === message.id || actorUuidOf(m) !== who) continue;
+    if (t - (m.timestamp ?? 0) > AFTER_USE_MS) return null;
+    if (eventOfMessage(m) === on) return null;
+    // предмет — по uuid (точно), slug — запасной путь: копии и переводы
+    if (useKindOf(m) === "use") return (item.uuid && m.flags?.pf2e?.origin?.uuid === item.uuid) || (item.slug && slugOf(m) === item.slug) ? m : null;
+  }
+  return null;
+}
+
+const turnStarts = new Map();   // actor uuid -> id последнего сообщения ленты на начало его хода (в памяти ГМа, из pf2e.startTurn); не состояние мира
+const noteTurn = (combatant) => { const u = combatant?.actor?.uuid; if (u) turnStarts.set(u, game.messages.contents.at(-1)?.id ?? null); };
+
+/** Бросок message после карточки найденного носителя? Только у активного ГМа (лента — game.messages). */
+function linkedCard(message, item) {
+  if (!message) return null;
+  const all = game.messages.contents, i = all.findIndex((m) => m.id === message.id);
+  const actor = message.actor ?? null;
+  const inCombat = actor && combatOf(game.combats, actor)?.started;
+  return strikeCardFor(i < 0 ? all : all.slice(0, i), message, { uuid: item.uuid, slug: carrierSlug(item) }, { stopId: inCombat ? turnStarts.get(actorUuidOf(message)) ?? null : null });
 }
 
 /** Ключ идемпотентности: сообщение/событие, предмет-носитель, номер записи onEvent. */
@@ -207,6 +247,7 @@ async function runEvent(ev, on, parties) {
       for (const found of eventItems(owner)) {
         if (compat.shouldYield(found.rule, { slug: rules.slugOf(null, found.item), sourceUuid: rules.sourceOf(null, found.item) })) continue;
         for (const m of matchEntries(found.rule, on, side, options)) {
+          if (m.entry.afterUse && !linkedCard(ev.message, found.item)) continue;   // после when: ленту листаем только для подходящего исхода
           try { await runEntry({ ...ev, options, other: ev.otherFor(side), otherToken: ev.otherTokenFor(side) }, owner, found, m, log); }
           catch (e) { console.error(`${MOD} | event ${found.item.name}[${m.i}]`, e); }   // одна запись не должна ронять остальные
         }
@@ -241,7 +282,7 @@ export function spellTargets(spell) {
   const s = spell?.system;
   if (!s) return true;   // предмет неизвестен — как раньше
   const t = String(s.target?.value ?? "").trim(), range = String(s.range?.value ?? "").trim();
-  return !!(s.area?.value || (t && !/^(?:you|self)/i.test(t)) || range);
+  return !!(s.area?.value || (t && !/^(?:you|self)\b/i.test(t)) || range);
 }
 
 /** Участники события-сообщения. */
@@ -349,7 +390,7 @@ export function init() {
   Hooks.on("createChatMessage", (m) => { onMessage(m).catch((e) => console.error(`${MOD} | events`, e)); });
   Hooks.on("deleteChatMessage", (m) => { try { onDeleteMessage(m); } catch (e) { console.error(`${MOD} | events.onDelete`, e); } });
   Hooks.on("updateChatMessage", (m, ch) => { onUpdateMessage(m, ch).catch((e) => console.error(`${MOD} | events.update`, e)); });
-  Hooks.on("pf2e.startTurn", onTurn("turn-start"));
+  Hooks.on("pf2e.startTurn", (c, e) => { noteTurn(c); onTurn("turn-start")(c, e); });
   Hooks.on("pf2e.endTurn", onTurn("turn-end"));
   Hooks.on("createItem", onItem("effect-created"));
   Hooks.on("deleteItem", onItem("effect-deleted"));

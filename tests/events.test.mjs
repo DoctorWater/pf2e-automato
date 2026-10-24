@@ -624,3 +624,182 @@ test("Окаменение / Плоть в камень: на успехе ме�
     assert.equal(orphan.apply[0].removeEffect.uuid, MARK);
   }
 });
+
+/* ---------- afterUse (strike-gate) ---------- */
+
+const { gateToEvent, strikeWhen } = await import("../tools/strike-gate.mjs");
+const { checkAnswer, notesOnly } = await import("../tools/validate.mjs");
+
+// реальные тексты компендия (tools/out/items.json)
+const DAZING = "Requirements You have a creature @UUID[Compendium.pf2e.conditionitems.Item.kWc1fhmv9LBiTuei]{Grabbed}.\n---\nYou pummel a held foe, hoping to stagger them. Make a melee Strike against a creature you have grabbed. The weapon damage from this Strike is bludgeoning damage. If the Strike hits, the creature must attempt a @Check[fortitude|against:fighter|traits:incapacitation] save against your class DC; this is an incapacitation effect.\n---\nCritical Success The creature is unaffected.\nSuccess The creature is Stunned 1.\nFailure The creature is Stunned 2.\nCritical Failure The creature is Stunned 3.";
+const HEADSHOT = "Requirements You're wielding a loaded firearm or crossbow.\n---\nYou attempt to finish your target with a final, well-placed shot. Make a crossbow or firearm Strike. If you've damaged the target within the last minute with the same weapon and you get a critical success on your attack roll, the target must succeed at a @Check[fortitude|against:gunslinger|traits:death,incapacitation] save against your class DC or die; this is a death and incapacitation effect. A creature that survives is temporarily immune for 1 day.";
+const stun = (n) => [{ to: "target", condition: { slug: "stunned", value: n } }];
+const dazingUse = () => validate({ v: 1, onUse: { targets: "selected", challenge: { statistic: "fortitude", dc: { against: "fighter" }, basic: false, rollerRole: "target", byDegree: { success: stun(1), failure: stun(2), criticalFailure: stun(3) } }, apply: [{ to: "self", note: "заметка" }] } }).rule;
+
+test("gateToEvent: Dazing Blow -> onEvent afterUse на попадание, степени stunned 1/2/3 в записи, заметка-шум снята", () => {
+  const r = gateToEvent(dazingUse(), DAZING, "feat");
+  assert.equal(r.changed, true);
+  assert.equal(r.rule.onUse, null);
+  const e = r.rule.onEvent[0];
+  assert.deepEqual([e.on, e.side, e.afterUse], ["attack-roll", "self", true]);
+  assert.deepEqual(e.when, ["self:action:slug:strike", { or: ["outcome:success", "outcome:criticalSuccess"] }]);
+  assert.equal(e.challenge.byDegree.success[0].condition.value, 1);
+  assert.equal(e.challenge.byDegree.failure[0].condition.value, 2);
+  assert.equal(e.challenge.byDegree.criticalFailure[0].condition.value, 3);
+  assert.equal(roundTrip(r.rule), true);
+});
+
+test("gateToEvent: Headshot — только критическое попадание; оружие/бомба и текст не про Удар — без изменений", () => {
+  assert.deepEqual(strikeWhen(HEADSHOT), ["self:action:slug:strike", "outcome:criticalSuccess"]);
+  const d = dazingUse();
+  assert.equal(gateToEvent(d, DAZING, "weapon").changed, false);
+  assert.equal(gateToEvent(d, "The target must attempt a @Check[fortitude|dc:20] save.", "feat").changed, false);
+  assert.equal(gateToEvent({ ...d, onUse: { ...d.onUse, challenge: null } }, DAZING, "feat").changed, false);
+});
+
+test("checkAnswer: onUse.challenge на strike-gate (feat) переводится и принимается; боеприпас — долг; onEvent attack-roll без afterUse — отказ", () => {
+  const refs = { conditions: { stunned: true }, effects: {} };
+  assert.equal(checkAnswer({ uuid: "u", rule: dazingUse() }, refs, DAZING, "feat").kind, "accepted");
+  assert.equal(checkAnswer({ uuid: "u", rule: dazingUse() }, refs, DAZING, "consumable").kind, "needs-primitive");
+  const bare = { v: 1, onEvent: [{ on: "attack-roll", side: "self", challenge: dazingUse().onUse.challenge }] };
+  const c = checkAnswer({ uuid: "u", rule: bare }, refs, DAZING, "feat");
+  assert.equal(c.kind, "error");
+  assert.match(c.errors[0], /afterUse/);
+  assert.equal(checkAnswer({ uuid: "u", rule: { ...bare, onEvent: [{ ...bare.onEvent[0], afterUse: true }] } }, refs, DAZING, "feat").kind, "accepted");
+});
+
+test("afterUse: валидатор — только свои броски владельца; форма туда-обратно", () => {
+  const ch = dazingUse().onUse.challenge;
+  assert.equal(one({ on: "attack-roll", afterUse: true, challenge: ch }).ok, true);
+  assert.equal(one({ on: "turn-start", afterUse: true, challenge: ch }).ok, false);
+  assert.equal(one({ on: "attack-roll", side: "target", afterUse: true, challenge: ch }).ok, false);
+  assert.equal(one({ on: "spell-cast", afterUse: true, challenge: ch }).ok, false);
+  assert.equal(one({ on: "attack-roll", afterUse: "yes", challenge: ch }).ok, false);
+  assert.equal("afterUse" in one({ on: "attack-roll", afterUse: false, challenge: ch }).rule.onEvent[0], false);
+  assert.equal(blankEvent().afterUse, false);
+});
+
+const card = (id, actor, item, ts) => mkMsg(id, { origin: { actor: actor.uuid, uuid: item.uuid, type: item.type, rollOptions: [] } }, { actor, timestamp: ts });
+const strike = (id, actor, target, ts, outcome = "success") => mkMsg(id, { origin: { actor: actor.uuid, type: "weapon", rollOptions: [] }, context: { type: "attack-roll", outcome, options: ["self:action:slug:strike"], target: { actor: target.actor.uuid, token: target.uuid } } }, { actor, timestamp: ts });
+const NOW = 1_700_000_000_000;
+
+function scene() {
+  game.combats = [];
+  const gate = gateToEvent(dazingUse(), DAZING, "feat").rule;
+  const feat = mkFeat("dazing-blow", gate), other = mkFeat("power-attack", validate({ v: 1, onEvent: [{ on: "turn-start", apply: [{ note: "x" }] }] }).rule);
+  const hero = mkActor("Actor.hero", [feat, other]);
+  const foe = mkActor("Actor.foe"), ft = { id: "ft", uuid: "Scene.s.Token.ft", name: "ft", actor: foe };
+  uuids.set(ft.uuid, ft);
+  foe.getActiveTokens = () => [ft];
+  return { hero, foe, ft, feat, other };
+}
+
+test("afterUse: карточка -> Удар попал — одно испытание цели Удара; повтор сообщения и второй Удар — нет", async () => {
+  const { hero, ft, feat } = scene();
+  card("K1", hero, feat, NOW);
+  const s1 = strike("S1", hero, ft, NOW + 1000);
+  await ev.onMessage(s1);
+  assert.equal(created.length, 1);
+  assert.deepEqual(created[0].flags[MOD].use.targets.map((t) => t.key), ["ft"]);
+  await ev.onMessage(s1);
+  assert.equal(created.length, 1);
+  await ev.onMessage(strike("S2", hero, ft, NOW + 2000));   // следующий Удар уже не по этому использованию
+  assert.equal(created.length, 1);
+});
+
+test("afterUse: промах — ничего, и следующий Удар карточку не «наследует»; Удар без карточки и после чужой карточки — ничего", async () => {
+  const { hero, ft, feat, other } = scene();
+  card("K1", hero, feat, NOW);
+  await ev.onMessage(strike("S1", hero, ft, NOW + 1000, "failure"));
+  await ev.onMessage(strike("S2", hero, ft, NOW + 2000));
+  assert.equal(created.length, 0);
+  card("K2", hero, feat, NOW + 4000);
+  card("K3", hero, other, NOW + 5000);
+  await ev.onMessage(strike("S4", hero, ft, NOW + 6000));
+  assert.equal(created.length, 0);
+});
+
+test("afterUse: Headshot — крит нужен; обычное попадание после карточки не срабатывает", async () => {
+  const { hero, ft } = scene();
+  const hs = mkFeat("headshot", gateToEvent(validate({ v: 1, onUse: { targets: "selected", challenge: { statistic: "fortitude", dc: { against: "gunslinger" }, basic: false, rollerRole: "target", byDegree: { failure: [{ to: "target", note: "умирает" }] } } } }).rule, HEADSHOT, "feat").rule, "hs");
+  hero.items.push(hs); hs.actor = hs.parent = hero; uuids.set(hs.uuid, hs);
+  card("K1", hero, hs, NOW);
+  await ev.onMessage(strike("S1", hero, ft, NOW + 1000, "success"));
+  assert.equal(created.length, 0);
+  card("K2", hero, hs, NOW + 2000);
+  await ev.onMessage(strike("S2", hero, ft, NOW + 3000, "criticalSuccess"));
+  assert.equal(created.length, 1);
+});
+
+test("strikeCardFor: актёр по origin (две копии одного NPC с общим speaker.actor), давность, начало хода в бою", () => {
+  const A = { uuid: "Scene.s.Token.a.Actor.npc" }, B = { uuid: "Scene.s.Token.b.Actor.npc" };
+  const slugOf = () => "stunning-strike";
+  const m = (id, a, extra = {}) => ({ id, flags: { pf2e: { origin: { actor: a.uuid, type: "action", uuid: `${a.uuid}.Item.x` }, ...extra } }, actor: { uuid: "wrong" }, timestamp: NOW });
+  const cardA = m("kA", A);
+  const atk = (id, a, ts = NOW + 1000) => ({ ...m(id, a, { context: { type: "attack-roll" } }), timestamp: ts });
+  assert.equal(ev.strikeCardFor([cardA], atk("sB", B), { slug: "stunning-strike" }, { slugOf }), null);   // копия B бьёт после карточки копии A
+  assert.equal(ev.strikeCardFor([cardA], atk("sA", A), { slug: "stunning-strike" }, { slugOf }), cardA);
+  assert.equal(ev.strikeCardFor([cardA], atk("sA", A), { slug: "other-slug" }, { slugOf }), null);
+  assert.equal(ev.strikeCardFor([cardA], atk("sA", A, NOW + ev.AFTER_USE_MS + 1), { slug: "stunning-strike" }, { slugOf }), null);   // вне боя: 10 минут
+  const pre = m("pre", B);   // последнее сообщение ленты на начало хода (позиция, не часы)
+  assert.equal(ev.strikeCardFor([pre, cardA], atk("sA", A), { slug: "stunning-strike" }, { slugOf, stopId: "pre" }), cardA);   // карточка после начала хода
+  assert.equal(ev.strikeCardFor([cardA, pre], atk("sA", A), { slug: "stunning-strike" }, { slugOf, stopId: "pre" }), null);   // карточка с прошлого хода
+  assert.equal(ev.strikeCardFor([cardA], atk("sA", A, NOW + ev.AFTER_USE_MS + 1), { slug: "stunning-strike" }, { slugOf, stopId: "gone" }), null);   // 10 минут — и в бою
+  assert.equal(ev.strikeCardFor([cardA, atk("s0", A)], atk("sA", A, NOW + 2000), { slug: "stunning-strike" }, { slugOf }), null);   // между ними был другой Удар
+});
+
+test("withMarkupHead/markupChallenges: dc markup в записи onEvent подхватывается наравне с onUse", () => {
+  const e = validate({ v: 1, onEvent: [{ on: "attack-roll", afterUse: true, challenge: { statistic: "will", dc: { expr: "markup" }, basic: false, rollerRole: "target", byDegree: { failure: stun(1) } } }] }).rule;
+  assert.equal(rules.markupChallenges(e).length, 1);
+  const d = validate({ v: 1, onUse: { targets: "selected", challenge: { statistic: "fortitude", dc: { against: "fighter" }, basic: false, rollerRole: "target", byDegree: {} }, apply: [] } }).rule;
+  const out = rules.withMarkupHead(e, d, "");
+  assert.equal(out.onEvent[0].challenge.statistic, "fortitude");
+  assert.deepEqual(out.onEvent[0].challenge.dc, { against: "fighter" });
+  assert.equal(out.onEvent[0].afterUse, true);
+});
+
+const FIVE = "You cycle through the elements in a devastating combination attack. Strike the target using the unarmed attack associated with your current elemental stance, then Cycle Elemental Stance. Then, Strike the target with the unarmed attack associated with your new elemental stance. If you successfully hit the target with all five elemental Strikes using this ability, it must attempt a @Check[fortitude|against:class|traits:death] save against your class DC or die.";
+const DEATHBLOW = "Attempt a Strike with a blowgun or sling. If the Strike is successful and you are Hidden from the target, the target must succeed at a @Check[fortitude|against:class|traits:death,incapacitation] save against your class DC or die. A creature that survives is temporarily immune for 1 day.";
+
+test("gateToEvent: заметки-предпосылки onUse.apply переезжают в apply записи, а не пропадают (Deathblow: «спрятаны»)", () => {
+  const raw = { v: 1, onUse: { targets: "selected", challenge: { statistic: "fortitude", dc: { against: "class" }, basic: false, rollerRole: "target", byDegree: { failure: [{ to: "target", note: "умирает" }] } }, apply: [{ to: "self", note: "Вы должны быть спрятаны от цели" }] } };
+  const r = gateToEvent(validate(raw).rule, DEATHBLOW, { type: "feat", actionType: "action" });
+  assert.equal(r.changed, true);
+  assert.equal(r.rule.onUse, null);
+  assert.deepEqual(r.rule.onEvent[0].apply, [{ to: "self", note: "Вы должны быть спрятаны от цели" }]);
+  assert.equal(roundTrip(r.rule), true);
+  // настоящий шаг в onUse остаётся там, где был
+  const raw2 = structuredClone(raw); raw2.onUse.apply.push({ to: "self", condition: { slug: "hidden" } });
+  const r2 = gateToEvent(validate(raw2).rule, DEATHBLOW, "feat");
+  assert.equal(r2.rule.onUse.apply.length, 1);
+  assert.equal(r2.rule.onEvent[0].apply.length, 1);
+});
+
+test("gateToEvent: пассив, оружие — не переводятся; несколько Ударов (Five Breaths) — долг multi-strike", () => {
+  const d = dazingUse();
+  assert.equal(gateToEvent(d, DAZING, { type: "feat", actionType: "passive" }).changed, false);
+  assert.equal(gateToEvent(d, DAZING, { type: "weapon" }).changed, false);
+  assert.equal(gateToEvent(d, FIVE, { type: "feat", actionType: "action" }).changed, false);
+  assert.equal(gateToEvent(d, DAZING, { type: "feat", actionType: "action" }).changed, true);
+});
+
+test("checkAnswer: пассив с onEvent на attack-roll не отвергается за отсутствие afterUse; у способности с карточкой — отвергается", () => {
+  const refs = { conditions: { stunned: true }, effects: {} };
+  const bare = { v: 1, onEvent: [{ on: "attack-roll", side: "self", challenge: dazingUse().onUse.challenge }] };
+  assert.equal(checkAnswer({ uuid: "u", rule: bare }, refs, DAZING, { type: "feat", actionType: "passive" }).kind, "accepted");
+  assert.equal(checkAnswer({ uuid: "u", rule: bare }, refs, DAZING, { type: "feat", actionType: "action" }).kind, "error");
+});
+
+test("notesOnly: запись onEvent из одних заметок без иммунитета — заметки; с иммунитетом — нет", () => {
+  const mk = (extra = {}) => validate({ v: 1, onEvent: [{ on: "attack-roll", afterUse: true, challenge: { statistic: "fortitude", dc: { against: "class" }, basic: false, rollerRole: "target", byDegree: { failure: [{ to: "target", note: "умирает" }] }, ...extra } }] }).rule;
+  assert.equal(notesOnly(mk()), true);
+  assert.equal(notesOnly(mk({ immunity: { slug: "x", label: "X", duration: { value: 1, unit: "days" } } })), false);
+});
+
+test("strikeCardFor: предмет находится по uuid (кириллическое имя без slug), slug — запасной путь", () => {
+  const A = { uuid: "Actor.a" };
+  const cardA = { id: "k", flags: { pf2e: { origin: { actor: A.uuid, type: "feat", uuid: "Actor.a.Item.dazing" } } }, timestamp: NOW };
+  const atk = { id: "s", flags: { pf2e: { origin: { actor: A.uuid }, context: { type: "attack-roll" } } }, timestamp: NOW + 1 };
+  assert.equal(ev.strikeCardFor([cardA], atk, { uuid: "Actor.a.Item.dazing", slug: "шокирующее-избиение" }, { slugOf: () => null }), cardA);
+  assert.equal(ev.strikeCardFor([cardA], atk, { uuid: "Actor.a.Item.other", slug: null }, { slugOf: () => null }), null);
+});

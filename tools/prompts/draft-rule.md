@@ -58,7 +58,8 @@ Rules of thumb:
 - `null` (nothing to automate) ONLY when the text has no condition, effect, persistent damage, forced movement (push, pull, knock prone), numeric bonus/penalty, weakness/resistance, immunity or duration: pure damage/healing, narrative, GM judgment, objects/terrain, information. If any of these is there but the schema cannot express it, answer `unsure: true` and name the missing piece in `note` (e.g. "missing: push 10 ft", "missing: -2 penalty without effect link").
 
 # When to answer unsure (do NOT write an onUse rule for these)
-- The effect happens on a trigger rather than on use: "when it hits / Strikes", "make a Strike; if it hits (critically), the target attempts a save", "when it dies", "when a creature enters or starts its turn in the aura", "whenever ...". Answer `unsure: true` (put `rule: null`).
+- The effect happens on a trigger rather than on use: "when it hits / Strikes", "when it dies", "when a creature enters or starts its turn in the aura", "whenever ...". Answer `unsure: true` (put `rule: null`).
+- Exception: a feat or action that says "Make a Strike. If it hits (critically), the target attempts a save" is NOT unsure. Write the usual `onUse.challenge` with the save and its degrees; the tool moves it to a post-Strike event itself. Do NOT write `onEvent` for it. Ammunition and bombs ("when damaged by this ammunition") stay `unsure: true`.
 - The item text ends with "…" (cut off): `unsure: true`. The marker `[flavor cut]` is fine: only descriptive text was removed.
 - Several different outcomes depending on a choice, a fixed DC you cannot find, or anything you cannot express with the schema.
 

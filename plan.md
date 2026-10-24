@@ -155,6 +155,7 @@ OnEvent := {
                                           // origin — источник: автор эффекта (у события эффекта и хода), чья СЛ у броска
   "when": [predicate]?,                   // предикат pf2e (как Apply.when) по roll options события; нет — на любое событие
   "once": true?,                          // один раз на эффект/состояние получателя: ключ шага не зависит от события (Боевое выступление продлевает каждую композицию один раз)
+  "afterUse": true?,                      // strike-gate: только бросок владельца (attack-roll/skill-check/saving-throw/damage-roll, side self) сразу после карточки ЭТОГО предмета (лента чата, ниже); исход и «это Удар» — в when
   "apply": [ Apply ]?,                    // шаги: to:"self" — владелец, to:"target" — другой участник (side self: цель броска; target/origin: бросавший / носитель эффекта)
   "challenge": Challenge?                 // другой участник бросает испытание против СЛ владельца (byDegree: self — владелец, target — бросающий)
 }                                         // нужен хотя бы apply или challenge
@@ -162,6 +163,8 @@ OnEvent := {
 
 Набор опций `when` (как у pf2e-automations): `flags.pf2e.context.options`, `origin.rollOptions`, `outcome:<степень>`, `domain:<область>`, `target` и `target:*`, опции бросавшего (`actor.getRollOptions`, `self:*`), `item:attack-effect:<slug>` у Удара
 (связь пассивной способности NPC с Ударом), `damage-taken`, `damage-taken:hp|shield|healing` у урона, `effect:<slug>` у событий эффекта.
+
+`afterUse` (`events.strikeCardFor`, чистая): идём назад (до 50 сообщений) по сообщениям того же актёра (`flags.pf2e.origin.actor`, а не `speaker.actor` — он общий у несвязанных копий NPC). Карточка предмета (`useKindOf==="use"`) с тем же slug — связь; бросок того же вида (`eventOfMessage`) или карточка другого предмета — обрыв, поэтому карточка одноразова без меток и очередей. Давность: в бою карточка не раньше начала текущего хода актёра (Map в памяти ГМа из `pf2e.startTurn`), иначе не старше 10 мин. Проверка идёт после `when`. «Это Удар»: `self:action:slug:strike` в `when` (у Ударов NPC `action:strike` нет — pf2e.mjs:20349). Переброс не последнего Удара связь теряет (после него в ленте уже есть другой бросок) — известное ограничение. Боеприпасы и бомбы («when damaged by») не входят: подпачка с `damage-taken`/опциями оружия.
 
 Хуки и защита от двойного исполнения (`scripts/events.mjs`):
 - `createChatMessage` — по `flags.pf2e.context.type` (`attack-roll`/`spell-attack-roll`, `skill-check`/`perception-check`, `saving-throw`, `damage-roll`, `damage-taken`); сотворение — карточка заклинания, `useKindOf(message) === "use"`; `pf2e.startTurn` / `pf2e.endTurn`; `createItem` / `deleteItem` эффектов.

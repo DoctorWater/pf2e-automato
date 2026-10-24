@@ -9,6 +9,7 @@ import { validateRule, enemiesOnly, strikeGate, setWho } from "../scripts/rules.
 import { ruleToForm, formToRule } from "../scripts/sheet.mjs";
 import { BUILTIN } from "../scripts/builtin/index.mjs";
 import { stepCount } from "./triage.mjs";
+import { gateToEvent, hasCard, multiStrike } from "./strike-gate.mjs";
 
 const en = { ...readJson(join(ROOT, "lang/en/rules.json")).PF2E_AUTOMATO.rules.err, ...readJson(join(ROOT, "lang/en/events.json")).PF2E_AUTOMATO.rules.err };   // ошибки onEvent (ev.*) — в events.json
 const fmtErr = (e) => {
@@ -46,12 +47,13 @@ export function extraKeys(raw, norm, path = "") {
   return out;
 }
 
-const stepsOf = (rule) => [...(rule.onUse?.apply ?? []), ...Object.values(rule.onUse?.challenge?.byDegree ?? {}).flat(), ...Object.values(rule.onUse?.check?.byDegree ?? {}).flat()];
+const stepsOf = (rule) => [...(rule.onUse?.apply ?? []), ...Object.values(rule.onUse?.challenge?.byDegree ?? {}).flat(), ...Object.values(rule.onUse?.check?.byDegree ?? {}).flat(),
+  ...(rule.onEvent ?? []).flatMap((e) => [...(e.apply ?? []), ...Object.values(e.challenge?.byDegree ?? {}).flat()])];
 
 /** Одни заметки ведущему (без иммунитета, зоны, событий): либо сюжет (автоматизировать нечего), либо механика без примитива (толчок, штраф без эффекта). Не skip: очередь «нужен примитив», в рантайм не идёт (решение пользователя 2026-10-24). */
 export const notesOnly = (rule) => {
   const u = rule.onUse, s = stepsOf(rule);
-  return s.length > 0 && s.every((x) => x.note) && !u?.challenge?.immunity && !u?.check?.immunity && !u?.zone && !rule.onEvent?.length && !rule.onAttacked && !rule.macros?.length;
+  return s.length > 0 && s.every((x) => x.note) && !u?.challenge?.immunity && !u?.check?.immunity && !u?.zone && !(rule.onEvent ?? []).some((e) => e.challenge?.immunity) && !rule.onAttacked && !rule.macros?.length;
 };
 
 /** Содержательные проверки: ссылки существуют (и есть в тексте предмета), статистики из известных списков, builtin есть в реестре. html === null — не проверять текст. */
@@ -69,8 +71,8 @@ export function semanticErrors(rule, refs, html = null) {
   if (z?.condition && !refs.conditions[z.condition.slug]) bad.push(`zone condition "${z.condition.slug}" does not exist in pf2e`);
   if (z?.effect && !refs.effects[z.effect.uuid]) bad.push(`zone effect ${z.effect.uuid} not found`);
   if (z?.effect && html !== null && !html.includes(z.effect.uuid)) bad.push(`zone effect ${z.effect.uuid} is not mentioned in this item's text`);
-  const c = u?.challenge;
-  if (c) {
+  for (const c of [u?.challenge, ...(rule.onEvent ?? []).map((e) => e.challenge)]) {
+    if (!c) continue;
     if (!SAVES.includes(c.statistic)) bad.push(`challenge.statistic must be fortitude, reflex or will (got "${c.statistic}")`);
     if (c.dc.against && !DC_AGAINST.has(c.dc.against)) bad.push(`dc.against "${c.dc.against}" is unknown: use spell, class, class-spell, a class slug (kineticist…), perception or a skill`);
   }
@@ -87,15 +89,16 @@ export function semanticErrors(rule, refs, html = null) {
  * Общие дефекты ответов моделей по тексту: «только враги» -> who:"enemy" шагам к цели; «испытание после Удара» -> gate
  * (испытание при использовании бросилось бы и при промахе: правило сохраняем, но в каталог рантайма оно не идёт). html пуст — не трогать.
  */
-export function normalizeRule(rule, html) {
+export function normalizeRule(rule, html, kind = null) {
   if (!html) return { rule, gate: false };
-  const r = structuredClone(rule);
+  let r = structuredClone(rule);
   if (enemiesOnly(html)) setWho(r.onUse, "enemy");
+  r = gateToEvent(r, html, kind).rule;   // feat/action: испытание после Удара -> onEvent afterUse (tools/strike-gate.mjs); остальное (боеприпасы, бомбы) — долг
   return { rule: r, gate: !!r.onUse?.challenge && strikeGate(html) };
 }
 
 /** Один ответ агента -> { kind: "accepted"|"notes-only"|"needs-primitive"|"null"|"unsure"|"error", rule?, errors? }. */
-export function checkAnswer(ans, refs, html = null) {
+export function checkAnswer(ans, refs, html = null, kind = null) {
   if (!ans || typeof ans.uuid !== "string" || !("rule" in ans)) return { kind: "error", errors: ["answer must be {uuid, rule|null, unsure:bool, note}"] };
   if (ans.unsure === true) return { kind: "unsure", guess: ans.rule ?? null };
   if (ans.rule === null) return { kind: "null", note: ans.note ?? "" };
@@ -106,7 +109,9 @@ export function checkAnswer(ans, refs, html = null) {
   const sem = semanticErrors(v.rule, refs, html);
   if (sem.length) return { kind: "error", errors: sem };
   if (!roundTrip(v.rule)) return { kind: "error", errors: ["rule does not survive the form round-trip: remove fields that are not in the schema"] };
-  const { rule, gate } = normalizeRule(v.rule, html);
+  // событие «бросок атаки» на тексте «Make a Strike. If it hits…» без afterUse сработало бы на каждом попадании владельца
+  if (html && hasCard(kind) && strikeGate(html) && !multiStrike(html) && v.rule.onEvent?.some((e) => ["attack-roll", "damage-roll"].includes(e.on) && !e.afterUse)) return { kind: "error", errors: ["the text is \"Make a Strike, then …\": an onEvent entry on attack-roll/damage-roll needs afterUse:true (or write a plain onUse.challenge and the tool will convert it)"] };
+  const { rule, gate } = normalizeRule(v.rule, html, kind);
   if (notesOnly(rule)) return { kind: "notes-only", rule };
   return { kind: gate ? "needs-primitive" : "accepted", rule };
 }
@@ -118,7 +123,8 @@ export const emptyState = () => ({ attempts: {}, retry: {}, sonnet: {} });
  * opts: { htmlOf(uuid), expected: [uuid], final } — ожидаемые ответы (из файла-запроса) для поиска пропущенных; final — последняя ступень (unsure -> needs-primitive).
  * -> { accepted: [черновик с правилом], errors, sonnet, unknown, missing }
  */
-export function processAnswers(answers, draftItems, refs, state = emptyState(), { htmlOf = () => null, expected = [], final = false } = {}) {
+export function processAnswers(answers, draftItems, refs, state = emptyState(), { htmlOf = () => null, expected = [], final = false, actionTypeOf = () => null } = {}) {
+  const kindOf = (uuid, d) => ({ type: d.type, actionType: actionTypeOf(uuid) });
   const byUuid = new Map(draftItems.map((d) => [d.uuid, d]));
   const res = { accepted: [], errors: [], sonnet: [], unknown: [], missing: [] };
   const seen = new Set();
@@ -132,14 +138,14 @@ export function processAnswers(answers, draftItems, refs, state = emptyState(), 
     if (!d) { res.unknown.push(a?.uuid ?? null); continue; }
     if (seen.has(a.uuid)) continue;
     seen.add(a.uuid);
-    const c = checkAnswer(a, refs, htmlOf(a.uuid));
+    const c = checkAnswer(a, refs, htmlOf(a.uuid), kindOf(a.uuid, d));
     if (c.kind === "accepted") res.accepted.push({ ...d, status: "manual", confidence: "model", reason: `model: ${a.note ?? ""}`.trim(), rule: c.rule });
     else if (c.kind === "notes-only") res.accepted.push({ ...d, status: "manual", confidence: "notes-only", reason: `notes-only: ${a.note ?? ""}`.trim(), rule: c.rule });
     else if (c.kind === "needs-primitive") res.accepted.push({ ...d, status: "manual", confidence: "needs-primitive", reason: `needs-primitive: strike-gate; ${a.note ?? ""}`.trim(), rule: c.rule });
     else if (c.kind === "null") res.accepted.push({ ...d, status: "skip", confidence: null, reason: `model-null: ${c.note}`, rule: null });
     else if (c.kind === "unsure" && final) {
       // догадка проходит те же проверки, что и обычный ответ; негодная -> rule:null (правило по ней писать нечем)
-      const g = checkAnswer({ uuid: a.uuid, rule: c.guess, unsure: false }, refs, htmlOf(a.uuid));
+      const g = checkAnswer({ uuid: a.uuid, rule: c.guess, unsure: false }, refs, htmlOf(a.uuid), kindOf(a.uuid, d));
       res.accepted.push({ ...d, status: "manual", confidence: "needs-primitive", reason: `needs-primitive: ${a.note ?? ""}`.trim(), rule: ["accepted", "needs-primitive", "notes-only"].includes(g.kind) ? g.rule : null });
     }
     else if (c.kind === "unsure") { state.sonnet[a.uuid] = { uuid: a.uuid, why: "unsure", note: a.note ?? "", guess: c.guess }; res.sonnet.push(a.uuid); }
@@ -173,7 +179,7 @@ export function mergeAccepted(existing, accepted, meta) {
 function main() {
   const [file, batch] = process.argv.slice(2);
   if (!file || !batch || batch.startsWith("--")) throw new Error("usage: node tools/validate.mjs <answer.json> <batch> [--input haiku-file.md]");
-  const refs = readOut("refs.json"), html = readOut("html.json"), { meta } = readOut("items.json");
+  const refs = readOut("refs.json"), html = readOut("html.json"), { meta, items: itemList } = readOut("items.json"), items = new Map(itemList.map((i) => [i.uuid, i]));
   const dPath = join(ROOT, "rules/drafts", `${batch}.json`), aPath = join(ACCEPTED, `${batch}.json`);
   const drafts = readJson(dPath).items;
   const stPath = outPath("validate", `${batch}.state.json`);
@@ -181,7 +187,7 @@ function main() {
   const inFile = arg("input");
   const expected = inFile ? [...readFileSync(inFile, "utf8").matchAll(/^### \d+ (\S+)/gm)].map((m) => m[1]) : [];
   const raw = readFileSync(file, "utf8").trim().replace(/^```(?:json)?\s*|\s*```$/g, "");
-  const res = processAnswers(JSON.parse(raw), drafts, refs, state, { htmlOf: (u) => html[u] ?? "", expected, final: process.argv.includes("--final") });
+  const res = processAnswers(JSON.parse(raw), drafts, refs, state, { htmlOf: (u) => html[u] ?? "", actionTypeOf: (u) => items.get(u)?.actionType ?? null, expected, final: process.argv.includes("--final") });
   if (res.accepted.length) writeText(aPath, serializeDrafts({ batch, pf2eVersion: meta.pf2eVersion }, mergeAccepted(existsSync(aPath) ? readJson(aPath) : null, res.accepted, { batch, pf2eVersion: meta.pf2eVersion }).items));
   writeJson(stPath, state);
   const retry = Object.values(state.retry).filter((r) => r.errors);

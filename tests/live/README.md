@@ -66,3 +66,8 @@ window.__afPa05 = { only: ["badge", "gear"], skip: [], cleanOnly: false }   // �
 - `improved-grab`: бесплатный Захват NPC ищется по `options` `action:grapple`; кнопка «Применить» нажимается, если Захват не применился сам. `onevent-strike`/`improved-grab` правят `system.attackEffects.value` первого `melee` NPC.
 - `when`: предикат `target:trait:<первая черта цели>`; `badge`: эффект Bless (`spell-effects`), счётчик значка и `_stats.compendiumSource` у созданной копии.
 - `damage-step`: `3d1` untyped, ожидается ровно −3 ОЗ (у цели нет сопротивлений); откат урона pf2e имитируется записью ОЗ.
+
+## strike-gate (`strike-gate.js`)
+Те же требования и приёмы, что у `pa05.js`. `window.__afStrikeGate = { only: [...], skip: [...], cleanOnly: false }`; результат — `window.__afStrikeGateResult`.
+Сценарии (id): `hit`, `miss`, `stale`, `npc-copies`, `crit-only`. Правило `onEvent.afterUse` — флагом на временном предмете-действии (не каталог); «испытание запустилось» — новое сообщение с `flags.pf2e-automato.use.state.event`. Нужен `mode.challenge` не `off`, иначе `SKIP`.
+Хрупкое: бонус атаки подкручивается под КЗ цели через `strike.totalModifier` (d20=10 — попал, 19 — крит, 1 — промах); Удар PC — безоружный (первый `isMelee` в `system.actions`); `stale` опирается на `pf2e.startTurn` и два `nextTurn()`.

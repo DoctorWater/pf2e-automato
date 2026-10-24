@@ -2,6 +2,7 @@
 // по сообщениям чата — владельцу и ГМу шёпот с кнопкой «Ударить»: тратить ли реакцию, решает он; кнопка бросает Удар ближнего боя
 // по спровоцировавшему (Удар входит в реакцию по правилам). Перемещение ловится хуком moveToken (v14): путь прошёл через досягаемость.
 import { L, MOD, callGM } from "../util.mjs";
+import { noReactions } from "../inline-effect.mjs";
 import { esc, whisper, cardButton } from "./lib.mjs";
 import { isHit, meleeCandidates, askStrikes, rollStrike, rollDamage } from "./strikes.mjs";
 
@@ -29,7 +30,7 @@ export function reactionOf(item) {
   return null;
 }
 
-const canReact = (holder, src) => holder !== src && holder.actor?.hitPoints?.value > 0 && opposed(holder.document.disposition, src.document.disposition)
+const canReact = (holder, src) => holder !== src && holder.actor?.hitPoints?.value > 0 && !noReactions(holder.actor) &&opposed(holder.document.disposition, src.document.disposition)
   && holder.distanceTo(src) <= (holder.actor.getReach?.({ action: "attack" }) ?? 5);
 
 const hint = (holder, src, item, trigger) => whisper(holder.actor,
@@ -62,7 +63,7 @@ export async function onMove(doc, movement) {
   const step = (movement.passed?.distance ?? 99) <= unit;   // Шаг реакций не вызывает — по одному сдвигу его не отличить
   for (const holder of canvas.tokens.placeables) {
     const item = holder.actor?.items.find((i) => reactionOf(i) === "strike");
-    if (!item || holder === mover || !(holder.actor?.hitPoints?.value > 0) || !opposed(holder.document.disposition, doc.disposition)) continue;
+    if (!item || holder === mover || !(holder.actor?.hitPoints?.value > 0) || noReactions(holder.actor) || !opposed(holder.document.disposition, doc.disposition)) continue;
     const reach = holder.actor.getReach?.({ action: "attack" }) ?? unit;
     const h = { x: holder.document.x / g, y: holder.document.y / g, w: holder.document.width, h: holder.document.height };
     if (!squares.some((s) => gapFeet(h, s, unit) <= reach)) continue;

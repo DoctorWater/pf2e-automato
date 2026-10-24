@@ -65,7 +65,9 @@
         "effect": {
           "uuid": "The effect is not chosen or unknown — pick an effect ({path})",
           "badge": "Effect: the badge can only be increased (increment) or decreased (decrement) ({path})",
-          "replace": "Effect: replace is only true and cannot be combined with a badge ({path})"
+          "mods": "Effect from blocks: 1-4 blocks allowed (bonus, speed, resist, weak, forbid: \"reactions\"), no badge, replace, mark, choice or unlessEffect ({path})",
+          "modsDur": "Effect from blocks needs a finite duration: a value and a unit from rounds to days ({path})",
+          "replace":"Effect: replace is only true and cannot be combined with a badge ({path})"
         },
         "note": {
           "text": "The note is empty — enter some text ({path})"

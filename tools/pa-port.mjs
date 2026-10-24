@@ -598,12 +598,12 @@ export function translateItem(item, html, group, ctx0, { slugOnly = false, viaSo
     const own = [...new Set([...html.matchAll(/@UUID\[(Compendium\.pf2e\.[a-z0-9-]*effects\.Item\.\w+)\]/g)].map((m) => m[1]))].filter((u) => ctx.effects?.[u]);
     const ruleEff = steps.filter((a) => a.effect).flatMap((a) => [a.effect.uuid, ...(ctx.wraps?.[a.effect.uuid] ?? [])]);   // обёртка нашего пака с выбором ставит один из своих вариантов
     // эффект из пака модуля (0.5d) заменяет эффект pf2e осознанно — не сравниваем
-    if (own.length && ruleEff.length && !steps.some((a) => a.effect?.uuid.startsWith("Compendium.pf2e-automato.")) && !own.some((u) => ruleEff.includes(u))) low.push("own-effect-in-text");
+    if (own.length && ruleEff.length && !steps.some((a) => a.effect?.uuid?.startsWith("Compendium.pf2e-automato.")) && !own.some((u) => ruleEff.includes(u))) low.push("own-effect-in-text");
   }
   // каждая ссылка правила должна быть в тексте предмета: иначе PA сработал по соседнему предмету или ошибся. Эффект с именем самого предмета («Effect: Fly» у Fly) — его собственный
   for (const a of steps) {
     // доказательство, что эффект этого предмета: ссылка в тексте; группа PA названа по uuid этого документа (не при тирах-соседях: source не говорит, какой тир); либо имя эффекта = имя предмета (не для эффектов с выбором и расходников с тирами)
-    if (a.effect && !html.includes(a.effect.uuid)) {
+    if (a.effect?.uuid && !html.includes(a.effect.uuid)) {
       const bySource = !ctx.tierSiblings?.(item) && parts.some((p) => p.bound && [...p.steps, ...(p.evSteps ?? [])].some((x) => x.effect?.uuid === a.effect.uuid));
       const byName = effName(ctx.effects[a.effect.uuid]) === effName(item.name) && !ctx.effectRisk?.[a.effect.uuid] && !ctx.tierSiblings?.(item);
       if (!bySource && !byName) low.push("effect-not-in-text"); else if (bySource && !byName) lifted.add("effect-by-source");

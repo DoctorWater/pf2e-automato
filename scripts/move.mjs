@@ -53,7 +53,7 @@ const centre = (doc, p, g) => ({ x: p.x + (doc.width * g) / 2, y: p.y + (doc.hei
 
 /**
  * ГМ: сдвинуть токен цели. mode push|pull, distance — футы. Возвращает {skipped: причина} или {from, to, id, stoppedBy}.
- * Причины пропуска: noToken, noOrigin, scene, grid, same. Нулевой сдвиг — {skipped: "blocked"}.
+ * Причины пропуска: noToken, noOrigin, scene, grid, same, atPoint. Нулевой сдвиг — {skipped: "blocked"}.
  * point — {x, y} px (центр области, from:"point"): отсчёт от неё вместо токена автора, origin тогда не нужен.
  */
 export async function forcedMove(target, origin, { mode, distance }, point = null) {
@@ -68,7 +68,10 @@ export async function forcedMove(target, origin, { mode, distance }, point = nul
   const len = Math.hypot(tc.x - oc.x, tc.y - oc.y);
   if (!len) return { skipped: "same" };
   // притяжение к точке не проскакивает её: не дальше целых клеток до центра области
-  if (point && mode === "pull") distance = Math.min(distance, Math.floor(len / g) * grid.distance);
+  if (point && mode === "pull") {
+    distance = Math.min(distance, Math.floor(len / g) * grid.distance);
+    if (distance < grid.distance) return { skipped: "atPoint" };   // уже в клетке центра: не «путь закрыт»
+  }
   if (distance < grid.distance) return { skipped: "blocked", stoppedBy: "limit" };
   const dir = { x: (sign * (tc.x - oc.x)) / len, y: (sign * (tc.y - oc.y)) / len };
   const others = scene.tokens.filter((t) => t !== target && t.actor && Math.abs((t.elevation ?? 0) - (target.elevation ?? 0)) < 1);

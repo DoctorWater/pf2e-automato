@@ -208,6 +208,8 @@ export function buildViewModel(message, user, env = null) {
       ...Object.keys(state.challenge?.results ?? {})
     ])];
     const resultsSeen = isGM || meta.results;
+    // move в auto: применение ждёт всех бросков (saves.afterRecord), пока пакет не отработал
+    const deferred = modeApply === "auto" && !state.challenge?.autoAll && Object.values(ch.byDegree ?? {}).flat().some((s) => s?.move);
     const rows = keys.filter((key) => !env.skipped?.(key, use, ch)).map((key) => {
       const r = state.challenge?.results?.[key];
       const ap = state.challenge?.applied?.[key];
@@ -233,8 +235,9 @@ export function buildViewModel(message, user, env = null) {
         applied: ap && seen ? t("chat.applied", { degree: t(`chat.degree.${DEGREES[ap.degree]}`) }) : null,
         plan,
         canRoll: !r && !immune && modeChallenge !== "off" && !(modeChallenge === "auto" && !state.challenge?.rollTried?.[key] && (ck ? env.isActorPc && !env.isActorPc(use.actor) : env.isPc && !env.isPc(key, use))) && ck?.roll !== "system" && (ck ? (isGM || env.isActorOwner(use.actor, user)) : !env.toolbelt && (isGM || env.isOwner(key, use, user))),
-        canApply: isGM && !!r && !ap && !immune && (steps.some((a) => isActiveStep({ ...a, visibility: a.visibility && env.vision?.() !== false })) || !!imm) && (modeApply === "button" || (modeApply === "auto" && !!state.challenge?.autoTried?.[key])),   // auto применяет сам; после попытки (сбой, «Отменить») кнопка возвращается
+        canApply: isGM && !!r && !ap && !immune && (steps.some((a) => isActiveStep({ ...a, visibility: a.visibility && env.vision?.() !== false })) || !!imm) && (modeApply === "button" || (modeApply === "auto" && (!!state.challenge?.autoTried?.[key] || deferred))),   // auto применяет сам; после попытки (сбой, «Отменить») кнопка возвращается
         canUndo: isGM && !!ap,
+        waiting: !r && !immune,
         // применять больше нечего: иммунная цель отработана без броска; при apply=off применение не требуем
         settled: immune || (!!r && (!!ap || modeApply === "off" || !(steps.some((a) => isActiveStep({ ...a, visibility: a.visibility && env.vision?.() !== false })) || !!imm)))
       };
@@ -252,6 +255,7 @@ export function buildViewModel(message, user, env = null) {
       canApplyAll: rows.some((r) => r.canApply),
       canUndoAll: rows.some((r) => r.canUndo),
       pending: pendingText(rows.filter((r) => r.canApply).length, env),
+      waiting: deferred && isGM && rows.some((r) => r.canApply) ? rows.filter((r) => r.waiting).length || null : null,   // move в auto: ждём остальных бросков; «Применить всем» — явный выход
       // при скрытых итогах сводка и сворачивание выдали бы, что все прошли
       settled: resultsSeen && rows.length > 0 && rows.every((r) => r.settled),
       summary: resultsSeen ? t("chat.summary", { applied: rows.filter((r) => state.challenge?.applied?.[r.key]).length }) : null

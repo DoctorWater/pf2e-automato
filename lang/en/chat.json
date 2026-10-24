@@ -25,6 +25,7 @@
       "rollSave": "Roll",
       "apply": "Apply",
       "applyAll": "Apply all",
+      "waiting": "Waiting for rolls: {n}",
       "undo": "Undo",
       "undoAll": "Undo all",
       "applyUse": "Apply",
@@ -110,11 +111,12 @@
     "moveSkip": {
       "noToken": "{name}: {target} not moved — the target has no token on the scene.",
       "noOrigin": "{name}: {target} not moved — author token not found.",
-      "noPoint": "{name}: area centre not found (area gone or has no centre) — {target} moves from the author's token.",
+      "noPoint": "{name}: area centre not found (area gone or has no centre) — targets move from the author's token.",
       "scene": "{name}: {target} not moved — tokens must be on the current scene.",
       "grid": "{name}: {target} not moved — needs a square or hex grid of 5 ft cells.",
       "same": "{name}: {target} not moved — target and author are at the same point.",
       "blocked": "{name}: {target} not moved — the way is blocked (wall or creature).",
+      "atPoint": "{name}: {target} is already at the area centre — nothing to pull towards.",
       "undone": "{target}: position not restored — the token was moved since."
     },
     "visSkip": {

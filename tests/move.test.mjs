@@ -267,3 +267,47 @@ test("auto: цели с move ждут все спасброски, потом д
   await recordResult("M1", far.id, { degree: 1, total: 5, rollMessageId: "r-far" });
   assert.deepEqual([foe.x, mid.x, far.x], [200, 300, 400]);
 });
+
+test("pull к точке у цели рядом с центром — atPoint, не blocked", async () => {
+  const region = { ...circle(450, 50), parent: scene }; uuids.set(region.uuid, region);
+  const u = { ...use(), state: { area: { regionUuid: region.uuid, keys: [] } } };
+  foe.x = 400; foe.y = 50;   // центр цели (450, 100) ближе клетки к центру области
+  const ops = await applyOps(mkMsg(u, "Mat"), "t", pt("pull", 30), { scope: "apply", target: foe });
+  assert.deepEqual([ops[0].op, ops[0].skipped], ["moved", "atPoint"]);
+  assert.match(warns[0], /atPoint/);
+});
+
+test("noPoint и noOrigin — один тост на сообщение, не на цель", async () => {
+  const foe2 = mkTok(scene, "Scene.s.Token.foe2", 0, 400);
+  const m = mkMsg(use(), "Monce");
+  for (const t of [foe, foe2]) await applyOps(m, "t", pt("push", 5), { scope: "apply", target: t });
+  assert.equal(warns.length, 1);   // noPoint один раз на оба токена
+  warns.length = 0;
+  const m2 = mkMsg({ ...use(), token: null }, "Monce2");
+  for (const t of [foe, foe2]) await applyOps(m2, "t", push(5), { scope: "apply", target: t });
+  assert.equal(warns.length, 1);   // noOrigin
+});
+
+test("auto + move: пока не все бросили autoTried не ставится; пакет ставит autoAll и autoTried всем; откатанные потом не применяются заново", async () => {
+  const region = { ...circle(50, 50), parent: scene }; uuids.set(region.uuid, region);
+  scene.tokens.get = (id) => scene.tokens.find((t) => t.id === id);
+  foe.id = "foe";
+  const mid = mkTok(scene, "mid", 200, 0), far = mkTok(scene, "far", 300, 0);
+  const u = { kind: "use", actor: "Actor.hero", token: author.uuid, targets: [], item: { uuid: null, name: "T" },
+    state: { area: { regionUuid: region.uuid, keys: [foe.id, mid.id, far.id] } },
+    rule: { onUse: { targets: "area", challenge: { statistic: "reflex", dc: { value: 20 }, byDegree: { failure: pt("push", 5) } } } } };
+  const m = mkMsg(u, "Mauto");
+  const { recordResult } = await import("../scripts/saves.mjs");
+  const ch = () => m.flags[MOD].use.state.challenge;
+  for (const t of [foe, mid]) await recordResult("Mauto", t.id, { degree: 1, total: 5, rollMessageId: `r-${t.id}` });
+  assert.equal(ch().autoTried, undefined);
+  assert.equal(ch().autoAll, undefined);
+  await recordResult("Mauto", far.id, { degree: 1, total: 5, rollMessageId: "r-far" });
+  assert.equal(ch().autoAll, true);
+  assert.deepEqual(Object.keys(ch().autoTried).sort(), ["far", "foe", "mid"]);
+  await undoOps(m, "foe"); await undoOps(m, "mid");
+  delete ch().applied.foe; delete ch().applied.mid;   // заглушка сообщения не понимает forcedDelete
+  await recordResult("Mauto", "foe", { degree: 1, total: 4, rollMessageId: "r-foe2", isReroll: true });   // переброс откатанной цели
+  assert.ok(ch().applied.foe);   // своя цель отработана
+  assert.equal(ch().applied.mid, undefined);   // чужая откатанная — не применяется заново
+});

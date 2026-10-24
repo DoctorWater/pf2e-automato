@@ -270,11 +270,13 @@ async () => {
   const areaRule = (distance) => ({ v: 1, onUse: { targets: "area", challenge: { statistic: "fortitude", dc: { value: 20 }, basic: false, rollerRole: "target",
     byDegree: { failure: [{ to: "target", move: { mode: "push", distance, from: "point" } }], criticalFailure: [{ to: "target", move: { mode: "push", distance, from: "point" } }] } } } });
   /** Автор далеко в стороне (150,1050), цели NPC в клетках (x, 500) для x из xs; круг радиуса r в (cx, 550). Возвращает токены целей и сообщение. */
-  const burst = async (e, distance, xs, cx, r) => {
+  // o: { author:[x,y], extra:async(e)=>число лишних целей (напр. PC, который не бросает), region:(tokenDoc)=>{shapes, areaShape} }
+  const burst = async (e, distance, xs, cx, r, o = {}) => {
     openChat(); needMode("mode.challenge", "off"); needMode("mode.apply", "off", "button");
-    const pc = await e.pc("автор"), tP = await e.tok(pc, 100, 1000, 1);
+    const pc = await e.pc("автор"), tP = await e.tok(pc, ...(o.author ?? [100, 1000]), 1);
     const toks = [];
     for (const [i, x] of xs.entries()) toks.push(await e.tok(await e.foe(`цель ${i}`), x, 500, -1));
+    const more = o.extra ? await o.extra(e) : 0;
     await wait(700);
     const item = await e.ruleItem(pc, areaRule(distance));
     await e.fix(1);
@@ -284,10 +286,11 @@ async () => {
     const m = await waitFor(() => e.msgs(t0).find((x) => x.flags?.pf2e?.origin?.uuid === item.uuid && x.flags?.[MOD]?.use), 10000);
     if (!m) throw new Error("у карточки области нет снимка use");
     if (e.use(m).state?.yielded) throw new Skip(`правило уступает pf2e-automations (${e.use(m).state.yielded})`);
-    await e.scene.createEmbeddedDocuments("Region", [{ name: `${PFX}взрыв`, color: "#aa0000", shapes: [{ type: "circle", hole: false, x: cx, y: 550, radius: r }], behaviors: [], flags: { pf2e: { messageId: m.id, areaShape: "burst" } } }]);
-    await waitFor(() => (e.use(m)?.state?.area?.keys?.length ?? 0) >= xs.length, 10000);
+    const rg = o.region ? o.region(e.T(tP)) : { shapes: [{ type: "circle", hole: false, x: cx, y: 550, radius: r }], areaShape: "burst" };
+    const [region] = await e.scene.createEmbeddedDocuments("Region", [{ name: `${PFX}взрыв`, color: "#aa0000", shapes: rg.shapes, behaviors: [], flags: { pf2e: { messageId: m.id, areaShape: rg.areaShape } } }]);
+    await waitFor(() => (e.use(m)?.state?.area?.keys?.length ?? 0) >= xs.length + more, 10000);
     await wait(2500);
-    return { toks, m };
+    return { toks, m, tP, region };
   };
 
   sc("point", "from:point: цель (600) вытолкнута от центра взрыва (550) вправо на 10 фт (-> 800), а не по лучу от автора (он внизу слева)", async (e, t) => {
@@ -302,6 +305,43 @@ async () => {
     const { toks, m } = await burst(e, 5, [600, 700, 800], 550, 400);
     t.ok(Object.keys(e.use(m)?.state?.challenge?.results ?? {}).length === 3, `результатов ${Object.keys(e.use(m)?.state?.challenge?.results ?? {}).length} из 3: ${JSON.stringify(e.results(m))}`);
     for (const [i, v] of toks.entries()) t.ok(await waitFor(() => at(posOf(v, e), 700 + i * 100, 500), 6000), `цель ${i}: ${JSON.stringify(posOf(v, e))}, ждали (${700 + i * 100},500) — ближняя упёрлась в неподвинутую соседку, если порядок «ближние первыми»`);
+  });
+
+  sc("emanation", "from:point у эманации: центр области = токен-носитель (bounds симметрична), цель (1100) выталкивается на 10 фт (-> 1300), без noPoint", async (e, t) => {
+    const { toks: [v], m, tP, region } = await burst(e, 10, [1100], 0, 0, { author: [1000, 500],
+      region: (d) => ({ areaShape: "emanation", shapes: [{ type: "emanation", hole: false, gridBased: true, radius: 200, base: { type: "token", x: d._source.x, y: d._source.y, width: d._source.width, height: d._source.height, shape: d._source.shape } }] }) });
+    const b = region.bounds, c = { x: b.x + b.width / 2, y: b.y + b.height / 2 };
+    t.ok(c.x === 1050 && c.y === 550, `центр region.bounds ${JSON.stringify(c)}, токен-носитель (1050,550); bounds ${JSON.stringify({ x: b.x, y: b.y, w: b.width, h: b.height })}`);
+    const ap = (await imp("move.mjs")).areaPoint(e.use(m), region);
+    t.ok(ap && ap.x === 1050 && ap.y === 550, `areaPoint ${JSON.stringify(ap)}`);
+    t.ok(!notes.some((n) => /noPoint|центр области не найден|area centre/i.test(n)), `заметки: ${notes.join(" / ")}`);
+    t.ok(await waitFor(() => at(posOf(v, e), 1300, 500), 6000), `позиция ${JSON.stringify(posOf(v, e))}, ждали (1300,500)`);
+  });
+
+  sc("auto-all-undo", "Пакет auto: после отката двух строк и переброса одной откатанные чужие заново не применяются (autoAll)", async (e, t) => {
+    const { toks, m } = await burst(e, 5, [600, 700, 800], 550, 400);
+    for (const [i, v] of toks.entries()) t.ok(await waitFor(() => at(posOf(v, e), 700 + i * 100, 500), 6000), `пакет: цель ${i} ${JSON.stringify(posOf(v, e))}`);
+    t.ok(e.use(m)?.state?.challenge?.autoAll === true, `autoAll ${e.use(m)?.state?.challenge?.autoAll}`);
+    const { undoOps } = await imp("apply.mjs"), { recordResult } = await imp("saves.mjs");
+    await bound("undo 2", undoOps(game.messages.get(m.id), toks[2].id));
+    await bound("undo 1", undoOps(game.messages.get(m.id), toks[1].id));
+    t.ok(at(posOf(toks[1], e), 700, 500) && at(posOf(toks[2], e), 800, 500), "обе вернулись");
+    await bound("переброс цели 2", recordResult(m.id, toks[2].id, { degree: 1, total: 1, rollMessageId: "af-reroll", isReroll: true }));
+    t.ok(await waitFor(() => at(posOf(toks[2], e), 900, 500), 6000), `цель 2 применена: ${JSON.stringify(posOf(toks[2], e))}`);
+    await wait(1500);
+    t.ok(at(posOf(toks[1], e), 700, 500), `цель 1 откатана и не применена заново: ${JSON.stringify(posOf(toks[1], e))}`);
+  });
+
+  sc("waiting", "Ожидание бросков: PC-цель не бросает — бросившая NPC не двигается сама, виден счётчик «ждём» и «Применить всё», кнопка двигает", async (e, t) => {
+    const { toks: [v], m } = await burst(e, 5, [600], 550, 400, { extra: async (ee) => { const u = game.users.find((x) => !x.isGM); if (!u) throw new Skip("нет игрока-владельца для PC-цели"); const p = await ee.pc("игрок"); await p.update({ ownership: { default: 0, [u.id]: 3 } }); await ee.tok(p, 600, 700, 1); return 1; } });
+    t.ok(Object.keys(e.use(m)?.state?.challenge?.results ?? {}).includes(v.id), `NPC бросил: ${JSON.stringify(e.results(m))}`);
+    t.ok(at(posOf(v, e), 600, 500), `цель ждёт, не двигалась: ${JSON.stringify(posOf(v, e))}`);
+    t.ok(!e.use(m)?.state?.challenge?.autoTried?.[v.id], "autoTried бросившему не ставится");
+    const box = e.dom(m)?.querySelector(".paf-bulk");
+    t.ok(!!box?.querySelector('button[data-action=apply][data-token=all]'), `«Применить всё» есть: ${box?.textContent?.replace(/\s+/g, " ")}`);
+    t.ok(/1/.test(box?.querySelector(".paf-pending:last-of-type")?.textContent ?? ""), `строка ожидания: ${box?.textContent?.replace(/\s+/g, " ")}`);
+    box?.querySelector('button[data-action=apply][data-token=all]')?.click();
+    t.ok(await waitFor(() => at(posOf(v, e), 700, 500), 6000), `после «Применить всё»: ${JSON.stringify(posOf(v, e))}`);
   });
 
   // ---------- прогон ----------

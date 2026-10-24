@@ -58,6 +58,7 @@
       {{#if (or vm.challenge.canApplyAll vm.challenge.canUndoAll)}}
       <div class="paf-bulk">
         {{#if vm.challenge.pending}}<span class="paf-pending">{{vm.challenge.pending}}</span>{{/if}}
+        {{#if vm.challenge.waiting}}<span class="paf-pending">{{localize "PF2E_AUTOMATO.chat.waiting" n=vm.challenge.waiting}}</span>{{/if}}
         {{#if vm.challenge.canApplyAll}}<button type="button" class="paf-primary" data-action="apply" data-token="all"><i class="fa-solid fa-check-double"></i> {{localize "PF2E_AUTOMATO.chat.applyAll"}}</button>{{/if}}
         {{#if vm.challenge.canUndoAll}}<button type="button" class="paf-ghost" data-action="undo" data-token="all">{{localize "PF2E_AUTOMATO.chat.undoAll"}}</button>{{/if}}
       </div>

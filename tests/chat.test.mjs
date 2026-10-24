@@ -309,3 +309,16 @@ test("low + испытание: кнопка применения у ГМа пр
   assert.equal(can("high", "auto"), false);
   assert.equal(can("high", "button"), true);
 });
+
+test("move + apply=auto: пока не все бросили — «Применить» у бросивших и «ждём бросков: N»; после пакета (autoAll) — как обычно", () => {
+  const e = mkEnv({ modes: { apply: "auto" } });
+  const rule = { ...fear, onUse: { ...fear.onUse, challenge: { ...fear.onUse.challenge, byDegree: { failure: [{ to: "target", move: { mode: "push", distance: 5 } }] } } } };
+  const vm = (challenge) => buildViewModel(mkMsg({ rule, state: { challenge } }), gm, e).challenge;
+  const w = vm({ results: { a: { degree: 1, total: 5 } } });
+  assert.equal(w.rows[0].canApply, true);
+  assert.equal(w.canApplyAll, true);
+  assert.equal(w.waiting, 1);
+  const d = vm({ results: { a: { degree: 1, total: 5 } }, autoAll: true });
+  assert.equal(d.rows[0].canApply, false);
+  assert.equal(d.waiting, null);
+});

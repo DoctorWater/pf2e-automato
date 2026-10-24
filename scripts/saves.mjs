@@ -317,6 +317,7 @@ export async function recordResult(messageId, tokenKey, result) {
 }
 
 async function afterRecord(messageId, tokenKey) {
+  let batch = false, deferred = false;
   try {
     const message = game.messages.get(messageId), ch = challengeOf(useOf(message));
     const by = ch.byDegree ?? {};
@@ -325,14 +326,18 @@ async function afterRecord(messageId, tokenKey) {
     const apply = modeOf("apply");
     // шаг move: в auto ждём результаты всех целей и применяем разом (дальние первыми); applyByDegree("all") сам зовёт afterChallenge
     const hasMove = Object.values(by).flat().some((s) => s?.move);
-    let ranAll = false;
+    // autoAll — пакет уже отработал: дальше (переброс, откат ГМа) только своя цель, откатанные чужие заново не применяются
     if (apply === "auto" && useOf(message).confidence !== "low" && (hasSteps || hasMacros)) {
-      if (!hasMove) await applyByDegree(messageId, tokenKey);
-      else if (await allResolved(message)) { await applyByDegree(messageId, "all"); ranAll = true; }
+      if (!hasMove || useOf(message).state?.challenge?.autoAll) await applyByDegree(messageId, tokenKey);
+      else if (await allResolved(message)) { await applyByDegree(messageId, "all", { auto: true }); batch = true; }
+      else deferred = true;
     }
-    if (!ranAll && await allResolved(message)) await afterChallenge(message);
+    if (!batch && await allResolved(message)) await afterChallenge(message);
   } catch (e) { console.error(`${MOD} | afterRecord`, e); }
-  if (modeOf("apply") === "auto" && useOf(game.messages.get(messageId))?.confidence !== "low") await markTried(messageId, "autoTried", tokenKey);
+  if (modeOf("apply") !== "auto" || useOf(game.messages.get(messageId))?.confidence === "low") return;
+  // пакет закрыл всех бросивших; в ожидании «попытки» нет — кнопка «Применить» у них и так есть (chat.mjs)
+  if (batch) for (const k of Object.keys(useOf(game.messages.get(messageId))?.state?.challenge?.results ?? {})) await markTried(messageId, "autoTried", k);
+  else if (!deferred) await markTried(messageId, "autoTried", tokenKey);
 }
 
 export async function afterChallenge(message) {
@@ -344,12 +349,13 @@ export async function afterChallenge(message) {
 /* ---------- применение по степеням ---------- */
 
 /** ГМ: применить byDegree к одной цели или ко всем с результатом. Идемпотентно (meta.key в applyOps). */
-export function applyByDegree(messageId, tokenKey) {
+export function applyByDegree(messageId, tokenKey, { auto = false } = {}) {
   return queue(`msg:${messageId}`, async () => {
     const message = game.messages.get(messageId), use = useOf(message), ch = challengeOf(use);
     if (!ch || use.state?.yielded || modeOf("apply") === "off") return [];
     const targets = await challengeTargets(message);
     const all = tokenKey === "all";
+    if (all && auto) await message.update({ [flagPath("use", "state", "challenge", "autoAll")]: true });   // постоянно: afterRecord больше не гонит пакет
     const ops = [];
     // толчок идёт от дальних целей к ближним, притяжение — наоборот (передний не мешает заднему)
     const moveSteps = Object.values(ch.byDegree ?? {}).flat();
@@ -362,6 +368,7 @@ export function applyByDegree(messageId, tokenKey) {
       if (!all && key !== tokenKey) continue;
       const r = useOf(message).state?.challenge?.results?.[key];
       if (!r) continue;
+      if (all && auto && useOf(message).state?.challenge?.undone?.[key]) continue;   // ГМ откатил строку до пакета — не возвращаем
       // бросок уже сделан (действие или спасбросок из листа), а цель иммунна к этому автору: ничего не применяем (повтор после применения — идемпотентно, пропуск не нужен)
       if (ch.immunity && !useOf(message).state?.challenge?.applied?.[key] && await isImmune(useOf(message), token, ch)) continue;
       const steps = ch.byDegree?.[DEGREES[r.degree]] ?? [];

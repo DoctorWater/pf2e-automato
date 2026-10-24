@@ -17,6 +17,8 @@ const esc = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replac
 
 const metaOf = (item) => item?.flags?.[MOD]?.meta;
 const notify = (key, data) => globalThis.ui?.notifications?.warn?.(L(key, data));
+const noted = new Set();   // moveSkip.noPoint/noOrigin: один тост на сообщение, не на цель и шаг
+export const noteOnce = (message, kind, data) => { const k = `${message?.id}:${kind}`; if (!noted.has(k)) { noted.add(k); notify(`moveSkip.${kind}`, data); } };
 
 export function findByKey(actor, key) {
   return key ? actor.items.find((i) => metaOf(i)?.key === key) ?? null : null;
@@ -561,10 +563,11 @@ export async function applyOps(message, tokenKey, steps, ctx = {}) {
       if (doneOps.some((o) => o.op === "moved" && o.key === mkey)) continue;
       // from:"point" — центр области этого использования; нет области/формы без центра — откат на токен автора с заметкой
       const point = step.move.from === "point" ? areaPoint(use, ctx.region) : null;
-      if (step.move.from === "point" && !point) notify("moveSkip.noPoint", { name: use.item?.name ?? "", target: targetDoc?.name ?? "" });
+      if (step.move.from === "point" && !point) noteOnce(message, "noPoint", { name: use.item?.name ?? "", target: targetDoc?.name ?? "" });
       const r = await forcedMove(targetDoc, originToken, step.move, point);
       if (r.skipped) {
-        notify(`moveSkip.${r.skipped}`, { name: use.item?.name ?? "", target: targetDoc?.name ?? "" });
+        const d = { name: use.item?.name ?? "", target: targetDoc?.name ?? "" };
+        if (r.skipped === "noOrigin") noteOnce(message, "noOrigin", d); else notify(`moveSkip.${r.skipped}`, d);   // noOrigin одинаков для всех целей — один тост
         ops.push({ op: "moved", skipped: r.skipped, key: mkey });   // строка отработана; причина — уведомлением ГМу
       } else ops.push({ op: "moved", token: targetDoc.uuid, from: r.from, to: r.to, id: r.id, key: mkey });
       continue;
@@ -682,7 +685,7 @@ export async function undoOps(message, tokenKey) {
       undone++;
     }
     const path = scope === "challenge" ? flagPath("use", "state", "challenge", "applied") : flagPath("use", "state", "apply");
-    await message.update(forcedDelete(`${path}.${tokenKey}`));
+    await message.update({ ...forcedDelete(`${path}.${tokenKey}`), ...(scope === "challenge" ? { [flagPath("use", "state", "challenge", "undone", tokenKey)]: true } : {}) });   // откат ГМа: авто-пакет эту цель заново не применит
   }
   return { undone };
 }

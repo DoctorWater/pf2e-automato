@@ -60,7 +60,7 @@ export function buildBatch() {
     const d = { uuid: it.uuid, slug: it.slug, type: it.type, name: it.name, nameRu: it.nameRu, layer: t.layer, batch: t.batchName, dupCount: it.dupCount };
     const r = afflictionRule(h, { name: it.name, traits: it.traits ?? [], condSlug, save: it.defense ? { statistic: it.defense.save } : null });
     let why = null, diffs = [];
-    if (it.type === "weapon" || (it.traits ?? []).includes("injury")) why = "injury poison on weapon";   // примитива нанесения яда на оружие пока нет
+    if (it.type === "weapon" || (it.traits ?? []).includes("injury") || /@Check\[[^\]]*traits:[^\]|]*\binjury\b/.test(h)) why = "injury poison on weapon";   // примитива нанесения яда на оружие пока нет
     else if (!r) why = "no save/kind or stage marks";
     else if (!r.rule) why = `invalid rule: ${r.unsure.at(-1)?.slice(0, 80)}`;
     else if (r.unsure.length) why = r.unsure.map(short)[0];

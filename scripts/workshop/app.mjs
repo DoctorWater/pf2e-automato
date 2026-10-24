@@ -3,7 +3,7 @@
 // Части окна у обоих режимов одни и те же (id), шаблоны подставляются по режиму в _configureRenderParts.
 import { MOD, L, errText, DEGREES, callGM, forcedReplace, forcedDelete, flagPath, damageLabel } from "../util.mjs";
 import { modeOf } from "../settings.mjs";
-import { DENY, dropSpec, ruleToForm, formToRule, blankRow, blankEvent, blankTrigger, reportEnv, pickedTokens, ruleUuids, buildReport } from "../sheet.mjs";
+import { DENY, dropSpec, ruleToForm, formToRule, blankRow, blankEvent, blankTrigger, blankCast, reportEnv, pickedTokens, ruleUuids, buildReport } from "../sheet.mjs";
 import { validateRule, resolveRule, slugOf, sourceOf, DAMAGE_TYPES, EVENT_ON, EVENT_SIDES, EVENT_TARGETED, EVENT_AFTER_USE, NEAR_ON, TRIGGER_ON, TRIGGER_PER } from "../rules.mjs";
 import { automationsGroups } from "../compat.mjs";
 import { safeUuid } from "../saves.mjs";
@@ -184,6 +184,8 @@ export class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
       },
       addMacro() { this.#au.f.macros.push({ uuid: "", phase: "onUse", degree: "" }); this.#au.open.macros = true; this.#redraw(); },
       addEvent() { this.#au.f.ev.push(blankEvent()); this.#au.open.events = true; this.#au.sel = null; this.#redraw(); },
+      addCast() { this.#au.f.cast.push(blankCast()); this.#au.open.cast = true; this.#redraw(); },
+      removeCast(_e, el) { this.#au.f.cast.splice(Number(el.dataset.i), 1); this.#redraw(); },
       removeEvent(_e, el) { this.#au.f.ev.splice(Number(el.dataset.i), 1); this.#au.sel = null; this.#redraw(); },
       addTrigger() { this.#au.f.zone.trig.push(blankTrigger()); this.#au.sel = null; this.#redraw(); },
       removeTrigger(_e, el) { this.#au.f.zone.trig.splice(Number(el.dataset.i), 1); this.#au.sel = null; this.#redraw(); },
@@ -265,7 +267,7 @@ export class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
     if (!res) f.kind = "onUse";
     const area = au.initialArea({ isSpell: item.type === "spell", area: item._source.system.area, description: item._source.system.description?.value });
     const hints = res?.source === "markup" && game.user.isGM ? hintsView(res.hints, { condLabel, degLabel: (d) => t(`sheet.degree.${d}`).toLowerCase() }) : null;
-    this.#au = { hints, f, base: JSON.stringify(f), area, baseArea: { ...area }, open: prev?.open ?? { when: false, targets: false, roll: true, outcome: true, zone: false, macros: false, events: true }, sel: prev?.sel ?? null, picker: null, probeDc: prev?.probeDc ?? "" };
+    this.#au = { hints, f, base: JSON.stringify(f), area, baseArea: { ...area }, open: prev?.open ?? { when: false, targets: false, roll: true, outcome: true, zone: false, macros: false, events: true, cast: true }, sel: prev?.sel ?? null, picker: null, probeDc: prev?.probeDc ?? "" };
   }
 
   #dirty() {
@@ -452,7 +454,7 @@ export class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
 
     const whenFields = [
       F.text("f.label", t("sheet.label"), f.label, { cls: "ws-grow" }),
-      F.seg("f.kind", t("workshop.au.event"), f.kind, ["onUse", "onAttacked", "onEvent", "none"].map((k) => [k, t(`workshop.au.kind.${k}`)])),
+      F.seg("f.kind", t("workshop.au.event"), f.kind, ["onUse", "onAttacked", "onEvent", "cast", "none"].map((k) => [k, t(`workshop.au.kind.${k}`)])),
       F.seg("f.yield", t("sheet.yieldLabel"), f.yield, [["auto", t("sheet.yield.auto")], ["yes", t("sheet.yes")], ["no", t("sheet.yield.no")]])
     ];
     if (f.kind === "onAttacked") whenFields.push(
@@ -564,10 +566,32 @@ export class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
       };
     });
 
+    // активации cast: заклинание (бросок из компендиума), ранг, СЛ, частота, требование к предмету
+    const casts = f.cast.map((c, i) => {
+      const p = `f.cast.${i}`;
+      return {
+        i, title: `${i + 1}. ${c.label?.trim() || this.#names.get(c.spell) || t("workshop.au.cast.untitled")}`,
+        fields: [
+          F.text(`${p}.spell`, t("workshop.au.cast.spell"), c.spell, { drop: "spell", cls: "ws-spell", hint: this.#names.get(c.spell) ?? "", placeholder: "Compendium.pf2e.spells-srd.Item.…" }),
+          F.num(`${p}.rank`, t("workshop.au.cast.rank"), c.rank, { min: 1, placeholder: t("workshop.au.cast.rankBase") }),
+          F.sel(`${p}.dcType`, t("sheet.dcLabel"), c.dcType, choices(["auto", "value", "high"], "au.cast.dc")),
+          ...(c.dcType === "value" ? [F.num(`${p}.dc`, t("workshop.au.dcValue"), c.dc, { min: 1 })] : []),
+          F.num(`${p}.attack`, t("workshop.au.cast.attack"), c.attack, { placeholder: t("workshop.au.cast.attackAuto") }),
+          F.num(`${p}.perValue`, t("workshop.au.cast.perValue"), c.perValue, { min: 1 }),
+          F.sel(`${p}.perUnit`, t("workshop.au.unit"), c.perUnit, sheetChoices("unit", ["rounds", "minutes", "hours", "days"])),
+          F.num(`${p}.perUses`, t("workshop.au.cast.perUses"), c.perUses, { min: 1, placeholder: "1" }),
+          F.sel(`${p}.requires`, t("workshop.au.cast.requires"), c.requires, choices(["auto", "invested", "equipped", "held", "none"], "au.cast.req")),
+          F.text(`${p}.id`, t("workshop.au.cast.id"), c.id, { placeholder: "electric-arc" }), F.text(`${p}.label`, t("sheet.label"), c.label),
+          F.text(`${p}.note`, t("workshop.au.cast.note"), c.note, { cls: "ws-grow" })
+        ]
+      };
+    });
+
     const onUse = f.kind === "onUse", R = (key, o) => ({ key, label: t(`workshop.au.row.${key}`), fold: true, open: !!a.open[key], sum: sums[key], hot: key === "outcome", ...o });
     const rows = [
       R("when", { fields: whenFields }),
       ...(f.kind === "onEvent" || f.ev.length ? [R("events", { is_events: true, evs, hot: true, edit: evSel ? edit : null })] : []),
+      ...(f.kind === "cast" || f.cast.length ? [R("cast", { is_cast: true, casts, hot: true })] : []),
       ...(onUse ? [
         R("targets", { fields: targetFields, area: areaNote }),
         R("roll", { fields: rollFields }),
@@ -663,7 +687,7 @@ export class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
     const doc = data.type === "Item" ? await safeUuid(data.uuid) : null;
     const spec = dropSpec(data, doc);
     if (spec?.temp) return ui.notifications.warn(L("sheet.dropTemp"));
-    if (!spec || spec.macro) return ui.notifications.warn(t("workshop.dropBad"));
+    if (!spec || spec.macro || spec.kind === "spell") return ui.notifications.warn(t("workshop.dropBad"));
     let patch;
     if (spec.kind === "condition") {
       if (!conditions().has(spec.text) || NOT_GRANTABLE.has(spec.text)) return ui.notifications.warn(t("workshop.dropBad"));
@@ -687,8 +711,9 @@ export class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
       else { a.f.macros.push({ uuid: spec.macro, phase: "onUse", degree: "" }); a.open.macros = true; }
       return this.#redraw();
     }
-    const field = ev.target.closest("[data-drop=effect], [data-drop=condition]");
+    const field = ev.target.closest("[data-drop=effect], [data-drop=condition], [data-drop=spell]");
     if (field && spec.kind === field.dataset.drop) { this.#setAuto(field.dataset.a, spec.text); return this.#redraw(); }
+    if (spec.kind === "spell") { a.f.cast.push({ ...blankCast(), spell: spec.text }); a.open.cast = true; return this.#redraw(); }   // заклинание мимо поля — новая активация
     if (spec.kind === "condition" && (!conditions().has(spec.text) || NOT_GRANTABLE.has(spec.text))) return ui.notifications.warn(t("workshop.dropBad"));
     const list = ev.target.closest(".ws-dcol, .ws-dimm")?.querySelector("[data-list]")?.dataset.list ?? (au.rollMode(a.f) === "none" && a.f.kind === "onUse" ? "f.apply" : null);
     if (!list) return ui.notifications.warn(t("workshop.au.dropColumn"));

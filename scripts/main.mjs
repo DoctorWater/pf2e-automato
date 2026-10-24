@@ -23,6 +23,7 @@ import * as damageGate from "./damage-gate.mjs";
 import * as turnConditions from "./turn-conditions.mjs";
 import * as escape from "./escape.mjs";
 import * as events from "./events.mjs";
+import * as cast from "./cast.mjs";
 
 const { S } = settings;
 
@@ -112,7 +113,7 @@ Hooks.once("socketlib.ready", () => {
 Hooks.once("setup", () => leader.start());
 
 Hooks.once("init", () => {
-  settings.init(); compat.init(); zone.init(); height.init(); saves.init(); use.init(); actions.init(); chat.init(); reactions.init(); sheet.init(); badge.init(); vision.init(); invis.init(); workshop.init(); hud.init(); damageGate.init(); turnConditions.init(); escape.init(); events.init();
+  settings.init(); compat.init(); zone.init(); height.init(); saves.init(); use.init(); actions.init(); chat.init(); reactions.init(); sheet.init(); badge.init(); vision.init(); invis.init(); workshop.init(); hud.init(); damageGate.init(); turnConditions.init(); escape.init(); events.init(); cast.init();
   game.modules.get(MOD).api = {
     // контракт plan.md §2 main
     attachZone: zone.attachZone, sweepZone: zone.sweepZone, closeZone: zone.closeZone, expireZones: zone.expireZones,
@@ -125,7 +126,7 @@ Hooks.once("init", () => {
     applyCondition: apply.applyCondition, applyEffect: apply.applyEffect, hasEffect: apply.hasEffect, applyOps: apply.applyOps,
     undoOps: apply.undoOps, removeByKey: apply.removeByKey, findByKey: apply.findByKey,
     automationsGroups: compat.automationsGroups, shouldYield: compat.shouldYield,
-    validateRule: rules.validateRule, deriveFromMarkup: rules.deriveFromMarkup, slugOf: rules.slugOf, sourceOf: rules.sourceOf,
+    validateRule: rules.validateRule, deriveFromMarkup: rules.deriveFromMarkup, deriveCast: rules.deriveCast, castItem: cast.castItem, slugOf: rules.slugOf, sourceOf: rules.sourceOf,
     openWorkshop: workshop.Workshop.open,
     degreeFromTotal, callGM, HANDLERS
   };
@@ -134,7 +135,7 @@ Hooks.once("init", () => {
 Hooks.once("ready", async () => {
   const protos = game.modules.filter((m) => m.active && m.id.startsWith("pf2e-autoflow-proto"));
   if (protos.length) ui.notifications.warn(`${L("protoWarning")} (${protos.map((m) => m.id).join(", ")})`);
-  await rules.ready(); await chat.ready(); compat.ready();
+  await rules.ready(); await chat.ready(); compat.ready(); cast.ready();
   // При каждом переходе в лидеры (первый — после ready, потом — когда прежний лидер закрыт/перезагружен): подхватить его работу.
   leader.onLead(async () => {
     if (!guardActiveGM()) return;

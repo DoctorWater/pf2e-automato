@@ -198,6 +198,11 @@
       <p class="notes">{{localize "PF2E_AUTOMATO.sheet.eventNote"}}</p>
     </fieldset>
 
+    <fieldset class="af-block" data-showif="kind=cast">
+      <legend>{{localize "PF2E_AUTOMATO.workshop.au.row.cast"}}</legend>
+      <p class="notes">{{localize "PF2E_AUTOMATO.sheet.castNote"}}</p>
+    </fieldset>
+
     <fieldset class="af-block">
       <legend>{{localize "PF2E_AUTOMATO.sheet.macros"}}</legend>
       <div class="af-rows" data-list="macros">{{#each f.macros}}{{> afMacro}}{{/each}}</div>

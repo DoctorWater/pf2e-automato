@@ -112,6 +112,20 @@
           {{/if}}
         </div>
         {{/if}}
+        {{#if r.is_cast}}
+        <div class="ws-evs ws-full">
+          <span class="ws-note">{{localize "PF2E_AUTOMATO.workshop.au.cast.hint"}}</span>
+          {{#each r.casts}}
+          <div class="ws-ev">
+            <div class="ws-ev-h"><span class="ws-lbl ws-accent">{{title}}</span>
+              <button type="button" class="ws-x" data-action="removeCast" data-i="{{i}}" name="rmCast-{{i}}" aria-label="{{localize "PF2E_AUTOMATO.workshop.au.cast.remove"}}"><i class="fa-solid fa-xmark" inert></i></button>
+            </div>
+            <div class="ws-pfields">{{#each fields}}{{> fld}}{{/each}}</div>
+          </div>
+          {{/each}}
+          <button type="button" class="ws-add" data-action="addCast" name="addCast"><i class="fa-solid fa-plus" inert></i> {{localize "PF2E_AUTOMATO.workshop.au.cast.add"}}</button>
+        </div>
+        {{/if}}
         {{#if r.is_trig}}
         <div class="ws-evs ws-full">
           <span class="ws-note">{{localize "PF2E_AUTOMATO.workshop.au.trg.hint"}}</span>

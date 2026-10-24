@@ -27,6 +27,8 @@
 .pf2e-automato-workshop .ws-head-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
 .pf2e-automato-workshop .ws-head-row { display: flex; align-items: center; gap: 12px; }
 .pf2e-automato-workshop .ws-grow { flex: 1; min-width: 0; }
+.pf2e-automato-workshop .ws-spell { flex: 1 1 100%; }   /* UUID заклинания активации — на всю строку */
+.pf2e-automato-workshop .ws-spell .ws-inp { width: 100%; }
 .pf2e-automato-workshop .ws-title { width: 100%; box-sizing: border-box; height: auto; padding: 0 0 2px; font: 600 26px Eczar, Georgia, serif; color: #2a2420; background: transparent; border: 0; border-bottom: 1px dashed #baa991; border-radius: 0; box-shadow: none; }
 .pf2e-automato-workshop .ws-inline { display: inline-flex; align-items: center; gap: 6px; }
 

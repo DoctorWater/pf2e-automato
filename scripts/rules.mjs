@@ -506,6 +506,33 @@ function vEvents(list, err) {
   return list.map((e, i) => vEvent(e, i, err)).filter(Boolean);
 }
 
+// cast: активация снаряжения «вы сотворяете X» (plan-cast-activation.md). Один элемент — одна активация; id по умолчанию — slug метки или заклинания.
+// per — раз в value единиц (uses раз; по умолчанию один); dc — число | {level:"high"} (СЛ по уровню владельца, NPC) | нет (СЛ лучшей записи владельца); requires нет — по предмету
+export const CAST_REQUIRES = ["invested", "equipped", "held", "none"];
+function vCast(list, err) {
+  if (list == null) return [];
+  if (!Array.isArray(list)) { err.push(E("notArr", "cast")); return []; }
+  const ids = new Set();
+  return list.flatMap((c, i) => {
+    const bad = (k) => { err.push(E("cast.bad", `cast[${i}].${k}`)); return []; };
+    if (!isObj(c) || !isStr(c.spell)) return bad("spell");
+    // id по умолчанию — slug метки (если латиницей), иначе хвост UUID заклинания (стабилен при правках списка); повтор получает номер
+    const base = [sluggify(c.label ?? ""), sluggify(c.spell.split(".").pop().toLowerCase())].find((s) => SLUG.test(s)) ?? `cast-${i + 1}`, id = c.id ?? (ids.has(base) ? `${base}-${i + 1}` : base);
+    if (!(isStr(id) && SLUG.test(id)) || ids.has(id)) return bad("id");
+    ids.add(id);
+    if (c.rank != null && !(isInt(c.rank) && c.rank >= 1 && c.rank <= 10)) return bad("rank");
+    const high = isObj(c.dc) && c.dc.level === "high" && Object.keys(c.dc).length === 1;
+    if (c.dc != null && !high && !(isInt(c.dc) && c.dc >= 1)) return bad("dc");
+    if (c.attack != null && !isInt(c.attack)) return bad("attack");
+    const p = c.per;
+    if (p != null && !(isObj(p) && isInt(p.value) && p.value >= 1 && APPLY_UNITS.includes(p.unit) && (p.uses == null || (isInt(p.uses) && p.uses >= 1)))) return bad("per");
+    if (c.requires != null && !CAST_REQUIRES.includes(c.requires)) return bad("requires");
+    for (const k of ["label", "note"]) if (c[k] != null && !isStr(c[k])) return bad(k);
+    return [{ id, spell: c.spell, ...(c.rank != null && { rank: c.rank }), ...(c.dc != null && { dc: high ? { level: "high" } : c.dc }), ...(c.attack != null && { attack: c.attack }),
+      ...(p != null && { per: { value: p.value, unit: p.unit, ...(p.uses > 1 && { uses: p.uses }) } }), ...(c.requires != null && { requires: c.requires }), ...(c.label != null && { label: c.label }), ...(c.note != null && { note: c.note }) }];
+  });
+}
+
 function vMacros(list, err) {
   if (list == null) return [];
   if (!Array.isArray(list)) { err.push(E("notArr", "macros")); return []; }
@@ -543,7 +570,9 @@ export function validateRule(raw) {
   };
   const events = vEvents(raw.onEvent, err);
   if (events.length) rule.onEvent = events;   // нет событий — поля нет (правила без него не меняются)
-  if (!rule.onUse && !rule.onAttacked && !rule.macros.length && !events.length && !err.length) err.push(E("rule.empty", ""));
+  const cast = vCast(raw.cast, err);
+  if (cast.length) rule.cast = cast;
+  if (!rule.onUse && !rule.onAttacked && !rule.macros.length && !events.length && !cast.length && !err.length) err.push(E("rule.empty", ""));
   return err.length ? { ok: false, rule: null, errors: err } : { ok: true, rule, errors: [] };
 }
 
@@ -1035,6 +1064,49 @@ export function setWho(onUse, who) {
 export function markReplace(onUse) {
   for (const l of [onUse?.apply, ...Object.values(onUse?.challenge?.byDegree ?? {}), ...Object.values(onUse?.check?.byDegree ?? {})]) for (const a of l ?? []) if (a.effect && !a.effect.badge && !a.effect.mods) a.effect.replace = true;   // inline-эффект (mods) replace не принимает: повтор шага закрывает meta.key
 }
+
+/* ---------- активация «You cast X» (cast) ---------- */
+
+const SPELL_LINK = /@UUID\[(Compendium\.pf2e\.spells-srd\.Item\.[^\]]+)\](?:\{([^}]*)\})?/g;
+const WORD_COUNT = { once: 1, twice: 2, thrice: 3 };
+const PER_UNIT = { round: ["rounds", 1], minute: ["minutes", 1], hour: ["hours", 1], day: ["days", 1], week: ["days", 7] };   // неделя — 7 дней: сбрасывается отдыхом, лимит мягкий
+/** Частота из текста («once per day», «twice per hour», «once per 10 minutes») -> {value, unit, uses?} | null. */
+export function frequencyOf(text) {
+  const m = /\b(once|twice|thrice|(\d+)\s+times?)\s+per\s+(?:(\d+)\s+)?(round|minute|hour|day|week)s?\b/i.exec(text ?? "");
+  if (!m) return null;
+  const uses = WORD_COUNT[m[1].toLowerCase()] ?? +m[2], [unit, k] = PER_UNIT[m[4].toLowerCase()];
+  return { value: (+m[3] || 1) * k, unit, ...(uses > 1 && { uses }) };
+}
+
+/**
+ * Блоки «Activate … Effect: You cast @UUID[spells-srd]{X}» -> cast[] (ровно одна ссылка на заклинание и слово cast; иначе блок пропущен -> partial).
+ * Ранг — «4th-rank»; СЛ — первый @Check[…|dc:N] абзаца с заклинанием (проверка в следующих абзацах — приписка предмета: low), иначе «spell DC … is N» всего текста; частота — «Frequency» блока, у спеллхарта (черта или фраза) — раз в день.
+ * @Check блока уходит в cast.dc: onUse.challenge из него выводить нельзя (двойное испытание). spellDefs: {uuid: {slug, save, attack}} — high без СЛ у заклинания без испытания.
+ * -> {cast, confidence, partial} | null
+ */
+export function deriveCast(html, { spellDefs = {}, traits = [] } = {}) {
+  html = String(html ?? "");
+  const starts = [...html.matchAll(/<strong>\s*Activate\b/gi)].map((m) => m.index);
+  if (!starts.length) return null;
+  const all = plainOf(html), itemDc = /spell DC\b[^.]{0,80}?\bis (\d+)/i.exec(all)?.[1];
+  const hearts = traits.includes("spellheart") || /once per day for each spell/i.test(all);
+  const cast = [];
+  let partial = false;
+  for (const a of starts) {
+    const stop = html.slice(a + 1).search(/<strong>\s*(?:Activate|Craft Requirements)\b|<h2/i), block = html.slice(a, stop < 0 ? html.length : a + 1 + stop);
+    const eff = /<strong>\s*Effect\s*<\/strong>([\s\S]*)/i.exec(block)?.[1];
+    const links = eff ? [...eff.matchAll(SPELL_LINK)] : [];
+    if (links.length !== 1 || !/\bcasts?\b/i.test(plainOf(eff))) { partial = true; continue; }
+    const [, spell, label = ""] = links[0], def = spellDefs[spell], para = eff.split(/<\/p>/i)[0];
+    const dc = +(/@Check\[[^\]]*\bdc:(\d+)/.exec(para)?.[1] ?? itemDc) || null, rank = +/(\d+)(?:st|nd|rd|th)[- ]rank/i.exec(eff)?.[1] || null;
+    const per = frequencyOf(/<strong>\s*Frequency\s*<\/strong>([^<]*)/i.exec(block)?.[1]) ?? (hearts ? { value: 1, unit: "days" } : null);
+    const slug = def?.slug ?? sluggify(label), n = cast.length + 1, base = SLUG.test(slug) ? slug : `cast-${n}`;
+    cast.push({ id: cast.some((c) => c.id === base) ? `${base}-${n}` : base, spell, ...(rank && { rank }), ...(dc && { dc }), ...(per && { per }), sure: !/@(?:Check|Damage)\[/.test(eff.slice(para.length)) && (!!dc || (!!def && !def.save && !def.attack)) });
+  }
+  if (!cast.length) return null;
+  return { cast: cast.map(({ sure: _s, ...c }) => c), confidence: !partial && cast.every((c) => c.sure) ? "high" : "low", partial };
+}
+
 export function deriveFromMarkup(itemLike, labels, conditionSlugByUuid, condNames = null) {
   const html = itemLike?.system?.description?.value;
   if (!isStr(html)) return null;
@@ -1076,6 +1148,14 @@ export function deriveFromMarkup(itemLike, labels, conditionSlugByUuid, condName
     return v.ok ? { rule: v.rule, confidence, hints, ...extra } : null;
   };
   const targetsOf = () => (area ? "area" : "selected");
+
+  // активация «You cast X»: @Check блока уходит в cast.dc, испытания onUse не будет (иначе оно бросилось бы дважды); ослабленный вывод — low
+  const dcast = type === "consumable" ? null : deriveCast(html, { traits: sys.traits?.value ?? [] });   // расходники (палочки, свитки): заряды ведёт pf2e, кнопки мимо них не нужны
+  const vcast = dcast && validateRule({ v: RULE_VERSION, ...(itemLike.name && { label: itemLike.name }), cast: dcast.cast });
+  if (vcast?.ok) {
+    if (dcast.partial) hints.lowWhy.push("cast-partial");
+    return { rule: vcast.rule, confidence: dcast.confidence, hints };
+  }
 
   // A. испытание (defense.save либо @Check-спасбросок)
   if (save?.statistic || check) {
@@ -1381,7 +1461,7 @@ function markupHead(c, d, html) {
 }
 
 /** Есть ли у правила шаги, которые что-то применяют (apply, степени испытания/проверки, зона). */
-const hasSteps = (r) => !!(r.onUse?.apply?.length || r.onUse?.zone || [r.onUse?.challenge, r.onUse?.check].some((c) => Object.values(c?.byDegree ?? {}).some((l) => l.length)));
+const hasSteps = (r) => !!(r.cast?.length || r.onUse?.apply?.length || r.onUse?.zone || [r.onUse?.challenge, r.onUse?.check].some((c) => Object.values(c?.byDegree ?? {}).some((l) => l.length)));
 
 /** Порядок §1.2: флаг -> world.bySource -> world.bySlug -> builtin.bySource -> builtin.bySlug -> разметка. */
 export function resolveRule(source) {

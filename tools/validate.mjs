@@ -11,7 +11,7 @@ import { BUILTIN } from "../scripts/builtin/index.mjs";
 import { stepCount } from "./triage.mjs";
 import { gateToEvent, hasCard, multiStrike } from "./strike-gate.mjs";
 
-const en = { ...readJson(join(ROOT, "lang/en/rules.json")).PF2E_AUTOMATO.rules.err, ...readJson(join(ROOT, "lang/en/events.json")).PF2E_AUTOMATO.rules.err };   // ошибки onEvent (ev.*) — в events.json
+const en = { ...readJson(join(ROOT, "lang/en/rules.json")).PF2E_AUTOMATO.rules.err, ...readJson(join(ROOT, "lang/en/events.json")).PF2E_AUTOMATO.rules.err };   // ошибки onEvent (ev.*) и cast — в events.json
 const fmtErr = (e) => {
   const tpl = e.key.split(".").reduce((o, k) => o?.[k], en);
   return typeof tpl === "string" ? tpl.replace(/\{(\w+)\}/g, (_, k) => e.data?.[k] ?? "") : String(e);
@@ -54,7 +54,7 @@ const stepsOf = (rule) => [...(rule.onUse?.apply ?? []), ...Object.values(rule.o
 /** Одни заметки ведущему (без иммунитета, зоны, событий): либо сюжет (автоматизировать нечего), либо механика без примитива (толчок, штраф без эффекта). Не skip: очередь «нужен примитив», в рантайм не идёт (решение пользователя 2026-10-24). */
 export const notesOnly = (rule) => {
   const u = rule.onUse, s = stepsOf(rule);
-  return s.length > 0 && s.every((x) => x.note) && !u?.challenge?.immunity && !u?.check?.immunity && !u?.zone && !(rule.onEvent ?? []).some((e) => e.challenge?.immunity) && !rule.onAttacked && !rule.macros?.length;
+  return s.length > 0 && s.every((x) => x.note) && !rule.cast?.length && !u?.challenge?.immunity && !u?.check?.immunity && !u?.zone && !(rule.onEvent ?? []).some((e) => e.challenge?.immunity) && !rule.onAttacked && !rule.macros?.length;
 };
 
 /** Содержательные проверки: ссылки существуют (и есть в тексте предмета), статистики из известных списков, builtin есть в реестре. html === null — не проверять текст. */
@@ -69,6 +69,7 @@ export function semanticErrors(rule, refs, html = null) {
     for (const x of [s.effect?.uuid, s.unlessEffect]) if (x && !refs.effects[x]) bad.push(`effect ${x} not found: copy the UUID exactly from the item text`);
     for (const x of [s.effect?.uuid, s.unlessEffect]) if (x && html !== null && !html.includes(x)) bad.push(`effect ${x} is not mentioned in this item's text: use only effects linked in the text`);
   }
+  for (const c of rule.cast ?? []) if (html !== null && !html.includes(c.spell)) bad.push(`cast spell ${c.spell} is not mentioned in this item's text: copy the spell UUID from the \`You cast\` link`);
   for (const e of rule.onEvent ?? []) if (e.aura && !/^[a-z0-9-]+$/.test(e.aura)) bad.push(`onEvent aura "${e.aura}" must be the slug of a pf2e Aura rule element (lowercase, dashes); if you do not know it use "range" in feet`);
   const z = u?.zone;
   if (z?.condition && !refs.conditions[z.condition.slug]) bad.push(`zone condition "${z.condition.slug}" does not exist in pf2e`);

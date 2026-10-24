@@ -70,6 +70,10 @@
       {{#if vm.useApply.noTargets}}<span class="paf-warning">{{vm.useApply.noTargets}}</span>{{/if}}
       {{#if vm.useApply.canApply}}<button type="button" class="paf-primary" data-action="apply-use">{{localize "PF2E_AUTOMATO.chat.applyUse"}}</button>{{/if}}</p>
   {{/if}}
+  {{#each vm.cast}}
+    <p class="paf-note paf-cast"><button type="button" class="paf-primary" data-action="cast-item" data-cast="{{id}}" {{#if why}}disabled title="{{why}}"{{/if}}><i class="fa-solid fa-wand-sparkles"></i> {{text}}</button>
+      {{#if meta}}<span class="paf-plan">{{meta}}</span>{{/if}}{{#if why}}<span class="paf-warning">{{why}}</span>{{/if}}{{#if note}}<span class="paf-hint">{{note}}</span>{{/if}}</p>
+  {{/each}}
   {{#each vm.derived}}
     <p class="paf-note paf-derived"><span class="paf-plan">{{text}}</span>
       {{#if canApply}}<button type="button" class="paf-primary" data-action="apply-derived" data-step="{{key}}" title="{{title}}">{{localize "PF2E_AUTOMATO.chat.applyDerived"}}</button>{{/if}}</p>

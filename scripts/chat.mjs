@@ -4,6 +4,7 @@ import { modeOf, S } from "./settings.mjs";
 import { automationsGroups, toolbeltTargetHelper } from "./compat.mjs";
 import * as saves from "./saves.mjs";
 import * as checks from "./checks.mjs";
+import * as cast from "./cast.mjs";
 import { visionActive, zoneCells } from "./vision.mjs";
 import { hintsView, hintList } from "./hints.mjs";
 import { whenHuman } from "./predicate.mjs";
@@ -66,6 +67,7 @@ const defaultEnv = () => ({
     return k ? game.i18n.localize(k) : slug;
   },
   uuidName: nameOfUuid,
+  castInfo: (use, c) => { try { return cast.castInfo(fromUuidSync(use.item?.uuid), c); } catch { return { why: null, left: null, dc: null }; } },
   damageLabel,
   checkDc: (key, use) => checks.defenseDc(tokenDocOf(key, use)?.actor, use.rule.onUse.check.vs),
   skipped: (key, use, ch) => !saves.challengeApplies(ch, tokenDocOf(key, use)?.actor, use.actor),
@@ -153,7 +155,7 @@ export function buildViewModel(message, user, env = null) {
   const vm = {
     messageId: message.id, title: rule.label || use.item?.name || t("chat.title"), isGM,
     yielded: null, warnings: [], waiting: null, awaitingRegion: null, zone: null, challenge: null,
-    useApply: null, derived: [], macroErrors: [], empty: false
+    useApply: null, cast: null, derived: [], macroErrors: [], empty: false
   };
 
   // карточка pf2e над блоком уже показывает название предмета
@@ -269,6 +271,16 @@ export function buildViewModel(message, user, env = null) {
     };
   }
 
+  // активации cast: кнопка на каждую — владельцу актёра (ведущему всегда); исполняет нажавший клиент, ведущий применит результат из сообщения (cast.mjs)
+  // low (вывод из разметки в рантайме) — кнопка только ведущему
+  if (rule.cast?.length && use.actor && (use.confidence === "low" ? isGM : env.isActorOwner(use.actor, user))) {
+    vm.cast = rule.cast.map((c) => {
+      const info = env.castInfo(use, c);
+      const meta = [info.dc != null && t("chat.dc", { dc: info.dc }), info.byLevel && t("cast.byLevel"), c.rank != null && t("cast.rank", { rank: c.rank }), c.per && cast.perText(c.per, t), info.left === 0 && t("cast.spent")].filter(Boolean);
+      return { id: c.id, text: t("cast.btn", { name: c.label ?? env.uuidName(c.spell) ?? c.id }), meta: meta.join(" · "), note: c.note ?? null, why: info.why && t(`cast.why.${info.why}`) };
+    });
+  }
+
   // распознанные шаги (low): режим вида off скрывает кнопку
   const applied = state.derived?.applied ?? [];
   for (const key of state.derived?.pending ?? []) {
@@ -286,7 +298,7 @@ export function buildViewModel(message, user, env = null) {
 
   if (isGM) vm.macroErrors = (state.macros?.errors ?? []).map((e) => `${e.key}: ${e.msg}`);
 
-  vm.empty = !(vm.warnings.length || vm.waiting || vm.awaitingRegion || vm.zone || vm.challenge || vm.useApply || vm.derived.length || vm.macroErrors.length);
+  vm.empty = !(vm.warnings.length || vm.waiting || vm.awaitingRegion || vm.zone || vm.challenge || vm.useApply || vm.cast || vm.derived.length || vm.macroErrors.length);
   return vm;
 }
 
@@ -391,6 +403,7 @@ async function dispatch(d, id) {
     case "create-zone": return callGM("createZone", id, d.region);
     case "close-zone": return callGM("closeZone", d.region);
     case "use-reaction": return callGM("useReaction", id);
+    case "cast-item": return cast.castItem(await fromUuid(game.messages.get(id)?.flags?.[MOD]?.use?.item?.uuid ?? ""), d.cast);   // исполняет этот клиент: владельцу ведущий не нужен
   }
 }
 

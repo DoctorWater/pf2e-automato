@@ -23,6 +23,7 @@
 .pf2e-automato .paf-applied::before { content: "✓ "; }
 .pf2e-automato .paf-plan + .paf-plan::before { content: ", "; }
 .pf2e-automato .paf-note button { margin-left: 0.4em; vertical-align: middle; }
+.pf2e-automato .paf-cast > span { margin-left: 0.4em; }   /* активация: СЛ · круг · частота, причина отказа и заметка — через пробел от кнопки */
 .pf2e-automato .paf-errors { color: var(--color-level-error, #b3261e); }
 
 /* таблица целей: строка 1 — цель | бросок | итог, строка 2 — что применится | следующее действие */

@@ -465,7 +465,7 @@ export async function applyOps(message, tokenKey, steps, ctx = {}) {
   const originToken = ctx.originToken ?? (use.token ? await fromUuid(use.token) : null);
   // актёр токена: у несвязанного токена это синтетический актёр, и pf2e сверяет автора срока с combatant.actor именно с ним
   const selfActor = ctx.originActor ?? originToken?.actor ?? actorOf(await fromUuid(use.actor));
-  const originItem = ctx.originItem ?? (use.item?.uuid ? await fromUuid(use.item.uuid) : null);
+  const originItem = ctx.originItem ?? (use.item?.uuid ? await fromUuid(use.item.uuid) : null) ?? (message.flags?.[MOD]?.cast ? message.item : null);   // эфемерное заклинание активации по uuid не найти
   const ectx = { originActor: selfActor, originToken, originItem, rollOptions: ctx.rollOptions,
     roll: ctx.degree != null && Number.isFinite(ctx.total) ? { total: ctx.total, degreeOfSuccess: ctx.degree } : null,
     castRank: originItem?.type === "spell" ? (message.flags?.pf2e?.origin?.castRank ?? originItem.rank ?? null) : null,

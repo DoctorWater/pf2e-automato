@@ -7,6 +7,7 @@ import { hintsView, hintList } from "./hints.mjs";
 import { resolveDC, safeUuid } from "./saves.mjs";
 import { defenseDc, pickStatistic, hasImmunity } from "./checks.mjs";
 import { stepText } from "./chat.mjs";
+import { castInfo } from "./cast.mjs";
 import { parseWhen, whenText } from "./predicate.mjs";
 
 export const DENY = new Set(["condition", "effect", "ancestry", "heritage", "background", "class", "deity", "kit", "lore", "campaignFeature", "affliction", "melee"]);
@@ -153,14 +154,27 @@ export const blankTrigger = () => ({ on: "turn-end", per: "", apply: [], ch: chF
 const trgForm = (t) => ({ on: t.on, per: t.per ?? "", apply: (t.apply ?? []).map(rowOf), ch: { ...chForm(t.challenge), on: !!t.challenge } });
 const trgRule = (t) => ({ on: t.on, ...(t.per && { per: t.per }), ...((t.apply ?? []).length && { apply: t.apply.map(applyOf).filter(Boolean) }), ...(t.ch?.on && { challenge: chRule(t.ch) }) });
 
+// cast (plan-cast-activation.md): активации «You cast X» <-> форма; поля строками, пустое — «не задано»
+export const blankCast = () => ({ id: "", spell: "", rank: "", dcType: "auto", dc: "", attack: "", perValue: "", perUses: "", perUnit: "days", requires: "auto", label: "", note: "" });
+const castForm = (c) => ({ id: c.id, spell: c.spell, rank: c.rank ?? "", dcType: c.dc?.level ? "high" : c.dc != null ? "value" : "auto", dc: c.dc?.level ? "" : c.dc ?? "", attack: c.attack ?? "", perValue: c.per?.value ?? "", perUses: c.per?.uses ?? "", perUnit: c.per?.unit ?? "days", requires: c.requires ?? "auto", label: c.label ?? "", note: c.note ?? "" });
+function castRule(c) {
+  const rank = num(c.rank), dc = num(c.dc), attack = num(c.attack), pv = num(c.perValue), pu = num(c.perUses);
+  return {
+    ...(c.id?.trim() && { id: c.id.trim() }), spell: String(c.spell ?? "").trim(), ...(rank !== undefined && { rank }),
+    ...(c.dcType === "high" ? { dc: { level: "high" } } : c.dcType === "value" && dc !== undefined && { dc }), ...(attack !== undefined && { attack }),
+    ...(pv !== undefined && { per: { value: pv, unit: c.perUnit, ...(pu !== undefined && { uses: pu }) } }),
+    ...(c.requires && c.requires !== "auto" && { requires: c.requires }), ...(c.label?.trim() && { label: c.label.trim() }), ...(c.note?.trim() && { note: c.note.trim() })
+  };
+}
+
 export function ruleToForm(rule) {
   const u = rule?.onUse, c = u?.challenge, k = u?.check, z = u?.zone, r = rule?.onAttacked;
   const vs = k?.vs ?? {};
   const dc = c?.dc ?? {};
   return {
     label: rule?.label ?? "", yield: tri(rule?.yield),
-    kind: u ? "onUse" : r ? "onAttacked" : rule?.onEvent?.length ? "onEvent" : "none",
-    ev: (rule?.onEvent ?? []).map(evForm),
+    kind: u ? "onUse" : r ? "onAttacked" : rule?.onEvent?.length ? "onEvent" : rule?.cast?.length ? "cast" : "none",
+    ev: (rule?.onEvent ?? []).map(evForm), cast: (rule?.cast ?? []).map(castForm),
     targets: u?.targets ?? "self", excludeSelf: tri(u?.excludeSelf),
     zone: { on: !!z, cond: z?.condition?.slug ?? "", condValue: z?.condition?.value ?? "", effect: z?.effect?.uuid ?? "", seconds: z?.duration?.seconds ?? "", rounds: z?.duration?.rounds ?? "", noFollow: z?.follow === false, enterBy: z?.enterBy ?? "end", gone: z?.onCarrierGone ?? "close", trig: (z?.triggers ?? []).map(trgForm) },
     ch: {
@@ -235,6 +249,7 @@ export function formToRule(f) {
     };
   }
   if (f.ev?.length) rule.onEvent = f.ev.map(evRule);   // события живут рядом с любым видом правила
+  if (f.cast?.length) rule.cast = f.cast.map(castRule);   // и активации тоже
   rule.macros = (f.macros ?? []).filter((m) => String(m.uuid ?? "").trim())
     .map((m) => ({ ...(m.form === "builtin" && m.uuid.trim().startsWith("builtin:") ? { builtin: m.uuid.trim().slice(8) } : { uuid: m.uuid.trim() }), phase: m.phase, ...(m.phase === "onDegree" && m.degree && { degree: m.degree }) }));
   return rule;
@@ -253,6 +268,7 @@ export function dropSpec(data, doc) {
     const src = doc._stats?.compendiumSource ?? doc.sourceId;
     return src ? { kind: "effect", text: src } : { temp: true };
   }
+  if (doc.type === "spell") return { kind: "spell", text: doc.parent ? doc._stats?.compendiumSource ?? data.uuid : data.uuid };   // активация cast: заклинание — по источнику
   return null;
 }
 
@@ -262,7 +278,7 @@ export function ruleUuids(rule) {
   const evs = (rule.onEvent ?? []).flatMap((e) => [...(e.apply ?? []), ...DEGREES.flatMap((d) => e.challenge?.byDegree?.[d] ?? [])]);
   const trgs = (z?.triggers ?? []).flatMap((t) => [...(t.apply ?? []), ...DEGREES.flatMap((d) => t.challenge?.byDegree?.[d] ?? [])]);
   const steps = [...(u?.apply ?? []), ...DEGREES.flatMap((d) => [...(ch?.byDegree?.[d] ?? []), ...(ck?.byDegree?.[d] ?? [])]), ...evs, ...trgs];
-  return [...new Set([...steps.flatMap((a) => [a.effect?.uuid, a.removeEffect?.uuid]), z?.effect?.uuid, ch?.immunity?.uuid, ck?.immunity?.uuid, ...(z?.triggers ?? []).map((t) => t.challenge?.immunity?.uuid), ...(rule.onEvent ?? []).map((e) => e.challenge?.immunity?.uuid), ...(rule.macros ?? []).map((m) => m.uuid)].filter((u) => u && !u.startsWith("builtin:")))];
+  return [...new Set([...steps.flatMap((a) => [a.effect?.uuid, a.removeEffect?.uuid]), ...(rule.cast ?? []).map((c) => c.spell), z?.effect?.uuid, ch?.immunity?.uuid, ck?.immunity?.uuid, ...(z?.triggers ?? []).map((t) => t.challenge?.immunity?.uuid), ...(rule.onEvent ?? []).map((e) => e.challenge?.immunity?.uuid), ...(rule.macros ?? []).map((m) => m.uuid)].filter((u) => u && !u.startsWith("builtin:")))];
 }
 
 const signed = (n) => (n >= 0 ? `+${n}` : String(n));
@@ -288,6 +304,7 @@ export function buildReport(rule, tokens, env) {
   if (ch?.immunity?.uuid) uuidCheck(ch.immunity.uuid);
   if (ck?.immunity?.uuid) uuidCheck(ck.immunity.uuid);
   for (const m of rule.macros ?? []) if (m.uuid && !m.uuid.startsWith("builtin:")) uuidCheck(m.uuid);   // builtin:<id> — встроенный обработчик, не UUID
+  for (const c of rule.cast ?? []) uuidCheck(c.spell);
 
   const authorStat = ck && env.author ? pickStatistic(env.author, ck.statistic) : null;
   if (ck && !env.author) problems.add(t("sheet.test.noOwner"));
@@ -312,7 +329,8 @@ export function buildReport(rule, tokens, env) {
     }
     return { name, lines, problems: tp };
   });
-  return { problems: [...problems], apply: (u?.apply ?? []).map(step), tokens: out };
+  const cast = (rule.cast ?? []).map((c, i) => t("sheet.test.cast", { name: env.uuidName(c.spell) ?? c.spell, rank: c.rank ?? "—", dc: env.cast?.[i]?.dc ?? "?" }));   // активации без сотворения: что и с какой СЛ получится
+  return { problems: [...problems], apply: (u?.apply ?? []).map(step), cast, tokens: out };
 }
 
 /* ---------- DOM ---------- */
@@ -357,10 +375,11 @@ export async function reportEnv(item, rule, names = null) {
   const author = item.actor ?? null;
   const dc = rule.onUse?.challenge ? await resolveDC({ rule }, { item, actor: author }).catch(() => null) : null;
   const known = (slug) => !!CONFIG.PF2E.conditionTypes?.[slug];
+  const cast = (rule.cast ?? []).map((c) => { const info = castInfo(item, c); return { dc: info.dc ?? (typeof c.dc === "number" ? c.dc : null) }; });
   // fromUuidSync бросает на вложенных UUID компендиев — разрешаем заранее асинхронно
   names ??= Object.fromEntries(await Promise.all(ruleUuids(rule).map(async (u) => [u, (await safeUuid(u))?.name ?? null])));
   return {
-    t: L, dc, author,
+    t: L, dc, author, cast,
     statLabel: (s) => { const k = CONFIG.PF2E.saves?.[s] ?? CONFIG.PF2E.skills?.[s]?.label ?? CONFIG.PF2E.attributes?.[s]; return k ? game.i18n.localize(k) : s; },
     conditionLabel: (slug) => (known(slug) ? game.i18n.localize(CONFIG.PF2E.conditionTypes[slug]) : slug),
     damageLabel, conditionKnown: known, uuidName: (uuid) => names[uuid] ?? null
@@ -370,12 +389,13 @@ export async function reportEnv(item, rule, names = null) {
 /** Пробный запуск формы на целях/выделенных токенах: только чтение, диалог с отчётом. */
 async function testRun(item, rule) {
   const tokens = pickedTokens();
-  if (!tokens.length) return ui.notifications.warn(L("sheet.test.noTokens"));
+  if (!tokens.length && !rule.cast?.length) return ui.notifications.warn(L("sheet.test.noTokens"));
   const rep = buildReport(rule, tokens, await reportEnv(item, rule));
   const esc = foundry.utils.escapeHTML, ul = (a) => `<ul>${a.map((x) => `<li>${esc(x)}</li>`).join("")}</ul>`;
   const content = [
     rep.problems.length && `<p><b>${L("sheet.test.problems")}</b></p>${ul(rep.problems)}`,
     rep.apply.length && `<p><b>${L("sheet.apply")}</b></p>${ul(rep.apply)}`,
+    rep.cast.length && `<p><b>${L("sheet.test.castTitle")}</b></p>${ul(rep.cast)}`,
     ...rep.tokens.map((t) => `<h4>${esc(t.name)}</h4>${ul([...t.problems, ...t.lines])}`)
   ].filter(Boolean).join("");
   await foundry.applications.api.DialogV2.prompt({ window: { title: L("sheet.test.title") }, classes: ["paf-dialog"], content: `<div class="af-test">${content}</div>`, rejectClose: false,
@@ -407,7 +427,7 @@ function buildContext(item, draft) {
     lockedFlag: !item.isOwner || !!item.compendium?.locked,
     noSource: !sourceUuid, noSlug: !slug,
     ch: {
-      kind: choices(keys("kind", ["onUse", "onAttacked", "onEvent", "none"])),
+      kind: choices(keys("kind", ["onUse", "onAttacked", "onEvent", "cast", "none"])),
       yield: choices(keys("yield", ["auto", "yes", "no"])),
       targets: choices(keys("targets", ["self", "selected", "area"])),
       tri: choices({ auto: T("yield.auto"), yes: T("yes"), no: T("no") }),
@@ -455,7 +475,7 @@ async function inject(app, $html) {
 
   const sec = body.querySelector(`.tab.${TAB}`);
   const errBox = sec.querySelector(".af-errors");
-  const read = () => ({ ...readForm(sec), ev: bc.f.ev });   // события на вкладке не правятся (Мастерская) — едут как были, иначе сохранение их потеряет
+  const read = () => ({ ...readForm(sec), ev: bc.f.ev, cast: bc.f.cast });   // события и активации на вкладке не правятся (Мастерская) — едут как были, иначе сохранение их потеряет
   const draft = () => { app._afDraft = read(); syncUi(sec); };
   const build = () => {
     const v = validateRule(formToRule(read()));
@@ -475,6 +495,7 @@ async function inject(app, $html) {
     const field = ev.target.closest("[data-drop]");
     const list = ev.target.closest(".af-rows") ?? ev.target.closest(".af-degree, .af-block")?.querySelector(":scope > .af-rows");
     if (spec?.temp) return ui.notifications.warn(L("sheet.dropTemp"));
+    if (spec?.kind === "spell") return ui.notifications.warn(L("sheet.dropBad"));   // активации правятся в Мастерской
     if (spec && field && spec.kind === (field.dataset.drop === "slug" ? "condition" : "effect")) field.value = spec.text;
     else if (spec && !field && list && !spec.macro === (list.dataset.list !== "macros")) {
       let row = ev.target.closest(".af-row");

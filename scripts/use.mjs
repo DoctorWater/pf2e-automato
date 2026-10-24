@@ -64,7 +64,8 @@ export function buildSnapshot(i) {
 
 /** Нужен ли снимок: у карточки — только для правила с областью (§3.A-2); без onUse/macros снимать нечего. */
 export function wantsSnapshot(kind, rule) {
-  if (!rule || (!rule.onUse && !rule.macros?.length)) return false;
+  if (!rule || (!rule.onUse && !rule.macros?.length && !rule.cast?.length)) return false;
+  if (rule.cast?.length) return true;   // кнопки «Сотворить» рисуются на карточке предмета (cast.mjs), снимок нужен всегда
   const on = rule.onUse;   // проверку бросает система — снимок ляжет на сообщение броска (actions.mjs), карточке он не нужен
   if (on?.check?.roll === "system" && !on.apply?.length && !on.zone && !rule.macros?.length) return false;
   return kind === "use" || rule.onUse?.targets === "area";
@@ -117,7 +118,7 @@ function onPreCreateMessage(message, data, options, userId) {
     if (far.length) ui.notifications?.warn(far.map((t) => L("chat.outOfRange", { name: t.name, d: t.far.d, r: t.far.r })).join(" "));
   }
   const chDc = resolved.rule.onUse?.challenge?.dc;
-  let dc = chDc?.value ?? null;
+  let dc = message.flags?.[MOD]?.cast?.dc ?? chDc?.value ?? null;   // СЛ активации (cast.mjs) приоритетнее СЛ правила заклинания
   if (dc == null && !resolved.rule.onUse?.check && (!chDc || chDc.source === "spell")) {   // СЛ заклинателя — только если правило её и просит (K7 п.7)
     try { dc = item?.spellcasting?.statistic?.withRollOptions?.({ item })?.dc?.value ?? null; } catch { dc = null; }
   }

@@ -24,28 +24,40 @@
           "enter": "Entering an aura is only for the \"in the owner's aura\" side ({path})",
           "nearZone": "An \"in aura\" entry needs exactly one of: aura slug (aura) or range in feet (range > 0) ({path})",
           "nearOnly": "Aura, range and \"at most\" exist only for the \"in the owner's aura\" side ({path})"
+        },
+        "cast": {
+          "bad": "Activation (cast): needs a spell (UUID), rank 1-10, DC as a number or level: high, attack as a number, frequency as once per N rounds/minutes/hours/days, requirement invested, equipped, held or none; the key (id) is unique ({path})"
         }
       }
     },
     "sheet": {
       "kind": {
-        "onEvent": "On event (edit in the Workshop)"
+        "onEvent": "On event (edit in the Workshop)",
+        "cast": "Item activation (edit in the Workshop)"
       },
       "eventNote": "The rule's events (roll, damage, turn, effect) are edited in the Workshop; they are kept unchanged here.",
       "badge": {
         "event": "on event"
+      },
+      "castNote": "The item's activations (cast a spell) are edited in the Workshop; they are kept unchanged here.",
+      "test": {
+        "castTitle": "Activations",
+        "cast": "{name}: rank {rank}, DC {dc}"
       }
     },
     "workshop": {
       "au": {
         "kind": {
-          "onEvent": "When: event"
+          "onEvent": "When: event",
+          "cast": "When: activation"
         },
         "when": {
-          "onEvent": "On event · run by the GM"
+          "onEvent": "On event · run by the GM",
+          "cast": "Item activation · cast by whoever presses the button"
         },
         "row": {
-          "events": "Events"
+          "events": "Events",
+          "cast": "Activations"
         },
         "zoneTrig": "triggers: {n}",
         "trg": {
@@ -68,7 +80,8 @@
           }
         },
         "story": {
-          "onEvent": "The rule fires on events. Each has its own condition, steps and challenge."
+          "onEvent": "The rule fires on events. Each has its own condition, steps and challenge.",
+          "cast": "The item casts a spell from the button on its own card. After that the spell's own rule takes over."
         },
         "ev": {
           "none": "no events yet",
@@ -110,8 +123,56 @@
           "zoneAuraHint": "Either the slug of a pf2e rules aura (frightful-aura) or range in feet from the owner",
           "auraShort": "aura {aura}",
           "rangeShort": "{range} ft"
+        },
+        "cast": {
+          "none": "no activations yet",
+          "hint": "One entry is one activation (\"You cast ...\"). DC and rank can stay empty: they come from the owner and the spell. Drop a spell on the field or anywhere on the row.",
+          "add": "Add activation",
+          "remove": "Remove activation",
+          "untitled": "spell",
+          "spell": "Spell (UUID)",
+          "rank": "Rank",
+          "rankBase": "base",
+          "dc": {
+            "auto": "Owner's DC",
+            "value": "Number",
+            "high": "By level (NPC)"
+          },
+          "dcAuto": "owner's DC",
+          "dcHigh": "DC by level",
+          "attack": "Attack bonus",
+          "attackAuto": "DC - 10",
+          "perValue": "Once per (number)",
+          "perUses": "Times",
+          "requires": "Requires",
+          "req": {
+            "auto": "by item",
+            "invested": "invested",
+            "equipped": "worn or held",
+            "held": "held",
+            "none": "no check"
+          },
+          "id": "Key",
+          "note": "Note for the GM"
         }
       }
+    },
+    "cast": {
+      "entry": "Item activation",
+      "btn": "Cast: {name}",
+      "rank": "rank {rank}",
+      "per": "{uses}/{window}{unit}",
+      "byLevel": "DC by item level",
+      "spent": "used",
+      "why": {
+        "invested": "The item must be invested.",
+        "equipped": "The item must be worn or held.",
+        "held": "The item must be held.",
+        "noSpell": "The activation spell is not in the world's compendia."
+      },
+      "noCaster": "The owner has no spellcasting and the rule gives no DC: it cannot be cast.",
+      "againTitle": "Activation already used",
+      "again": "The activation limit is spent (\"{name}\"). Cast anyway?"
     }
   }
 }

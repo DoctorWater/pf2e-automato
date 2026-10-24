@@ -1,7 +1,7 @@
 // K6: вкладка «Автоматизация» в листе предмета (AppV1, plan.md §6). Только ГМ.
 import { MOD, L, errText, DEGREES, callGM, forcedReplace, sluggify, damageLabel } from "./util.mjs";
 import { S } from "./settings.mjs";
-import { validateRule, resolveRule, slugOf, sourceOf, DAMAGE_TYPES } from "./rules.mjs";
+import { validateRule, resolveRule, divergedOf, slugOf, sourceOf, DAMAGE_TYPES } from "./rules.mjs";
 import { automationsGroups } from "./compat.mjs";
 import { hintsView, hintList } from "./hints.mjs";
 import { resolveDC, safeUuid } from "./saves.mjs";
@@ -408,6 +408,8 @@ async function testRun(item, rule) {
     ok: { label: L("sheet.test.close"), icon: "fa-solid fa-xmark" } });   // пробный запуск ничего не применяет — не «Применить»
 }
 
+/** Подсказка о расхождении копии NPC с правилом каталога (разная для lost и other) или null. */
+export const divergedHint = (dv) => (dv ? L(`sheet.divergedHint.${dv.kind}`, { states: dv.states.join(", ") }) : null);
 const choices = (o) => Object.entries(o).map(([value, label]) => ({ value, label }));
 
 function hintLines(hints) {
@@ -420,6 +422,7 @@ function buildContext(item, draft) {
   const slug = res?.slug ?? slugOf(null, item), sourceUuid = res?.sourceUuid ?? sourceOf(null, item);
   const groups = automationsGroups({ slug, sourceUuid });
   const f = draft ?? ruleToForm(res?.rule ?? null);
+  const dv = res?.diverged ?? divergedOf(item);
   const T = (k) => L(`sheet.${k}`);
   const keys = (prefix, list) => Object.fromEntries(list.map((k) => [k, T(`${prefix}.${k}`)]));
   return {
@@ -429,6 +432,7 @@ function buildContext(item, draft) {
       canAccept: res.source !== "flag", ruleAttr: JSON.stringify(res.rule),
       hints: res.source === "markup" && game.user.isGM ? hintLines(res.hints) : null
     },
+    diverged: divergedHint(dv),
     isWorld: res?.source === "world",
     lockedFlag: !item.isOwner || !!item.compendium?.locked,
     noSource: !sourceUuid, noSlug: !slug,

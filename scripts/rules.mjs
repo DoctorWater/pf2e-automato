@@ -1535,6 +1535,110 @@ function markupHead(c, d, html) {
 /** Есть ли у правила шаги, которые что-то применяют (apply, степени испытания/проверки, зона). */
 const hasSteps = (r) => !!(r.cast?.length || r.onUse?.apply?.length || r.onUse?.zone || [r.onUse?.challenge, r.onUse?.check].some((c) => Object.values(c?.byDegree ?? {}).some((l) => l.length)));
 
+/* ---------- Ограждение копий NPC (plan-copy-guard.md) ---------- */
+
+// Состояния, которые правило может нести как condition.slug и которые текст называет словом (без persistent-damage и отношений — это не «состояния» правила).
+// Слова обычные («hidden», «broken», «observed»): случайное совпадение в прозе даёт лишнее состояние текста, а оно лишь делает «lost» видом «other» и само отключения не вызывает — ошибка в сторону правила каталога (fail-open).
+const GUARD_STATES = ["observed", "doomed", "drained", "broken", "paralyzed", "deafened", "unnoticed", "controlled", "off-guard", "fascinated", "encumbered", "concealed", "fatigued", "enfeebled", "frightened", "dazzled", "undetected", "restrained", "blinded", "wounded", "petrified", "stunned", "stupefied", "immobilized", "unconscious", "sickened", "clumsy", "hidden", "prone", "grabbed", "quickened", "fleeing", "slowed", "dying", "confused", "invisible", "cursebound"];
+const GUARD_ALIAS = [[/flat[- ]footed/gi, "off-guard"]];
+// «подразумевает»: состояние текста покрывает и эти состояния правила (Tongue Grab: текст «grabbed», правило ставит off-guard)
+const IMPLIES = { grabbed: ["off-guard", "immobilized"], restrained: ["off-guard", "immobilized"], paralyzed: ["off-guard"], unconscious: ["off-guard", "blinded"], prone: ["off-guard"], blinded: ["off-guard"], dying: ["unconscious"] };
+const implied = (s, out = new Set([s])) => { for (const x of IMPLIES[s] ?? []) if (!out.has(x)) implied(x, out.add(x)); return out; };
+const stateWord = (s) => new RegExp(String.raw`\b${s.replace(/-/g, "[- ]")}\b`, "i");
+// Действия, чья ссылка или [[/act X]] в тексте подразумевает состояния (как {Slow} подразумевает slowed): Grab у BB — «[[/act grapple]] the target»
+const ACT_STATES = { grapple: ["grabbed", "restrained"], trip: ["prone"] };
+// Именные формы подписи ссылки: заклинание {Invisibility} ставит invisible, {Petrify} — petrified
+const NAME_FORMS = [[/^invisibility/i, "invisible"], [/^petrify/i, "petrified"], [/^confusion/i, "confused"], [/^fascination/i, "fascinated"]];
+const stateStem = (s) => new RegExp(`^${s.replace(/(?:ened|ed)$/, "").replace(/-/g, "[- ]")}`, "i");
+
+/**
+ * Состояния правила: slug каждого condition.slug по всем веткам (onUse, onEvent, onAttacked, cast, степени).
+ * Шаг, чей `when` требует от цели уже это состояние (`target:condition:X`), продлевает его, а не накладывает — текст копии о нём молчит (Grab: restrained при уже restrained).
+ */
+export function ruleStates(rule, out = new Set()) {
+  if (Array.isArray(rule)) rule.forEach((x) => ruleStates(x, out));
+  else if (rule && typeof rule === "object") {
+    const slug = rule.condition?.slug;
+    if (isStr(slug) && !(Array.isArray(rule.when) && rule.when.includes(`target:condition:${slug}`))) out.add(slug);
+    for (const v of Object.values(rule)) ruleStates(v, out);
+  }
+  return out;
+}
+
+/** Состояния текста: слово, @UUID на состояние, inflicts: в @Check, основа подписи ссылки ({Slow} -> slowed). condSlug: uuid -> slug состояния. */
+export function textStates(html, condSlug = () => null) {
+  let h = String(html ?? "");
+  for (const [re, to] of GUARD_ALIAS) h = h.replace(re, to);
+  const out = new Set(GUARD_STATES.filter((s) => stateWord(s).test(h)));
+  const labels = [];
+  for (const m of h.matchAll(/@UUID\[([^\]]+)\](?:\{([^}]*)\})?/g)) {
+    const s = condSlug(m[1]);
+    if (s) out.add(s);
+    if (m[2]) labels.push(m[2]);
+  }
+  for (const m of h.matchAll(/inflicts:([a-z-]+)/g)) out.add(m[1]);
+  const acts = [...h.matchAll(/\[\[\/act\s+([a-z-]+)/g)].map((m) => m[1]).concat(labels.map((l) => l.trim().toLowerCase()));
+  for (const a of acts) for (const s of ACT_STATES[a] ?? []) out.add(s);
+  for (const l of labels) for (const [re, s] of NAME_FORMS) if (re.test(l)) out.add(s);
+  for (const s of GUARD_STATES) if (labels.some((l) => stateStem(s).test(l))) out.add(s);
+  return out;
+}
+
+/**
+ * Чистая: расходится ли текст копии с состояниями правила. -> null | {kind: "lost"|"other", states}.
+ * lost: состояние правила текст не называет (с учётом «подразумевает»); other — к тому же в тексте есть состояние, не покрытое правилом (Evil Eye: sickened против frightened).
+ * Эффекты, ссылки на чужие действия, спасброски, числа и проза не сравниваются.
+ */
+export function guardVerdict(rule, html, condSlug) {
+  const rs = [...ruleStates(rule)].map((s) => (s === "flat-footed" ? "off-guard" : s));
+  if (!rs.length) return null;
+  const text = textStates(html, condSlug);
+  const covered = new Set([...text].flatMap((t) => [...implied(t)]));
+  const lost = rs.filter((s) => !covered.has(s));
+  if (!lost.length) return null;
+  const ruleCovers = new Set(rs.flatMap((s) => [...implied(s)]));
+  const other = [...text].filter((t) => !ruleCovers.has(t) && !rs.some((s) => implied(t).has(s)));
+  return other.length ? { kind: "other", states: other } : { kind: "lost", states: lost };
+}
+
+const guardCache = new Map();   // uuid -> { mt, rv, v }; ponytail: растёт с числом предметов NPC, сбрасывается сменой предмета/каталога
+const CYR = /[Ѐ-ӿ]/;
+const GUARDED_ACTORS = new Set(["npc", "hazard"]);
+
+/**
+ * Копия способности NPC получила правило каталога по source/slug, но её текст говорит о других состояниях -> {kind, states}: правило нужно пропустить.
+ * Fail-open (null): не на npc/hazard, правило без состояний, перевод без оригинала (flags.babele.originalPayload), нераскрытый @Localize.
+ * ctx: { condSlug, localize } — в рантайме по умолчанию из game.
+ */
+export function guardCopy(rule, item, ctx = {}) {
+  if (!GUARDED_ACTORS.has((item?.actor ?? item?.parent)?.type) || !ruleStates(rule).size) return null;
+  const mt = item._stats?.modifiedTime ?? 0, hit = item.uuid ? guardCache.get(item.uuid) : null;
+  if (hit && hit.mt === mt && hit.rv === rev.n) return hit.v;
+  let html = item.system?.description?.value ?? "";
+  if (CYR.test(html)) html = item.flags?.babele?.originalPayload?.description;
+  let v = null;
+  if (isStr(html)) {
+    const localize = ctx.localize ?? englishText;
+    let open = false;
+    html = html.replace(/@Localize\[([^\]]+)\]/g, (_, k) => localize(k) ?? (open = true, ""));
+    if (!open) v = guardVerdict(rule, html, ctx.condSlug ?? ((u) => globalThis.game?.pf2e?.ConditionManager?.conditions?.get(u)?.slug ?? null));
+  }
+  if (item.uuid) guardCache.set(item.uuid, { mt, rv: rev.n, v });
+  return v;
+}
+
+/** Расхождение, найденное последним resolveRule этого предмета (для бейджа и Мастерской), иначе null. */
+export function divergedOf(item) {
+  const hit = item?.uuid ? guardCache.get(item.uuid) : null;
+  return hit && hit.mt === (item._stats?.modifiedTime ?? 0) && hit.rv === rev.n ? hit.v : null;
+}
+
+function englishText(key) {
+  const i18n = globalThis.game?.i18n, tr = i18n?.lang === "en" ? i18n.translations : i18n?._fallback;
+  const v = tr && foundry.utils.getProperty(tr, key);
+  return isStr(v) ? v : null;
+}
+
 /** Порядок §1.2: флаг -> world.bySource -> world.bySlug -> builtin.bySource -> builtin.bySlug -> разметка. */
 export function resolveRule(source) {
   // документ предмета — сам источник; его .origin (у эффекта pf2e — актёр-автор) не origin карточки
@@ -1562,7 +1666,9 @@ export function resolveRule(source) {
     }
     return memo;
   };
-  let b = bySrc || (slug && bySlugOf(builtin.bySlug, slug, type)) || (named && builtin.byName?.get(named));
+  const bySlg = !bySrc && slug ? bySlugOf(builtin.bySlug, slug, type) : null;
+  let b = bySrc || bySlg || (named && builtin.byName?.get(named));
+  let diverged = null;
   if (b && !bySrc && item?.system) {   // правило нашлось только по slug: проверить, что это та же способность
     if (isSelfEffectOnly(b, item.system.selfEffect?.uuid)) b = null;
     else if (!sourceUuid && b.onUse?.check && slugCollides(b, derive()?.rule, slug, item.system.description?.value ?? "")) b = null;
@@ -1570,11 +1676,13 @@ export function resolveRule(source) {
     // «СЛ из текста» у тёзки, в чьём описании спасброска нет (пассив с тем же slug): не его способность
     else if (!sourceUuid && markupChallenges(b).length && labelsData && !derive()?.rule?.onUse?.challenge) b = null;
   }
+  // копия NPC с другим текстом состояний (Evil Eye у Kepgeda): правило каталога пропускаем, дальше — только вывод из разметки
+  if (b && (bySrc || bySlg) && item?.system && (diverged = guardCopy(b, item))) b = null;
   if (b) return found(markupChallenges(b).length ? withMarkupHead(b, derive()?.rule, item?.system?.description?.value ?? "") : b, "catalog");
 
   const d = derive();
   // живой вывод из разметки сам не исполняется (выборки: ~половина high неверна): шаги — только кнопкой ведущего (low);
   // проверенные правила документов компендия приходят из каталога (rules/catalog.model.json). Голова без шагов (спасбросок) — как вывел
-  if (d && !d.strikeGate) return found(d.rule, "markup", hasSteps(d.rule) ? "low" : d.confidence, d.hints);
+  if (d && !d.strikeGate) return { ...found(d.rule, "markup", hasSteps(d.rule) || diverged ? "low" : d.confidence, d.hints), ...(diverged && { diverged }) };
   return null;
 }

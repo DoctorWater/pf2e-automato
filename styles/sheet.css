@@ -23,6 +23,7 @@
 .paf-mark { margin-left: 0.35em; font-size: 0.7em; opacity: 0.4; cursor: help; }
 .paf-mark:hover { opacity: 0.85; }
 .paf-mark-yield { opacity: 0.2; }
+.paf-mark-warn { opacity: 0.8; color: #8c4a00; }
 .tab.automato .af-ws-open { width: auto; flex: none; float: right; font-size: 0.75em; }
 /* значок +N — только у шага «Эффект»; круг не растягивает ряд */
 .tab.automato .af-row:not(:has([data-r="kind"] option[value="effect"]:checked)) .af-stack { display: none; }

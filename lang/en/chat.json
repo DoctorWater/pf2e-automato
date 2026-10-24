@@ -41,7 +41,7 @@
       "stepChoose": { "allies": "choose an ally", "enemies": "choose an enemy", "options": "choose an option: {options}" },
       "stepDamage": "{formula} damage ({type})",
       "stepHeal": "{formula} healing",
-      "stepMove": { "push": "push {distance} ft away from the author", "pull": "pull up to {distance} ft toward the author" },
+      "stepMove": { "push": "push {distance} ft away from the author", "pull": "pull up to {distance} ft toward the author", "pushPoint": "push {distance} ft away from the area centre", "pullPoint": "pull up to {distance} ft toward the area centre" },
       "stepBasic": "(basic save)",
       "stepReduce": "reduce {what} by {n}",
       "stepRemoveParty": "remove {what} from party members",
@@ -110,6 +110,7 @@
     "moveSkip": {
       "noToken": "{name}: {target} not moved — the target has no token on the scene.",
       "noOrigin": "{name}: {target} not moved — author token not found.",
+      "noPoint": "{name}: area centre not found (area gone or has no centre) — {target} moves from the author's token.",
       "scene": "{name}: {target} not moved — tokens must be on the current scene.",
       "grid": "{name}: {target} not moved — needs a square or hex grid of 5 ft cells.",
       "same": "{name}: {target} not moved — target and author are at the same point.",

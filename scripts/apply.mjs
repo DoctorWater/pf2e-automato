@@ -10,7 +10,7 @@ import { testPredicate } from "./predicate.mjs";
 import { setSource, dropSource, visionActive } from "./vision.mjs";
 import { escapeDC, offerEscape } from "./escape.mjs";
 import { repeatMeta, sameCarrier } from "./repeat.mjs";
-import { forcedMove, undoMove } from "./move.mjs";
+import { forcedMove, undoMove, areaPoint } from "./move.mjs";
 import { rulesOfMods, textOfMods, inlineSlug } from "./inline-effect.mjs";
 
 const esc = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
@@ -559,7 +559,10 @@ export async function applyOps(message, tokenKey, steps, ctx = {}) {
       // Ключ без степени (как dkey у урона): переброс успех → крит не двигает второй раз. Очередь msg: не берём — вызывающий её уже держит.
       const mkey = scope === "challenge" && !ctx.stepKey ? `${meta.key.slice(0, -stepKey.length)}c.${i}` : meta.key;
       if (doneOps.some((o) => o.op === "moved" && o.key === mkey)) continue;
-      const r = await forcedMove(targetDoc, originToken, step.move);
+      // from:"point" — центр области этого использования; нет области/формы без центра — откат на токен автора с заметкой
+      const point = step.move.from === "point" ? areaPoint(use, ctx.region) : null;
+      if (step.move.from === "point" && !point) notify("moveSkip.noPoint", { name: use.item?.name ?? "", target: targetDoc?.name ?? "" });
+      const r = await forcedMove(targetDoc, originToken, step.move, point);
       if (r.skipped) {
         notify(`moveSkip.${r.skipped}`, { name: use.item?.name ?? "", target: targetDoc?.name ?? "" });
         ops.push({ op: "moved", skipped: r.skipped, key: mkey });   // строка отработана; причина — уведомлением ГМу

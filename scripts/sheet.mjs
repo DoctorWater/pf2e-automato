@@ -27,7 +27,7 @@ const csv = (s) => String(s ?? "").split(",").map((x) => x.trim()).filter(Boolea
 const DUR_BLANK = { durValue: "", durUnit: "rounds", durExpiry: "turn-start", durOf: "origin" };
 const VIS_BLANK = { visLevel: "hidden", visOf: "self", visUntil: "" };
 const PERS_BLANK = { pType: "fire" };   // продолжительный урон: формула — text, СЛ очистки — value
-const STEP_BLANK = { rankMin: "", rankMax: "", stack: false, stackBy: "", stackStart: "", unstack: false, replace: false, range: "", when: "", domain: "all", optOff: false, ofOrigin: false, dmgBasic: false, moveMode: "push" };
+const STEP_BLANK = { rankMin: "", rankMax: "", stack: false, stackBy: "", stackStart: "", unstack: false, replace: false, range: "", when: "", domain: "all", optOff: false, ofOrigin: false, dmgBasic: false, moveMode: "push", moveFrom: "origin" };
 // у любого шага: круг от/до, условие when (строка опций через запятую или JSON), радиус союзников range; у эффекта: повтор увеличивает/уменьшает значок; rollOption — domain и «выключить»; removeEffect — ofOrigin
 export const blankRow = () => ({ to: "target", kind: "condition", text: "", value: "", policy: "max", keep: "", ...DUR_BLANK, ...VIS_BLANK, ...PERS_BLANK, ...STEP_BLANK });
 
@@ -49,7 +49,7 @@ function rowCore(a) {
   if (a.effect) return { to: a.to, kind: "effect", text: a.effect.mods ? JSON.stringify(a.effect.mods) : a.effect.uuid, value: "", policy: "max", keep, ...(d ? { ...dur, durOf: a.effect.mods ? d.of ?? "origin" : "origin" } : DUR_BLANK), ...VIS_BLANK, ...PERS_BLANK };
   // damage: формула — text, тип (или «healing») — pType; choose — JSON {from, options?, prompt?, range?} в text
   if (a.damage) return { to: a.to, kind: "damage", text: a.damage.formula, value: "", policy: "max", keep, ...DUR_BLANK, ...VIS_BLANK, pType: a.damage.damageType };
-  if (a.move) return { to: a.to, kind: "move", text: String(a.move.distance), value: "", policy: "max", keep, ...DUR_BLANK, ...VIS_BLANK, ...PERS_BLANK, moveMode: a.move.mode };
+  if (a.move) return { to: a.to, kind: "move", text: String(a.move.distance), value: "", policy: "max", keep, ...DUR_BLANK, ...VIS_BLANK, ...PERS_BLANK, moveMode: a.move.mode, moveFrom: a.move.from === "point" ? "point" : "origin" };
   if (a.choose) return { to: "self", kind: "choose", text: JSON.stringify(a.choose), value: "", policy: "max", keep, ...DUR_BLANK, ...VIS_BLANK, ...PERS_BLANK };
   if (a.removeCondition) return { to: a.to, kind: "remove", text: a.removeCondition.slug, value: "", policy: "max", keep, ...DUR_BLANK, ...VIS_BLANK, ...PERS_BLANK };
   const plain = (kind, text, value = "") => ({ to: a.to, kind, text, value, policy: "max", keep, ...DUR_BLANK, ...VIS_BLANK, ...PERS_BLANK });
@@ -84,7 +84,7 @@ function applyCore(r) {
     try { choose = JSON.parse(text); } catch { /* битый JSON уйдёт в валидатор как пустой выбор */ }
     return { to: "self", choose: choose ?? {} };
   }
-  if (r.kind === "move") return text ? { to: "target", move: { mode: r.moveMode === "pull" ? "pull" : "push", distance: num(text) } } : null;
+  if (r.kind === "move") return text ? { to: "target", move: { mode: r.moveMode === "pull" ? "pull" : "push", distance: num(text), ...(r.moveFrom === "point" && { from: "point" }) } } : null;
   if (r.kind === "damage") return text ? { to, damage: { formula: text, damageType: r.pType } } : null;
   if (r.kind === "visibility") {
     const until = csv(r.visUntil);
@@ -443,6 +443,7 @@ function buildContext(item, draft) {
       to: choices(keys("to", ["self", "target", "party", "allies", "chosen"])),
       rowKind: choices(keys("row", ["condition", "effect", "note", "visibility", "persistent", "remove", "removeEffect", "extendEffect", "rollOption", "damage", "choose", "move"])),
       moveMode: choices(keys("moveMode", ["push", "pull"])),
+      moveFrom: choices(keys("moveFrom", ["origin", "point"])),
       dmgType: [{ value: "healing", label: L("workshop.au.healing") }, ...DAMAGE_TYPES.map((v) => ({ value: v, label: damageLabel(v) }))],   // «лечение» — только у шага damage
       visLevel: choices(keys("vis.level", ["concealed", "hidden", "undetected", "unnoticed"])),
       visOf: choices(keys("vis.of", ["self", "target"])),

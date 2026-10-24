@@ -98,7 +98,7 @@ export function plate(row, env) {
   if (row.kind === "rollOption") return { ...base, name: t(row.optOff ? "workshop.au.optionOffPlate" : "workshop.au.optionPlate", { option: row.text || "?" }) };
   if (row.kind === "effect") return { ...base, name: row.text?.startsWith("[") ? (() => { try { return textOfMods(JSON.parse(row.text), { t }); } catch { return "?"; } })() : row.text ? env.uuidName(row.text) ?? row.text : "?", dur: String(row.durValue ?? "").trim() ? t("workshop.au.dur", { value: String(row.durValue).trim(), unit: t(`workshop.unitShort.${row.durUnit}`) }) : "" };
   if (row.kind === "damage") return { ...base, name: `${String(row.text ?? "").trim() || "?"} · ${row.pType === "healing" ? t("workshop.au.healing") : env.damageLabel?.(row.pType) ?? row.pType}` };
-  if (row.kind === "move") return { ...base, name: t(`workshop.au.movePlate.${row.moveMode === "pull" ? "pull" : "push"}`, { distance: String(row.text ?? "").trim() || "?" }) };
+  if (row.kind === "move") return { ...base, name: t(`workshop.au.movePlate.${row.moveMode === "pull" ? "pull" : "push"}${row.moveFrom === "point" ? "Point" : ""}`, { distance: String(row.text ?? "").trim() || "?" }) };
   if (row.kind === "choose") return { ...base, name: t("workshop.au.choosePlate") };
   if (row.kind === "persistent") return { ...base, name: `${String(row.text ?? "").trim() || "?"} · ${env.damageLabel?.(row.pType) ?? row.pType}` };
   if (row.kind === "visibility") return { ...base, name: t(`chat.visLevel.${row.visLevel}`) };

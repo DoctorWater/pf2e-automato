@@ -1,4 +1,4 @@
-// Принудительное перемещение (шаг apply.move): толчок от автора / притяжение к автору. Исполняет активный ГМ (из applyOps).
+// Принудительное перемещение (шаг apply.move): толчок от автора (или от центра области, from:"point") / притяжение к ним. Исполняет активный ГМ (из applyOps).
 // Чистая часть (forcedPath, moveOrder) — без Foundry; обёртка forcedMove — над сеткой и стенами сцены.
 import { MOD } from "./util.mjs";
 
@@ -36,24 +36,40 @@ export function moveOrder(steps, items, origin) {
   return [...items].sort((a, b) => sign * (d(a) - d(b)));
 }
 
+/**
+ * Точка области использования: круг (взрыв) — его центр; эманация — центр рамки региона; конус, линия, прочее и нет региона — null
+ * (вызывающий откатывается на токен автора). region — документ региона, если он уже известен; иначе по use.state.area.regionUuid.
+ */
+export function areaPoint(use, region = null) {
+  if (!region) { try { const u = use?.state?.area?.regionUuid; region = u ? fromUuidSync(u) : null; } catch { region = null; } }
+  const shapes = region?.shapes ?? [];
+  if (shapes.length === 1 && shapes[0].type === "circle") return { x: shapes[0].x, y: shapes[0].y };
+  const b = region?.flags?.pf2e?.areaShape === "emanation" ? region.bounds : null;
+  return b ? { x: b.x + b.width / 2, y: b.y + b.height / 2 } : null;
+}
+
 const rectsOverlap = (a, b) => a.x < b.x + b.w - 1 && b.x < a.x + a.w - 1 && a.y < b.y + b.h - 1 && b.y < a.y + a.h - 1;
 const centre = (doc, p, g) => ({ x: p.x + (doc.width * g) / 2, y: p.y + (doc.height * g) / 2 });
 
 /**
  * ГМ: сдвинуть токен цели. mode push|pull, distance — футы. Возвращает {skipped: причина} или {from, to, id, stoppedBy}.
  * Причины пропуска: noToken, noOrigin, scene, grid, same. Нулевой сдвиг — {skipped: "blocked"}.
+ * point — {x, y} px (центр области, from:"point"): отсчёт от неё вместо токена автора, origin тогда не нужен.
  */
-export async function forcedMove(target, origin, { mode, distance }) {
+export async function forcedMove(target, origin, { mode, distance }, point = null) {
   if (!target?.parent?.grid) return { skipped: "noToken" };   // цель без токена на сцене (актёр)
   const scene = target.parent;
-  if (!origin) return { skipped: "noOrigin" };
-  if (scene !== origin.parent || scene !== globalThis.canvas?.scene) return { skipped: "scene" };
+  if (!origin && !point) return { skipped: "noOrigin" };
+  if ((!point && scene !== origin.parent) || scene !== globalThis.canvas?.scene) return { skipped: "scene" };
   const grid = scene.grid, g = grid.size;
   if (grid.isGridless || grid.distance !== 5) return { skipped: "grid" };
-  const tc = centre(target, target, g), oc = centre(origin, origin, g);
+  const tc = centre(target, target, g), oc = point ?? centre(origin, origin, g);
   const sign = mode === "push" ? 1 : -1;
   const len = Math.hypot(tc.x - oc.x, tc.y - oc.y);
   if (!len) return { skipped: "same" };
+  // притяжение к точке не проскакивает её: не дальше целых клеток до центра области
+  if (point && mode === "pull") distance = Math.min(distance, Math.floor(len / g) * grid.distance);
+  if (distance < grid.distance) return { skipped: "blocked", stoppedBy: "limit" };
   const dir = { x: (sign * (tc.x - oc.x)) / len, y: (sign * (tc.y - oc.y)) / len };
   const others = scene.tokens.filter((t) => t !== target && t.actor && Math.abs((t.elevation ?? 0) - (target.elevation ?? 0)) < 1);
   const rectOf = (doc, p) => ({ x: p.x, y: p.y, w: doc.width * g, h: doc.height * g });

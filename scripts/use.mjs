@@ -11,6 +11,7 @@ import * as reactions from "./reactions.mjs";
 import * as actions from "./actions.mjs";
 import { itemRange, markFar, inRange, TENTACLES } from "./range.mjs";
 import { recentShape, spentOptions } from "./builtin/spellshape.mjs";
+import { moveOrder, areaPoint } from "./move.mjs";
 
 const CAST = "origin:action:slug:cast-a-spell";
 const CARD_TYPES = new Set(["consumable", "equipment", "spell", "weapon", "armor", "treasure", "backpack", "shield"]);
@@ -214,10 +215,19 @@ async function applyUseSteps(message, use, { self = true, targets = true, only =
   const tgtSteps = steps.filter((s) => s.to === "target");
   if (self && !only && selfSteps.length) await apply.applyOps(message, "self", selfSteps, { scope: "apply" });
   if (!targets || !tgtSteps.length) return;
-  for (const { key, doc, region } of await stepTargets(use)) {
+  const list = await stepTargets(use);
+  for (const { key, doc, region } of moveSorted(tgtSteps, list, list[0]?.region)) {
     if (only && only !== key) continue;
     if (doc) await apply.applyOps(message, key, tgtSteps, { scope: "apply", target: doc, ...(region && { region }) });
   }
+}
+
+/** Шаги move от центра области: цели идут дальние → ближние (толчок) или наоборот (притяжение); без точки порядок прежний. list — [{doc, ...}]. */
+function moveSorted(steps, list, region) {
+  const pt = steps.some((s) => s.move?.from === "point") ? areaPoint(null, region) : null;
+  if (!pt) return list;
+  const c = (d) => { const g = d?.parent?.grid?.size ?? 100; return { x: (d?.x ?? 0) + ((d?.width ?? 1) * g) / 2, y: (d?.y ?? 0) + ((d?.height ?? 1) * g) / 2 }; };
+  return moveOrder(steps, list.map((i) => ({ ...c(i.doc), i })), pt).map((o) => o.i);
 }
 
 /** Цели шагов: область — токены state.area.keys своей сцены, иначе use.targets. */
@@ -373,8 +383,8 @@ export async function runRegion(region, message) {
     });
 
     if (targetSteps.length && use.confidence !== "low" && modeOf("effect") === "auto") {
-      for (const t of tokens) {
-        const doc = await fromUuid(t.uuid);
+      const list = await Promise.all(tokens.map(async (t) => ({ t, doc: await fromUuid(t.uuid) })));
+      for (const { t, doc } of moveSorted(targetSteps, list, region)) {
         if (doc) await apply.applyOps(message, t.key, targetSteps, { scope: "apply", target: doc, region });
       }
     }

@@ -30,7 +30,7 @@ const { MOD, setSocket } = await import("../scripts/util.mjs");
 const rules = await import("../scripts/rules.mjs");
 const { ruleToForm, formToRule } = await import("../scripts/sheet.mjs");
 const { applyOps, undoOps } = await import("../scripts/apply.mjs");
-const { forcedPath, moveOrder } = await import("../scripts/move.mjs");
+const { forcedPath, moveOrder, areaPoint } = await import("../scripts/move.mjs");
 const { stepText } = await import("../scripts/chat.mjs");
 
 const validate = rules.validateRule;
@@ -200,4 +200,70 @@ test("валидатор: move запрещён в триггерах зоны �
   assert.equal(validate(zone([{ to: "target", condition: { slug: "prone" } }])).ok, true);
   assert.equal(validate({ v: 1, onUse: { targets: "area", apply: mv } }).ok, false);
   assert.equal(validate({ v: 1, onUse: { targets: "area", challenge: { statistic: "reflex", dc: { value: 20 }, byDegree: { failure: mv } } } }).ok, false);
+});
+
+// ---- from:"point" и порядок «дальние → ближние» в auto ----
+const pt = (mode, distance) => [{ to: "target", move: { mode, distance, from: "point" } }];
+const circle = (x, y) => ({ uuid: "Scene.s.Region.R", parent: null, shapes: [{ type: "circle", x, y, radius: 100 }] });
+
+test("валидатор: from:\"point\" — только в области (onUse), не в триггерах и событиях; в области — только point", () => {
+  const sel = (apply) => validate({ v: 1, onUse: { targets: "selected", apply } }).ok;
+  const area = (apply) => validate({ v: 1, onUse: { targets: "area", apply } }).ok;
+  assert.equal(area(pt("push", 10)), true);
+  assert.equal(area(push(10)), false);
+  assert.equal(sel(pt("push", 10)), false);
+  assert.equal(area([{ to: "target", move: { mode: "push", distance: 10, from: "origin" } }]), false);   // origin в области — как раньше
+  assert.equal(validate({ v: 1, onUse: { targets: "area", zone: { triggers: [{ on: "enter", apply: pt("push", 5) }] } } }).ok, false);
+  assert.equal(validate({ v: 1, onEvent: [{ on: "saving-throw", apply: pt("push", 5) }] }).ok, false);
+  assert.equal(validate({ v: 1, onUse: { targets: "area", apply: [{ to: "target", move: { mode: "push", distance: 10, from: "x" } }] } }).ok, false);
+  assert.deepEqual(validate({ v: 1, onUse: { targets: "area", apply: pt("pull", 15) } }).rule.onUse.apply[0].move, { mode: "pull", distance: 15, from: "point" });
+});
+
+test("форма: from:\"point\" переживает ruleToForm -> formToRule", () => {
+  const rule = { v: 1, onUse: { targets: "area", apply: pt("push", 10) } };
+  const back = validate(formToRule(ruleToForm(validate(rule).rule)));
+  assert.deepEqual(back.rule.onUse.apply[0].move, { mode: "push", distance: 10, from: "point" });
+  assert.match(stepText(pt("push", 10)[0], { t: (k, d) => d?.what ?? `${k}:${d?.distance ?? ""}`, uuidName: () => null, conditionLabel: (s) => s }, "target"), /stepMove\.pushPoint:10/);
+});
+
+test("areaPoint: круг — центр, эманация — центр рамки, конус и пустота — null", () => {
+  assert.deepEqual(areaPoint({}, circle(250, 50)), { x: 250, y: 50 });
+  assert.deepEqual(areaPoint({}, { shapes: [{ type: "polygon" }], flags: { pf2e: { areaShape: "emanation" } }, bounds: { x: 0, y: 100, width: 300, height: 300 } }), { x: 150, y: 250 });
+  assert.equal(areaPoint({}, { shapes: [{ type: "polygon" }], flags: { pf2e: { areaShape: "cone" } }, bounds: { x: 0, y: 0, width: 1, height: 1 } }), null);
+  assert.equal(areaPoint({ state: {} }), null);
+});
+
+test("from:\"point\": толчок от центра области, а не от автора; нет области — от автора с заметкой", async () => {
+  foe.x = 300;
+  const region = { ...circle(450, 50), parent: scene }; uuids.set(region.uuid, region);
+  const u = { ...use(), state: { area: { regionUuid: region.uuid, keys: [] } } };
+  await applyOps(mkMsg(u), "t", pt("push", 10), { scope: "apply", target: foe });
+  assert.equal(foe.x, 100);   // автор слева (0), центр справа (450): толчок влево — по точке; от автора было бы вправо
+  foe.x = 300; foe.moves.length = 0; warns.length = 0;
+  await applyOps(mkMsg(use(), "M2"), "t", pt("push", 10), { scope: "apply", target: foe });
+  assert.equal(foe.x, 500);
+  assert.equal(warns.length, 1);
+});
+
+test("from:\"point\", притяжение не проскакивает центр области", async () => {
+  const region = { ...circle(450, 50), parent: scene }; uuids.set(region.uuid, region);
+  const u = { ...use(), state: { area: { regionUuid: region.uuid, keys: [] } } };
+  await applyOps(mkMsg(u), "t", pt("pull", 50), { scope: "apply", target: foe });
+  assert.equal(foe.x, 400);   // клетка центра (400..500), не дальше
+});
+
+test("auto: цели с move ждут все спасброски, потом двигаются дальние первыми (передний не упирается в задний)", async () => {
+  const region = { ...circle(50, 50), parent: scene }; uuids.set(region.uuid, region);
+  scene.tokens.get = (id) => scene.tokens.find((t) => t.id === id);
+  foe.id = "foe";   // id с точками ломает пути флагов в заглушке сообщения
+  const mid = mkTok(scene, "mid", 200, 0), far = mkTok(scene, "far", 300, 0);
+  const u = { kind: "use", actor: "Actor.hero", token: author.uuid, targets: [], item: { uuid: null, name: "T" },
+    state: { area: { regionUuid: region.uuid, keys: [foe.id, mid.id, far.id] } },
+    rule: { onUse: { targets: "area", challenge: { statistic: "reflex", dc: { value: 20 }, byDegree: { failure: pt("push", 5) } } } } };
+  mkMsg(u);
+  const { recordResult } = await import("../scripts/saves.mjs");
+  for (const t of [foe, mid]) await recordResult("M1", t.id, { degree: 1, total: 5, rollMessageId: `r-${t.id}` });
+  assert.deepEqual([foe.x, mid.x, far.x], [100, 200, 300]);   // последнего результата ещё нет — никто не двигался
+  await recordResult("M1", far.id, { degree: 1, total: 5, rollMessageId: "r-far" });
+  assert.deepEqual([foe.x, mid.x, far.x], [200, 300, 400]);
 });

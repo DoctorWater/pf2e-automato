@@ -130,7 +130,7 @@
 - `onEvent[].afterUse` — испытание по исходу Удара этого использования (`plan-strike-gate.md`, `strike-gate.js` 5/5);
 - шаг `repeat` — повторный спасбросок цели на границе её хода (T1, `plan-triggered-save.md` C, `repeat-save.js` 6/6);
 - `onUse.zone.triggers[]` — спасбросок при входе в область / в начале или конце хода (T2, раздел B, `zone-trigger.js` 3/3);
-- шаг `move` — толчок/притяжение (`plan-forced-movement.md`, `forced-move.js` 5/5);
+- шаг `move` — толчок/притяжение (`plan-forced-movement.md`, `forced-move.js` 5/5; доработка `from:"point"` + порядок в auto — `plan-forced-movement.md` §10);
 - `effect.mods` — inline-эффект из кубиков (бонус/штраф, скорость, сопротивление, слабость, запрет реакций; `plan-modifier-effect.md`, `inline-effect.js` 14/15).
 - `onEvent side:"near"` — спасбросок от ауры носителя: вход (в т.ч. сквозной проход, носитель подходит сам), начало/конец хода внутри, `per`, высота 3D, только существа (T3, `plan-triggered-save.md`, `aura-trigger.js` 5/5).
 - эманация заклинателя едет за токеном (T4, ядерная `region.attachment.token`): вход при наезде области, настройки зоны `enterBy: end|path`, `onCarrierGone: close|stay`, `follow:false` (`plan-triggered-save.md` §9, `emanation-follow.js` 7/7).
@@ -142,10 +142,9 @@
 **Открыто на следующую сессию:**
 - стадии недугов: незаконченный код на ветке `wip-affliction` (worktree `.claude/worktrees/agent-ad88efee101406172`), план `plan-affliction.md` прошёл Критика; дальше — доделать, юнит, влить, живой `tests/live/affliction.js`;
 - ограждение копий NPC (относительно состояний правила): план v2 `plan-copy-guard.md` принят, реализация не начата;
-- `move`: `from:"point"` и порядок «дальние → ближние» в `auto` — не начато;
 - прогнать моделями долг пачки 1 в новых формах (`repeat`, `zone.triggers`, `move`, `effect.mods`): метки `missing: …` в `rules/drafts-accepted/b01-save-conditions.json`;
 - `cast`: прогнать `deriveCast` по 73 документам долга и проверить выборкой 50; бонус после активации спеллхарта (`origin:item:cast-by-activation` уже в опциях); счётчик «раз в раунд» — только в бою; СЛ NPC «high» = таблица DC pf2e + 2 (сверить с Monster Core);
-- `move`: порядок «дальние → ближние» только при «Применить всем», в `auto` — по приходу спасбросков; `from: "point"` (толчок от центра области) не сделан;
+- `move`: `from: "point"` и порядок «дальние → ближние» в `auto` сделаны (код и юнит; живые `point`/`order` в `forced-move.js` не прогонялись);
 
 **Известная проблема для всех пачек (особенно 9):** копия способности NPC с `source`, но с другим текстом получает в рантайме правило источника (Evil Eye у NPC — Sickened вместо Frightened). Нужен механизм «текст копии расходится с источником → правило из разметки копии» (ограждение по отпечатку текста).
 

@@ -168,7 +168,7 @@ export function useReaction(hintMessageId) {
     const attack = game.messages.get(h.attack);
     if (!attack) return { ok: false, reason: "attack-gone" };   // атака переброшена/удалена
     const actor = await fromUuid(h.actor);
-    if (actor && !reactionAvailable(actor)) return { ok: false, reason: "spent", error: L("reactions.spent") };   // вторая подсказка того же актёра
+    if (actor && !reactionAvailable(actor)) return { ok: false, reason: "spent", error: L(noReactions(actor) ? "reactions.forbidden" : "reactions.spent") };   // вторая подсказка того же актёра
     const { before, after } = recalcWithBonus(attack, h.bonus);
     const next = { ...h, before, after, used: true };
     await msg.update({ content: content(next), [`flags.${MOD}.reaction`]: next });

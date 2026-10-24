@@ -10,7 +10,7 @@ const isInt = (v) => Number.isInteger(v);
 const MAX_MODS = 4;
 const KEYS = { bonus: ["target", "type", "value"], speed: ["type", "value"], resist: ["dmg", "value", "except"], weak: ["dmg", "value"] };
 
-/** mods шага -> { mods: нормализованный список, error: true|null }. Знак штраф/бонус не проверяем (источник правды — текст предмета, tools/validate.mjs). */
+/** mods шага -> { mods: нормализованный список, error: true|null }. Знак штраф/бонус не проверяем (источник правды — текст предмета). */
 export function normalizeMods(list) {
   if (!Array.isArray(list) || !list.length || list.length > MAX_MODS) return { mods: [], error: true };
   const out = [];
@@ -42,13 +42,12 @@ export function blockOf(m) {
   return b;
 }
 
-export const rulesOfMods = (mods) => mods.flatMap((m) => rulesOf(blockOf(m)));
+/** slug у каждого RE: без него pf2e берёт slug из имени эффекта и схлопывает одинаковые FlatModifier (оставляет больший). */
+export const rulesOfMods = (mods) => mods.flatMap((m) => rulesOf(blockOf(m))).map((r, i) => ({ ...r, slug: `af-${i}` }));
 export const textOfMods = (mods, ctx) => mods.map((m) => textOf(blockOf(m), ctx)).join("; ");
-/** Запрещает ли набор реакции (для проверки реакций модуля — по правилам эффекта актёра). */
-export const forbidsReactions = (rules) => (rules ?? []).some((r) => r?.key === "RollOption" && r.option === NO_REACTIONS);
-
 /** На актёре есть эффект с запретом реакций: реакции модуля (reactionAvailable, Удар по реакции) подсказок не дают. */
-export const noReactions = (actor) => !!actor?.itemTypes?.effect?.some((e) => forbidsReactions(e.system?.rules));
+/** Через roll options актёра, а не сырые правила: у истёкшего эффекта pf2e ставит правилам ignored. */
+export const noReactions = (actor) => !!actor?.getRollOptions?.(["all"]).includes(NO_REACTIONS);
 
 /** slug эффекта: детерминированный, по предмету-источнику (removeEffect/extendEffect находят его по slug; язык и номер не влияют). */
 export const inlineSlug = (itemSlug) => `af-${String(itemSlug || "effect").replace(/^af-/, "")}`;

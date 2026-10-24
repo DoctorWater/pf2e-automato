@@ -303,7 +303,7 @@ function alliesIn(actor, token, range, rel = "isAllyOf", withSelf = false) {   /
   if (range != null && !live) notify("apply.noWalls", { name: token.name ?? "" });
   // range == null — вся сцена, без стен (выбор союзника/врага шагом choose)
   const hit = scene.tokens.filter((t) => t.actor && (t.actor === actor ? withSelf && token.actor !== actor : actor[rel](t.actor)) && (range == null || dist(t) <= range)
-    && !(range != null && live && t.object && CONFIG.Canvas.polygonBackends.move.testCollision(t.object.center, src.center, { type: "move", mode: "any", ...(token.level && { level: token.level }) }))).map((t) => t.actor);
+    && !(range != null && live && t.object && CONFIG.Canvas.polygonBackends.move.testCollision(t.object.center, src.center, { type: "move", mode: "any", ...(token.level && token.parent?.levels?.get?.(token.level) && { level: token.parent.levels.get(token.level) }) }))).map((t) => t.actor);
   return [...new Map(hit.map((a) => [a.uuid, a])).values()];
 }
 
@@ -462,9 +462,10 @@ export async function applyOps(message, tokenKey, steps, ctx = {}) {
   const scope = ctx.scope ?? "apply";
   const tUuid = use.targets?.find((t) => t.key === tokenKey)?.uuid;
   const targetDoc = ctx.target ?? (tUuid ? await fromUuid(tUuid) : null);
-  const selfActor = ctx.originActor ?? actorOf(await fromUuid(use.actor));
-  const originItem = ctx.originItem ?? (use.item?.uuid ? await fromUuid(use.item.uuid) : null);
   const originToken = ctx.originToken ?? (use.token ? await fromUuid(use.token) : null);
+  // актёр токена: у несвязанного токена это синтетический актёр, и pf2e сверяет автора срока с combatant.actor именно с ним
+  const selfActor = ctx.originActor ?? originToken?.actor ?? actorOf(await fromUuid(use.actor));
+  const originItem = ctx.originItem ?? (use.item?.uuid ? await fromUuid(use.item.uuid) : null);
   const ectx = { originActor: selfActor, originToken, originItem, rollOptions: ctx.rollOptions,
     roll: ctx.degree != null && Number.isFinite(ctx.total) ? { total: ctx.total, degreeOfSuccess: ctx.degree } : null,
     castRank: originItem?.type === "spell" ? (message.flags?.pf2e?.origin?.castRank ?? originItem.rank ?? null) : null,

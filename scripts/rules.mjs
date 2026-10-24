@@ -253,6 +253,7 @@ function vApplyList(list, path, defTo, err, basicOk = false) {
 // triggers (T2): существо входит в область / начинает / кончает в ней ход -> испытание и/или шаги к нему. per — не чаще раза за раунд / за ход боя (общий на все записи зоны с таким per)
 export const TRIGGER_ON = ["enter", "turn-start", "turn-end"];
 export const TRIGGER_PER = ["round", "turn"];
+const hasMove = (list) => list.some((a) => a?.move);
 function vTrigger(t, path, err) {
   if (!isObj(t)) { err.push(E("notObj", path)); return null; }
   const out = {};
@@ -263,6 +264,8 @@ function vTrigger(t, path, err) {
   if (apply.some((a) => a.to !== "target")) err.push(E("trg.to", `${path}.apply`));
   if (apply.length) out.apply = apply;
   if (!out.challenge && !apply.length) err.push(E("trg.empty", path));
+  // зона не знает «откуда толкать»: центр области ≠ токен автора
+  if (hasMove(apply) || hasMove(Object.values(out.challenge?.byDegree ?? {}).flat())) err.push(E("move.bad", `${path}.apply`));
   return out;
 }
 
@@ -434,6 +437,8 @@ function vOnUse(u, err) {
     if (out.check && !out.check.vs && (u.targets !== "self" || out.check.immunity)) err.push(E("chk.noVsSelf", "onUse.check"));
   }
   out.apply = vApplyList(u.apply, "onUse.apply", "self", err);
+  // ponytail: эманацию вокруг автора от области не отличить (формы зоны в схеме нет) — move при targets:"area" запрещён целиком
+  if (u.targets === "area" && [out.apply, ...Object.values(out.challenge?.byDegree ?? {}), ...Object.values(out.check?.byDegree ?? {})].some(hasMove)) err.push(E("move.bad", "onUse.targets"));
   // self-шаги onUse.apply идут без цели: наблюдатель-автор не видит субъекта-«цель»
   out.apply.forEach((a, i) => { if (a.visibility && a.to === "self") err.push(E("vis.selfNoTarget", `onUse.apply[${i}].visibility`)); });
   return out;

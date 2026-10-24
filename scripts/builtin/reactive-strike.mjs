@@ -30,7 +30,7 @@ export function reactionOf(item) {
   return null;
 }
 
-const canReact = (holder, src) => holder !== src && holder.actor?.hitPoints?.value > 0 && !noReactions(holder.actor) &&opposed(holder.document.disposition, src.document.disposition)
+const canReact = (holder, src) => holder !== src && holder.actor?.hitPoints?.value > 0 && !noReactions(holder.actor) && opposed(holder.document.disposition, src.document.disposition)
   && holder.distanceTo(src) <= (holder.actor.getReach?.({ action: "attack" }) ?? 5);
 
 const hint = (holder, src, item, trigger) => whisper(holder.actor,

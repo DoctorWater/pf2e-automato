@@ -128,7 +128,7 @@
         "resist": "Устойчивость: {type} {value}",
         "weak": "Уязвимость: {type} {value}",
         "forbid": "Нельзя использовать реакции",
-        "resistExcept":"Устойчивость: {type} {value}, кроме: {except}",
+        "resistExcept": "Устойчивость: {type} {value}, кроме: {except}",
         "temphp": "{value} временных ПЗ",
         "fastheal": "Быстрое исцеление {value}",
         "dmg": "+{number}{die} урона ({type}) к Ударам",

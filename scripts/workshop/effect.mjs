@@ -10,7 +10,7 @@ export const SAVES = ["fortitude", "reflex", "will"];
 export const SKILLS = ["acrobatics", "arcana", "athletics", "crafting", "deception", "diplomacy", "intimidation", "medicine", "nature", "occultism", "performance", "religion", "society", "stealth", "survival", "thievery"];
 export const STEP_TARGETS = [...TARGETS, ...SAVES, ...SKILLS];
 export const NO_REACTIONS = "af:no-reactions";   // roll option актёра: эффект «нельзя использовать реакции»
-export const BONUS_TYPES =["status", "circumstance", "item", "untyped"];
+export const BONUS_TYPES = ["status", "circumstance", "item", "untyped"];
 // ключи CONFIG.PF2E.damageTypes (кости урона) и resistanceTypes (сопротивления)
 export const DAMAGE_TYPES = ["fire", "cold", "electricity", "acid", "sonic", "force", "mental", "poison", "spirit", "vitality", "void", "bludgeoning", "piercing", "slashing", "bleed"];
 export const RESIST_TYPES = [...DAMAGE_TYPES, "physical", "energy", "all-damage"];

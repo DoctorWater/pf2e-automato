@@ -41,11 +41,12 @@ const centre = (doc, p, g) => ({ x: p.x + (doc.width * g) / 2, y: p.y + (doc.hei
 
 /**
  * ГМ: сдвинуть токен цели. mode push|pull, distance — футы. Возвращает {skipped: причина} или {from, to, id, stoppedBy}.
- * Причины пропуска: noOrigin, scene, grid, same. Нулевой сдвиг — {skipped: "blocked"}.
+ * Причины пропуска: noToken, noOrigin, scene, grid, same. Нулевой сдвиг — {skipped: "blocked"}.
  */
 export async function forcedMove(target, origin, { mode, distance }) {
-  const scene = target?.parent;
-  if (!target || !origin) return { skipped: "noOrigin" };
+  if (!target?.parent?.grid) return { skipped: "noToken" };   // цель без токена на сцене (актёр)
+  const scene = target.parent;
+  if (!origin) return { skipped: "noOrigin" };
   if (scene !== origin.parent || scene !== globalThis.canvas?.scene) return { skipped: "scene" };
   const grid = scene.grid, g = grid.size;
   if (grid.isGridless || grid.distance !== 5) return { skipped: "grid" };
@@ -56,8 +57,9 @@ export async function forcedMove(target, origin, { mode, distance }) {
   const dir = { x: (sign * (tc.x - oc.x)) / len, y: (sign * (tc.y - oc.y)) / len };
   const others = scene.tokens.filter((t) => t !== target && t.actor && Math.abs((t.elevation ?? 0) - (target.elevation ?? 0)) < 1);
   const rectOf = (doc, p) => ({ x: p.x, y: p.y, w: doc.width * g, h: doc.height * g });
-  const level = target.level ? { level: target.level } : {};
-  const snap = (p) => grid.getSnappedPoint(p, { mode: CONST.GRID_SNAPPING_MODES.TOP_LEFT_VERTEX });
+  // config.level ядру нужен документом уровня (ClockwiseSweepPolygon читает level.elevation.base), а у TokenDocument level — id
+  const lvl = target.level ? scene.levels?.get?.(target.level) : null, level = lvl ? { level: lvl } : {};
+  const snap = (p) => target.getSnappedPosition(p);   // гекс-сетка и размер токена — на стороне ядра
   const r = forcedPath({
     start: { x: target.x, y: target.y }, dir, distance, size: g, unit: grid.distance, snap,
     measure: (a, b) => grid.measurePath([a, b]).distance,
@@ -66,7 +68,8 @@ export async function forcedMove(target, origin, { mode, distance }) {
   });
   if (!r.path.length) return { skipped: "blocked", stoppedBy: r.stoppedBy };
   const from = { x: target.x, y: target.y, elevation: target.elevation ?? 0 }, id = foundry.utils.randomID();
-  await target.move([{ x: r.end.x, y: r.end.y, action: "displace" }], { id, constrainOptions: { ignoreWalls: true, ignoreCost: true }, showRuler: false, autoRotate: false, [MOD]: { forced: true } });
+  const moved = await target.move([{ x: r.end.x, y: r.end.y, action: "displace" }], { id, constrainOptions: { ignoreWalls: true, ignoreCost: true }, showRuler: false, autoRotate: false, [MOD]: { forced: true } });
+  if (moved === false || (target.x === from.x && target.y === from.y)) return { skipped: "blocked", stoppedBy: "refused" };
   return { from, to: { x: target.x, y: target.y, elevation: target.elevation ?? 0 }, id, stoppedBy: r.stoppedBy };
 }
 

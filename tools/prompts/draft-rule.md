@@ -36,8 +36,9 @@ STEP      = { "to": "self"|"target", ONE of:
               "effect": {"uuid": "Compendium.pf2e.spell-effects.Item.xxxx"}
               "note": "<Russian text for the GM: what to do manually>"
               "persistent": {"formula": "2d6", "damageType": "fire"}
-              "move": {"mode": "push"|"pull", "distance": 10}      // forced movement of the TARGET ("to":"target" only): push = straight away from the user, pull = straight toward the user (stops adjacent); distance in feet, multiple of 5. Different distance per degree = a separate move step in each degree. "up to N feet" = N. }
-            + optional "duration": {"value": 1, "unit": "rounds"|"minutes"|"hours"|"days", "expiry": "turn-start"|"turn-end", "of": "origin"|"target"} on a condition step
+              "move": {"mode": "push"|"pull", "distance": 10}      // forced movement of the TARGET ("to":"target" only): push = straight away from the user, pull = straight toward the user (stops adjacent); distance in feet, multiple of 5. Different distance per degree = a separate move step in each degree. "up to N feet" = N. ONLY from the user: not inside zone triggers, not with targets "area" (a burst centre is not the user).
+            }
+            + "duration" (optional; REQUIRED when the step is effect.mods): {"value": 1, "unit": "rounds"|"minutes"|"hours"|"days", "expiry": "turn-start"|"turn-end", "of": "origin"|"target"} on a condition step
               ("expiry" turn-end/turn-start = ends at the end/start of a turn; "of" = whose turn: "origin" (the user, default) or "target" (the affected creature: "until the end of ITS next turn");
                use value 0 + expiry turn-end for "until the end of this turn")
             + optional "who": "ally"|"enemy"   // apply to this step's target only if it is an ally / an enemy of the user (use when one cast hits both allies and enemies differently)
@@ -59,7 +60,7 @@ Rules of thumb:
 - A condition that some degree avoids or ends goes into `byDegree` of those degrees, never into `apply` (apply runs for every target regardless of the save).
 - "The target must spend its first action / one action to …" (a command, a forced action) is NOT a condition: do not use fleeing/prone/etc. for it. Use a condition only when the text names it. Otherwise `unsure: true`, note "missing: forced action".
 - Afflictions with stages ("Stage 1 … Stage 2 …", diseases, poisons) and healing modifiers ("regains half as many Hit Points from healing", "can't be healed") are real mechanics: never `null`; use a linked effect if the text has one, else `unsure: true` with "missing: affliction stages" / "missing: healing modifier".
-- `null` (nothing to automate) ONLY when the text has no condition, effect, persistent damage, forced movement (push, pull, knock prone), numeric bonus/penalty, weakness/resistance, immunity or duration: pure damage/healing, narrative, GM judgment, objects/terrain, information. If any of these is there but the schema cannot express it, answer `unsure: true` and name the missing piece in `note` (e.g. "missing: teleport target 30 ft", "missing: -2 penalty without effect link"). Push and pull of the target are NOT missing: use the "move" step. Teleport, "move the target to a square you choose" and "force it to Stride" stay unsure.
+- `null` (nothing to automate) ONLY when the text has no condition, effect, persistent damage, forced movement (push, pull, knock prone), numeric bonus/penalty, weakness/resistance, immunity or duration: pure damage/healing, narrative, GM judgment, objects/terrain, information. If any of these is there but the schema cannot express it, answer `unsure: true` and name the missing piece in `note` (e.g. "missing: teleport target 30 ft", "missing: -2 penalty without effect link"). Push and pull of the target are NOT missing: use the "move" step. Teleport, "move the target to a square you choose" and "force it to Stride" stay unsure. Pushed/pulled away from or toward the centre of an area or burst (not from the user) -> unsure: true, note "missing: push from point".
 
 # When to answer unsure (do NOT write an onUse rule for these)
 - The effect happens on a trigger rather than on use: "when it hits / Strikes", "when it dies", "when a creature enters or starts its turn in the aura", "whenever ...". Answer `unsure: true` (put `rule: null`).
@@ -127,7 +128,7 @@ Rules of thumb:
 ```json
 {"v":1,"label":"Undermine Reality","onUse":{"targets":"selected","challenge":{"statistic":"will","dc":{"source":"spell"},"basic":false,"byDegree":{"failure":[{"to":"target","condition":{"slug":"slowed","value":1},"repeat":{"on":"turn-end","end":["success","criticalSuccess"]}}]}}}}
 ```
-16. Numeric modifier with no linked effect (spell `save will`): "Failure: the target takes a -2 status penalty to Will saves for 1 round and can't use reactions."
+17. Numeric modifier with no linked effect (spell `save will`): "Failure: the target takes a -2 status penalty to Will saves for 1 round and can't use reactions."
 ```json
 {"v":1,"label":"Example","onUse":{"targets":"selected","challenge":{"statistic":"will","dc":{"source":"spell"},"basic":false,"byDegree":{"failure":[{"to":"target","effect":{"mods":[{"bonus":{"target":"will","type":"status","value":-2}},{"forbid":"reactions"}]},"duration":{"value":1,"unit":"rounds","expiry":"turn-start","of":"origin"}}]}}}}
 ```

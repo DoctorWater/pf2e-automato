@@ -128,7 +128,7 @@
         "resist": "Resistance: {type} {value}",
         "weak": "Weakness: {type} {value}",
         "forbid": "Can't use reactions",
-        "resistExcept":"Resistance: {type} {value}, except: {except}",
+        "resistExcept": "Resistance: {type} {value}, except: {except}",
         "temphp": "{value} temporary HP",
         "fastheal": "Fast healing {value}",
         "dmg": "+{number}{die} {type} damage to Strikes",

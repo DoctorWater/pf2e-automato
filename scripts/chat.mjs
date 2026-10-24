@@ -108,7 +108,7 @@ export function stepText(a, env, defTo) {
     : a.condition
     ? `${env.conditionLabel(a.condition.slug)}${a.condition.value ? ` ${a.condition.value}` : ""}`
     : a.effect?.mods ? textOfMods(a.effect.mods, { t })
-    : (env.uuidName(a.effect?.uuid) ?? a.effect?.uuid ?? "?") +(a.effect?.badge ? ` (${t(a.effect.badge === "decrement" ? "chat.stepBadgeDec" : "chat.stepBadge")})` : "");
+    : (env.uuidName(a.effect?.uuid) ?? a.effect?.uuid ?? "?") + (a.effect?.badge ? ` (${t(a.effect.badge === "decrement" ? "chat.stepBadgeDec" : "chat.stepBadge")})` : "");
   return say("step", what);
 }
 

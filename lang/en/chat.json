@@ -108,6 +108,7 @@
       "askUnknown": "{name} took a hostile action, but this invisibility was not applied by the module (spell rank unknown). Did it end?"
     },
     "moveSkip": {
+      "noToken": "{name}: {target} not moved — the target has no token on the scene.",
       "noOrigin": "{name}: {target} not moved — author token not found.",
       "scene": "{name}: {target} not moved — tokens must be on the current scene.",
       "grid": "{name}: {target} not moved — needs a square or hex grid of 5 ft cells.",

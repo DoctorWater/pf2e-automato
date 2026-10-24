@@ -34,7 +34,7 @@ async () => {
     const eff = await waitFor(() => A().itemTypes.effect.find((e) => e.slug === "af-af-test-fetters" || e.system.slug?.startsWith("af-")));
     check("effect", !!eff, eff?.name);
     check("name", /Эффект|Effect/.test(eff?.name ?? ""), eff?.name);
-    check("rules", eff?.system.rules.some((r) => r.key === "FlatModifier" && r.selector === "will" && r.value === -2) && eff.system.rules.some((r) => r.key === "RollOption" && r.option === "af:no-reactions"), JSON.stringify(eff?.system.rules));
+    check("rules", eff?.system.rules.some((r) => r.key === "FlatModifier" && [r.selector].flat().includes("will") && r.value === -2) && eff.system.rules.some((r) => r.key === "RollOption" && r.option === "af:no-reactions"), JSON.stringify(eff?.system.rules));
     check("duration", eff?.system.duration.value === 1 && eff.system.duration.unit === "rounds", JSON.stringify(eff?.system.duration));
     check("will -2", await waitFor(() => A().saves.will.mod === willBefore - 2), `${willBefore} -> ${A().saves.will.mod}`);
     check("fortitude unchanged", A().saves.fortitude.mod === fortBefore, `${fortBefore} -> ${A().saves.fortitude.mod}`);
@@ -56,8 +56,12 @@ async () => {
     await applyOps(game.messages.get(msg.id), tF.id, steps, { scope: "apply" }).catch(() => null);
     const again = await waitFor(() => A().itemTypes.effect.find((e) => e.system.slug?.startsWith("af-")));
     check("effect (бой)", !!again || rows.some((r) => r.id === "idempotent"), "после undo ключ шага свободен или повтор пропущен");
-    for (let i = 0; i < 3; i++) { await combat.nextTurn(); await wait(600); }
-    check("expired", await waitFor(() => !A().itemTypes.effect.some((e) => e.system.slug?.startsWith("af-") && !e.isExpired), 6000), "после раунда эффект снят или помечен истёкшим");
+    // pf2e: «до начала хода автора» — isExpired только в ход автора (раунд 2); в ход цели снова false, если removeEffects не удалил
+    const snap = () => { const e = A().itemTypes.effect.find((x) => x.system.slug?.startsWith("af-")); return e ? { gone: false, expired: !!e.isExpired, live: !!e.remainingDuration?.expired, remaining: e.remainingDuration?.remaining } : { gone: true }; };
+    const trail = [];
+    for (let i = 0; i < 3; i++) { await combat.nextTurn(); await wait(800); trail.push({ round: combat.round, who: combat.combatant?.actor?.name, time: game.time.worldTime, ...snap() }); }
+    check("not expired early", !trail[0].expired && !trail[0].gone, JSON.stringify(trail[0]));   // ход цели, раунд 1
+    check("expired", trail[1].gone || trail[1].live, JSON.stringify(trail));                   // ход автора, раунд 2
     await combat.delete();
   } catch (e) {
     check("exception", false, e?.stack ?? e);

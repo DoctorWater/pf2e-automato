@@ -78,3 +78,5 @@
 - Реакции: `reactive-strike.onMove` пропускает перемещение, где все `waypoints` — `displace`. Зоны не трогаем: толчок в область — законный вход.
 - Порядок целей в `applyByDegree`: толчок — дальние первыми, притяжение — ближние (`moveOrder`).
 - Файлы: `scripts/move.mjs`, `rules.mjs`, `apply.mjs`, `saves.mjs`, `chat.mjs`, `sheet.mjs`, `workshop/*`, `templates/workshop-auto.hbs`, `lang/*`, `tests/move.test.mjs`, `tests/live/forced-move.js`.
+- Правки по второму разбору: привязка — `target.getSnappedPosition` (гексы, мелкие токены), а не `grid.getSnappedPoint`; `move` запрещён в триггерах зоны и при `onUse.targets:"area"` (`move.bad`; эманацию вокруг автора форма зоны не отличает, поэтому запрет целиком); цель без токена — `moveSkip.noToken`; `target.move()===false` или позиция не изменилась — `blocked`.
+- Ограничение: `moveOrder` работает только при «Применить всем». В auto `afterRecord` применяет цели по приходу спасбросков, порядок не гарантирован (отложить до `allResolved` — отдельная доработка).

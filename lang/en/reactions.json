@@ -5,6 +5,7 @@
       "use": "Use reaction",
       "used": "Reaction used: the outcome of this attack was recalculated.",
       "spent": "The reaction is already spent this round.",
+      "forbidden": "An effect forbids using reactions.",
       "rerolled": "The attack was rerolled after the reaction was used - check the result manually.",
       "degree": {
         "criticalFailure": "critical miss",

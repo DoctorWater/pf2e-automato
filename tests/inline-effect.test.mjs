@@ -42,17 +42,22 @@ test("normalizeMods: белый список", () => {
 });
 
 test("rulesOfMods: Rule Elements pf2e", () => {
-  assert.deepEqual(rulesOfMods([will]), [{ key: "FlatModifier", selector: "will", type: "status", value: -2 }]);
-  assert.deepEqual(rulesOfMods([{ speed: { type: "status", value: -10 } }]), [{ key: "FlatModifier", selector: "all-speeds", type: "status", value: -10 }]);
-  assert.deepEqual(rulesOfMods([{ weak: { dmg: "fire", value: 5 } }]), [{ key: "Weakness", type: "fire", value: 5 }]);
-  assert.deepEqual(rulesOfMods([{ resist: { dmg: "physical", value: 5, except: ["silver"] } }]), [{ key: "Resistance", type: "physical", value: 5, exceptions: ["silver"] }]);
-  assert.deepEqual(rulesOfMods([{ forbid: "reactions" }]), [{ key: "RollOption", domain: "all", option: "af:no-reactions" }]);
+  assert.deepEqual(rulesOfMods([will]), [{ key: "FlatModifier", slug: "af-0", selector: "will", type: "status", value: -2 }]);
+  assert.deepEqual(rulesOfMods([{ speed: { type: "status", value: -10 } }]), [{ key: "FlatModifier", slug: "af-0", selector: "all-speeds", type: "status", value: -10 }]);
+  assert.deepEqual(rulesOfMods([{ weak: { dmg: "fire", value: 5 } }]), [{ key: "Weakness", slug: "af-0", type: "fire", value: 5 }]);
+  assert.deepEqual(rulesOfMods([{ resist: { dmg: "physical", value: 5, except: ["silver"] } }]), [{ key: "Resistance", slug: "af-0", type: "physical", value: 5, exceptions: ["silver"] }]);
+  assert.deepEqual(rulesOfMods([{ forbid: "reactions" }]), [{ key: "RollOption", slug: "af-0", domain: "all", option: "af:no-reactions" }]);
 });
 
-test("noReactions читает RollOption эффекта актёра", () => {
-  const eff = (rules) => ({ itemTypes: { effect: [{ system: { rules } }] } });
-  assert.equal(noReactions(eff(rulesOfMods([{ forbid: "reactions" }]))), true);
-  assert.equal(noReactions(eff(rulesOfMods([will]))), false);
+test("rulesOfMods: у каждого RE свой slug (pf2e не схлопывает одинаковые модификаторы)", () => {
+  const r = rulesOfMods([{ bonus: { target: "saving-throw", type: "status", value: -1 } }, { bonus: { target: "will", type: "circumstance", value: -2 } }]);
+  assert.equal(new Set(r.map((x) => x.slug)).size, r.length);
+});
+
+test("noReactions читает roll options актёра (игнорируемые правила истёкшего эффекта не считаются)", () => {
+  const act = (opts) => ({ getRollOptions: (d) => (d[0] === "all" ? opts : []) });
+  assert.equal(noReactions(act(["x", rulesOfMods([{ forbid: "reactions" }])[0].option])), true);
+  assert.equal(noReactions(act(["x"])), false);
   assert.equal(noReactions({ itemTypes: { effect: [] } }), false);
   assert.equal(noReactions(null), false);
 });
@@ -92,7 +97,7 @@ test("applyInlineEffect: эффект, срок, автор срока, slug, и
     const e = r.item;
     assert.equal(r.op, "created"); assert.equal(e.type, "effect");
     assert.equal(e.name, "Эффект: Fetters"); assert.equal(e.system.slug, "af-fetters"); assert.equal(e.img, "i.webp");
-    assert.deepEqual(e.system.rules, [{ key: "FlatModifier", selector: "will", type: "status", value: -2 }]);
+    assert.deepEqual(e.system.rules, [{ key: "FlatModifier", slug: "af-0", selector: "will", type: "status", value: -2 }]);
     assert.deepEqual(e.system.duration, { sustained: false, value: 1, unit: "rounds", expiry: "turn-start" });
     assert.equal(e.system.context.origin.actor, "Actor.t");   // of:"target" — ход получателя
     assert.equal(e.flags[MOD].meta.key, "k1");
@@ -108,6 +113,7 @@ test("слабость и запрет реакций: срок и загото�
   setup();
   try {
     const t = mkActor("Actor.t"), item = { uuid: "Item.i", name: "X", slug: "af-x" };
+    t.getRollOptions = () => t.items.flatMap((i) => i.system.rules).filter((r) => r.key === "RollOption").map((r) => r.option);
     const r = await applyInlineEffect(t, { mods: [{ forbid: "reactions" }], duration: { value: 1, unit: "rounds", expiry: "turn-end" } }, { key: "k" }, { originActor: { uuid: "Actor.a" }, originItem: item });
     assert.equal(noReactions(t), true);
     assert.equal(r.item.system.slug, "af-x");

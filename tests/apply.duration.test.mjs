@@ -124,3 +124,15 @@ test("rules: валидация Apply.duration", () => {
   assert.equal(mk({ condition: { slug: "off-guard" }, duration: { value: 0, unit: "rounds", expiry: "turn-start" } }).ok, false);
   assert.equal(mk({ note: "x", duration: { value: 1, unit: "rounds" } }).ok, false);
 });
+
+test("applyOps: автор срока — актёр токена (синтетический у несвязанного), иначе pf2e не истечёт turn-start", async () => {
+  setup();
+  try {
+    const synth = mkActor("Scene.s.Token.a.Actor.a"), t1 = mkActor("Actor.t1");
+    registry.set("Tok.1", { uuid: "Tok.1", actor: t1 }); registry.set("Scene.s.Token.a", { uuid: "Scene.s.Token.a", actor: synth });
+    const m = mkMsg({ onUse: { check: {} } });
+    m.flags[MOD].use.token = "Scene.s.Token.a";
+    await applyOps(m, "t1", [{ to: "target", condition: { slug: "clumsy", value: 1 }, duration: DUR }], { scope: "challenge", degree: 0 });
+    assert.equal(t1.items[0].system.context.origin.actor, "Scene.s.Token.a.Actor.a");
+  } finally { teardown(); }
+});

@@ -82,13 +82,13 @@ test("форма ↔ правило и текст шага", () => {
 });
 
 // ---- applyOps: сцена-заглушка, токены на квадратной сетке ----
-const mkScene = () => ({ grid: { size: G, distance: 5, isGridless: false, getSnappedPoint: snap, measurePath: ([a, b]) => ({ distance: measure(a, b) }) }, tokens: [] });
+const mkScene = () => ({ grid: { size: G, distance: 5, isGridless: false, snapToken: snap, getSnappedPoint: () => { throw new Error("не для токенов"); }, measurePath: ([a, b]) => ({ distance: measure(a, b) }) }, tokens: [] });
 const mkTok = (scene, uuid, x, y, actor = { uuid: `A.${uuid}` }) => {
   const t = { uuid, id: uuid, name: uuid, x, y, width: 1, height: 1, elevation: 0, parent: scene, actor, _source: { _movementHistory: [] }, moves: [], updates: [],
     async move(wps, o) { this.moves.push({ wps, o }); this.prev = { x: this.x, y: this.y }; this.x = wps.at(-1).x; this.y = wps.at(-1).y; this._source._movementHistory.push({ movementId: o.id }); },
     async revertRecordedMovement(id) { this.reverted = id; const h = this._source._movementHistory; const i = h.findIndex((w) => w.movementId === id); this.x = this.prev?.x ?? this.x; h.length = i; return true; },
     async update(d, o) { this.updates.push({ d, o }); this.x = d.x; this.y = d.y; } };
-  scene.tokens.push(t); uuids.set(uuid, t); return t;
+  t.getSnappedPosition = (p) => scene.grid.snapToken(p); scene.tokens.push(t); uuids.set(uuid, t); return t;
 };
 const mkMsg = (use, id = "M1") => { const m = { id, flags: { [MOD]: { use } }, async update(d) { for (const [k, v] of Object.entries(d)) { if (v && v.constructor?.name === "ForcedDeletion") { const ks = k.split("."), last = ks.pop(); delete ks.reduce((a, q) => a?.[q], m)?.[last]; } else { const ks = k.split("."), last = ks.pop(); ks.reduce((a, q) => (a[q] ??= {}), m)[last] = v; } } } }; msgs.set(id, m); return m; };
 const push = (n) => [{ to: "target", move: { mode: "push", distance: n } }];
@@ -170,4 +170,30 @@ test("пропуски: другая сцена, без токена автор�
   await applyOps(mkMsg(use(), "M3"), "t", push(5), { scope: "apply", target: foe });
   assert.equal(foe.moves.length, 0);
   assert.equal(warns.length, 3);
+});
+
+test("гекс: привязка идёт через target.getSnappedPosition, а не grid.getSnappedPoint", async () => {
+  scene.grid.isSquare = false;
+  scene.grid.snapToken = (p) => ({ x: Math.floor((p.x - 50) / G + 1e-9) * G + 50, y: Math.floor(p.y / G + 1e-9) * G });   // сдвинутая решётка гекса
+  foe.x = 150;
+  await applyOps(mkMsg(use()), "t", push(10), { scope: "apply", target: foe });
+  assert.deepEqual([foe.x, foe.y], [350, 0]);
+});
+
+test("цель без токена — noToken; отказ target.move — blocked", async () => {
+  const ops = await applyOps(mkMsg(use()), "t", push(5), { scope: "apply", target: { uuid: "Actor.x", name: "A", actor: {} } });
+  assert.deepEqual([ops[0].op, ops[0].skipped], ["moved", "noToken"]);
+  foe.move = async () => false;
+  const ops2 = await applyOps(mkMsg(use(), "M2"), "t", push(5), { scope: "apply", target: foe });
+  assert.equal(ops2[0].skipped, "blocked");
+  assert.equal(foe.x, 100);
+});
+
+test("валидатор: move запрещён в триггерах зоны и при targets area", () => {
+  const mv = [{ to: "target", move: { mode: "push", distance: 10 } }];
+  const zone = (apply) => ({ v: 1, onUse: { targets: "area", zone: { triggers: [{ on: "enter", apply }] } } });
+  assert.equal(validate(zone(mv)).ok, false);
+  assert.equal(validate(zone([{ to: "target", condition: { slug: "prone" } }])).ok, true);
+  assert.equal(validate({ v: 1, onUse: { targets: "area", apply: mv } }).ok, false);
+  assert.equal(validate({ v: 1, onUse: { targets: "area", challenge: { statistic: "reflex", dc: { value: 20 }, byDegree: { failure: mv } } } }).ok, false);
 });

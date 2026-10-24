@@ -307,7 +307,7 @@ function execUse(messageId, skipIfDone) {
 
     if (!low && onUse?.apply?.length && modeOf("effect") === "auto") await applyUseSteps(message, use, { targets: !area });   // область: цели берёт runRegion
 
-    if (!low && use.rule.macros?.some((m) => m.phase === "onUse") && modeOf("macro") !== "off") {
+    if (!low && use.rule?.macros?.some((m) => m.phase === "onUse") && modeOf("macro") !== "off") {
       const targets = (await Promise.all(inRange(use.targets).map((t) => fromUuid(t.uuid)))).filter(Boolean);
       await macros.runMacros("onUse", { message, rule: use.rule, targets });
     }

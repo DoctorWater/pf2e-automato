@@ -139,11 +139,13 @@ const degSteps = (deg) => {
 const chForm = (c) => ruleToForm(c ? { v: 1, onUse: { targets: "selected", challenge: c, apply: [] } } : null).ch;
 const chRule = (ch) => formToRule({ kind: "onUse", targets: "selected", ch: { ...ch, on: true }, apply: [], macros: [] }).onUse.challenge;
 /** Пустая запись для кнопки «добавить событие». */
-export const blankEvent = () => ({ on: "attack-roll", side: "self", when: "", once: false, afterUse: false, apply: [], ch: chForm(null) });
-const evForm = (e) => ({ on: e.on, side: e.side ?? "self", when: whenText(e.when), once: !!e.once, afterUse: !!e.afterUse, apply: (e.apply ?? []).map(rowOf), ch: { ...chForm(e.challenge), on: !!e.challenge } });
+export const blankEvent = () => ({ on: "attack-roll", side: "self", when: "", once: false, afterUse: false, aura: "", range: "", per: "", apply: [], ch: chForm(null) });
+// side:"near" (T3): aura / range / per живут в форме всегда, в правило идут только у near
+const evForm = (e) => ({ on: e.on, side: e.side ?? "self", when: whenText(e.when), once: !!e.once, afterUse: !!e.afterUse, aura: e.aura ?? "", range: e.range ?? "", per: e.per ?? "", apply: (e.apply ?? []).map(rowOf), ch: { ...chForm(e.challenge), on: !!e.challenge } });
+const nearZone = (e) => ({ ...(String(e.aura ?? "").trim() && { aura: String(e.aura).trim() }), ...(num(e.range) !== undefined && { range: num(e.range) }), ...(e.per && { per: e.per }) });
 function evRule(e) {
   const when = parseWhen(e.when);
-  return { on: e.on, side: e.side, ...(when !== undefined && { when }), ...(e.once && { once: true }), ...(e.afterUse && { afterUse: true }), apply: (e.apply ?? []).map(applyOf).filter(Boolean), ...(e.ch?.on && { challenge: chRule(e.ch) }) };
+  return { on: e.on, side: e.side, ...(when !== undefined && { when }), ...(e.once && { once: true }), ...(e.afterUse && { afterUse: true }), ...(e.side === "near" && nearZone(e)), apply: (e.apply ?? []).map(applyOf).filter(Boolean), ...(e.ch?.on && { challenge: chRule(e.ch) }) };
 }
 
 // триггеры зоны (T2): запись onUse.zone.triggers <-> форма; испытание и шаги — как у onEvent

@@ -19,7 +19,11 @@
           "sideTarget": "\"Roll target\" exists only for rolls and spell casting ({path})",
           "once": "\"Once\" is yes or no only ({path})",
           "afterUse": "\"After use\" is yes or no, and only for the owner's own roll (attack, check, save, damage) ({path})",
-          "empty": "The event entry is empty: add steps or a challenge ({path})"
+          "empty": "The event entry is empty: add steps or a challenge ({path})",
+          "nearOn": "The \"in aura\" side exists only for start of turn, end of turn and enter ({path})",
+          "enter": "Entering an aura is only for the \"in the owner's aura\" side ({path})",
+          "nearZone": "An \"in aura\" entry needs exactly one of: aura slug (aura) or range in feet (range > 0) ({path})",
+          "nearOnly": "Aura, range and \"at most\" exist only for the \"in the owner's aura\" side ({path})"
         }
       }
     },
@@ -92,13 +96,20 @@
             "turn-start": "Start of turn",
             "turn-end": "End of turn",
             "effect-created": "Effect created",
-            "effect-deleted": "Effect removed"
+            "effect-deleted": "Effect removed",
+            "enter": "Enters the aura"
           },
           "side": {
             "self": "rolls or takes it (owner)",
             "target": "roll target",
-            "origin": "origin (effect's author)"
-          }
+            "origin": "origin (effect's author)",
+            "near": "in the owner's aura (enemy/ally — in the challenge)"
+          },
+          "zoneAura": "Aura (Aura RE slug)",
+          "zoneRange": "Range, ft",
+          "zoneAuraHint": "Either the slug of a pf2e rules aura (frightful-aura) or range in feet from the owner",
+          "auraShort": "aura {aura}",
+          "rangeShort": "{range} ft"
         }
       }
     }

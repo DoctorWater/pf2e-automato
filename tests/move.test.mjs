@@ -19,7 +19,11 @@ globalThis.foundry = { data: { regionBehaviors: { RegionBehaviorType: class {} }
 globalThis.__n = 0;
 globalThis.CONST = { GRID_SNAPPING_MODES: { TOP_LEFT_VERTEX: 1 } };
 globalThis.CONFIG = { PF2E: { Item: { documentClasses: { effect: { validTraits: {} } } } }, Dice: { rolls: [] },
-  Canvas: { polygonBackends: { move: { testCollision: (_a, b) => walls.some((w) => b.x > w) } } } };
+  Canvas: { polygonBackends: { move: { testCollision: (_a, b, cfg) => {
+    // как PointSourcePolygon#initialize в v14: level — документ Level, читается level.elevation.base (строка-id даёт TypeError «reading 'base'»)
+    if (cfg?.level !== undefined && cfg.level.elevation.base === undefined) throw new TypeError("bad level");
+    return walls.some((w) => b.x > w);
+  } } } } };
 globalThis.ChatMessage = { create: async () => {}, getWhisperRecipients: () => [] };
 
 const { MOD, setSocket } = await import("../scripts/util.mjs");
@@ -82,9 +86,9 @@ test("форма ↔ правило и текст шага", () => {
 });
 
 // ---- applyOps: сцена-заглушка, токены на квадратной сетке ----
-const mkScene = () => ({ grid: { size: G, distance: 5, isGridless: false, snapToken: snap, getSnappedPoint: () => { throw new Error("не для токенов"); }, measurePath: ([a, b]) => ({ distance: measure(a, b) }) }, tokens: [] });
+const mkScene = () => ({ grid: { size: G, distance: 5, isGridless: false, snapToken: snap, getSnappedPoint: () => { throw new Error("не для токенов"); }, measurePath: ([a, b]) => ({ distance: measure(a, b) }) }, tokens: [], levels: new Map([["L1", { id: "L1", elevation: { base: 0 } }]]) });
 const mkTok = (scene, uuid, x, y, actor = { uuid: `A.${uuid}` }) => {
-  const t = { uuid, id: uuid, name: uuid, x, y, width: 1, height: 1, elevation: 0, parent: scene, actor, _source: { _movementHistory: [] }, moves: [], updates: [],
+  const t = { uuid, id: uuid, name: uuid, x, y, width: 1, height: 1, elevation: 0, level: "L1", parent: scene, actor, _source: { _movementHistory: [] }, moves: [], updates: [],
     async move(wps, o) { this.moves.push({ wps, o }); this.prev = { x: this.x, y: this.y }; this.x = wps.at(-1).x; this.y = wps.at(-1).y; this._source._movementHistory.push({ movementId: o.id }); },
     async revertRecordedMovement(id) { this.reverted = id; const h = this._source._movementHistory; const i = h.findIndex((w) => w.movementId === id); this.x = this.prev?.x ?? this.x; h.length = i; return true; },
     async update(d, o) { this.updates.push({ d, o }); this.x = d.x; this.y = d.y; } };

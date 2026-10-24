@@ -3,6 +3,7 @@
 // по спровоцировавшему (Удар входит в реакцию по правилам). Перемещение ловится хуком moveToken (v14): путь прошёл через досягаемость.
 import { L, MOD, callGM } from "../util.mjs";
 import { noReactions } from "../inline-effect.mjs";
+import { gapFeet } from "../aura.mjs";
 import { esc, whisper, cardButton } from "./lib.mjs";
 import { isHit, meleeCandidates, askStrikes, rollStrike, rollDamage } from "./strikes.mjs";
 
@@ -39,11 +40,7 @@ const hint = (holder, src, item, trigger) => whisper(holder.actor,
   cardButton("data-af-react-strike", L("builtin.reactive.strike")));
 
 /** Чистая: расстояние в футах между прямоугольниками токенов (в клетках) по правилу pf2e — каждая 2-я диагональ 10 фт; соседние — 5. */
-export function gapFeet(a, b, unit = 5) {
-  const dx = Math.max(0, b.x - (a.x + a.w), a.x - (b.x + b.w));
-  const dy = Math.max(0, b.y - (a.y + a.h), a.y - (b.y + b.h));
-  return (Math.max(dx, dy) + Math.floor(Math.min(dx, dy) / 2) + 1) * unit;
-}
+export { gapFeet };   // общая с аурами владельца (scripts/aura.mjs)
 
 /** Чистая: клетки, которые существо покинуло за перемещение (начало и промежуточные точки; конечная — нет). */
 export const leftSquares = (origin, waypoints) => [origin, ...waypoints.slice(0, -1)].filter(Boolean);

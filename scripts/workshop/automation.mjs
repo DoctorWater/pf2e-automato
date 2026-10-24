@@ -134,7 +134,7 @@ export function evLine(e, env) {
   const { t } = env, when = String(e.when ?? "").trim();
   const steps = plates(e.apply, env), ch = e.ch?.on ? t("workshop.au.ev.chLine", { stat: env.statLabel(e.ch.statistic), dc: dcLabel(e.ch, { ...env, dc: null }) }) : "";
   return {
-    head: `${t(`workshop.au.ev.on.${e.on}`)} · ${t(`workshop.au.ev.side.${e.side}`)}${when ? ` · ${when}` : ""}${e.once ? ` · ${t("workshop.au.ev.onceShort")}` : ""}${e.afterUse ? ` · ${t("workshop.au.ev.afterUseShort")}` : ""}`,
+    head: `${t(`workshop.au.ev.on.${e.on}`)} · ${t(`workshop.au.ev.side.${e.side}`)}${when ? ` · ${when}` : ""}${e.side === "near" ? ` · ${e.aura?.trim() ? t("workshop.au.ev.auraShort", { aura: e.aura.trim() }) : t("workshop.au.ev.rangeShort", { range: e.range })}${e.per ? ` · ${t(`workshop.au.trg.per.${e.per}`)}` : ""}` : ""}${e.once ? ` · ${t("workshop.au.ev.onceShort")}` : ""}${e.afterUse ? ` · ${t("workshop.au.ev.afterUseShort")}` : ""}`,
     body: [steps, ch].filter(Boolean).join("; ") || t("workshop.au.nothing")
   };
 }

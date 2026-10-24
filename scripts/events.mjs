@@ -13,6 +13,7 @@ import { messageTargets, esc, combatOf } from "./builtin/lib.mjs";
 import { parseMarker, challengeApplies } from "./saves.mjs";
 import { isImmune } from "./checks.mjs";
 import { repeatChallenge } from "./repeat.mjs";
+import { nearRadius, insideAura, pathRects, rectOf, auraOf } from "./aura.mjs";
 
 /* ---------- чистые функции ---------- */
 
@@ -175,13 +176,13 @@ const safeDoc = async (uuid) => { try { return uuid ? await fromUuid(uuid) : nul
  * -> журнал { key, recs:[{tk, ops}], host? } | null (уже исполнялось / нечего).
  */
 export async function runEntry(ev, owner, { item, rule }, { i, entry }, sink = null) {
-  const base = entry.once ? `once:${item.uuid}:${i}` : entryKey(ev.id, item.uuid, i);   // once — ключ без события: эффект/состояние получателя ставится и продлевается один раз
-  const key = entryKey(ev.id, item.uuid, i);
+  const key = ev.key ?? entryKey(ev.id, item.uuid, i);   // ev.key — ключ окна per (side:"near"), общий у записей «вход» и «конец хода»
+  const base = entry.once ? `once:${item.uuid}:${i}` : key;   // once — ключ без события: эффект/состояние получателя ставится и продлевается один раз
   if (fired.has(key) || ev.message?.flags?.[MOD]?.events?.some((r) => r.key === key)) return null;
   remember(key);
   const res = { key, recs: [] };
   sink?.push(res);   // журнал уже применённого остаётся, даже если ниже что-то упадёт
-  const ownerToken = tokenOf(owner), other = ev.other ?? null, otherToken = ev.otherToken ?? tokenOf(other);
+  const ownerToken = ev.ownerToken ?? tokenOf(owner), other = ev.other ?? null, otherToken = ev.otherToken ?? tokenOf(other);
   const tk = otherToken?.id ?? other?.id ?? null;
   const slug = rules.slugOf(null, item), src = rules.sourceOf(null, item);
   // эффект-носитель на «чужом» актёре (Маска ужаса, репеллент): СЛ испытания — у автора эффекта и его предмета-источника, а не у носителя
@@ -271,6 +272,14 @@ export function triggerKey({ per, combat, round, turn, evId, region, token, i })
   return `trg:${evId}:${region}:${token}:${i}`;
 }
 
+/** Получит ли существо (токен) карточку испытания автора: предикат `when`, `who` (враг/союзник по расположению автора), иммунитет — до карточки. */
+async function cardFits(ch, authorUuid, authorDisp, token) {
+  const who = rules.challengeWho(ch);
+  return challengeApplies(ch, token.actor, authorUuid)
+    && !(who && (who === "enemy") !== apply.opposed(authorDisp ?? 1, token.disposition ?? 0))
+    && !(ch.immunity && await isImmune({ actor: authorUuid }, token, ch));
+}
+
 const feedHas = (key) => game.messages.contents.slice(-100).some((m) => m.flags?.[MOD]?.use?.state?.event === key);   // переживает перезагрузку: карточка-хозяин помнит свой ключ
 
 /**
@@ -280,7 +289,7 @@ const feedHas = (key) => game.messages.contents.slice(-100).some((m) => m.flags?
  */
 export async function fireZoneTrigger(sys, token, on, ev) {
   const actor = token?.actor, region = sys.region, list = (sys.triggers ?? []).map((t, i) => ({ t, i })).filter(({ t }) => t.on === on);
-  if (!list.length || !actor || actor.isDead || !region || region.hidden || sys.expired || !guardActiveGM()) return;
+  if (!list.length || !actor || actor.isDead || !isCreature(actor) || !region || region.hidden || sys.expired || !guardActiveGM()) return;
   if (sys.skipOrigin && sys.originActor && actor.uuid === sys.originActor) return;
   const [owner, origin] = [await safeDoc(sys.originActor), await safeDoc(sys.originUuid)];
   const name = origin?.name ?? sys.parent?.name ?? "";
@@ -295,9 +304,7 @@ export async function fireZoneTrigger(sys, token, on, ev) {
       const key = triggerKey({ ...ev, per: t.per, region: region.uuid, token: token.id, i });
       if (fired.has(key) || feedHas(key)) continue;
       const ch = t.challenge, dc = ch?.dc?.value ?? sys.dcs?.[i] ?? sys.dc ?? null;
-      const card = ch && modeOf("challenge") !== "off" && challengeApplies(ch, actor, sys.originActor)
-        && !(rules.challengeWho(ch) && (rules.challengeWho(ch) === "enemy") !== apply.opposed(tokenOf(owner)?.disposition ?? 1, token.disposition ?? 0))
-        && !(ch.immunity && await isImmune(build(hostRule({ challenge: ch }, name), dc), token, ch));
+      const card = ch && modeOf("challenge") !== "off" && await cardFits(ch, owner?.uuid ?? sys.originActor, tokenOf(owner)?.disposition ?? 1, token);
       // ponytail: триггер только с apply ключ не пишет в ленту (нет карточки): после перезагрузки повтор того же раунда возможен; ядро события не переигрывает, так что цена — откат хода
       const steps = t.apply?.length && modeOf("effect") === "auto";
       if (!card && !steps) continue;
@@ -311,6 +318,111 @@ export async function fireZoneTrigger(sys, token, on, ev) {
       } catch (e) { console.error(`${MOD} | zone trigger ${name}[${i}]`, e); }
     }
   });
+}
+
+const isCreature = (actor) => actor.isOfType?.("creature") ?? true;   // жертва — существо (не транспорт, лут, опасность); без isOfType — как есть
+
+/** Стена между центрами прямоугольников (луч как в apply.alliesIn); не на холсте проверить нечем — не блокирует. */
+function wallBlocked(token, a, b) {
+  const scene = token.parent;
+  if (!scene || globalThis.canvas?.scene !== scene) return false;
+  const g = scene.grid?.size || 100, mid = (r) => ({ x: (r.x + r.w / 2) * g, y: (r.y + r.h / 2) * g });
+  const level = token.level && scene.levels?.get?.(token.level);
+  return !!CONFIG.Canvas?.polygonBackends?.move?.testCollision?.(mid(a), mid(b), { type: "move", mode: "any", ...(level && { level }) });
+}
+
+const hasNear = (token) => !!token.actor && eventItems(token.actor).some(({ rule }) => rule.onEvent.some((e) => e.side === "near"));
+/** Токены сцены, у актёров которых есть записи near: одна выборка на событие, дальше — только они. ponytail: обход предметов каждого токена на событие (правила в кэше eventRuleOf); кэш по сцене — если токенов на сцене станут сотни. */
+const nearCarriers = (scene) => (scene?.tokens ?? []).filter(hasNear);
+
+/**
+ * Аура владельца (onEvent side:"near", T3): `victim` — тот, чей ход / кто вошёл; `carrier` — токен с правилом (у несвязанного NPC актёр — токена).
+ * ev: { evId, combat?, round?, turn? }; moved — для enter: { id, origin, destination, passed? } токена, который двигался (carrier или victim).
+ * Окно per — общий ключ на носителя+предмет+аура и жертву (вход и конец хода в одном ходе/раунде — одна карточка).
+ * Порядок: геометрия (дёшево) -> опции и when -> очередь и карточка.
+ */
+export async function fireNear(on, carrier, victim, ev, moved = null) {
+  const owner = carrier?.actor, actor = victim?.actor;
+  if (!owner || !actor || !isCreature(actor) || carrier.id === victim.id || owner.isDead || actor.isDead || carrier.hidden || victim.hidden || !guardActiveGM()) return;
+  const unit = carrier.parent?.grid?.distance || 5;
+  const cands = [];
+  for (const found of eventItems(owner)) for (const [i, entry] of (found.rule.onEvent ?? []).entries()) if (entry.side === "near" && entry.on === on) cands.push({ found, i, entry });
+  if (!cands.length) return;
+  const inside = (radius, c, o) => insideAura(radius, c, o, unit) && !wallBlocked(carrier, c, o);
+  let pairs = null;   // enter: пары (носитель, жертва) вдоль пути двигавшегося; [0] — до перемещения
+  if (on === "enter") {
+    if (!moved) return;
+    const track = pathRects(moved.id === carrier.id ? carrier : victim, moved);
+    pairs = moved.id === carrier.id ? track.map((r) => [r, rectOf(victim)]) : track.map((r) => [rectOf(carrier), r]);
+  }
+  const hits = cands.filter((m) => {
+    const radius = nearRadius(m.entry, carrier);
+    if (radius == null) return false;
+    // turn-start/turn-end на просматриваемой сцене: аура pf2e сама знает свои стены (тип по чертам ауры) и высоту
+    const native = !pairs && m.entry.aura && globalThis.canvas?.scene === carrier.parent ? auraOf(carrier, m.entry.aura) : null;
+    if (native?.containsToken) return !!native.containsToken(victim);
+    return pairs ? !inside(radius, ...pairs[0]) && pairs.some((p) => inside(radius, ...p)) : inside(radius, rectOf(carrier), rectOf(victim));
+  });
+  if (!hits.length) return;
+  const options = new Set(["target", ...(actor.getSelfRollOptions?.("target") ?? []), ...(owner.getSelfRollOptions?.("self") ?? [])]);
+  await queue(`near:${carrier.uuid}:${victim.id}`, async () => {
+    for (const { found, i, entry: src } of hits) {
+      if (src.when && !pass(src.when, options)) continue;
+      if (compat.shouldYield(found.rule, { slug: rules.slugOf(null, found.item), sourceUuid: rules.sourceOf(null, found.item) })) continue;
+      const region = `${carrier.uuid}:${carrierSlug(found.item)}:${src.aura ?? `r${src.range}`}`;
+      const key = triggerKey({ ...ev, per: src.per, region, token: victim.id, i });
+      if (fired.has(key) || feedHas(key)) continue;
+      let entry = src;
+      if (entry.challenge && !(modeOf("challenge") !== "off" && await cardFits(entry.challenge, owner.uuid, carrier.disposition, victim))) {
+        if (!entry.apply?.length) continue;   // иммунная/не подходящая цель карточки не получает; шаги записи при этом остаются
+        entry = { ...entry, challenge: null };
+      }
+      try { await runEntry({ id: ev.evId, key, options, other: actor, otherToken: victim, ownerToken: carrier }, owner, found, { i, entry }); }
+      catch (e) { console.error(`${MOD} | near ${found.item.name}[${i}]`, e); }
+    }
+  });
+}
+
+// ponytail: память ГМа — после перезагрузки посреди хода конец хода берёт previous и может дать одну лишнюю карточку при per; хранить в флаге боя, если станет заметно
+const turnAt = new Map();   // бой:участник -> {round, turn} начала текущего хода; стирается в конце хода
+
+/**
+ * Ход в ауре: начало/конец хода `combatant` — для каждого токена сцены, чьё правило near его захватывает.
+ * pf2e.endTurn приходит, когда бой уже на следующем ходу: раунд/ход конца хода — из запомненного начала хода, иначе из encounter.previous,
+ * иначе конец хода последнего по инициативе попал бы в раунд R+1, а enter и конец одного хода (per:"turn") получили бы разные ключи.
+ */
+export async function nearTurn(on, combatant, encounter) {
+  const victim = combatant?.token;
+  if (!victim?.actor || !guardActiveGM() || (modeOf("effect") === "off" && modeOf("challenge") === "off")) return;
+  // Начало хода запоминаем сами: encounter.previous в хуке endTurn не гарантирован (вживую он не совпал и конец хода уходил в раунд R+1)
+  const started = `${encounter.id}:${combatant.id}`;
+  if (on === "turn-start") turnAt.set(started, { round: encounter.round, turn: encounter.turn });
+  const prev = encounter.previous?.combatantId === combatant.id && encounter.previous.round != null ? encounter.previous : null;
+  const at = on === "turn-end" ? turnAt.get(started) ?? prev ?? encounter : encounter;
+  if (on === "turn-end") turnAt.delete(started);
+  const ev = { evId: `turn:${encounter.id}:${at.round}:${at.turn}:${combatant.id}:${on}`, combat: encounter.id, round: at.round, turn: at.turn };
+  for (const carrier of nearCarriers(victim.parent)) await fireNear(on, carrier, victim, ev);
+}
+
+const NEAR_METHODS = new Set(["dragging", "keyboard", "api"]);   // config/paste/undo — правка ГМа или откат, не перемещение существа; создание токена movement не имеет
+/**
+ * Вход в ауру при перемещении (хук v14 moveToken(doc, movement): origin/destination — положения до и после, passed.waypoints — путь).
+ * «Был вне -> побывал внутри» по клеткам пути (пробежал сквозь ауру и встал снаружи — тоже вход); двигаться может и жертва, и носитель.
+ * ponytail: групповое перемещение — moveToken приходит после обновления всей пачки, «до» второго токена уже смешано с новым положением первого;
+ * потолок — ложные/пропущенные входы при совместном движении носителя и жертвы; чинить — снимком положений до пачки (preMoveToken).
+ */
+export async function onMoveToken(doc, movement) {
+  if (!guardActiveGM() || !movement?.origin || !movement.destination || !NEAR_METHODS.has(movement.method) || (modeOf("effect") === "off" && modeOf("challenge") === "off")) return;
+  const scene = doc.parent;
+  const carriers = nearCarriers(scene);
+  if (!carriers.length) return;
+  // v14: бой по умолчанию без scene — ищем по участникам, как zone.mjs
+  const fight = (fit) => game.combats.find((x) => x.started && x.combatants.some(fit));   // сначала бой самого токена: на сцене может идти другой
+  const c = fight((m) => m.tokenId === doc.id) ?? fight((m) => m.sceneId === scene?.id);
+  const ev = { evId: `enter:${movement.id}`, combat: c?.id, round: c?.round, turn: c?.turn };
+  const moved = { id: doc.id, origin: movement.origin, destination: movement.destination, passed: movement.passed };
+  for (const t of carriers) if (t.id !== doc.id) await fireNear("enter", t, doc, ev, moved);   // жертва двигалась
+  if (carriers.some((t) => t.id === doc.id)) for (const t of scene.tokens) if (t.id !== doc.id) await fireNear("enter", doc, t, ev, moved);   // носитель двигался
 }
 
 /** Опции `origin-effect:<slug>` для владельца side:origin: эффекты «другого» (носителя), автор которых — именно этот владелец (не любой автор любого эффекта). */
@@ -480,8 +592,10 @@ export function init() {
   Hooks.on("createChatMessage", (m) => { onMessage(m).catch((e) => console.error(`${MOD} | events`, e)); });
   Hooks.on("deleteChatMessage", (m) => { try { onDeleteMessage(m); } catch (e) { console.error(`${MOD} | events.onDelete`, e); } });
   Hooks.on("updateChatMessage", (m, ch) => { onUpdateMessage(m, ch).catch((e) => console.error(`${MOD} | events.update`, e)); });
-  Hooks.on("pf2e.startTurn", (c, e) => { noteTurn(c); onTurn("turn-start")(c, e); });
-  Hooks.on("pf2e.endTurn", onTurn("turn-end"));
+  const onNear = (on) => (c, e) => nearTurn(on, c, e).catch((err) => console.error(`${MOD} | near ${on}`, err));
+  Hooks.on("pf2e.startTurn", (c, e) => { noteTurn(c); onNear("turn-start")(c, e); return onTurn("turn-start")(c, e); });
+  Hooks.on("pf2e.endTurn", (c, e) => { onNear("turn-end")(c, e); return onTurn("turn-end")(c, e); });
+  Hooks.on("moveToken", (doc, movement) => { onMoveToken(doc, movement).catch((e) => console.error(`${MOD} | near enter`, e)); });
   Hooks.on("createItem", onItem("effect-created"));
   Hooks.on("deleteItem", onItem("effect-deleted"));
 }

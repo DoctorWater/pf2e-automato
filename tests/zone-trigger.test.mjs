@@ -226,3 +226,13 @@ test("attachZone: круг из сообщения-источника, СЛ по
   await ZoneBehaviorType.events.tokenEnter.call(s, ent({ movement: { id: "mv", method: "undo" } }));
   assert.equal(calls.length, 0);
 });
+
+test("fireZoneTrigger: токен не существо (isOfType) — карточки нет", async () => {
+  const victim = mkActor("Actor.victim"), tok = mkToken("t1", victim);
+  victim.isOfType = (t) => t === "vehicle";
+  await ev.fireZoneTrigger(mkSysFull([{ on: "turn-end", challenge: CH }]), tok, "turn-end", TURN_END);
+  assert.equal(created.length, 0);
+  victim.isOfType = (t) => t === "creature";
+  await ev.fireZoneTrigger(mkSysFull([{ on: "turn-end", challenge: CH }]), tok, "turn-end", { ...TURN_END, evId: "creature:turn-end", round: 41 });
+  assert.equal(created.length, 1);
+});

@@ -460,8 +460,10 @@ function vReaction(r, err) {
 
 // onEvent (0.5g3): правило на предмете актёра срабатывает по событию. side — кто из участников события держит предмет:
 // self — тот, кто бросает / получает урон / ходит / у кого эффект; target — цель броска (onAttacked — частный случай); origin — источник (автор эффекта, чья СЛ у броска).
-export const EVENT_ON = ["attack-roll", "skill-check", "saving-throw", "damage-roll", "damage-taken", "spell-cast", "turn-start", "turn-end", "effect-created", "effect-deleted"];
-export const EVENT_SIDES = ["self", "target", "origin"];
+export const EVENT_ON = ["attack-roll", "skill-check", "saving-throw", "damage-roll", "damage-taken", "spell-cast", "turn-start", "turn-end", "enter", "effect-created", "effect-deleted"];
+export const EVENT_SIDES = ["self", "target", "origin", "near"];
+// near (triggered-save T3): аура владельца — «другой» участник (чей ход / кто вошёл) внутри неё: slug Aura RE pf2e (aura) либо футы от владельца (range). enter — только near
+export const NEAR_ON = ["turn-start", "turn-end", "enter"];
 export const EVENT_TARGETED = new Set(["attack-roll", "skill-check", "damage-roll", "spell-cast"]);   // у остальных событий цели нет: side:"target" бессмысленна
 
 // afterUse: бросок владельца сразу после карточки этого предмета (strike-gate: «Make a Strike. If it hits…»). Сотворение (spell-cast) — отдельной пачкой.
@@ -473,8 +475,16 @@ function vEvent(e, i, err) {
   const out = { on: e.on, side: e.side ?? "self" };
   if (!EVENT_ON.includes(e.on)) err.push(E("ev.on", `${path}.on`));
   if (!EVENT_SIDES.includes(out.side)) err.push(E("ev.side", `${path}.side`));
+  else if (out.side === "near" && !NEAR_ON.includes(e.on)) err.push(E("ev.nearOn", `${path}.side`));
+  else if (e.on === "enter" && out.side !== "near") err.push(E("ev.enter", `${path}.on`));
   else if (out.side === "target" && !EVENT_TARGETED.has(e.on)) err.push(E("ev.sideTarget", `${path}.side`));
   if (e.when != null) { if (!isPredicate(e.when)) err.push(E("apply.when", `${path}.when`)); else out.when = e.when; }
+  if (out.side === "near") {
+    if ((e.aura == null) === (e.range == null)) err.push(E("ev.nearZone", `${path}.aura`));
+    else if (e.aura != null) { if (!isStr(e.aura)) err.push(E("ev.nearZone", `${path}.aura`)); else out.aura = e.aura; }
+    else if (!(isNum(e.range) && e.range > 0)) err.push(E("ev.nearZone", `${path}.range`)); else out.range = e.range;
+    if (e.per != null) { if (!TRIGGER_PER.includes(e.per)) err.push(E("trg.per", `${path}.per`)); else out.per = e.per; }
+  } else if (e.aura != null || e.range != null || e.per != null) err.push(E("ev.nearOnly", `${path}.aura`));
   if (e.once != null) { if (typeof e.once !== "boolean") err.push(E("ev.once", `${path}.once`)); else if (e.once) out.once = true; }   // once — один раз на эффект/состояние получателя, а не на каждое событие
   if (e.afterUse != null) { if (typeof e.afterUse !== "boolean" || (e.afterUse && !(EVENT_AFTER_USE.has(e.on) && out.side === "self"))) err.push(E("ev.afterUse", `${path}.afterUse`)); else if (e.afterUse) out.afterUse = true; }
   const apply = vApplyList(e.apply, `${path}.apply`, "self", err);

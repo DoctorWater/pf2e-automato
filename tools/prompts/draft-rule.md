@@ -18,6 +18,7 @@ Answer with ONLY a JSON array, no prose, no code fence. One element per item, sa
              "challenge": CHALLENGE | null,     // each target rolls a SAVE
              "zone": {"duration": {"seconds": 60}, "triggers": [ {"on": "enter"|"turn-start"|"turn-end", "per": "round"|"turn"?, "challenge": CHALLENGE} ]} | null,   // only with targets "area": a cloud/wall/emanation that makes a creature save when it enters, starts or ends its turn in it ("Any creature that ends its turn in the cloud must attempt a Fortitude save"); the save at creation stays in "challenge"
              "check": CHECK | null },           // the USER rolls a check against the target's defense (never both challenge and check)
+  "onEvent": [ {"on": "enter"|"turn-start"|"turn-end", "side": "near", "range": 30, "per": "round"|"turn"?, "challenge": CHALLENGE} ],   // AURA of the item's owner (a monster ability, feat or gear: "creatures that enter or end their turn within 30 feet must attempt a save"); use INSTEAD of onUse; "range" = feet from the owner, "per" = "once per round/turn" limit; "enter" = a creature (or the owner) moves into the aura
   "onAttacked": { "trigger": "attack-on-self", "bonus": {"stat": "ac", "type": "circumstance", "value": 2} }  // reaction giving an AC bonus when attacked; use INSTEAD of onUse
 }
 CHALLENGE = { "statistic": "fortitude"|"reflex"|"will",
@@ -63,8 +64,9 @@ Rules of thumb:
 - `null` (nothing to automate) ONLY when the text has no condition, effect, persistent damage, forced movement (push, pull, knock prone), numeric bonus/penalty, weakness/resistance, immunity or duration: pure damage/healing, narrative, GM judgment, objects/terrain, information. If any of these is there but the schema cannot express it, answer `unsure: true` and name the missing piece in `note` (e.g. "missing: teleport target 30 ft", "missing: -2 penalty without effect link"). Push and pull of the target are NOT missing: use the "move" step. Teleport, "move the target to a square you choose" and "force it to Stride" stay unsure. Pushed/pulled away from or toward the centre of an area or burst (not from the user) -> unsure: true, note "missing: push from point".
 
 # When to answer unsure (do NOT write an onUse rule for these)
-- The effect happens on a trigger rather than on use: "when it hits / Strikes", "when it dies", "when a creature enters or starts its turn in the aura", "whenever ...". Answer `unsure: true` (put `rule: null`).
-- Exception: a feat or action that says "Make a Strike. If it hits (critically), the target attempts a save" is NOT unsure. Write the usual `onUse.challenge` with the save and its degrees; the tool moves it to a post-Strike event itself. Do NOT write `onEvent` for it. Ammunition and bombs ("when damaged by this ammunition") stay `unsure: true`.
+- The effect happens on a trigger rather than on use: "when it hits / Strikes", "when it dies", "whenever ...". Answer `unsure: true` (put `rule: null`).
+- Exception 1: an aura of the item's owner that makes OTHER creatures save when they enter it or start/end their turn in it ("an enemy that enters or ends its turn within 30 feet must attempt a Will save") is NOT unsure: write the `onEvent` entry with `side: "near"` (example 18). One entry per trigger: "enters or ends its turn" = two entries (`enter` and `turn-end`) with the same `per`.
+- Exception 2: a feat or action that says "Make a Strike. If it hits (critically), the target attempts a save" is NOT unsure. Write the usual `onUse.challenge` with the save and its degrees; the tool moves it to a post-Strike event itself. Do NOT write `onEvent` for it. Ammunition and bombs ("when damaged by this ammunition") stay `unsure: true`.
 - The item text ends with "…" (cut off): `unsure: true`. The marker `[flavor cut]` is fine: only descriptive text was removed.
 - Several different outcomes depending on a choice, a fixed DC you cannot find, or anything you cannot express with the schema.
 
@@ -131,4 +133,8 @@ Rules of thumb:
 17. Numeric modifier with no linked effect (spell `save will`): "Failure: the target takes a -2 status penalty to Will saves for 1 round and can't use reactions."
 ```json
 {"v":1,"label":"Example","onUse":{"targets":"selected","challenge":{"statistic":"will","dc":{"source":"spell"},"basic":false,"byDegree":{"failure":[{"to":"target","effect":{"mods":[{"bonus":{"target":"will","type":"status","value":-2}},{"forbid":"reactions"}]},"duration":{"value":1,"unit":"rounds","expiry":"turn-start","of":"origin"}}]}}}}
+```
+18. Aura of the owner (NPC ability, no save at use): "Frightful Aura (aura, emotion, fear, mental) 30 feet. An enemy that enters or ends its turn within the aura must attempt a DC 25 Will save. Success: temporarily immune to this aura for 1 minute. Failure: frightened 1. Critical failure: frightened 2." Two entries (enter and turn-end), one range, one per; "enemy" -> "who":"enemy" on every target step:
+```json
+{"v":1,"label":"Frightful Aura","onEvent":[{"on":"enter","side":"near","range":30,"per":"round","challenge":{"statistic":"will","dc":{"value":25},"basic":false,"immunity":{"slug":"frightful-aura","duration":{"value":1,"unit":"minutes"}},"byDegree":{"failure":[{"to":"target","who":"enemy","condition":{"slug":"frightened","value":1}}],"criticalFailure":[{"to":"target","who":"enemy","condition":{"slug":"frightened","value":2}}]}}},{"on":"turn-end","side":"near","range":30,"per":"round","challenge":{"statistic":"will","dc":{"value":25},"basic":false,"immunity":{"slug":"frightful-aura","duration":{"value":1,"unit":"minutes"}},"byDegree":{"failure":[{"to":"target","who":"enemy","condition":{"slug":"frightened","value":1}}],"criticalFailure":[{"to":"target","who":"enemy","condition":{"slug":"frightened","value":2}}]}}}]}
 ```

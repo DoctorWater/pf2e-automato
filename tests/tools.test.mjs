@@ -57,7 +57,7 @@ test("формат черновика: ровно поля контракта", 
 test("эталонные правила промпта валидны и проходят круг форма-правило", () => {
   const md = readFileSync(new URL("../tools/prompts/draft-rule.md", import.meta.url), "utf8");
   const rules = [...md.matchAll(/```json\r?\n(.*?)\r?\n```/g)].map((m) => JSON.parse(m[1]));
-  assert.ok(rules.length >= 8 && rules.length <= 16);
+  assert.ok(rules.length >= 8 && rules.length <= 17);
   const any = new Proxy({}, { get: () => true });
   for (const r of rules) {
     const a = checkAnswer({ uuid: "u", rule: r }, { conditions: any, effects: any });
@@ -316,4 +316,14 @@ test("semanticErrors: испытания триггеров зоны прове�
   assert.equal(semanticErrors(rule(ch({})), refs).length, 0);
   assert.ok(semanticErrors(rule(ch({ statistic: "athletics" })), refs).some((e) => /statistic/.test(e)));
   assert.ok(semanticErrors(rule(ch({ dc: { against: "bogus" } })), refs).some((e) => /bogus/.test(e)));
+});
+
+test("аура владельца (onEvent near): range принимается, slug ауры не в kebab-виде — ошибка, enter без near — ошибка", () => {
+  const refs = { conditions: new Proxy({}, { get: () => true }), effects: {} };
+  const ch = { statistic: "will", dc: { value: 25 }, basic: false, byDegree: { failure: [{ to: "target", who: "enemy", condition: { slug: "frightened", value: 1 } }] } };
+  const near = (o) => ({ v: 1, label: "Frightful Aura", onEvent: [{ on: "enter", side: "near", per: "round", challenge: ch, ...o }] });
+  assert.equal(checkAnswer({ uuid: "u", rule: near({ range: 30 }) }, refs).kind, "accepted");
+  assert.equal(checkAnswer({ uuid: "u", rule: near({ aura: "frightful-aura" }) }, refs).kind, "accepted");
+  assert.equal(checkAnswer({ uuid: "u", rule: near({ aura: "Frightful Aura" }) }, refs).kind, "error");
+  assert.equal(checkAnswer({ uuid: "u", rule: near({ range: 30, side: "self" }) }, refs).kind, "error");
 });

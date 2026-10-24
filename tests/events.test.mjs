@@ -46,8 +46,8 @@ test("onEvent: валидная запись нормализуется (side п
 });
 
 test("onEvent: все события и стороны; side:target — только у бросков и сотворения", () => {
-  for (const on of rules.EVENT_ON) assert.equal(one({ on, apply: [{ effect: { uuid: EFF } }] }).ok, true, on);
-  for (const side of rules.EVENT_SIDES) assert.equal(one({ on: "attack-roll", side, apply: [{ effect: { uuid: EFF } }] }).ok, true, side);
+  for (const on of rules.EVENT_ON) assert.equal(one({ on, ...(on === "enter" && { side: "near", range: 20 }), apply: [{ effect: { uuid: EFF } }] }).ok, true, on);   // enter — только near
+  for (const side of rules.EVENT_SIDES.filter((s) => s !== "near")) assert.equal(one({ on: "attack-roll", side, apply: [{ effect: { uuid: EFF } }] }).ok, true, side);
   for (const on of ["saving-throw", "damage-taken", "turn-start", "turn-end", "effect-created", "effect-deleted"]) assert.equal(one({ on, side: "target", apply: [{ effect: { uuid: EFF } }] }).ok, false, on);
   for (const on of ["attack-roll", "skill-check", "damage-roll", "spell-cast"]) assert.equal(one({ on, side: "target", apply: [{ effect: { uuid: EFF } }] }).ok, true, on);
 });
@@ -335,7 +335,7 @@ test("effect-created / turn-end: init подписывает хуки и про�
   const handlers = {};
   globalThis.Hooks = { on: (name, fn) => { (handlers[name] ??= []).push(fn); } };
   ev.init();
-  assert.deepEqual(Object.keys(handlers).sort(), ["createChatMessage", "createItem", "deleteChatMessage", "deleteItem", "pf2e.endTurn", "pf2e.startTurn", "updateChatMessage"]);
+  assert.deepEqual(Object.keys(handlers).sort(), ["createChatMessage", "createItem", "deleteChatMessage", "deleteItem", "moveToken", "pf2e.endTurn", "pf2e.startTurn", "updateChatMessage"]);
   const rule = validate({ v: 1, onEvent: [{ on: "turn-end", apply: [{ to: "self", removeEffect: { slug: "agitate" } }] }] }).rule;
   const agitate = mkEffect({ id: "a", slug: "agitate" });
   const hero = mkActor("Actor.hero", [agitate, mkFeat("agitate", rule)]);

@@ -10,6 +10,9 @@ import { testPredicate } from "./predicate.mjs";
 import { setSource, dropSource, visionActive } from "./vision.mjs";
 import { escapeDC, offerEscape } from "./escape.mjs";
 import { repeatMeta, sameCarrier } from "./repeat.mjs";
+import { rulesOfMods, textOfMods, inlineSlug } from "./inline-effect.mjs";
+
+const esc = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
 const metaOf = (item) => item?.flags?.[MOD]?.meta;
 const notify = (key, data) => globalThis.ui?.notifications?.warn?.(L(key, data));
@@ -27,6 +30,39 @@ export function hasEffect(actor, uuid, byActorUuid, key = null) {
 
 const withMeta = (data, meta) => { data.flags ??= {}; data.flags[MOD] = { ...data.flags[MOD], meta }; };
 
+/** Автор срока и цель созданного эффекта. pf2e считает turn-start/turn-end по ходу context.origin.actor: для of:"target" автором срока делаем получателя. */
+function timedWho(actor, d, ctx) {
+  const tToken = ctx.target ?? actor.getActiveTokens(true, true)[0];
+  const who = d.of === "target" ? { actor: actor.uuid, token: tToken?.uuid, item: ctx.originItem?.uuid }
+    : { actor: ctx.originActor?.uuid, token: ctx.originToken?.uuid, item: ctx.originItem?.uuid };
+  return { tToken, who };
+}
+
+/**
+ * Inline-эффект шага (`effect: {mods}`): эффект pf2e создаётся на лету из кубиков (inline-effect.mjs) со сроком шага (обязателен, of — чей ход считает).
+ * Идемпотентность — по meta.key (как у состояний со сроком); откат — общий (op created). Имя «Эффект: <предмет>», slug детерминирован (af-<slug предмета>).
+ */
+export function applyInlineEffect(actor, spec /* {mods, duration} */, meta = {}, ctx = {}) {
+  return queue(`actor:${actor.uuid}`, async () => {
+    if (findByKey(actor, meta.key)) return { op: "skipped" };
+    const d = spec.duration, item = ctx.originItem;
+    const { tToken, who } = timedWho(actor, d, ctx);
+    const t = (k, data) => L(k, data);
+    const list = textOfMods(spec.mods, { t });
+    const data = effectSource({
+      name: L("inline.name", { name: item?.name ?? "?" }), img: item?.img, rules: rulesOfMods(spec.mods),
+      description: `<p>${esc(L("workshop.desc.prefix", { list }))}</p>${who.item ? `<p>@UUID[${who.item}]</p>` : ""}`,
+      duration: { value: typeof d.value === "string" ? (await new Roll(d.value).evaluate()).total : d.value, unit: d.unit, expiry: d.expiry ?? null }, origin: who, target: { actor: actor.uuid, token: tToken?.uuid }
+    });
+    data.system.slug = inlineSlug(item?.slug ?? sluggify(item?.name));
+    const valid = globalThis.CONFIG?.PF2E?.Item?.documentClasses?.effect?.validTraits ?? {};
+    if (item) data.system.traits = { value: (item.system?.traits?.value ?? []).filter((x) => x in valid) };
+    withMeta(data, meta);
+    const [created] = await actor.createEmbeddedDocuments("Item", [data]);
+    return created ? { op: "created", item: created } : { op: "skipped" };
+  });
+}
+
 /**
  * Состояние с длительностью: эффект-обёртка pf2e + GrantItem состояния (значение — алтерацией badge-value, она применяется один раз при выдаче).
  * Снимается вместе с обёрткой (cascade). Обычные состояния обёртка держит (grantee restrict — ГМ не удалит состояние, пока жива обёртка);
@@ -39,10 +75,7 @@ async function createTimed(actor, spec, meta, ctx, base) {
   const uuid = base.uuid ?? base._stats?.compendiumSource ?? base.sourceId;
   const grant = { key: "GrantItem", uuid, onDeleteActions: { grantee: meta.repeat ? "cascade" : ENDS_EARLY.has(sluggify(spec.slug)) ? "detach" : "restrict" },
     ...(valued && { alterations: [{ mode: "override", property: "badge-value", value: spec.value ?? 1 }] }) };
-  const tToken = ctx.target ?? actor.getActiveTokens(true, true)[0];
-  // pf2e считает turn-start/turn-end по ходу context.origin.actor: для of:"target" автором срока делаем получателя
-  const who = d.of === "target" ? { actor: actor.uuid, token: tToken?.uuid, item: ctx.originItem?.uuid }
-    : { actor: ctx.originActor?.uuid, token: ctx.originToken?.uuid, item: ctx.originItem?.uuid };
+  const { tToken, who } = timedWho(actor, d, ctx);
   const data = effectSource({
     name: `${base.name}${valued ? ` ${spec.value ?? 1}` : ""}`, img: base.img, rules: [grant],
     description: who.item ? `<p>@UUID[${who.item}]</p>` : "",   // ссылка на источник: оговорки предмета (лишнее действие Haste только на…) не теряются
@@ -549,7 +582,7 @@ export async function applyOps(message, tokenKey, steps, ctx = {}) {
       if (dc == null) { notify("apply.repeatNoDC", { name: actor.name }); continue; }
       meta.repeat = repeatMeta(step.repeat, ch, dc);
       const taken = actor.items.some((it) => sameCarrier(meta, metaOf(it)))
-        || (step.condition ? actor.itemTypes.condition.some((c) => c.slug === sluggify(step.condition.slug) && !c.isLocked && !c.grantedBy) : hasEffect(actor, step.effect.uuid, selfActor?.uuid));
+        || (step.condition ? actor.itemTypes.condition.some((c) => c.slug === sluggify(step.condition.slug) && !c.isLocked && !c.grantedBy) : step.effect.mods ? false : hasEffect(actor, step.effect.uuid, selfActor?.uuid));
       if (taken) { notify("apply.repeatTaken", { name: actor.name }); continue; }
       if (step.condition) dur ??= { value: -1, unit: "unlimited", expiry: null, of: "origin" };
     }
@@ -560,6 +593,7 @@ export async function applyOps(message, tokenKey, steps, ctx = {}) {
       : step.removeEffect ? await removeEffect(actor, step.removeEffect, ectx)
       : step.extendEffect ? await extendEffect(actor, step.extendEffect, meta)
       : step.rollOption ? await setRollOption(actor, step.rollOption)
+      : step.effect.mods ? await applyInlineEffect(actor, { ...step.effect, duration: step.duration }, meta, { ...ectx, target: tgt })
       : await applyEffect(actor, step.duration ? { ...step.effect, duration: step.duration } : step.effect, meta, { ...ectx, markUuid, choice: step.choice, target: tgt });
     if (step.escape && r.op === "created") {   // жертва вправе освободиться проверкой: шёпот с кнопками (вторичен — сбой не должен терять ops)
       try {

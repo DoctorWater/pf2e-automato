@@ -4,6 +4,7 @@ import { modeOf, S } from "./settings.mjs";
 import { onAttackedIndex, itemFlagRule, slugOf, sourceOf, bySlugOf } from "./rules.mjs";
 import { runMacros } from "./macros.mjs";
 import { buildReactionViewModel } from "./chat.mjs";
+import { noReactions } from "./inline-effect.mjs";
 
 const clamp = (n) => Math.min(3, Math.max(0, n));
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
@@ -90,6 +91,7 @@ export function recalcWithBonus(message, bonus) {
 
 /** Флаг reactionSpent = {combat, round} действует только в том же раунде того же боя. */
 export function reactionAvailable(actor) {
+  if (noReactions(actor)) return false;   // эффект «нельзя использовать реакции» (inline-эффект forbid)
   const f = actor?.getFlag?.(MOD, "reactionSpent");
   if (!f) return true;
   const c = game.combat;

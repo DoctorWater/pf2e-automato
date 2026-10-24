@@ -84,7 +84,9 @@
         "attack-roll": "Атаки",
         "damage": "Урон",
         "perception": "Внимание",
-        "skill-check": "Проверки навыков"
+        "skill-check": "Проверки навыков",
+        "fortitude": "Стойкость", "reflex": "Реакция", "will": "Воля",
+        "acrobatics": "Акробатика", "arcana": "Магия", "athletics": "Атлетика", "crafting": "Ремесло", "deception": "Обман", "diplomacy": "Дипломатия", "intimidation": "Запугивание", "medicine": "Медицина", "nature": "Природа", "occultism": "Оккультизм", "performance": "Выступление", "religion": "Религия", "society": "Общество", "stealth": "Скрытность", "survival": "Выживание", "thievery": "Воровство"
       },
       "feet": "фт, добавляется к наземной скорости",
       "damage": "Урон",
@@ -124,7 +126,9 @@
         "bonus": "{target}: {amount} {kind}",
         "speed": "Скорость: {amount} фт, {kind}",
         "resist": "Устойчивость: {type} {value}",
-        "resistExcept": "Устойчивость: {type} {value}, кроме: {except}",
+        "weak": "Уязвимость: {type} {value}",
+        "forbid": "Нельзя использовать реакции",
+        "resistExcept":"Устойчивость: {type} {value}, кроме: {except}",
         "temphp": "{value} временных ПЗ",
         "fastheal": "Быстрое исцеление {value}",
         "dmg": "+{number}{die} урона ({type}) к Ударам",

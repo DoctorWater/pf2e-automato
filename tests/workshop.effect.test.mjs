@@ -11,7 +11,7 @@ const B = (kind, patch = {}) => ({ ...blankBlock(kind), ...patch });
 test("каждый вид кубика -> правильный Rule Element", () => {
   assert.deepEqual(rulesOf(B("bonus", { sign: -1, value: 2, type: "circumstance", target: "saving-throw" })), [{ key: "FlatModifier", selector: "saving-throw", type: "circumstance", value: -2 }]);
   assert.deepEqual(rulesOf(B("bonus", { value: "1" })), [{ key: "FlatModifier", selector: "ac", type: "status", value: 1 }]);
-  assert.deepEqual(rulesOf(B("speed", { value: 10 })), [{ key: "FlatModifier", selector: "land-speed", type: "status", value: 10 }]);
+  assert.deepEqual(rulesOf(B("speed", { value: 10 })), [{ key: "FlatModifier", selector: "all-speeds", type: "status", value: 10 }]);
   assert.deepEqual(rulesOf(B("resist")), [{ key: "Resistance", type: "fire", value: 5 }]);
   assert.deepEqual(rulesOf(B("resist", { except: "adamantine, magical" })), [{ key: "Resistance", type: "fire", value: 5, exceptions: ["adamantine", "magical"] }]);
   assert.deepEqual(rulesOf(B("temphp")), [{ key: "TempHP", value: 5 }]);

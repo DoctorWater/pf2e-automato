@@ -44,7 +44,8 @@ function rowCore(a) {
   const dur = d ? { durValue: d.value, durUnit: d.unit, durExpiry: d.expiry ?? "", durOf: d.of ?? "origin" } : DUR_BLANK;
   if (a.condition) return { to: a.to, kind: "condition", text: a.condition.slug, value: a.condition.value ?? "", policy: a.condition.policy ?? "max", keep, ...dur, ...VIS_BLANK, ...PERS_BLANK };
   // срок эффекта (переопределение): значение — число или кубик, единица и конец хода; «чей ход» у эффекта не бывает
-  if (a.effect) return { to: a.to, kind: "effect", text: a.effect.uuid, value: "", policy: "max", keep, ...(d ? { ...dur, durOf: "origin" } : DUR_BLANK), ...VIS_BLANK, ...PERS_BLANK };
+  // inline-эффект (mods): кубики — JSON в text (как у choose), «чей ход» у него есть
+  if (a.effect) return { to: a.to, kind: "effect", text: a.effect.mods ? JSON.stringify(a.effect.mods) : a.effect.uuid, value: "", policy: "max", keep, ...(d ? { ...dur, durOf: a.effect.mods ? d.of ?? "origin" : "origin" } : DUR_BLANK), ...VIS_BLANK, ...PERS_BLANK };
   // damage: формула — text, тип (или «healing») — pType; choose — JSON {from, options?, prompt?, range?} в text
   if (a.damage) return { to: a.to, kind: "damage", text: a.damage.formula, value: "", policy: "max", keep, ...DUR_BLANK, ...VIS_BLANK, pType: a.damage.damageType };
   if (a.choose) return { to: "self", kind: "choose", text: JSON.stringify(a.choose), value: "", policy: "max", keep, ...DUR_BLANK, ...VIS_BLANK, ...PERS_BLANK };
@@ -89,6 +90,11 @@ function applyCore(r) {
   if (!text) return null;
   if (r.kind === "effect") {
     const dt = String(r.durValue ?? "").trim(), dice = /^\d+d\d+$/i.test(dt) ? dt.toLowerCase() : num(dt);
+    if (text.startsWith("[")) {   // JSON кубиков inline-эффекта; битый — пустой список, валидатор скажет об ошибке
+      let mods = [];
+      try { mods = JSON.parse(text); } catch { /* ошибка уйдёт в валидатор */ }
+      return { to, effect: { mods }, ...(dice !== undefined && { duration: { value: dice, unit: r.durUnit, expiry: r.durExpiry || null, of: r.durOf === "target" ? "target" : "origin" } }) };
+    }
     return { to, effect: { uuid: text, ...(r.stack ? { badge: "increment", ...(num(r.stackBy) > 1 && { by: num(r.stackBy) }), ...(num(r.stackStart) > 1 && { start: num(r.stackStart) }) } : r.unstack && { badge: "decrement" }), ...(r.replace && { replace: true }) },
       ...(dice !== undefined && { duration: { value: dice, unit: r.durUnit, expiry: r.durExpiry || null } }) };
   }
@@ -268,7 +274,7 @@ export function buildReport(rule, tokens, env) {
   const uuidCheck = (uuid) => { if (!env.uuidName(uuid)) problems.add(t("sheet.test.badUuid", { uuid })); };
   const byDeg = (bd) => DEGREES.slice().reverse().filter((d) => bd?.[d]?.length).map((d) => `${t(`sheet.degree.${d}`)}: ${bd[d].map(step).join("; ")}`);
   const steps = [...(u?.apply ?? []), ...DEGREES.flatMap((d) => [...(ch?.byDegree?.[d] ?? []), ...(ck?.byDegree?.[d] ?? [])])];
-  for (const a of steps) { if (a.condition) slugCheck(a.condition.slug); if (a.removeCondition) slugCheck(a.removeCondition.slug); if (a.effect) uuidCheck(a.effect.uuid); if (a.removeEffect?.uuid) uuidCheck(a.removeEffect.uuid); }
+  for (const a of steps) { if (a.condition) slugCheck(a.condition.slug); if (a.removeCondition) slugCheck(a.removeCondition.slug); if (a.effect?.uuid) uuidCheck(a.effect.uuid); if (a.removeEffect?.uuid) uuidCheck(a.removeEffect.uuid); }
   const z = u?.zone;
   if (z?.condition) slugCheck(z.condition.slug);
   if (z?.effect) uuidCheck(z.effect.uuid);

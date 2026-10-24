@@ -1,6 +1,7 @@
 import { MOD, DEGREES, ENDS_EARLY, errText, sluggify } from "./util.mjs";
 import { S, rev } from "./settings.mjs";
 import { isPredicate } from "./predicate.mjs";
+import { normalizeMods } from "./inline-effect.mjs";
 
 export const RULE_VERSION = 1;
 
@@ -158,9 +159,9 @@ function vApply(a, path, defTo, err, basicOk = false) {
     if (a.condition == null && a.effect == null) err.push(E("dur.needCond", `${path}.duration`));
     else if (!isObj(d) || !(dice || (isInt(d.value) && (d.value >= 1 || (d.value === 0 && d.expiry === "turn-end")))) || !APPLY_UNITS.includes(d.unit)) err.push(E("dur.bad", `${path}.duration`));
     else if (d.expiry != null && !["turn-start", "turn-end"].includes(d.expiry)) err.push(E("dur.expiry", `${path}.duration.expiry`));
-    else if (d.of != null && (a.effect != null || !["origin", "target"].includes(d.of))) err.push(E("dur.of", `${path}.duration.of`));
+    else if (d.of != null && ((a.effect != null && a.effect.mods == null) || !["origin", "target"].includes(d.of))) err.push(E("dur.of", `${path}.duration.of`));
     else if (out.condition) out.duration = { value: dice ? d.value.trim().toLowerCase() : d.value, unit: d.unit, expiry: d.expiry ?? null, of: d.of ?? "origin" };
-    else if (a.effect != null) out.duration = { value: dice ? d.value.trim().toLowerCase() : d.value, unit: d.unit, expiry: d.expiry ?? null };
+    else if (a.effect != null) out.duration = { value: dice ? d.value.trim().toLowerCase() : d.value, unit: d.unit, expiry: d.expiry ?? null, ...(a.effect.mods != null && { of: d.of ?? "origin" }) };   // у inline-эффекта срок считает ход автора или цели, как у состояния
   }
   // damage — урон (или лечение, type "healing") по формуле: бросок и применение pf2e без кнопок, с учётом сопротивлений
   if (a.damage != null) {
@@ -170,7 +171,13 @@ function vApply(a, path, defTo, err, basicOk = false) {
     else out.damage = { formula: g.formula.trim().replace(/\s+/g, ""), damageType: g.damageType, ...(g.basic && { basic: true }) };
   }
   if (a.effect != null) {
-    if (!isObj(a.effect) || !isStr(a.effect.uuid)) err.push(E("effect.uuid", `${path}.effect.uuid`));
+    // mods — inline-эффект из кубиков (scripts/inline-effect.mjs): срок обязателен и конечный (APPLY_UNITS без unlimited); значок/замена/метка/выбор/unlessEffect с ним не сочетаются
+    if (isObj(a.effect) && a.effect.mods != null) {
+      const n = normalizeMods(a.effect.mods);
+      if (n.error || Object.keys(a.effect).some((k) => k !== "mods") || a.mark != null || a.choice != null || a.unlessEffect != null) err.push(E("effect.mods", `${path}.effect.mods`));
+      else if (out.duration == null) err.push(E("effect.modsDur", `${path}.duration`));
+      else out.effect = { mods: n.mods };
+    } else if (!isObj(a.effect) || !isStr(a.effect.uuid)) err.push(E("effect.uuid", `${path}.effect.uuid`));
     else if (a.effect.badge != null && !["increment", "decrement", -1].includes(a.effect.badge)) err.push(E("effect.badge", `${path}.effect.badge`));
     // badge:"increment" — если такой эффект у получателя уже есть, его значок растёт на 1 вместо второй копии (Кража тени, Благословение);
     // badge:"decrement" (или -1) — значок уменьшается на 1, на нуле эффект снимается; нет эффекта — шаг пропущен, копия не создаётся
@@ -999,7 +1006,7 @@ export function setWho(onUse, who) {
 }
 /** Шагам effect (кроме значка) onUse ставит replace: true. */
 export function markReplace(onUse) {
-  for (const l of [onUse?.apply, ...Object.values(onUse?.challenge?.byDegree ?? {}), ...Object.values(onUse?.check?.byDegree ?? {})]) for (const a of l ?? []) if (a.effect && !a.effect.badge) a.effect.replace = true;
+  for (const l of [onUse?.apply, ...Object.values(onUse?.challenge?.byDegree ?? {}), ...Object.values(onUse?.check?.byDegree ?? {})]) for (const a of l ?? []) if (a.effect && !a.effect.badge && !a.effect.mods) a.effect.replace = true;   // inline-эффект (mods) replace не принимает: повтор шага закрывает meta.key
 }
 export function deriveFromMarkup(itemLike, labels, conditionSlugByUuid, condNames = null) {
   const html = itemLike?.system?.description?.value;

@@ -5,7 +5,12 @@ import { ENDS_EARLY } from "../util.mjs";
 
 export const KINDS = ["bonus", "resist", "temphp", "fastheal", "dmg", "speed", "sense", "cond", "note", "aura", "light", "raw"];
 export const TARGETS = ["ac", "saving-throw", "attack-roll", "damage", "perception", "skill-check"];
-export const BONUS_TYPES = ["status", "circumstance", "item", "untyped"];
+/** Цели модификатора в шагах правил: к TARGETS добавлены отдельные спасброски и навыки («−2 к Воле» не должно стать штрафом ко всем спасброскам). */
+export const SAVES = ["fortitude", "reflex", "will"];
+export const SKILLS = ["acrobatics", "arcana", "athletics", "crafting", "deception", "diplomacy", "intimidation", "medicine", "nature", "occultism", "performance", "religion", "society", "stealth", "survival", "thievery"];
+export const STEP_TARGETS = [...TARGETS, ...SAVES, ...SKILLS];
+export const NO_REACTIONS = "af:no-reactions";   // roll option актёра: эффект «нельзя использовать реакции»
+export const BONUS_TYPES =["status", "circumstance", "item", "untyped"];
 // ключи CONFIG.PF2E.damageTypes (кости урона) и resistanceTypes (сопротивления)
 export const DAMAGE_TYPES = ["fire", "cold", "electricity", "acid", "sonic", "force", "mental", "poison", "spirit", "vitality", "void", "bludgeoning", "piercing", "slashing", "bleed"];
 export const RESIST_TYPES = [...DAMAGE_TYPES, "physical", "energy", "all-damage"];
@@ -57,7 +62,10 @@ export function parseRaw(json) {
 export function rulesOf(b, ctx = {}) {
   switch (b.kind) {
     case "bonus": return [{ key: "FlatModifier", selector: b.target, type: b.type, value: signedValue(b) }];
-    case "speed": return [{ key: "FlatModifier", selector: "land-speed", type: b.type, value: signedValue(b) }];
+    case "speed": return [{ key: "FlatModifier", selector: "all-speeds", type: b.type, value: signedValue(b) }];   // all-speeds — как «ко всем Скоростям» в тексте правил; pf2e применяет к каждой
+    // кубики шагов правил (inline-эффект, scripts/inline-effect.mjs); в палитру Мастерской не входят
+    case "weak": return [{ key: "Weakness", type: b.dmg, value: num(b.value) }];
+    case "forbid": return [{ key: "RollOption", domain: "all", option: NO_REACTIONS }];   // pf2e не запрещает реакции сам: опцию читают реакции модуля (reactionAvailable)
     case "resist": return [{ key: "Resistance", type: b.dmg, value: num(b.value), ...(excepts(b.except).length && { exceptions: excepts(b.except) }) }];
     case "temphp": return [{ key: "TempHP", value: num(b.value) }];
     case "fastheal": return [{ key: "FastHealing", value: num(b.value) }];
@@ -90,6 +98,8 @@ export function textOf(b, ctx) {
       return t("workshop.text.speed", { amount: amount(v), kind: t(`workshop.${v < 0 ? "penalty" : "bonus"}Kind.${b.type}`) });
     }
     case "resist": return t(excepts(b.except).length ? "workshop.text.resistExcept" : "workshop.text.resist", { type: t(`workshop.dtype.${b.dmg}`), value: b.value, except: excepts(b.except).join(", ") });
+    case "weak": return t("workshop.text.weak", { type: t(`workshop.dtype.${b.dmg}`), value: b.value });
+    case "forbid": return t("workshop.text.forbid");
     case "temphp": return t("workshop.text.temphp", { value: b.value });
     case "fastheal": return t("workshop.text.fastheal", { value: b.value });
     case "dmg": return t("workshop.text.dmg", { number: b.number, die: b.die, type: t(`workshop.dtype.${b.dmgType}`) });

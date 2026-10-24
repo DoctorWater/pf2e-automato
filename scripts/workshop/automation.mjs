@@ -2,6 +2,7 @@
 // Работает поверх модели формы вкладки листа (sheet.mjs: ruleToForm/formToRule/applyOf) — свою модель правила не заводим.
 import { DEGREES, degreeFromTotal } from "../util.mjs";
 import { stepText } from "../chat.mjs";
+import { textOfMods } from "../inline-effect.mjs";
 import { modOf } from "../sheet.mjs";
 import { defenseDc, pickStatistic } from "../checks.mjs";
 
@@ -94,7 +95,7 @@ export function plate(row, env) {
   if (row.kind === "removeEffect") return { ...base, name: t("workshop.au.removePlate", { name: row.text ? env.uuidName(row.text) ?? row.text : "?" }) };
   if (row.kind === "extendEffect") return { ...base, name: t("workshop.au.extendPlate", { slug: row.text || "?", rounds: num(row.value) ?? "?" }) };
   if (row.kind === "rollOption") return { ...base, name: t(row.optOff ? "workshop.au.optionOffPlate" : "workshop.au.optionPlate", { option: row.text || "?" }) };
-  if (row.kind === "effect") return { ...base, name: row.text ? env.uuidName(row.text) ?? row.text : "?", dur: String(row.durValue ?? "").trim() ? t("workshop.au.dur", { value: String(row.durValue).trim(), unit: t(`workshop.unitShort.${row.durUnit}`) }) : "" };
+  if (row.kind === "effect") return { ...base, name: row.text?.startsWith("[") ? (() => { try { return textOfMods(JSON.parse(row.text), { t }); } catch { return "?"; } })() : row.text ? env.uuidName(row.text) ?? row.text : "?", dur: String(row.durValue ?? "").trim() ? t("workshop.au.dur", { value: String(row.durValue).trim(), unit: t(`workshop.unitShort.${row.durUnit}`) }) : "" };
   if (row.kind === "damage") return { ...base, name: `${String(row.text ?? "").trim() || "?"} · ${row.pType === "healing" ? t("workshop.au.healing") : env.damageLabel?.(row.pType) ?? row.pType}` };
   if (row.kind === "choose") return { ...base, name: t("workshop.au.choosePlate") };
   if (row.kind === "persistent") return { ...base, name: `${String(row.text ?? "").trim() || "?"} · ${env.damageLabel?.(row.pType) ?? row.pType}` };

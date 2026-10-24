@@ -84,7 +84,9 @@
         "attack-roll": "Attack rolls",
         "damage": "Damage",
         "perception": "Perception",
-        "skill-check": "Skill checks"
+        "skill-check": "Skill checks",
+        "fortitude": "Fortitude", "reflex": "Reflex", "will": "Will",
+        "acrobatics": "Acrobatics", "arcana": "Arcana", "athletics": "Athletics", "crafting": "Crafting", "deception": "Deception", "diplomacy": "Diplomacy", "intimidation": "Intimidation", "medicine": "Medicine", "nature": "Nature", "occultism": "Occultism", "performance": "Performance", "religion": "Religion", "society": "Society", "stealth": "Stealth", "survival": "Survival", "thievery": "Thievery"
       },
       "feet": "ft, added to land speed",
       "damage": "Damage",
@@ -124,7 +126,9 @@
         "bonus": "{target}: {amount} {kind}",
         "speed": "Speed: {amount} ft, {kind}",
         "resist": "Resistance: {type} {value}",
-        "resistExcept": "Resistance: {type} {value}, except: {except}",
+        "weak": "Weakness: {type} {value}",
+        "forbid": "Can't use reactions",
+        "resistExcept":"Resistance: {type} {value}, except: {except}",
         "temphp": "{value} temporary HP",
         "fastheal": "Fast healing {value}",
         "dmg": "+{number}{die} {type} damage to Strikes",

@@ -8,6 +8,7 @@ import { visionActive, zoneCells } from "./vision.mjs";
 import { hintsView, hintList } from "./hints.mjs";
 import { whenHuman } from "./predicate.mjs";
 import { isActiveStep } from "./rules.mjs";
+import { textOfMods } from "./inline-effect.mjs";
 
 const TEMPLATE = "modules/pf2e-automato/templates/chat-block.hbs";
 let template = null;
@@ -105,7 +106,8 @@ export function stepText(a, env, defTo) {
   const what = p ? t("chat.stepPersistent", { formula: persFormulaText(p.formula, t), type: env.damageLabel?.(p.damageType) ?? p.damageType }) + (p.dc && p.dc !== 15 ? ` (${t("chat.dc", { dc: p.dc })})` : "")
     : a.condition
     ? `${env.conditionLabel(a.condition.slug)}${a.condition.value ? ` ${a.condition.value}` : ""}`
-    : (env.uuidName(a.effect?.uuid) ?? a.effect?.uuid ?? "?") + (a.effect?.badge ? ` (${t(a.effect.badge === "decrement" ? "chat.stepBadgeDec" : "chat.stepBadge")})` : "");
+    : a.effect?.mods ? textOfMods(a.effect.mods, { t })
+    : (env.uuidName(a.effect?.uuid) ?? a.effect?.uuid ?? "?") +(a.effect?.badge ? ` (${t(a.effect.badge === "decrement" ? "chat.stepBadgeDec" : "chat.stepBadge")})` : "");
   return say("step", what);
 }
 

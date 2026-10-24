@@ -56,6 +56,8 @@ export async function onMove(doc, movement) {
   if (!mover || !game.combat?.started || doc.parent !== canvas.scene || !MOVE_METHODS.has(movement?.method)) return;
   const g = canvas.grid.size, unit = canvas.grid.distance;
   const rect = (p) => ({ x: p.x / g, y: p.y / g, w: p.width ?? doc.width, h: p.height ?? doc.height });
+  const passed = movement.passed?.waypoints ?? [];
+  if (passed.length && passed.every((w) => w.action === "displace")) return;   // принудительное перемещение (шаг move, откат) реакций не вызывает
   const squares = leftSquares(movement.origin, movement.passed?.waypoints ?? []).map(rect);
   const step = (movement.passed?.distance ?? 99) <= unit;   // Шаг реакций не вызывает — по одному сдвигу его не отличить
   for (const holder of canvas.tokens.placeables) {

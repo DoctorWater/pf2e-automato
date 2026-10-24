@@ -43,6 +43,7 @@
           "chosen": "A step for the chosen creature needs an ally or enemy choice step before it ({path})"
         },
         "choose": { "bad": "Choice: say what to choose from — allies, enemies or options (options are a list of unique Latin codes); the radius is an integer from 5 and only for allies and enemies ({path})" },
+        "move": { "bad": "Move: mode is push or pull, distance is a multiple of 5 ft from 5, only for the target ({path})" },
         "dmg": { "bad": "Damage: the formula is dice and numbers or variables (for example 2d6+3, @actor.level), the type is from the damage list or \"healing\" ({path})" },
         "rmEff": { "bad": "Remove effect: exactly one of slug (a-z, digits, hyphen) or UUID is needed; \"of\" can only be origin ({path})" },
         "extEff": { "bad": "Extend effect: the effect slug and an integer number of rounds from 1 are needed ({path})" },

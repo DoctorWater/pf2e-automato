@@ -6,6 +6,7 @@ import { headOf } from "./builtin/lib.mjs";
 import { inRange } from "./range.mjs";
 import { toolbeltTargetHelper, toolbeltMessageTargets } from "./compat.mjs";
 import { applyOps, opposed } from "./apply.mjs";
+import { moveOrder } from "./move.mjs";
 import { challengeWho } from "./rules.mjs";
 import { testPredicate } from "./predicate.mjs";
 import { runMacros } from "./macros.mjs";
@@ -344,7 +345,11 @@ export function applyByDegree(messageId, tokenKey) {
     const targets = await challengeTargets(message);
     const all = tokenKey === "all";
     const ops = [];
-    for (const { key, token } of targets) {
+    // толчок идёт от дальних целей к ближним, притяжение — наоборот (передний не мешает заднему)
+    const originDoc = all && use.token ? await fromUuid(use.token) : null;
+    const centreOf = (t) => ({ x: t.x + (t.width * (t.parent?.grid?.size ?? 100)) / 2, y: t.y + (t.height * (t.parent?.grid?.size ?? 100)) / 2 });
+    const order = originDoc ? moveOrder(Object.values(ch.byDegree ?? {}).flat(), targets.map((e) => ({ ...centreOf(e.token), e })), centreOf(originDoc)).map((i) => i.e) : targets;
+    for (const { key, token } of order) {
       if (!all && key !== tokenKey) continue;
       const r = useOf(message).state?.challenge?.results?.[key];
       if (!r) continue;

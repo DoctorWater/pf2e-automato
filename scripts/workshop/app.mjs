@@ -3,7 +3,7 @@
 // Части окна у обоих режимов одни и те же (id), шаблоны подставляются по режиму в _configureRenderParts.
 import { MOD, L, errText, DEGREES, callGM, forcedReplace, forcedDelete, flagPath, damageLabel } from "../util.mjs";
 import { modeOf } from "../settings.mjs";
-import { DENY, dropSpec, ruleToForm, formToRule, blankRow, blankEvent, blankTrigger, blankCast, reportEnv, pickedTokens, ruleUuids, buildReport } from "../sheet.mjs";
+import { DENY, divergedHint, dropSpec, ruleToForm, formToRule, blankRow, blankEvent, blankTrigger, blankCast, reportEnv, pickedTokens, ruleUuids, buildReport } from "../sheet.mjs";
 import { validateRule, resolveRule, divergedOf, slugOf, sourceOf, DAMAGE_TYPES, EVENT_ON, EVENT_SIDES, EVENT_TARGETED, EVENT_AFTER_USE, NEAR_ON, TRIGGER_ON, TRIGGER_PER } from "../rules.mjs";
 import { automationsGroups } from "../compat.mjs";
 import { safeUuid } from "../saves.mjs";
@@ -621,7 +621,7 @@ export class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
         img: item.img, name: item.name, covered: groups.join(", "),
         kind: [game.i18n.localize(`TYPES.Item.${item.type}`), isSpell ? item.rank : item.system.level?.value].filter((x) => x !== undefined && x !== null).join(" "),
         traits: (item.system.traits?.value ?? []).map(traitLabel),
-        src: { ...(res ? { label: t(`sheet.src.${res.source}`), low: res.confidence === "low", canAccept: res.source !== "flag", locked: lockedFlag } : { label: t("workshop.au.noRule") }), diverged: !!(res?.diverged ?? divergedOf(item)) }
+        src: { ...(res ? { label: t(`sheet.src.${res.source}`), low: res.confidence === "low", canAccept: res.source !== "flag", locked: lockedFlag } : { label: t("workshop.au.noRule") }), diverged: divergedHint(res?.diverged ?? divergedOf(item)) }
       },
       skills: [...sheetStat, ...Object.keys(CONFIG.PF2E.skills ?? {})], conds: grantable().map((c) => ({ ...c, q: c.label.toLowerCase() })),
       rows, doubleWarn: !!groups.length && (f.yield === "no" || (f.yield === "auto" && !setting)) ? t("sheet.doubleWarn") + ` «${groups.join(", ")}»` : "",

@@ -1,8 +1,8 @@
 // Значок «автоматизировано» у предметов в листах актёров pf2e (AppV1: renderActorSheet, строки li[data-item-id]).
 import { MOD, L } from "./util.mjs";
-import { resolveRule, isActiveStep } from "./rules.mjs";
+import { resolveRule, divergedOf, isActiveStep } from "./rules.mjs";
 import { automationsGroups, shouldYield } from "./compat.mjs";
-import { DENY } from "./sheet.mjs";
+import { DENY, divergedHint } from "./sheet.mjs";
 import { rev } from "./settings.mjs";
 import { itemUseKind, wantsSnapshot } from "./use.mjs";
 
@@ -59,6 +59,14 @@ function decorate(app, $html) {
     const kind = itemUseKind(item);   // те же фильтры, что при использовании (use.mjs) и в реакциях (onAttacked)
     if (!kind) continue;
     const res = resolved(item);
+    const dv = res?.diverged ?? divergedOf(item);
+    if (!res && dv) {   // правило каталога отключено ограждением, вывода нет: значок-предупреждение, чтобы ГМ знал, что автоматики нет
+      const warn = document.createElement("i");
+      warn.className = "fa-solid fa-triangle-exclamation paf-mark paf-mark-warn";
+      warn.dataset.tooltip = foundry.utils.escapeHTML(divergedHint(dv));
+      (row.querySelector('a[data-action="toggle-summary"]') ?? row.querySelector(".name"))?.after(warn);
+      continue;
+    }
     if (!res || !(wantsSnapshot(kind, res.rule) || res.rule.onAttacked || res.rule.onEvent?.length)) continue;
     const groups = automationsGroups({ slug: res.slug, sourceUuid: res.sourceUuid });
     const yielded = shouldYield(res.rule, { slug: res.slug, sourceUuid: res.sourceUuid });

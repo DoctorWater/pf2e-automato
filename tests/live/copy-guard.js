@@ -47,10 +47,31 @@ async () => {
       if (base?.diverged || rules.divergedOf(same)) return `ложное расхождение: ${JSON.stringify(base?.diverged ?? rules.divergedOf(same))}`;
       return base?.source === "catalog" || `source=${base?.source}`;
     });
-    await check("gm-button", "для копии с другим текстом шаги исполняются только кнопкой ГМа (low)", async () => {
+    await check("gm-button", "для копии с другим текстом выведенное правило ставит Frightened (не Sickened) и low: исполняет только кнопка ГМа", async () => {
       const r = rules.resolveRule(changed);
       if (!r) return "правило не выведено: у ГМа нет кнопки (diverged остаётся только пометкой)";
+      const slugs = [...rules.ruleStates(r.rule)];
+      if (!slugs.includes("frightened") || slugs.includes("sickened")) return `в выведенном правиле состояния [${slugs}], ожидалось frightened без sickened`;
       return r.confidence === "low" || `confidence=${r.confidence}: кнопки ГМа не будет`;
+    });
+    const fromPack = async (pack, slug) => {
+      const p = game.packs.get(pack), i = p && (await p.getIndex({ fields: ["system.slug"] })).find((x) => x.system?.slug === slug);
+      if (!i) throw skip(`нет в ${pack}: ${slug}`);
+      return (await p.getDocument(i._id)).toObject();
+    };
+    await check("fixtures-kept", "Haste и Tongue Grab на NPC не отключаются", async () => {
+      const haste = await fromPack("pf2e.spells-srd", "haste"), tongue = await fromPack("pf2e.bestiary-ability-glossary-srd", "tongue-grab");
+      const items = await actor.createEmbeddedDocuments("Item", [haste, tongue]);
+      const bad = items.filter((it) => rules.resolveRule(it)?.diverged || rules.divergedOf(it)).map((it) => `${it.name}: ${JSON.stringify(rules.divergedOf(it))}`);
+      return bad.length ? `отключены: ${bad.join("; ")}` : true;
+    });
+    await check("reaction", "атака по NPC с Nimble Dodge: реакции собираются без ошибки, подсказка есть", async () => {
+      const reactions = await import(`/modules/${MOD}/scripts/reactions.mjs`);
+      const dodge = await fromPack("pf2e.feats-srd", "nimble-dodge");
+      await actor.createEmbeddedDocuments("Item", [dodge]);
+      let list;
+      try { list = reactions.reactionItems(actor); } catch (e) { return `reactionItems упал: ${e.message}`; }
+      return list.some((x) => x.item.slug === "nimble-dodge") || `Nimble Dodge не найден среди реакций: [${list.map((x) => x.item.name)}] — в каталоге нет onAttacked или копия огорожена`;
     });
     await check("player-copy", "тот же текст у предмета персонажа не огораживается", async () => {
       const pc = await Actor.create({ name: NAME, type: "character" });

@@ -402,6 +402,8 @@ async function testRun(item, rule) {
     ok: { label: L("sheet.test.close"), icon: "fa-solid fa-xmark" } });   // пробный запуск ничего не применяет — не «Применить»
 }
 
+/** Подсказка о расхождении копии NPC с правилом каталога (разная для lost и other) или null. */
+export const divergedHint = (dv) => (dv ? L(`sheet.divergedHint.${dv.kind}`, { states: dv.states.join(", ") }) : null);
 const choices = (o) => Object.entries(o).map(([value, label]) => ({ value, label }));
 
 function hintLines(hints) {
@@ -424,7 +426,7 @@ function buildContext(item, draft) {
       canAccept: res.source !== "flag", ruleAttr: JSON.stringify(res.rule),
       hints: res.source === "markup" && game.user.isGM ? hintLines(res.hints) : null
     },
-    diverged: dv ? L("sheet.divergedHint", { states: dv.states.join(", ") }) : null,
+    diverged: divergedHint(dv),
     isWorld: res?.source === "world",
     lockedFlag: !item.isOwner || !!item.compendium?.locked,
     noSource: !sourceUuid, noSlug: !slug,

@@ -1466,19 +1466,28 @@ const hasSteps = (r) => !!(r.cast?.length || r.onUse?.apply?.length || r.onUse?.
 /* ---------- Ограждение копий NPC (plan-copy-guard.md) ---------- */
 
 // Состояния, которые правило может нести как condition.slug и которые текст называет словом (без persistent-damage и отношений — это не «состояния» правила).
+// Слова обычные («hidden», «broken», «observed»): случайное совпадение в прозе даёт лишнее состояние текста, а оно лишь делает «lost» видом «other» и само отключения не вызывает — ошибка в сторону правила каталога (fail-open).
 const GUARD_STATES = ["observed", "doomed", "drained", "broken", "paralyzed", "deafened", "unnoticed", "controlled", "off-guard", "fascinated", "encumbered", "concealed", "fatigued", "enfeebled", "frightened", "dazzled", "undetected", "restrained", "blinded", "wounded", "petrified", "stunned", "stupefied", "immobilized", "unconscious", "sickened", "clumsy", "hidden", "prone", "grabbed", "quickened", "fleeing", "slowed", "dying", "confused", "invisible", "cursebound"];
 const GUARD_ALIAS = [[/flat[- ]footed/gi, "off-guard"]];
 // «подразумевает»: состояние текста покрывает и эти состояния правила (Tongue Grab: текст «grabbed», правило ставит off-guard)
 const IMPLIES = { grabbed: ["off-guard", "immobilized"], restrained: ["off-guard", "immobilized"], paralyzed: ["off-guard"], unconscious: ["off-guard", "blinded"], prone: ["off-guard"], blinded: ["off-guard"], dying: ["unconscious"] };
 const implied = (s, out = new Set([s])) => { for (const x of IMPLIES[s] ?? []) if (!out.has(x)) implied(x, out.add(x)); return out; };
 const stateWord = (s) => new RegExp(String.raw`\b${s.replace(/-/g, "[- ]")}\b`, "i");
+// Действия, чья ссылка или [[/act X]] в тексте подразумевает состояния (как {Slow} подразумевает slowed): Grab у BB — «[[/act grapple]] the target»
+const ACT_STATES = { grapple: ["grabbed", "restrained"], trip: ["prone"] };
+// Именные формы подписи ссылки: заклинание {Invisibility} ставит invisible, {Petrify} — petrified
+const NAME_FORMS = [[/^invisibility/i, "invisible"], [/^petrify/i, "petrified"], [/^confusion/i, "confused"], [/^fascination/i, "fascinated"]];
 const stateStem = (s) => new RegExp(`^${s.replace(/(?:ened|ed)$/, "").replace(/-/g, "[- ]")}`, "i");
 
-/** Состояния правила: slug каждого condition.slug по всем веткам (onUse, onEvent, onAttacked, cast, степени). */
+/**
+ * Состояния правила: slug каждого condition.slug по всем веткам (onUse, onEvent, onAttacked, cast, степени).
+ * Шаг, чей `when` требует от цели уже это состояние (`target:condition:X`), продлевает его, а не накладывает — текст копии о нём молчит (Grab: restrained при уже restrained).
+ */
 export function ruleStates(rule, out = new Set()) {
   if (Array.isArray(rule)) rule.forEach((x) => ruleStates(x, out));
   else if (rule && typeof rule === "object") {
-    if (isStr(rule.condition?.slug)) out.add(rule.condition.slug);
+    const slug = rule.condition?.slug;
+    if (isStr(slug) && !(Array.isArray(rule.when) && rule.when.includes(`target:condition:${slug}`))) out.add(slug);
     for (const v of Object.values(rule)) ruleStates(v, out);
   }
   return out;
@@ -1496,6 +1505,9 @@ export function textStates(html, condSlug = () => null) {
     if (m[2]) labels.push(m[2]);
   }
   for (const m of h.matchAll(/inflicts:([a-z-]+)/g)) out.add(m[1]);
+  const acts = [...h.matchAll(/\[\[\/act\s+([a-z-]+)/g)].map((m) => m[1]).concat(labels.map((l) => l.trim().toLowerCase()));
+  for (const a of acts) for (const s of ACT_STATES[a] ?? []) out.add(s);
+  for (const l of labels) for (const [re, s] of NAME_FORMS) if (re.test(l)) out.add(s);
   for (const s of GUARD_STATES) if (labels.some((l) => stateStem(s).test(l))) out.add(s);
   return out;
 }

@@ -109,8 +109,7 @@ export function ruleOfItem(item) {
   return rule;
 }
 
-function reactionItems(actor) {
-  const idx = onAttackedIndex();
+export function reactionItems(actor) {
   const out = [];
   const seen = new Set();   // дубли способности на листе (старая и новая копия одного slug) — одна подсказка
   for (const item of actor.items) {

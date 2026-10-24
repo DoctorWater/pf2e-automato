@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { initCatalog, resolveRule, guardVerdict, guardCopy, ruleStates, textStates, divergedOf } from "../scripts/rules.mjs";
-import { ruleOfItem } from "../scripts/reactions.mjs";
+import { ruleOfItem, reactionItems } from "../scripts/reactions.mjs";
 import { rev } from "../scripts/settings.mjs";
 
 const labels = JSON.parse(readFileSync(fileURLToPath(new URL("../rules/labels.json", import.meta.url)), "utf8"));
@@ -77,13 +77,37 @@ test("guardCopy: только npc/hazard; hazard огораживается, п�
   assert.equal(w.source, "world");   // мировое правило ГМа не огораживается
 });
 
-test("fail-open: пути без предмета (resolveRule({origin}), ruleFor из actions.mjs) дают правило каталога", () => {
+test("пути с origin (use.mjs:151/329 передают origin.uuid): предмет подтягивается и огораживается так же; без предмета — правило каталога", () => {
   initCatalog([{ bySource: { [SRC]: sickened }, bySlug: { "evil-eye": sickened } }], labels);
-  const r = withGame(() => resolveRule({ origin: { sourceId: SRC, slug: "evil-eye" } }));
-  assert.deepEqual([r.source, r.diverged], ["catalog", undefined]);
+  const it = npcItem(FRIGHT_TEXT, { uuid: "O.1" });
+  globalThis.fromUuidSync = (u) => (u === "O.1" ? it : null);
+  try {
+    const live = withGame(() => resolveRule({ origin: { uuid: "O.1", sourceId: SRC, slug: "evil-eye" } }));
+    assert.equal(live.source, "markup");   // предмет на NPC найден -> копия с другим текстом
+    const gone = withGame(() => resolveRule({ origin: { uuid: "O.gone", sourceId: SRC, slug: "evil-eye" } }));
+    assert.deepEqual([gone.source, gone.diverged], ["catalog", undefined]);   // предмета нет (удалён) — огораживать нечем
+  } finally { delete globalThis.fromUuidSync; }
   assert.equal(withGame(() => resolveRule({ origin: { slug: "evil-eye" } })).source, "catalog");   // путь ruleFor (actions.mjs): origin только со slug
 });
 
+test("Grab: шаг с when «цель уже restrained» продлевает состояние; [[/act grapple]] и метки действий дают grabbed/restrained; именные формы меток", () => {
+  const grab = { v: 1, label: "Grab", onUse: { targets: "selected", apply: [{ to: "target", when: [{ not: "target:condition:restrained" }], condition: { slug: "grabbed" } }, { to: "target", when: ["target:condition:restrained"], condition: { slug: "restrained" } }] } };
+  assert.deepEqual([...ruleStates(grab)], ["grabbed"]);
+  assert.equal(guardVerdict(grab, "<p>The bear Grabs the target. @UUID[Compendium.pf2e.conditionitems.Item.g]{Grabbed}</p>", (u) => (u.endsWith(".g") ? "grabbed" : null)), null);
+  assert.equal(guardVerdict(grab, "<p>it can use this action to attempt to [[/act grapple]] the target.</p>"), null);
+  assert.equal(guardVerdict(save(cond("prone")), "<p>@UUID[Compendium.pf2e.actionspf2e.Item.x]{Trip} the target</p>"), null);
+  assert.ok(textStates("@UUID[Compendium.pf2e.spells-srd.Item.x]{Invisibility}").has("invisible"));
+  assert.ok(textStates("@UUID[Compendium.pf2e.spells-srd.Item.x]{Petrify}").has("petrified"));
+});
+
+test("reactionItems (onAttackMessage): идёт через resolveRule без ошибок, огороженная копия подсказки не даёт", () => {
+  const react = { v: 1, onAttacked: { trigger: "attack-on-self", bonus: { stat: "ac", type: "circumstance", value: 1 }, cost: "reaction", notify: ["owner"] } };
+  initCatalog([{ bySlug: { "nimble-dodge": react } }], labels);
+  const dodge = { uuid: "D.1", type: "feat", name: "Nimble Dodge", slug: "nimble-dodge", actor: { type: "npc" }, _stats: {}, system: { slug: "nimble-dodge", description: { value: "<p>+2 AC.</p>" } } };
+  const plain = { uuid: "D.2", type: "feat", name: "Other", slug: "other", _stats: {}, system: { description: { value: "" } } };
+  const list = withGame(() => reactionItems({ items: [dodge, plain] }));
+  assert.deepEqual(list.map((x) => x.item.name), ["Nimble Dodge"]);
+});
 test("guardCopy: @Localize раскрывается через английский, иначе не огораживаем; перевод без оригинала не огораживаем, с оригиналом — сравниваем его", () => {
   const rule = sickened, loc = (html, extra = {}) => npcItem(html, { uuid: `L.${Math.random()}`, ...extra });
   const text = "<p>@Localize[PF2E.NPC.Abilities.Glossary.Grab]</p>";

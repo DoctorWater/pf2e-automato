@@ -3,7 +3,8 @@
     "events": {
       "host": "\"{item}\": {target} must attempt a challenge against the ability's owner.",
       "repeat": "\"{item}\": {target} attempts the repeat save.",
-      "zone": "\"{item}\": {target} is in the area and must attempt a challenge."
+      "zone": "\"{item}\": {target} is in the area and must attempt a challenge.",
+      "affliction": "\"{item}\": {target} attempts the affliction save."
     },
     "rules": {
       "err": {
@@ -27,6 +28,20 @@
         },
         "cast": {
           "bad": "Activation (cast): needs a spell (UUID), rank 1-10, DC as a number or level: high, attack as a number, frequency as once per N rounds/minutes/hours/days, requirement invested, equipped, held or none; the key (id) is unique ({path})"
+        },
+        "afflict": {
+          "bad": "Step \"affliction\": an object with the definition def and an optional stage number is required ({path})",
+          "def": "Affliction definition: name, kind (poison, disease, curse), virulent is yes or no only, traits are slugs ({path})",
+          "save": "Affliction definition: the save is Fortitude, Reflex or Will, DC is an integer from 1 (may be omitted: taken from the challenge) ({path})",
+          "stages": "Affliction definition: 1 to 12 stages ({path})",
+          "stage": "Affliction stage: integer from 1 to the stage count; stage fields are duration, damage, persistent, conditions, mods, text ({path})",
+          "dur": "Affliction duration: integer from 1 and a unit — rounds, minutes, hours or days ({path})",
+          "damage": "Stage damage: up to four entries with a dice formula and a damage type ({path})",
+          "persistent": "Stage persistent damage: dice formula, damage type, DC is an integer from 1 ({path})",
+          "conditions": "Stage conditions: up to six distinct ones, slug and a value from 1 to 10 ({path})",
+          "mods": "Stage penalties: the same blocks as a step effect (up to four) ({path})",
+          "text": "Stage text is a string of up to 600 characters ({path})",
+          "to": "An affliction is applied to the target only (to: target) ({path})"
         }
       }
     },
@@ -43,6 +58,9 @@
       "test": {
         "castTitle": "Activations",
         "cast": "{name}: rank {rank}, DC {dc}"
+      },
+      "row": {
+        "affliction": "affliction (stages are read-only)"
       }
     },
     "workshop": {
@@ -154,7 +172,9 @@
           },
           "id": "Key",
           "note": "Note for the GM"
-        }
+        },
+        "afflPlate": "Affliction \"{name}\": stage {stage} of {of}",
+        "afflKeep": "stages: {stages}"
       }
     },
     "cast": {
@@ -173,6 +193,19 @@
       "noCaster": "The owner has no spellcasting and the rule gives no DC: it cannot be cast.",
       "againTitle": "Activation already used",
       "again": "The activation limit is spent (\"{name}\"). Cast anyway?"
+    },
+    "affliction": {
+      "stage": "\"{item}\": {target} is at stage {n} of {of}.",
+      "cleared": "\"{item}\": {target} is rid of the affliction.",
+      "ended": "\"{item}\": the maximum duration on {target} has run out — the affliction ends."
+    },
+    "apply": {
+      "afflictionNoDC": "\"{name}\": the affliction DC is unknown — not applied.",
+      "afflictionTaken": "\"{name}\": \"{item}\" is already active — a repeated exposure adds no stages (disease and curse)."
+    },
+    "chat": {
+      "stepAffliction": "affliction \"{name}\": stage {stage} of {of}",
+      "stepAfflictionDC": "affliction \"{name}\": stage {stage} of {of} (DC {dc})"
     }
   }
 }

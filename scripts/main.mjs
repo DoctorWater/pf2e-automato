@@ -24,6 +24,7 @@ import * as turnConditions from "./turn-conditions.mjs";
 import * as escape from "./escape.mjs";
 import * as events from "./events.mjs";
 import * as cast from "./cast.mjs";
+import * as affliction from "./affliction-run.mjs";
 
 const { S } = settings;
 
@@ -127,7 +128,7 @@ Hooks.once("init", () => {
     undoOps: apply.undoOps, removeByKey: apply.removeByKey, findByKey: apply.findByKey,
     automationsGroups: compat.automationsGroups, shouldYield: compat.shouldYield,
     validateRule: rules.validateRule, deriveFromMarkup: rules.deriveFromMarkup, deriveCast: rules.deriveCast, castItem: cast.castItem, slugOf: rules.slugOf, sourceOf: rules.sourceOf,
-    openWorkshop: workshop.Workshop.open,
+    openWorkshop: workshop.Workshop.open, afflictionTick: affliction.tick, afflictionSweep: affliction.sweep,
     degreeFromTotal, callGM, HANDLERS
   };
 });
@@ -139,7 +140,7 @@ Hooks.once("ready", async () => {
   // При каждом переходе в лидеры (первый — после ready, потом — когда прежний лидер закрыт/перезагружен): подхватить его работу.
   leader.onLead(async () => {
     if (!guardActiveGM()) return;
-    for (const step of [() => zone.reconcileZones(), () => use.resumePending({ maxAgeMinutes: S.get("resumeMinutes") })]) {
+    for (const step of [() => zone.reconcileZones(), () => use.resumePending({ maxAgeMinutes: S.get("resumeMinutes") }), () => affliction.sweep()]) {
       try { await step(); }
       catch (e) { if (String(e?.message).startsWith("not implemented")) debug(e.message); else console.error(`${MOD} | ready`, e); }   // пока куски не готовы — заглушки
     }

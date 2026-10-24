@@ -85,8 +85,8 @@ export const REPEAT_ON = ["turn-start", "turn-end"];
 export const REPEAT_END = ["success", "criticalSuccess"];
 
 /** Шаг apply делает что-то с получателем (есть вид шага); note — только текст в блоке. */
-export const STEP_KINDS = ["condition", "effect", "visibility", "persistent", "removeCondition", "removeEffect", "extendEffect", "rollOption", "damage", "choose", "move"];
-export const isActiveStep = (a) => STEP_KINDS.some((k) => a?.[k]) || !!a?.removeKey;   // removeKey — внутренний шаг карточки повтора (repeat.mjs), в схему не входит
+export const STEP_KINDS = ["condition", "effect", "visibility", "persistent", "removeCondition", "removeEffect", "extendEffect", "rollOption", "damage", "choose", "move", "affliction"];
+export const isActiveStep = (a) => STEP_KINDS.some((k) => a?.[k]) || !!a?.removeKey || !!a?.stageDelta;   // removeKey — внутренний шаг карточки повтора (repeat.mjs), stageDelta — карточки недуга (affliction.mjs); в схему не входят
 // получатели шага: self — автор, target — цель, party — участники партий автора, allies — союзники автора в радиусе range футов от его токена,
 // chosen — существо, которое автор выбрал предыдущим шагом choose (from: allies | enemies)
 export const APPLY_TO = ["self", "target", "party", "allies", "chosen"];
@@ -234,7 +234,68 @@ function vApply(a, path, defTo, err, basicOk = false) {
       || (!basicOk && (r.statistic == null || r.dc == null)) || !list("traits") || !list("options")) err.push(E("apply.repeat", `${path}.repeat`));
     else out.repeat = { on: r.on, ...(r.statistic != null && { statistic: r.statistic }), ...(r.dc != null && { dc: r.dc }), ...(r.traits != null && { traits: [...r.traits] }), ...(r.options != null && { options: [...r.options] }), end: DEGREES.filter((d) => end.includes(d)) };
   }
+  // affliction — недуг со стадиями (яд, болезнь, проклятие; scripts/affliction.mjs): определение лежит в самом шаге, носитель — эффект цели со счётчиком стадии
+  if (a.affliction != null) {
+    const x = vAffliction(a.affliction, `${path}.affliction`, err);
+    if (x && out.to !== "target") err.push(E("afflict.to", `${path}.to`));
+    else if (x) out.affliction = x;
+  }
   return out;
+}
+
+export const AFFLICTION_KINDS = ["poison", "disease", "curse"];
+const AFFLICTION_SAVES = ["fortitude", "reflex", "will"];
+const MAX_STAGES = 12;
+function vAfflDur(d, path, err) {
+  if (!isObj(d) || !(isInt(d.value) && d.value >= 1) || !APPLY_UNITS.includes(d.unit)) { err.push(E("afflict.dur", path)); return null; }
+  return { value: d.value, unit: d.unit };
+}
+function vAfflStage(s, path, err) {
+  const bad = (k) => { err.push(E(k, path)); return null; };
+  if (!isObj(s) || Object.keys(s).some((k) => !["duration", "damage", "persistent", "conditions", "mods", "text"].includes(k))) return bad("afflict.stage");
+  const out = { duration: null, damage: [], persistent: null, conditions: [], mods: null, text: "" };
+  if (s.duration != null && !(out.duration = vAfflDur(s.duration, `${path}.duration`, err))) return null;
+  if (s.damage != null) {
+    if (!Array.isArray(s.damage) || s.damage.length > 4 || !s.damage.every((g) => isObj(g) && isDice(g.formula) && !isZeroFormula(g.formula) && DAMAGE_TYPES.includes(g.damageType))) return bad("afflict.damage");
+    out.damage = s.damage.map((g) => ({ formula: g.formula.trim().replace(/\s+/g, ""), damageType: g.damageType }));
+  }
+  if (s.persistent != null) {
+    const p = s.persistent;
+    if (!isObj(p) || !isDice(p.formula) || !DAMAGE_TYPES.includes(p.damageType) || (p.dc != null && !(isInt(p.dc) && p.dc >= 1))) return bad("afflict.persistent");
+    out.persistent = { formula: p.formula.trim().replace(/\s+/g, ""), damageType: p.damageType, ...(p.dc != null && { dc: p.dc }) };
+  }
+  if (s.conditions != null) {
+    const c = s.conditions;
+    if (!Array.isArray(c) || c.length > 6 || !c.every((x) => isObj(x) && isStr(x.slug) && SLUG.test(x.slug) && (x.value == null || (isInt(x.value) && x.value >= 1 && x.value <= 10)))
+      || new Set(c.map((x) => x.slug)).size !== c.length) return bad("afflict.conditions");
+    out.conditions = c.map((x) => ({ slug: x.slug, ...(x.value != null && { value: x.value }) }));
+  }
+  if (s.mods != null) {
+    const n = normalizeMods(s.mods);
+    if (n.error) return bad("afflict.mods");
+    out.mods = n.mods;
+  }
+  if (s.text != null) { if (typeof s.text !== "string" || s.text.length > 600) return bad("afflict.text"); out.text = s.text.trim(); }
+  return out;
+}
+/** Шаг affliction {stage?, def}: def — снимок определения недуга (name, kind, save, maxDuration?, onset?, virulent?, traits?, stages[]); save.dc нет — СЛ берётся из испытания/использования при наложении. */
+function vAffliction(x, path, err) {
+  const d = x?.def, bad = (k, p = path) => { err.push(E(k, p)); return null; };
+  if (!isObj(x) || !isObj(d) || Object.keys(x).some((k) => !["stage", "def"].includes(k))) return bad("afflict.bad");
+  if (!isStr(d.name) || !AFFLICTION_KINDS.includes(d.kind) || typeof (d.virulent ?? false) !== "boolean") return bad("afflict.def", `${path}.def`);
+  if (!isObj(d.save) || !AFFLICTION_SAVES.includes(d.save.statistic) || (d.save.dc != null && !(isInt(d.save.dc) && d.save.dc >= 1))) return bad("afflict.save", `${path}.def.save`);
+  if (d.traits != null && !(Array.isArray(d.traits) && d.traits.every((t) => isStr(t) && SLUG.test(t)))) return bad("afflict.def", `${path}.def.traits`);
+  const durs = {};
+  for (const k of ["maxDuration", "onset"]) if (d[k] != null && !(durs[k] = vAfflDur(d[k], `${path}.def.${k}`, err))) return null;
+  if (!Array.isArray(d.stages) || !d.stages.length || d.stages.length > MAX_STAGES) return bad("afflict.stages", `${path}.def.stages`);
+  const stages = d.stages.map((s, i) => vAfflStage(s, `${path}.def.stages[${i}]`, err));
+  if (stages.includes(null)) return null;
+  const stage = x.stage ?? 1;
+  if (!(isInt(stage) && stage >= 1 && stage <= stages.length)) return bad("afflict.stage", `${path}.stage`);
+  return {
+    stage,
+    def: { name: d.name.trim(), kind: d.kind, save: { statistic: d.save.statistic, ...(d.save.dc != null && { dc: d.save.dc }) }, maxDuration: durs.maxDuration ?? null, onset: durs.onset ?? null, virulent: !!d.virulent, ...(d.traits?.length && { traits: [...d.traits] }), stages }
+  };
 }
 
 function vApplyList(list, path, defTo, err, basicOk = false) {
@@ -1056,6 +1117,11 @@ const STRIKE_GATE = new RegExp(String.raw`\bStrikes?\b(?<!triggering\s+Strike)[^
 /** Испытание привязано к исходу Удара: при использовании его не бросать (нужен примитив strike-gate, ROADMAP пачка 7). */
 // Requirements/Trigger до Effect (или черты <hr>) — предусловие («ваше последнее действие — Удар, критически попавший»), а не сам Удар (Fearful Symmetry, Dreamcrusher, Violent Exorcism)
 export const strikeGate = (html) => STRIKE_GATE.test(detectText(html).replace(/\b(?:Requirements?|Trigger)\b.{0,400}?(?=\bEffect\b|---)/g, " "));
+/** Недуг со стадиями (яд, болезнь, проклятие): «Stage 1», «Stage 2» и спасбросок, срок, onset или трейт. Живой вывод шагов не вешает (low): определение собирает модель/tools/affliction.mjs. */
+export const afflictionStages = (html) => {
+  const t = detectText(html);
+  return /\bStage\s+1\b/i.test(t) && /\bStage\s+2\b/i.test(t) && /\b(?:Saving Throw|Maximum Duration|Onset|poison|disease|curse)\b/i.test(t);
+};
 /** Одно и то же who у всех шагов «к цели» всех степеней испытания -> оно, иначе null: испытание бросают только такие цели (saves.challengeTargets). */
 export function challengeWho(ch) {
   const w = new Set(Object.values(ch?.byDegree ?? {}).flat().filter((a) => a.to === "target").map((a) => a.who ?? null));
@@ -1219,6 +1285,7 @@ export function deriveFromMarkup(itemLike, labels, conditionSlugByUuid, condName
       // срок есть в тексте, но состоянию он не достался (не выводится, не вплотную, «не кончается со сроком заклинания»); убывающие сами — без срока
       if (e.conds.some((c) => !c.duration && !NOT_ON_TARGET.has(c.slug) && !ENDS_EARLY.has(c.slug) && c.slug !== "persistent-damage" && termText) || (e.fl.keep && e.conds.some((c) => c.duration)) || (e.ref && e.fl.termText && !e.ownDur && e.conds.some((c) => c.duration))) why.add("duration");
     }
+    if (afflictionStages(html)) why.add("affliction");   // стадии недуга выводом из разметки не собрать: правило low, не вешается автоматически
     hints.lowWhy.push(...why);
     for (const [deg, e] of Object.entries(entries)) {
       const list = [...e.conds.filter((c) => !NOT_ON_TARGET.has(c.slug)).map((c) => condApply(c, "target")), ...e.effects.map((uuid) => ({ to: "target", effect: { uuid } })), ...e.pers.map((p) => ({ to: "target", persistent: p }))];

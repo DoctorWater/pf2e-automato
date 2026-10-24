@@ -509,7 +509,8 @@ export async function applyOps(message, tokenKey, steps, ctx = {}) {
       // Журнал нанесённого урона (state.damaged) переживает откат записи: pf2e откатывает урон своей карточкой, повтор шага его не повторяет.
       // Степень в ключе не участвует: переброс испытания после отката не бьёт второй раз.
       const dkey = scope === "challenge" && !ctx.stepKey ? `${meta.key.slice(0, -stepKey.length)}c.${i}` : meta.key;
-      const r = await queue(`msg:${message.id}`, async () => {
+      // ctx.msgQueued: вызывающий (applyByDegree) уже держит queue("msg:") — queue не реентерабелен
+      const r = await (ctx.msgQueued ? (f) => f() : (f) => queue(`msg:${message.id}`, f))(async () => {
         const log = foundry.utils.getProperty(message, flagPath("use", "state", "damaged")) ?? [];
         if (doneOps.some((o) => o.key === meta.key) || log.includes(dkey)) return null;
         const dealt = await dealDamage(actor, step.damage, persVars, step.to === "target" && targetDoc?.actor ? targetDoc : step.to === "self" ? originToken : null, ctx.degree ?? null);

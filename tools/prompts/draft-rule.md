@@ -113,9 +113,9 @@ Rules of thumb:
 ```json
 {"v":1,"label":"Black Powder Flash","onUse":{"targets":"selected","challenge":{"statistic":"fortitude","dc":{"against":"class"},"basic":false,"byDegree":{"success":[{"to":"target","condition":{"slug":"dazzled"},"duration":{"value":1,"unit":"rounds","expiry":"turn-end","of":"target"}}],"failure":[{"to":"target","condition":{"slug":"blinded"},"duration":{"value":1,"unit":"rounds"}}]}},"apply":[]}}
 ```
-14. Save for creatures that end their turn in a lingering cloud (spell with an area, no save at creation): "Any creature that ends its turn in the cloud must succeed at a Fortitude save or be sickened 1. The cloud lasts 1 minute."
+14. Save for creatures that end their turn in a lingering cloud (consumable with an area, no save at creation, DC in the text): "Any creature that ends its turn in the cloud must succeed at a Fortitude save or be sickened 1. The cloud lasts 1 minute."
 ```json
-{"v":1,"label":"Spun Cloud","onUse":{"targets":"area","zone":{"duration":{"seconds":60},"triggers":[{"on":"turn-end","challenge":{"statistic":"fortitude","dc":{"source":"spell"},"basic":false,"byDegree":{"failure":[{"to":"target","condition":{"slug":"sickened","value":1}}],"criticalFailure":[{"to":"target","condition":{"slug":"sickened","value":2}}]}}}]},"apply":[]}}
+{"v":1,"label":"Spun Cloud","onUse":{"targets":"area","zone":{"duration":{"seconds":60},"triggers":[{"on":"turn-end","challenge":{"statistic":"fortitude","dc":{"value":25},"traits":["olfactory","poison"],"basic":false,"byDegree":{"failure":[{"to":"target","condition":{"slug":"sickened","value":1}}],"criticalFailure":[{"to":"target","condition":{"slug":"sickened","value":2}}]}}}]},"apply":[]}}
 ```
 15. Repeat save at the end of the target's turn (spell `save will`): "Failure: the target is slowed 1. At the end of each of its turns it can attempt another Will save to end the effect."
 ```json

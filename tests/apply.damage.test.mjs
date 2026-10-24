@@ -76,3 +76,20 @@ test("damage.basic: только в challenge.byDegree", () => {
   assert.equal(validate({ v: 1, onUse: { targets: "selected", challenge: { statistic: "reflex", dc: { value: 20 }, byDegree: { success: [step] } } } }).ok, true);
   assert.equal(ok([{ ...step, damage: { ...step.damage, basic: undefined } }]).ok, true);
 });
+
+test("applyByDegree + шаг damage в степени: не виснет на queue(msg:), урон один раз", async () => {
+  dmgRoll();
+  const { applyByDegree } = await import("../scripts/saves.mjs");
+  const hits = []; const tok = { id: "t", actor: null, parent: {} };
+  mkActor("Actor.hero"); tok.actor = mkActor("Actor.foe", { applyDamage: async (d) => { hits.push(d.damage.total); } });
+  uuids.set("Scene.s.Token.t", tok);
+  const u = use();
+  u.targets = [{ key: "t", uuid: "Scene.s.Token.t" }];
+  u.rule = { onUse: { challenge: { statistic: "reflex", byDegree: { failure: dmg } } } };
+  u.state = { challenge: { results: { t: { degree: 1, total: 5 } } } };
+  const m = mkMsg(u);
+  const ops = await Promise.race([applyByDegree("M1", "t"), new Promise((_, rej) => setTimeout(() => rej(new Error("queue завис")), 2000).unref())]);
+  assert.deepEqual(hits, [7]);
+  assert.equal(ops[0].op, "damaged");
+  assert.equal(m.flags[MOD].use.state.damaged.length, 1);
+});

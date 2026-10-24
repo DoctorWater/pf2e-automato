@@ -222,7 +222,8 @@ async () => {
     t.ok(d === "failure", `исход: провал (${d}; СЛ карточки ${e.use(card)?.dc})`);
     await e.applyAll(card);
     t.ok(await waitFor(() => e.cond(va, "frightened")?.value === 2, 6000), `испуган 2 (${va.items.map((i) => i.slug)})`);
-    t.ok(va.items.some((i) => i.type === "effect" && i.flags?.[MOD]?.immunity?.slug === "frightful-presence"), "эффект иммунитета на цели (flags.pf2e-automato.immunity.slug)");
+    // в auto иммунитет ставится следующим шагом после испуга (applyByDegree: applyOps, затем applyImmunity) — ждём, а не проверяем мгновенно
+    t.ok(await waitFor(() => va.items.some((i) => i.type === "effect" && i.flags?.[MOD]?.immunity?.slug === "frightful-presence"), 6000), "эффект иммунитета на цели (flags.pf2e-automato.immunity.slug)");
     const t1 = e.since();
     const card2 = await e.fire(fp, tM, tV);
     await wait(3000);
@@ -339,7 +340,26 @@ async () => {
     t.ok(hp(va) === hp0, `повторное «Применить» урон не повторило (ОЗ ${hp(va)} из ${hp0})`);
   });
 
-  sc("reduce", "condition.policy:reduce: frightened 2 -> 1; повтор не уменьшает снова", async (e, t) => {
+  sc("damage-in-degree", "Шаг damage в challenge.byDegree (basic): провал рефлекса -> ОЗ уменьшились, карточка не зависла", async (e, t) => {
+    needMode("mode.challenge", "off"); needMode("mode.apply", "off"); needMode("mode.effect", "off");
+    const pc = await e.pc("автор"), vic = await e.foe("цель");
+    const tP = await e.tok(pc, 500, 500, 1), tV = await e.tok(vic, 700, 500, -1);
+    await wait(700);
+    const item = await e.ruleItem(pc, { v: 1, onUse: { targets: "selected", challenge: { statistic: "reflex", dc: { value: 30 }, byDegree: { failure: [{ to: "target", damage: { formula: "3d1", damageType: "untyped", basic: true } }] } } } });
+    const va = e.A(tV), hp0 = hp(va);
+    await e.rig(va, "reflex", 29 - 10 - va.saves.reflex.mod);   // d20=10, СЛ 30 -> итог 29: провал, не крит.
+    await e.fix(10);
+    const card = await e.fire(item, tP, tV);
+    t.ok(!!(await waitFor(() => Object.keys(e.results(card)).length, 12000)), "испытание брошено");
+    const d = Object.values(e.results(card))[0];
+    if (d !== "failure") throw new Skip(`исход ${d}, ждали failure`);
+    await e.applyAll(card);
+    t.ok(await waitFor(() => hp(va) < hp0, 8000), `ОЗ ${hp0} -> ${hp(va)}`);
+    t.ok(await waitFor(() => e.use(card)?.state?.damaged?.length === 1, 4000), `журнал state.damaged: ${JSON.stringify(e.use(card)?.state?.damaged)}`);
+    t.ok(!!e.use(card)?.state?.challenge?.applied?.[tV.id]?.ops?.length, "applyByDegree завершился, ops записаны (очередь не зависла)");
+  });
+
+  sc("reduce","condition.policy:reduce: frightened 2 -> 1; повтор не уменьшает снова", async (e, t) => {
     const { applyUse } = await imp("use.mjs");
     const { tP, tV, item, va } = await duel(e, [{ to: "target", condition: { slug: "frightened", value: 1, policy: "reduce" } }]);
     await api().applyCondition(va, { slug: "frightened", value: 2, policy: "max" });

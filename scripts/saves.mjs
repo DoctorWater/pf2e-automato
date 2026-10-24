@@ -351,7 +351,7 @@ export function applyByDegree(messageId, tokenKey) {
       // бросок уже сделан (действие или спасбросок из листа), а цель иммунна к этому автору: ничего не применяем (повтор после применения — идемпотентно, пропуск не нужен)
       if (ch.immunity && !useOf(message).state?.challenge?.applied?.[key] && await isImmune(useOf(message), token, ch)) continue;
       const steps = ch.byDegree?.[DEGREES[r.degree]] ?? [];
-      ops.push(...await applyOps(message, key, steps, { scope: "challenge", degree: r.degree, total: r.total, target: token }));
+      ops.push(...await applyOps(message, key, steps, { scope: "challenge", msgQueued: true, degree: r.degree, total: r.total, target: token }));
       if (ch.immunity) ops.push(...await applyImmunity(message, key, token, ch.immunity, r.degree));
       if (r.changedAfterApply) await message.update({ [flagPath("use", "state", "challenge", "results", key, "changedAfterApply")]: false });
     }

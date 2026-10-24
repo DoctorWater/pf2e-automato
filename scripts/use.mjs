@@ -86,7 +86,7 @@ export function isResumable(use, now, maxAgeMinutes) {
   return now - (use.createdAt ?? 0) <= maxAgeMinutes * 60000;
 }
 
-const emanationDefault = (region) => region?.flags?.pf2e?.areaShape === "emanation";
+export const emanationDefault = (region) => region?.flags?.pf2e?.areaShape === "emanation";
 
 /* ---------- клиент автора (синхронно) ---------- */
 
@@ -239,7 +239,7 @@ export function applyUse(messageId, targetKey) {
 }
 
 async function attachFor(message, use, region) {
-  await zone.attachZone(region, use.rule, { originUuid: use.item?.uuid ?? "", originActor: use.actor ?? "", messageId: message.id, name: use.item?.name });
+  await zone.attachZone(region, use.rule, { originUuid: use.item?.uuid ?? "", originActor: use.actor ?? "", messageId: message.id, name: use.item?.name, dc: use.dc });
   await setState(message, { zone: { regionUuid: region.uuid, status: "active" } });
 }
 
@@ -348,7 +348,7 @@ export async function runRegion(region, message) {
         // attachZone сам делает sweepZone
         await zone.attachZone(region, rule, {
           originUuid: use?.item?.uuid ?? origin.uuid ?? "", originActor: use?.actor ?? origin.actor ?? "",
-          messageId: message?.id ?? "", name: use?.item?.name
+          messageId: message?.id ?? "", name: use?.item?.name, dc: use?.dc
         });
       }
       if (use) await setState(message, { zone: { regionUuid: region.uuid, status: zoneMode === "auto" ? "active" : "pending" } });

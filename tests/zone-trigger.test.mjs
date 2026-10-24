@@ -193,3 +193,36 @@ test("fireZoneTrigger: триггер без испытания — шаги н�
   await ev.fireZoneTrigger(sys, tok, "enter", { evId: "enter:m5" });
   assert.equal(victim.items.length, 1);
 });
+
+test("fireZoneTrigger: перезагрузка — ключ уже на карточке в ленте при пустом fired, второй карточки нет", async () => {
+  const victim = mkActor("Actor.victim"), tok = mkToken("t1", victim);
+  const sys = mkSysFull([{ on: "turn-end", challenge: CH }]), e = { evId: "reload:1", combat: "C", round: 40, turn: 1 };
+  const key = ev.triggerKey({ ...e, region: sys.region.uuid, token: "t1", i: 0 });
+  msgs.set("old", { id: "old", flags: { [MOD]: { use: { state: { event: key } } } } });
+  await ev.fireZoneTrigger(sys, tok, "turn-end", e);
+  assert.equal(created.length, 0);
+});
+
+test("fireZoneTrigger: круг сотворения — на карточке-хозяине; СЛ по каждому триггеру (dcs[i])", async () => {
+  const victim = mkActor("Actor.victim"), tok = mkToken("t1", victim);
+  const sys = mkSysFull([{ on: "turn-end", challenge: CH }, { on: "turn-end", challenge: { ...CH, dc: { source: "spell" } } }], { castRank: 5, dcs: [null, 31], dc: 31 });
+  await ev.fireZoneTrigger(sys, tok, "turn-end", { ...TURN_END, evId: "rank:1", round: 50 });
+  assert.deepEqual(created.map((c) => [c.flags.pf2e?.origin.castRank, c.flags[MOD].use.dc]), [[5, 25], [5, 31]]);
+  await ev.fireZoneTrigger(mkSysFull([{ on: "turn-end", challenge: CH }]), tok, "turn-end", { ...TURN_END, evId: "rank:2", round: 51 });
+  assert.equal(created[2].flags.pf2e, undefined);   // круга нет — флага нет
+});
+
+test("attachZone: круг из сообщения-источника, СЛ по триггерам (снимок use.dc при пропавшем предмете), откат движения — не вход", async () => {
+  const { attachZone } = await import("../scripts/zone.mjs");
+  msgs.set("m1", { id: "m1", flags: { pf2e: { origin: { castRank: 4 } } } });
+  game.time = { worldTime: 0 };
+  const behaviors = [], region = { uuid: "Scene.s.Region.r", flags: {}, behaviors, parent: { tokens: [] }, async createEmbeddedDocuments(_, [d]) { const b = { ...d, region, system: d.system }; behaviors.push(b); return [b]; } };
+  const rule = zoneRule([{ on: "turn-end", challenge: { ...CH, dc: { expr: "markup" } } }, { on: "enter", challenge: CH }]);
+  await attachZone(region, rule, { originUuid: "Item.gone", originActor: "Actor.gone", messageId: "m1", dc: 22 });
+  const sys = behaviors[0].system;
+  assert.equal(sys.castRank, 4);
+  assert.deepEqual(sys.dcs, [22, 25]);
+  const calls = [], s = { ...mkSys(calls), hold: async () => {} };
+  await ZoneBehaviorType.events.tokenEnter.call(s, ent({ movement: { id: "mv", method: "undo" } }));
+  assert.equal(calls.length, 0);
+});

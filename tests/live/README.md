@@ -53,7 +53,7 @@ window.__afPa05 = { only: ["badge", "gear"], skip: [], cleanOnly: false }   // �
 ```
 Результат: `{summary, table, rows:[{id,title,status,detail}]}`, то же в `console.table` и `window.__afPa05Result`. Аварийная чистка — `cleanOnly: true` (как у `suite.js`).
 
-Сценарии (id): `challenge-immunity`, `suffocation`, `improved-grab`, `rage-immunity`, `remove-condition`, `badge`, `damage-step`, `reduce`, `onevent-strike`, `gear`, `damage-link`, `when`.
+Сценарии (id): `challenge-immunity`, `suffocation`, `improved-grab`, `rage-immunity`, `remove-condition`, `badge`, `damage-step`, `damage-in-degree`, `reduce`, `onevent-strike`, `gear`, `damage-link`, `when`.
 - Нужны режимы `mode.effect` и `mode.challenge` = `auto`, `mode.macro` не `off`; иначе сценарий `SKIP` с причиной. Группа, которой уступает модуль (pf2e-automations: `swallow-whole`, `grab`, `rage`, `hardwood-armor`, `life-link`), даёт `SKIP`.
 - Данные по slug/uuid pf2e 8.6.1 (ремастер); нет предмета в паках — `SKIP`. Правила `badge`, `damage-step`, `reduce`, `when` — флаг `rule` на временном предмете-действии «AF правило» (проверяется `validateRule`), остальные — каталожные правила настоящих предметов (Frightful Presence, Stand, Tongue Grab, Hardwood Armor).
 - Шаги NPC-целей читаются с актёра токена (`scene.tokens.get(id).actor`), не с исходного актёра: токены «развязаны».

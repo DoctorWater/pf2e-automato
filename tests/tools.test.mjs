@@ -307,3 +307,13 @@ test("validate: правило из одних заметок ведущему -
   const mixed = ch(); mixed.onUse.challenge.byDegree.criticalFailure = [{ to: "target", condition: { slug: "prone" } }];
   assert.equal(checkAnswer({ uuid: "u", rule: mixed }, refs).kind, "accepted");
 });
+
+test("semanticErrors: испытания триггеров зоны проверяются как обычные", async () => {
+  const { semanticErrors } = await import("../tools/validate.mjs");
+  const ch = (o) => ({ statistic: "fortitude", dc: {}, ...o });
+  const rule = (c) => ({ v: 1, onUse: { zone: { triggers: [{ on: "enter", challenge: c }] }, apply: [] } });
+  const refs = { conditions: {}, effects: {} };
+  assert.equal(semanticErrors(rule(ch({})), refs).length, 0);
+  assert.ok(semanticErrors(rule(ch({ statistic: "athletics" })), refs).some((e) => /statistic/.test(e)));
+  assert.ok(semanticErrors(rule(ch({ dc: { against: "bogus" } })), refs).some((e) => /bogus/.test(e)));
+});

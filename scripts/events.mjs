@@ -222,7 +222,7 @@ export async function runEntry(ev, owner, { item, rule }, { i, entry }, sink = n
  * Карточка испытания «другой участник бросает challenge против владельца» (общая для onEvent и повтора спасброска). owner может быть null
  * (автор удалён): говорящий — name, актёр снимка строкой кладёт build. build(rule) -> снимок use; targets и state.event ставим здесь. -> id карточки | null
  */
-export async function hostChallenge({ owner, other, otherToken = null, challenge, key, name, build, text = "events.host" }) {
+export async function hostChallenge({ owner, other, otherToken = null, challenge, key, name, build, text = "events.host", castRank = null }) {
   const t = otherToken ?? tokenOf(other);
   if (!t) return null;
   const use = build(hostRule({ challenge }, name));
@@ -230,7 +230,7 @@ export async function hostChallenge({ owner, other, otherToken = null, challenge
   use.state.event = key;   // карточка испытания: события на её бросках не запускаем (цепочки нет)
   const msg = await ChatMessage.create({
     content: card(L(text, { item: esc(name), target: esc(t.name) }), "", { title: esc(name), icon: "fa-bolt" }),
-    speaker: owner ? ChatMessage.getSpeaker?.({ actor: owner }) : { alias: name }, flags: { [MOD]: { use } }
+    speaker: owner ? ChatMessage.getSpeaker?.({ actor: owner }) : { alias: name }, flags: { [MOD]: { use }, ...(castRank != null && { pf2e: { origin: { castRank } } }) }
   });
   return msg?.id ?? null;
 }
@@ -294,19 +294,20 @@ export async function fireZoneTrigger(sys, token, on, ev) {
     for (const { t, i } of list) {
       const key = triggerKey({ ...ev, per: t.per, region: region.uuid, token: token.id, i });
       if (fired.has(key) || feedHas(key)) continue;
-      const ch = t.challenge, dc = ch?.dc?.value ?? sys.dc ?? null;
+      const ch = t.challenge, dc = ch?.dc?.value ?? sys.dcs?.[i] ?? sys.dc ?? null;
       const card = ch && modeOf("challenge") !== "off" && challengeApplies(ch, actor, sys.originActor)
         && !(rules.challengeWho(ch) && (rules.challengeWho(ch) === "enemy") !== apply.opposed(tokenOf(owner)?.disposition ?? 1, token.disposition ?? 0))
         && !(ch.immunity && await isImmune(build(hostRule({ challenge: ch }, name), dc), token, ch));
+      // ponytail: триггер только с apply ключ не пишет в ленту (нет карточки): после перезагрузки повтор того же раунда возможен; ядро события не переигрывает, так что цена — откат хода
       const steps = t.apply?.length && modeOf("effect") === "auto";
       if (!card && !steps) continue;
       remember(key);   // после проверок: цель, не попавшая под испытание, раунд не гасит; remember — до первого await ниже
       try {
         if (steps) {
-          const twin = makeTwin(`ev:${key}`, { ...build({ v: 1, label: name, onEvent: [] }, dc), kind: "event", targets: [{ key: token.id, uuid: token.uuid, name: token.name, pc: !!actor.hasPlayerOwner }] });
+          const twin = makeTwin(`ev:${key}`, { ...build({ v: 1, label: name, onEvent: [] }, dc), kind: "event", targets: [{ key: token.id, uuid: token.uuid, name: token.name, pc: !!actor.hasPlayerOwner }] }, sys.castRank != null ? { origin: { castRank: sys.castRank } } : null);
           for (const [j, step] of t.apply.entries()) await apply.applyOps(twin, token.id, [step], { scope: "apply", originActor: owner, originToken: tokenOf(owner), originItem: origin, rollOptions: [], target: token, stepKey: `${i}.${j}` });
         }
-        if (card) await hostChallenge({ owner, other: actor, otherToken: token, challenge: ch, key, name, build: (r) => build(r, dc), text: "events.zone" });
+        if (card) await hostChallenge({ owner, other: actor, otherToken: token, challenge: ch, key, name, build: (r) => build(r, dc), text: "events.zone", castRank: sys.castRank });
       } catch (e) { console.error(`${MOD} | zone trigger ${name}[${i}]`, e); }
     }
   });

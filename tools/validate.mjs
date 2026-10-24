@@ -73,7 +73,7 @@ export function semanticErrors(rule, refs, html = null) {
   if (z?.condition && !refs.conditions[z.condition.slug]) bad.push(`zone condition "${z.condition.slug}" does not exist in pf2e`);
   if (z?.effect && !refs.effects[z.effect.uuid]) bad.push(`zone effect ${z.effect.uuid} not found`);
   if (z?.effect && html !== null && !html.includes(z.effect.uuid)) bad.push(`zone effect ${z.effect.uuid} is not mentioned in this item's text`);
-  for (const c of [u?.challenge, ...(rule.onEvent ?? []).map((e) => e.challenge)]) {
+  for (const c of [u?.challenge, ...(rule.onEvent ?? []).map((e) => e.challenge), ...(u?.zone?.triggers ?? []).map((t) => t.challenge)]) {
     if (!c) continue;
     if (!SAVES.includes(c.statistic)) bad.push(`challenge.statistic must be fortitude, reflex or will (got "${c.statistic}")`);
     if (c.dc.against && !DC_AGAINST.has(c.dc.against)) bad.push(`dc.against "${c.dc.against}" is unknown: use spell, class, class-spell, a class slug (kineticist…), perception or a skill`);

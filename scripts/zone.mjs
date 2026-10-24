@@ -5,6 +5,7 @@ import { modeOf, S } from "./settings.mjs";
 import { applyCondition, applyEffect, removeByKey } from "./apply.mjs";
 import { runMacros } from "./macros.mjs";
 import { resolveDC } from "./saves.mjs";
+import { emanationDefault } from "./use.mjs";
 import { visionActive, refreshZone, dropSource } from "./vision.mjs";
 
 const TYPE = `${MOD}.zone`;
@@ -49,7 +50,9 @@ export class ZoneBehaviorType extends foundry.data.regionBehaviors.RegionBehavio
       messageId: new f.StringField({ blank: true }),
       closed: new f.BooleanField(),
       triggers: new f.ArrayField(new f.ObjectField()),   // onUse.zone.triggers снимком: переживают удаление карточки
-      dc: new f.NumberField({ nullable: true, initial: null }),   // СЛ триггеров на момент создания (автор мог исчезнуть)
+      dc: new f.NumberField({ nullable: true, initial: null }),   // СЛ триггеров на момент создания (автор мог исчезнуть): запасная
+      dcs: new f.ArrayField(new f.NumberField({ nullable: true, initial: null })),   // СЛ по каждому триггеру (по индексу)
+      castRank: new f.NumberField({ integer: true, nullable: true, initial: null }),   // круг сотворения: @item.rank и уровень эффекта шагов триггеров
       skipOrigin: new f.BooleanField()   // автор области (эманация) триггеров не получает
     };
   }
@@ -67,7 +70,7 @@ export class ZoneBehaviorType extends foundry.data.regionBehaviors.RegionBehavio
     const { token, movement } = event.data;
     await this.hold(token);
     // movement == null: регион создан/включён поверх токена или снят hidden — это не вход, стартовое испытание выдаёт сам запуск
-    if (movement) {
+    if (movement && movement.method !== "undo") {   // откат движения — не вход
       const c = game.combats.find((x) => x.started && x.combatants.some((m) => m.tokenId === token.id));
       await this.trigger(token, "enter", { evId: `enter:${movement.id}`, combat: c?.id, round: c?.round, turn: c?.turn });
     }
@@ -150,16 +153,19 @@ async function setZoneStatus(region, status) {
 
 const allRegions = () => game.scenes.contents.flatMap((s) => s.regions.contents);
 
-/** rule — Rule (onUse.zone) либо сам Zone; originInfo — { originUuid, originActor, messageId, name? }. Повторный вызов не дублирует поведение. */
+/** rule — Rule (onUse.zone) либо сам Zone; originInfo — { originUuid, originActor, messageId, name?, dc? (снимок use.dc) }. Повторный вызов не дублирует поведение. */
 export async function attachZone(region, rule, originInfo = {}) {
   if (!isActiveGM()) throw new Error("attachZone: только активный ведущий");
   const z = rule?.onUse?.zone ?? rule?.zone ?? rule ?? {};
   let behavior = zoneBehavior(region);
   if (!behavior) {
     const d = z.duration ?? {};
-    const trg = z.triggers ?? [], tc = trg.find((t) => t.challenge)?.challenge;
-    // СЛ триггеров считаем сейчас, пока автор и предмет на месте
-    const dc = tc ? await resolveDC({ rule: { onUse: { challenge: tc } }, item: { uuid: originInfo.originUuid }, actor: originInfo.originActor }).catch(() => null) : null;
+    const trg = z.triggers ?? [];
+    // СЛ триггеров считаем сейчас, пока автор и предмет на месте; предмета нет (расходник) — снимок use.dc, а не СЛ чужого заклинателя
+    const [it, ac] = await Promise.all([originInfo.originUuid, originInfo.originActor].map((u) => u ? fromUuid(u).catch(() => null) : null));
+    const dcs = await Promise.all(trg.map(async ({ challenge: ch }) => !ch ? null
+      : ch.dc?.value ?? (it ? await resolveDC({ rule: { onUse: { challenge: ch } }, item: it, actor: ac }).catch(() => null) : null) ?? originInfo.dc ?? null));
+    const castRank = game.messages.get(originInfo.messageId)?.flags?.pf2e?.origin?.castRank ?? null;
     [behavior] = await region.createEmbeddedDocuments("RegionBehavior", [{
       type: TYPE,
       name: rule?.label ?? originInfo.name ?? L("zone.name"),
@@ -172,8 +178,8 @@ export async function attachZone(region, rule, originInfo = {}) {
         originUuid: originInfo.originUuid ?? "",
         originActor: originInfo.originActor ?? "",
         messageId: originInfo.messageId ?? "",
-        triggers: trg, dc: dc ?? null,
-        skipOrigin: !!trg.length && !!(rule?.onUse?.excludeSelf ?? region.flags?.pf2e?.areaShape === "emanation")
+        triggers: trg, dcs, dc: dcs.find((x) => x != null) ?? originInfo.dc ?? null, castRank,
+        skipOrigin: !!trg.length && !!(rule?.onUse?.excludeSelf ?? emanationDefault(region))
       }
     }]);
   }
@@ -240,7 +246,7 @@ export async function reconcileZones() {
     const use = message?.flags?.[MOD]?.use;
     if (!use?.rule?.onUse?.zone || use.confidence === "low" || use.state?.yielded || use.state?.zone?.status) continue;
     if (Date.now() - (use.createdAt ?? 0) > maxAge) continue;
-    await attachZone(region, use.rule, { originUuid: use.item?.uuid, originActor: use.actor, messageId: message.id, name: use.item?.name });
+    await attachZone(region, use.rule, { originUuid: use.item?.uuid, originActor: use.actor, messageId: message.id, name: use.item?.name, dc: use.dc });
     await message.update({ [`flags.${MOD}.use.state.zone`]: { regionUuid: region.uuid, status: "active" } });
   }
 }

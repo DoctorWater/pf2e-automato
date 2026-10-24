@@ -189,7 +189,7 @@ async () => {
     const t0 = e.since();
     await nextTurn(c);   // ход «внутри»
     t.ok(hosts(e, t0, tA).length === 1, `внутри: одна карточка (${hosts(e, t0, tA).length})`);
-    t.ok(!!e.cond(e.A(tA), "sickened") || e.results(hosts(e, t0, tA)[0])?.[tA.id] === "failure", `бросок провален (d20=1): ${e.results(hosts(e, t0, tA)[0])?.[tA.id]}`);
+    t.ok(!!e.cond(e.A(tA), "sickened") || ["failure", "criticalFailure"].includes(e.results(hosts(e, t0, tA)[0])?.[tA.id]), `бросок провален (d20=1): ${e.results(hosts(e, t0, tA)[0])?.[tA.id]}`);   // d20=1 — крит. провал
     await nextTurn(c);   // ход «снаружи»
     t.ok(hosts(e, t0, tB).length === 0, `снаружи: карточек нет (${hosts(e, t0, tB).length})`);
   });

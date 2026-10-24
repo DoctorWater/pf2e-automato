@@ -562,7 +562,7 @@ export class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
       ...(onUse ? [
         R("targets", { fields: targetFields, area: areaNote }),
         R("roll", { fields: rollFields }),
-        R("outcome", { is_outcome: true, hintExcluded: a.hints?.excluded.length ? t("workshop.au.hintExcluded", { list: hintList(a.hints.excluded) }) : null, cols: mode === "none" ? null : au.COLS.map((d) => lst(`${au.degPath(mode)}.${d}`, t(`sheet.degree.${d}`), d)), imm: ((l) => ({ ...l, quiet: mode !== "none" && !l.steps.length && !l.picker }))(lst("f.apply", t(mode === "none" ? "workshop.au.immediate" : "workshop.au.immediateExtra"))), edit: evSel ? null : edit }),
+        R("outcome", { is_outcome: true, hintExcluded: a.hints?.excluded.length ? t("workshop.au.hintExcluded", { list: hintList(a.hints.excluded) }) : null, cols: mode === "none" ? null : au.COLS.map((d) => lst(`${au.degPath(mode)}.${d}`, t(`sheet.degree.${d}`), d)), imm: ((l) => ({ ...l, quiet: mode !== "none" && !l.steps.length && !l.picker }))(lst("f.apply", t(mode === "none" ? "workshop.au.immediate" : "workshop.au.immediateExtra"))), edit: evSel || trgSel ? null : edit }),
         R("zone", { fold: f.targets === "area", fields: zoneFields, ...(f.targets === "area" && z.on && { is_trig: true, trgs, edit: trgSel ? edit : null }) })
       ] : []),
       R("macros", { is_macros: true, macros })

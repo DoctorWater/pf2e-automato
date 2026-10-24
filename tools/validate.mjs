@@ -5,11 +5,12 @@ import { readFileSync, readdirSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { isDeepStrictEqual } from "node:util";
 import { ROOT, ACCEPTED, serializeDrafts, readJson, readOut, writeJson, writeText, outPath, arg, cmp, isMain } from "./lib.mjs";
-import { validateRule, enemiesOnly, strikeGate, setWho } from "../scripts/rules.mjs";
+import { validateRule, enemiesOnly, strikeGate, setWho, afflictionStages } from "../scripts/rules.mjs";
 import { ruleToForm, formToRule } from "../scripts/sheet.mjs";
 import { BUILTIN } from "../scripts/builtin/index.mjs";
 import { stepCount } from "./triage.mjs";
 import { gateToEvent, hasCard, multiStrike } from "./strike-gate.mjs";
+import { afflictionRule } from "./affliction.mjs";
 
 const en = { ...readJson(join(ROOT, "lang/en/rules.json")).PF2E_AUTOMATO.rules.err, ...readJson(join(ROOT, "lang/en/events.json")).PF2E_AUTOMATO.rules.err };   // ошибки onEvent (ev.*) и cast — в events.json
 const fmtErr = (e) => {
@@ -65,11 +66,14 @@ export function semanticErrors(rule, refs, html = null) {
   for (const s of stepsOf(rule)) {
     if (s.condition && !refs.conditions[s.condition.slug]) bad.push(`condition "${s.condition.slug}" does not exist in pf2e`);
     if (s.removeCondition && !refs.conditions[s.removeCondition.slug]) bad.push(`condition "${s.removeCondition.slug}" does not exist in pf2e`);
+    for (const c of s.affliction?.def.stages.flatMap((st) => st.conditions) ?? []) if (!refs.conditions[c.slug]) bad.push(`affliction condition "${c.slug}" does not exist in pf2e`);
     if (s.repeat?.statistic && !SAVES.includes(s.repeat.statistic)) bad.push(`repeat.statistic must be fortitude, reflex or will (got "${s.repeat.statistic}")`);
     for (const x of [s.effect?.uuid, s.unlessEffect]) if (x && !refs.effects[x]) bad.push(`effect ${x} not found: copy the UUID exactly from the item text`);
     for (const x of [s.effect?.uuid, s.unlessEffect]) if (x && html !== null && !html.includes(x)) bad.push(`effect ${x} is not mentioned in this item's text: use only effects linked in the text`);
   }
   for (const c of rule.cast ?? []) if (html !== null && !html.includes(c.spell)) bad.push(`cast spell ${c.spell} is not mentioned in this item's text: copy the spell UUID from the \`You cast\` link`);
+  // «Stage 1 … Stage 2 …» без шага affliction: стадии остались бы текстом (яд/болезнь не вели бы счёт)
+  if (html && afflictionStages(html) && !stepsOf(rule).some((s) => s.affliction)) bad.push("the text has affliction stages (Stage 1, Stage 2 …): the rule needs an `affliction` step on failure / critical failure (see the affliction example); do not recreate stages with plain condition steps");
   for (const e of rule.onEvent ?? []) if (e.aura && !/^[a-z0-9-]+$/.test(e.aura)) bad.push(`onEvent aura "${e.aura}" must be the slug of a pf2e Aura rule element (lowercase, dashes); if you do not know it use "range" in feet`);
   const z = u?.zone;
   if (z?.condition && !refs.conditions[z.condition.slug]) bad.push(`zone condition "${z.condition.slug}" does not exist in pf2e`);
@@ -101,15 +105,29 @@ export function normalizeRule(rule, html, kind = null) {
   return { rule: r, gate: !!r.onUse?.challenge && strikeGate(html) };
 }
 
+/** Текст со стадиями, а в ответе недуга нет: определение собирает код (tools/affliction.mjs), испытание и остальные степени остаются от модели. Не собралось — правило как есть (semanticErrors скажет почему). */
+function withAffliction(rule, html, refs, kind) {
+  if (!html || !afflictionStages(html) || stepsOf(rule).some((s) => s.affliction)) return { rule };
+  const byId = new Map(Object.entries(refs.conditions ?? {}).map(([slug, c]) => [c.id, slug]));
+  const r = afflictionRule(html, { name: rule.label, traits: kind?.traits ?? [], base: rule, condSlug: (u) => (u.includes(".conditionitems.") ? byId.get(u.split(".").pop()) ?? null : null) });
+  // часть стадий не разобрана (кроме СЛ, её берёт испытание): неполный недуг теряет эффекты молча — на Sonnet
+  if (r?.unsure.some((u) => u !== "dc")) return { rule: r.rule ?? rule, unsure: r.unsure };
+  return { rule: r?.rule ?? rule };
+}
+
 /** Один ответ агента -> { kind: "accepted"|"notes-only"|"needs-primitive"|"null"|"unsure"|"error", rule?, errors? }. */
 export function checkAnswer(ans, refs, html = null, kind = null) {
   if (!ans || typeof ans.uuid !== "string" || !("rule" in ans)) return { kind: "error", errors: ["answer must be {uuid, rule|null, unsure:bool, note}"] };
   if (ans.unsure === true) return { kind: "unsure", guess: ans.rule ?? null };
+  if (ans.rule === null && html && afflictionStages(html)) return { kind: "error", errors: ["the text has affliction stages (Stage 1, Stage 2 …): never answer null, write the `affliction` step (or unsure: true with \"missing: affliction\")"] };
   if (ans.rule === null) return { kind: "null", note: ans.note ?? "" };
   const v = validateRule(ans.rule);
   if (!v.ok) return { kind: "error", errors: v.errors.map(fmtErr) };
   const extra = extraKeys(ans.rule, v.rule);
   if (extra.length) return { kind: "error", errors: [`unknown fields (not in the schema): ${extra.join(", ")}`] };
+  const w = withAffliction(v.rule, html, refs, kind);
+  if (w.unsure) return { kind: "unsure", guess: w.rule };
+  v.rule = w.rule;
   const sem = semanticErrors(v.rule, refs, html);
   if (sem.length) return { kind: "error", errors: sem };
   if (!roundTrip(v.rule)) return { kind: "error", errors: ["rule does not survive the form round-trip: remove fields that are not in the schema"] };
@@ -127,8 +145,8 @@ export const emptyState = () => ({ attempts: {}, retry: {}, sonnet: {} });
  * opts: { htmlOf(uuid), expected: [uuid], final } — ожидаемые ответы (из файла-запроса) для поиска пропущенных; final — последняя ступень (unsure -> needs-primitive).
  * -> { accepted: [черновик с правилом], errors, sonnet, unknown, missing }
  */
-export function processAnswers(answers, draftItems, refs, state = emptyState(), { htmlOf = () => null, expected = [], final = false, actionTypeOf = () => null } = {}) {
-  const kindOf = (uuid, d) => ({ type: d.type, actionType: actionTypeOf(uuid) });
+export function processAnswers(answers, draftItems, refs, state = emptyState(), { htmlOf = () => null, expected = [], final = false, actionTypeOf = () => null, traitsOf = () => [] } = {}) {
+  const kindOf = (uuid, d) => ({ type: d.type, actionType: actionTypeOf(uuid), traits: traitsOf(uuid) });
   const byUuid = new Map(draftItems.map((d) => [d.uuid, d]));
   const res = { accepted: [], errors: [], sonnet: [], unknown: [], missing: [] };
   const seen = new Set();
@@ -191,7 +209,7 @@ function main() {
   const inFile = arg("input");
   const expected = inFile ? [...readFileSync(inFile, "utf8").matchAll(/^### \d+ (\S+)/gm)].map((m) => m[1]) : [];
   const raw = readFileSync(file, "utf8").trim().replace(/^```(?:json)?\s*|\s*```$/g, "");
-  const res = processAnswers(JSON.parse(raw), drafts, refs, state, { htmlOf: (u) => html[u] ?? "", actionTypeOf: (u) => items.get(u)?.actionType ?? null, expected, final: process.argv.includes("--final") });
+  const res = processAnswers(JSON.parse(raw), drafts, refs, state, { htmlOf: (u) => html[u] ?? "", actionTypeOf: (u) => items.get(u)?.actionType ?? null, traitsOf: (u) => items.get(u)?.traits ?? [], expected, final: process.argv.includes("--final") });
   if (res.accepted.length) writeText(aPath, serializeDrafts({ batch, pf2eVersion: meta.pf2eVersion }, mergeAccepted(existsSync(aPath) ? readJson(aPath) : null, res.accepted, { batch, pf2eVersion: meta.pf2eVersion }).items));
   writeJson(stPath, state);
   const retry = Object.values(state.retry).filter((r) => r.errors);

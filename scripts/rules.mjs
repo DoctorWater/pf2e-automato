@@ -1156,7 +1156,7 @@ const num1 = (re, text) => +re.exec(text)?.[1] || undefined;
 // заклинание, а не условие: «cast» только строчными («If your next action is to Cast a prepared Spell»), «gain the effects of @UUID[…]»
 const CAST_WORD = /\bcast(?:s|ing)?\b|\beffects? of\b/;
 // после сотворения в блоке ещё что-то: испытание/урон, эффект предмета, иммунитет, «также», исключения, условие «если следующим действием»
-const CAST_EXTRA = /@(?:Check|Damage|Template)\[|\binstead\b|@UUID\[Compendium\.pf2e\.[\w-]*effects\b|\bimmun|\balso\b|\bexcept\b|\bunlike\b|\bIf your next action\b/i;
+const CAST_EXTRA = /@(?:Check|Damage|Template)\[|\binstead\b|@UUID\[Compendium\.pf2e\.[\w-]*effects\b|\bimmun|\balso\b|\bexcept\b|\bunlike\b|\bIf your next action\b|@UUID\[Compendium\.pf2e\.conditionitems|\b(?:bonus|penalty|resistance|reroll|degree of success)\b/i;
 
 /**
  * Блоки «Activate … Effect: You cast @UUID[spells-srd]{X}» -> cast[] (ровно одна ссылка на заклинание и слово cast; иначе блок пропущен -> partial).
@@ -1179,7 +1179,7 @@ export function deriveCast(html, { spellDefs = {} } = {}) {
   let partial = false;
   for (const a of starts) {
     const stop = html.slice(a + 1).search(/<strong>\s*(?:Activate|Craft Requirements)\b|<h2/i), block = html.slice(a, stop < 0 ? html.length : a + 1 + stop);
-    const eff = /<strong>\s*Effect\s*<\/strong>([\s\S]*)/i.exec(block)?.[1];
+    const eff = /<strong>\s*Effect\s*<\/strong>([\s\S]*?)(?=<hr|$)/i.exec(block)?.[1];
     const links = eff ? [...eff.matchAll(SPELL_LINK)] : [];
     if (links.length !== 1 || !CAST_WORD.test(castProse(eff))) { partial = true; continue; }
     const [, spell, label = ""] = links[0], def = spellDefs[spell], para = eff.split(/<\/p>/i)[0], pt = castProse(para);

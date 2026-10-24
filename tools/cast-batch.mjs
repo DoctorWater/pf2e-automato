@@ -1,7 +1,7 @@
 // Активации «You cast X» массово: deriveCast (scripts/rules.mjs) + проверка по тексту -> rules/drafts-accepted/<batch>.json. Чистые правила — как ответ модели (confidence "model");
 // расхождения — долг `needs-primitive: missing: cast: <причина>` без правила. Расходники (pf2e кастует сам), skip, pf2e/catalog/pa-port и документы с готовым правилом не трогаются.
 // node tools/cast-batch.mjs            — отчёт (ничего не пишет); --write — записать принятые и долг; --sample [--seed 20261025] --out <file> — выборка 50 для Критика
-import { writeFileSync } from "node:fs";
+import { writeFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { readOut, readJson, writeText, serializeDrafts, stripHtml, ACCEPTED, arg, cmp, isMain } from "./lib.mjs";
 import { deriveCast, frequencyOf, castProse, validateRule, RULE_VERSION } from "../scripts/rules.mjs";
@@ -19,7 +19,7 @@ function activations(html) {
   const starts = [...html.matchAll(/<strong>\s*Activate\b/gi)].map((m) => m.index);
   return starts.map((a) => {
     const stop = html.slice(a + 1).search(/<strong>\s*(?:Activate|Craft Requirements)\b|<h2/i), block = html.slice(a, stop < 0 ? html.length : a + 1 + stop);
-    const eff = /<strong>\s*Effect\s*<\/strong>([\s\S]*)/i.exec(block)?.[1] ?? "";
+    const eff = /<strong>\s*Effect\s*<\/strong>([\s\S]*?)(?=<hr|$)/i.exec(block)?.[1] ?? "";
     return { block, eff, links: [...eff.matchAll(SPELL)].map((m) => m[1]), para: eff.split(/<\/p>/i)[0] };
   });
 }
@@ -48,7 +48,7 @@ export function checkCast(rule, html, refs, spellDefs = {}) {
     const ranks = [...text.matchAll(/(\d+)(?:st|nd|rd|th)[- ]rank/gi)].map((m) => +m[1]), rank = ranks[0] || undefined, half = /\bhalf (?:its|your|the)\b/i.test(text);
     if (ranks.length > 1) bad.push(`${n}: several ranks in text`);
     if (half ? !spellDefs[c.spell]?.cantrip || c.rank != null : rank !== c.rank) bad.push(`${n}: rank ${c.rank} != text ${half ? "half level" : rank}`);
-    if (/@(?:Damage|Template)\[|\binstead\b|@UUID\[Compendium\.pf2e\.[\w-]*effects\b|\bimmun|\balso\b|\bexcept\b|\bunlike\b|\bIf your next action\b/i.test(a.eff)) bad.push(`${n}: extra effect after the cast`);
+    if (/@(?:Damage|Template)\[|\binstead\b|@UUID\[Compendium\.pf2e\.[\w-]*effects\b|\bimmun|\balso\b|\bexcept\b|\bunlike\b|\bIf your next action\b|@UUID\[Compendium\.pf2e\.conditionitems|\b(?:bonus|penalty|resistance|reroll|degree of success)\b/i.test(a.eff)) bad.push(`${n}: extra effect after the cast`);
     // @Check вне предложения с заклинанием и не владельца: допустим один — с СЛ правила (повтор СЛ приписью); остальное — лишнее после сотворения
     const foreign = a.eff.split(/(?<=[.!?])\s+|<\/p>/).filter((x) => !own(castProse(x)) && !x.includes(c.spell)).flatMap((x) => [...x.matchAll(/@Check\[[^\]]*\]/g)].map((m) => m[0]));
     if (foreign.length > (c.dc != null && foreign.some((x) => new RegExp(`\\bdc:${c.dc}\\b`).test(x)) ? 1 : 0)) bad.push(`${n}: extra check/damage after the cast`);
@@ -68,12 +68,12 @@ export function buildBatch() {
   const html = readOut("html.json"), { items } = readOut("items.json"), refs = readOut("refs.json"), tri = new Map(readOut("triage.json").items.map((t) => [t.uuid, t]));
   const acc = new Map(readModelAccepted().map((d) => [d.uuid, d]));
   const spellDefs = Object.fromEntries(items.filter((i) => i.pack === "spells-srd").map((i) => [i.uuid, { slug: i.slug, save: !!i.defense?.save, attack: /\bspell attack\b/i.test(i.descEn ?? ""), cantrip: (i.traits ?? []).includes("cantrip") }]));
-  const ok = [], debt = [];
+  const ok = [], debt = [], stale = new Set();   // stale: наше правило, а вывод теперь пуст (активация кончилась на <hr>) — снимается
   for (const it of items) {
     const h = html[it.uuid], t = tri.get(it.uuid), a = acc.get(it.uuid);
     if (!h || it.type === "consumable" || !OPEN.has(t.status) || t.rule) continue;
     const dc = deriveCast(h, { spellDefs });
-    if (!dc) continue;
+    if (!dc) { if (a?.reason === CONV) stale.add(it.uuid); continue; }
     const ours = a?.reason === CONV || a?.reason?.includes("missing: cast:"), oldDebt = a?.confidence === "needs-primitive" && !ours && OLD_DEBT.test(a.reason);
     const nullCast = a && !a.rule && a.reason?.startsWith("model-null") && /cast/i.test(a.reason);
     if (a && !ours && !oldDebt && !nullCast) continue;   // готовое правило и прочий долг не трогаем
@@ -84,11 +84,11 @@ export function buildBatch() {
     if (why) debt.push({ ...d, status: "manual", confidence: "needs-primitive", reason: `needs-primitive: missing: cast: ${why}`, rule: null });
     else ok.push({ ...d, status: "manual", confidence: "model", reason: CONV, rule: validateRule(rule).rule });
   }
-  return { ok, debt, html, items };
+  return { ok, debt, stale, html, items };
 }
 
 function main() {
-  const { ok, debt, html } = buildBatch();
+  const { ok, debt, stale, html } = buildBatch();
   const cat = {};
   for (const d of debt) {
     const k = d.reason.replace(/^needs-primitive: missing: cast: /, "").replace(/activation \d+: /, "").replace(/(\d+|\{[^}]*\}|undefined|null)/g, "#").slice(0, 45);
@@ -98,6 +98,10 @@ function main() {
   console.log(`catalog ${ok.length} (copies ${weight(ok)}); debt ${debt.length} (copies ${weight(debt)}); by reason`, cat);
   const strip = ({ batch, dupCount, ...d }) => d;
   if (process.argv.includes("--write")) {
+    for (const p of readdirSync(ACCEPTED).filter((n) => n.endsWith(".json"))) {   // снять устаревшие правила
+      const path = join(ACCEPTED, p), ex = readJson(path), items = (ex.items ?? []).filter((d) => !stale.has(d.uuid));
+      if (ex.items && items.length !== ex.items.length) writeText(path, serializeDrafts(ex.meta, items));
+    }
     const by = {};
     for (const d of [...ok, ...debt]) (by[d.batch] ??= []).push(strip(d));
     for (const [batch, list] of Object.entries(by)) {

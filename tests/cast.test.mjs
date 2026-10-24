@@ -121,6 +121,24 @@ test("deriveCast: нет СЛ — low, пока spellDefs не скажет, ч�
   assert.equal(s.confidence, "low");
 });
 
+test("deriveCast: поле Effect обрывается на <hr> (Luck Blade — абзац про Wish за чертой не захватывается)", () => {
+  const wish = "Compendium.pf2e.spells-srd.Item.wish";
+  const luck = `<p><strong>Activate</strong> Revision</p><p><strong>Effect</strong> Reroll the triggering attack roll.</p><hr /><p>You can cast @UUID[${wish}]{Wish} as an innate spell.</p>`;
+  assert.equal(deriveCast(luck), null);
+  const d = deriveCast(JOLT.replace("Electric Arc}.</p>", "Electric Arc}.</p><hr /><p>Also cast @UUID[" + wish + "]{Wish}.</p>"));
+  assert.deepEqual([d.cast.length, d.partial], [1, false]);
+});
+
+test("deriveCast: условие, бонус/штраф, сопротивление, переброс после сотворения — partial, low", () => {
+  const eff = (t) => deriveCast(JOLT.replace("Electric Arc}.</p>", "Electric Arc}. " + t + "</p>"));
+  for (const t of ["You are @UUID[Compendium.pf2e.conditionitems.Item.abc]{Drained 3}.", "You gain a +1 circumstance bonus to AC.", "You take a -2 penalty to Will saves.",
+    "You gain resistance 2 to fire.", "You can reroll the save.", "The result is one degree of success worse."]) {
+    const r = eff(t);
+    assert.deepEqual([r.partial, r.confidence], [true, "low"], t);
+  }
+  assert.equal(eff("The arc leaps to a second target.").confidence, "high");
+});
+
 test("deriveCast: две и более ссылок (список посоха) не выводятся; смешанный предмет — partial, low", () => {
   assert.equal(deriveCast(STAFF), null);
   const mixed = deriveCast(`${JOLT}<hr />${STAFF.slice(STAFF.indexOf("<p><strong>Activate—Sunder"))}`, { traits: ["spellheart"] });

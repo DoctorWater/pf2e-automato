@@ -143,3 +143,33 @@ test("hasSnapshot: чужие флаги модуля (preyTargets, castTargets)
   assert.equal(hasSnapshot({ flags: { "pf2e-automato": { use: { v: 1 } } } }), true);
   assert.equal(hasSnapshot({ flags: {} }), false);
 });
+
+// low + испытание: бросок как у high (rollTried ставится при сбое броска у NPC), применение — отдельно (saves/chat тесты)
+test("low + challenge: runUse бросает цели; high — так же; area: runRegion собирает область и бросает", async () => {
+  const rolled = (m) => st(m).state.challenge?.rollTried?.n === true;
+  const npc = { id: "n", uuid: "Scene.s.Token.n", name: "n", actor: { hasPlayerOwner: false, uuid: "A.n" }, testInsideRegion: () => true };
+  const setup = (modes, ms) => {
+    world({ "mode.challenge": "auto", "mode.effect": "auto", "mode.macro": "auto", "mode.zone": "auto", ...modes }, ms);
+    game.user = { isActiveGM: true, id: "gm" };
+    globalThis.fromUuidSync = () => npc;
+    globalThis.fromUuid = async () => null;
+  };
+  const tgt = { targets: [{ key: "n", uuid: "Scene.s.Token.n" }], dc: 15, actor: "A.me" };
+  for (const confidence of ["low", "high"]) {
+    const m = mk(`c-${confidence}`, CH, { confidence, ...tgt });
+    setup({}, [m]);
+    await use.runUse(m.id);
+    assert.equal(rolled(m), true, `${confidence}: бросок запущен`);
+    assert.equal(st(m).state.done, true);
+  }
+  const area = { v: 1, onUse: { targets: "area", challenge: { statistic: "reflex", dc: { value: 15 } }, apply: [] } };
+  const region = { uuid: "Scene.s.Region.r", flags: { pf2e: { origin: {} } }, parent: { tokens: { contents: [npc], get: () => npc } } };
+  for (const confidence of ["low", "high"]) {
+    const m = mk(`a-${confidence}`, area, { confidence, actor: "A.me", dc: 15 });
+    setup({}, [m]);
+    globalThis.fromUuidSync = (u) => (u === region.uuid ? region : npc);
+    await use.runRegion(region, m);
+    assert.deepEqual(st(m).state.area?.keys, ["n"], `${confidence}: область собрана`);
+    assert.equal(rolled(m), true, `${confidence}: бросок запущен`);
+  }
+});

@@ -1,9 +1,10 @@
 // Отчёт покрытия: проценты по типам, слоям, пачкам, приоритету + строка по PA. -> tools/out/coverage.json и раздел в coverage.md.
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
-import { ROOT, readOut, writeJson, outPath, isMain } from "./lib.mjs";
+import { ROOT, readJson, readOut, writeJson, outPath, isMain } from "./lib.mjs";
+import { readModelAccepted } from "./drafts.mjs";
 
-export const STATUSES = ["pf2e", "catalog", "markup-high", "markup-head", "markup-low", "pa-port", "manual", "skip"];
+export const STATUSES = ["pf2e", "catalog", "pa", "model", "markup-high", "markup-head", "markup-low", "pa-port", "manual", "skip"];
 const NEED = STATUSES.filter((s) => s !== "skip");
 const START = "<!-- pipeline:start -->", END = "<!-- pipeline:end -->";
 
@@ -19,8 +20,26 @@ export function tally(rows) {
 }
 
 const pct = (a, b) => (b ? `${((100 * a) / b).toFixed(1)}%` : "—");
-/** «Готово» = закрыто pf2e, в каталоге или выведено с высокой уверенностью. */
-const ready = (o) => o.pf2e + o.catalog + o["markup-high"];
+/** «Готово» = закрыто pf2e, в каталоге, перенесено из PA (pa) или принятый ответ модели. Вывод из разметки (markup-*) — черновик: в рантайме сам не исполняется (решение 2026-10-24, выборки ~50% ошибок). */
+const ready = (o) => o.pf2e + o.catalog + o.pa + o.model;
+
+/** Триаж не знает о принятых ответах моделей: правило -> model, «нечего автоматизировать» -> skip model-null. */
+export function withAccepted(tri, accepted) {
+  const by = new Map(accepted.map((d) => [d.uuid, d]));
+  return tri.map((t) => {
+    const d = ["manual", "markup-head", "markup-high", "markup-low"].includes(t.status) ? by.get(t.uuid) : null;
+    if (!d) return t;
+    // проверка модели отвергла черновик разметки (нужен примитив, одни заметки): это долг, а не черновик
+    return d.rule && d.confidence === "model" ? { ...t, status: "model" } : d.reason?.startsWith("model-null") ? { ...t, status: "skip", reason: "model-null" } : t.status.startsWith("markup") ? { ...t, status: "manual" } : t;
+  });
+}
+
+/** pa-port из триажа — очередь переноса; закрытые переносом (правило в catalog.pa.json), ручным каталогом/обработчиком или самим pf2e -> pa. Долг, ложное покрытие, «PA ошибается», не переносимое — остаются pa-port. */
+export function withPa(tri, paDrafts) {
+  const DONE = new Set(["ported", "covered", "native"]);
+  const done = new Set(paDrafts.filter((d) => DONE.has(d.finalStatus)).map((d) => d.uuid));
+  return tri.map((t) => (t.status === "pa-port" && done.has(t.uuid) ? { ...t, status: "pa" } : t));
+}
 
 function table(title, t, sortKeys) {
   const keys = sortKeys ?? Object.keys(t).sort();
@@ -54,7 +73,7 @@ export function renderMd(d) {
   return `${START}
 ## Конвейер: сводка по снимку pf2e ${d.pf2eVersion} (${d.generatedAt.slice(0, 10)})
 
-Генерируется \`node tools/coverage.mjs\` (шаг \`node tools/run.mjs\`); методика ниже (§0) осталась как была, этот раздел считает по **документам** после \`tools/triage.mjs\`. Статусы: \`pf2e\` — закрыто системой (selfEffect, Aura RE); \`catalog\` — уже в каталоге модуля; \`markup-high/low\` — правило выведено \`deriveFromMarkup\`; \`pa-port\` — закрывалось pf2e-automations, очередь переноса; \`manual\` — нужен черновик; \`skip\` — пассивное, без следа, только урон или дубль компендия в актёре. «Готово %» = (pf2e + catalog + markup-high) / требует.
+Генерируется \`node tools/coverage.mjs\` (шаг \`node tools/run.mjs\`); методика ниже (§0) осталась как была, этот раздел считает по **документам** после \`tools/triage.mjs\`. Статусы: \`pf2e\` — закрыто системой (selfEffect, Aura RE); \`catalog\` — уже в каталоге модуля; \`model\` — принятый ответ Haiku/Sonnet (\`rules/catalog.model.json\`); \`markup-high/low\` — черновик \`deriveFromMarkup\` (в рантайме — только кнопкой ведущего; ждёт проверки моделью: \`haiku-input.mjs --review\`); \`pa-port\` — закрывалось pf2e-automations, очередь переноса; \`manual\` — нужен черновик; \`skip\` — пассивное, без следа, только урон или дубль компендия в актёре. \`pa\` — закрыто переносом pf2e-automations (\`rules/catalog.pa.json\`, ручной каталог/обработчик или сам pf2e; долг и ложное покрытие PA остаются \`pa-port\`). «Готово %» = (pf2e + catalog + pa + model) / требует.
 
 Всего документов ${d.total}; требуют автоматизации ${o.need}; готово ${ready(o)} (${pct(ready(o), o.need)}); skip ${o.skip} (${Object.entries(d.skipReasons).map(([k, v]) => `${k} ${v}`).join(", ")}).
 
@@ -96,7 +115,8 @@ export function replaceBlock(md, block) {
 
 function main() {
   const { meta, items } = readOut("items.json");
-  const tri = readOut("triage.json").items;
+  const pd = join(ROOT, "rules/drafts/pa-port.json");
+  const tri = withPa(withAccepted(readOut("triage.json").items, readModelAccepted()), existsSync(pd) ? readJson(pd).items : []);
   const pa = existsSync(outPath("pa-port.json")) ? readOut("pa-port.json") : null;
   const d = buildReport({ meta, items, tri, pa });
   writeJson(outPath("coverage.json"), d, 1);

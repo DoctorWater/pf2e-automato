@@ -6,7 +6,7 @@ import { execFileSync } from "node:child_process";
 import { ROOT, ACCEPTED, AUTOMATIONS_CONFIG, cmp, readJson, readOut, writeJson, writeText, outPath, isMain, arg, stripHtml } from "./lib.mjs";
 import { makeContext, BATCHES } from "./triage.mjs";
 import { buildAutomationsIndex } from "../scripts/compat.mjs";
-import { STEP_DAMAGE_TYPES, deriveFromMarkup, REPLACES, markReplace, validateRule, parseCheck, slugTypeKey, isSelfEffectOnly, slugCollides, lacksOwnRoll, immunityFromText, immunityDuration } from "../scripts/rules.mjs";
+import { STEP_DAMAGE_TYPES, strikeGate, deriveFromMarkup, REPLACES, markReplace, validateRule, parseCheck, slugTypeKey, isSelfEffectOnly, slugCollides, lacksOwnRoll, immunityFromText, immunityDuration } from "../scripts/rules.mjs";
 import { DEGREES } from "../scripts/util.mjs";
 import { isPredicate } from "../scripts/predicate.mjs";
 import { roundTrip } from "./validate.mjs";
@@ -402,7 +402,7 @@ export function translatePart(r, item, ctx, { bound = false } = {}) {
 
 const CHECK_SKIP = new Set(["flat", "lore"]);
 /** Оболочка проверки по тексту предмета: challenge (спасбросок цели) либо check (бросок автора). */
-const derivedOf = (item, html, ctx) => deriveFromMarkup({ type: item.type, slug: item.slug, name: item.name, system: { description: { value: html }, defense: item.defense ? { save: { statistic: item.defense.save, basic: item.defense.basic } } : undefined, area: item.area ? {} : undefined, target: item.target ?? undefined, actionType: { value: item.actionType }, traits: { value: item.traits } } }, ctx.labels, ctx.condSlugByUuid, ctx.condNames);
+const derivedOf = (item, html, ctx) => deriveFromMarkup({ type: item.type, slug: item.slug, name: item.name, system: { description: { value: html }, defense: item.defense ? { save: { statistic: item.defense.save, basic: item.defense.basic } } : undefined, area: item.area ? {} : undefined, target: item.target ?? undefined, duration: item.duration ? { value: item.duration.replace(/^sustained\s*/, ""), sustained: item.duration.startsWith("sustained") } : undefined, actionType: { value: item.actionType }, traits: { value: item.traits } } }, ctx.labels, ctx.condSlugByUuid, ctx.condNames);
 const SKILLS = new Set(["acrobatics", "arcana", "athletics", "crafting", "deception", "diplomacy", "intimidation", "medicine", "nature", "occultism", "performance", "religion", "society", "stealth", "survival", "thievery", "perception"]);
 /** Есть ли в документе спасбросок, который PA мог бы принять (защита, @Check или «Will save» в тексте). */
 const hasSave = (item, html) => !!item.defense?.save || /@Check\[(?:fortitude|reflex|will)\b|\b(?:Fortitude|Reflex|Will)\s+(?:saves?|DC)\b|\bsaving throws?\b/i.test(stripHtml(html) + " " + html);
@@ -541,6 +541,8 @@ export function translateItem(item, html, group, ctx0, { slugOnly = false, viaSo
       const k = [...kinds][0], sh = shell(k, item, html, ctx, plain.filter((p) => p.degrees && p.trigger !== "saving-throw").every((p) => p.own));
       // PA принимает спасбросок с этим slug, а в документе спасброска нет (пассив, Удар): правило PA тут не срабатывает никогда — ложное покрытие
       if (!sh) return { fail: k === "challenge" ? (hasSave(item, html) ? "no-save-def" : "no-roll-in-doc") : plain.some((p) => p.degrees && p.trigger !== "saving-throw" && !p.own) ? (plain.find((p) => p.evCand?.fail)?.evCand.fail ?? "roll-of-other-action") : "no-roll-def" };
+      // испытание после Удара рантайм не исполняет (при использовании оно бросилось бы и при промахе): долг «нужен примитив strike-gate»
+      if (k === "challenge" && strikeGate(html)) return { fail: "strike-gate" };
       if (k === "check" && !sh.vs) u.targets = "self";   // бросок без цели: шаги — на автора
       // только иммунитет (в PA нет шагов по степеням): состояния — из текста, как их вывела бы разметка (каталог перекрывает разметку, иначе они бы пропали)
       // dc «из текста» (копии NPC): степени и иммунитет решает текст копии на лету (resolveRule/withMarkupHead) — в каталог их не замораживаем

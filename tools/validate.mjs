@@ -1,10 +1,11 @@
 // Ответ агента (JSON-массив {uuid, rule|null, unsure, note}) -> валидация -> принятые в rules/drafts-accepted, очереди повтора и Sonnet.
-// Запуск: node tools/validate.mjs <ответ.json> <batch> [--input tools/out/haiku/<batch>-NN.md]
+// Запуск: node tools/validate.mjs <ответ.json> <batch> [--input tools/out/haiku/<batch>-NN.md] [--final]
+// --final — ответы последней ступени (Sonnet): unsure не уходит дальше, а принимается долгом needs-primitive с правилом-догадкой.
 import { readFileSync, readdirSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { isDeepStrictEqual } from "node:util";
 import { ROOT, ACCEPTED, serializeDrafts, readJson, readOut, writeJson, writeText, outPath, arg, cmp, isMain } from "./lib.mjs";
-import { validateRule } from "../scripts/rules.mjs";
+import { validateRule, enemiesOnly, strikeGate, setWho } from "../scripts/rules.mjs";
 import { ruleToForm, formToRule } from "../scripts/sheet.mjs";
 import { BUILTIN } from "../scripts/builtin/index.mjs";
 import { stepCount } from "./triage.mjs";
@@ -19,7 +20,9 @@ export const SAVES = ["fortitude", "reflex", "will"];
 export const SKILLS = ["acrobatics", "arcana", "athletics", "crafting", "deception", "diplomacy", "intimidation", "medicine", "nature", "occultism", "performance", "religion", "society", "stealth", "survival", "thievery"];
 const CHECK_STATS = new Set([...SKILLS, "perception", "spell-attack", "attack"]);
 // автор: СЛ «заклинания» / «класса» / навыка (saves.mjs resolveDC); цель: любая её статистика (checks.mjs)
-const DC_AGAINST = new Set(["spell", "class", "class-spell", "perception", ...SKILLS]);
+// слаг класса (kineticist, commander…) — СЛ этого класса: getStatistic(slug) у pf2e отдаёт classDCs (архетип — не основной класс)
+export const CLASSES = ["alchemist", "animist", "barbarian", "bard", "champion", "cleric", "commander", "druid", "exemplar", "fighter", "guardian", "gunslinger", "inventor", "investigator", "kineticist", "magus", "monk", "oracle", "psychic", "ranger", "rogue", "runesmith", "sorcerer", "summoner", "swashbuckler", "thaumaturge", "witch", "wizard"];
+const DC_AGAINST = new Set(["spell", "class", "class-spell", "perception", ...SKILLS, ...CLASSES]);
 const VS_AGAINST = new Set([...SAVES, "perception", ...SKILLS]);
 const isLore = (s) => /^[a-z0-9-]+-lore$/.test(s) || s === "lore";
 
@@ -45,6 +48,12 @@ export function extraKeys(raw, norm, path = "") {
 
 const stepsOf = (rule) => [...(rule.onUse?.apply ?? []), ...Object.values(rule.onUse?.challenge?.byDegree ?? {}).flat(), ...Object.values(rule.onUse?.check?.byDegree ?? {}).flat()];
 
+/** Одни заметки ведущему (без иммунитета, зоны, событий): либо сюжет (автоматизировать нечего), либо механика без примитива (толчок, штраф без эффекта). Не skip: очередь «нужен примитив», в рантайм не идёт (решение пользователя 2026-10-24). */
+export const notesOnly = (rule) => {
+  const u = rule.onUse, s = stepsOf(rule);
+  return s.length > 0 && s.every((x) => x.note) && !u?.challenge?.immunity && !u?.check?.immunity && !u?.zone && !rule.onEvent?.length && !rule.onAttacked && !rule.macros?.length;
+};
+
 /** Содержательные проверки: ссылки существуют (и есть в тексте предмета), статистики из известных списков, builtin есть в реестре. html === null — не проверять текст. */
 export function semanticErrors(rule, refs, html = null) {
   const bad = [];
@@ -63,7 +72,7 @@ export function semanticErrors(rule, refs, html = null) {
   const c = u?.challenge;
   if (c) {
     if (!SAVES.includes(c.statistic)) bad.push(`challenge.statistic must be fortitude, reflex or will (got "${c.statistic}")`);
-    if (c.dc.against && !DC_AGAINST.has(c.dc.against)) bad.push(`dc.against "${c.dc.against}" is unknown: use spell, class, class-spell, perception or a skill`);
+    if (c.dc.against && !DC_AGAINST.has(c.dc.against)) bad.push(`dc.against "${c.dc.against}" is unknown: use spell, class, class-spell, a class slug (kineticist…), perception or a skill`);
   }
   const k = u?.check;
   if (k) {
@@ -74,7 +83,18 @@ export function semanticErrors(rule, refs, html = null) {
   return bad;
 }
 
-/** Один ответ агента -> { kind: "accepted"|"null"|"unsure"|"error", rule?, errors? }. */
+/**
+ * Общие дефекты ответов моделей по тексту: «только враги» -> who:"enemy" шагам к цели; «испытание после Удара» -> gate
+ * (испытание при использовании бросилось бы и при промахе: правило сохраняем, но в каталог рантайма оно не идёт). html пуст — не трогать.
+ */
+export function normalizeRule(rule, html) {
+  if (!html) return { rule, gate: false };
+  const r = structuredClone(rule);
+  if (enemiesOnly(html)) setWho(r.onUse, "enemy");
+  return { rule: r, gate: !!r.onUse?.challenge && strikeGate(html) };
+}
+
+/** Один ответ агента -> { kind: "accepted"|"notes-only"|"needs-primitive"|"null"|"unsure"|"error", rule?, errors? }. */
 export function checkAnswer(ans, refs, html = null) {
   if (!ans || typeof ans.uuid !== "string" || !("rule" in ans)) return { kind: "error", errors: ["answer must be {uuid, rule|null, unsure:bool, note}"] };
   if (ans.unsure === true) return { kind: "unsure", guess: ans.rule ?? null };
@@ -86,17 +106,19 @@ export function checkAnswer(ans, refs, html = null) {
   const sem = semanticErrors(v.rule, refs, html);
   if (sem.length) return { kind: "error", errors: sem };
   if (!roundTrip(v.rule)) return { kind: "error", errors: ["rule does not survive the form round-trip: remove fields that are not in the schema"] };
-  return { kind: "accepted", rule: v.rule };
+  const { rule, gate } = normalizeRule(v.rule, html);
+  if (notesOnly(rule)) return { kind: "notes-only", rule };
+  return { kind: gate ? "needs-primitive" : "accepted", rule };
 }
 
 export const emptyState = () => ({ attempts: {}, retry: {}, sonnet: {} });
 
 /**
  * Чистая часть. draftItems — черновики пачки (для имён и поиска), state копит попытки и очереди между вызовами,
- * opts: { htmlOf(uuid), expected: [uuid] } — ожидаемые ответы (из файла-запроса) для поиска пропущенных.
+ * opts: { htmlOf(uuid), expected: [uuid], final } — ожидаемые ответы (из файла-запроса) для поиска пропущенных; final — последняя ступень (unsure -> needs-primitive).
  * -> { accepted: [черновик с правилом], errors, sonnet, unknown, missing }
  */
-export function processAnswers(answers, draftItems, refs, state = emptyState(), { htmlOf = () => null, expected = [] } = {}) {
+export function processAnswers(answers, draftItems, refs, state = emptyState(), { htmlOf = () => null, expected = [], final = false } = {}) {
   const byUuid = new Map(draftItems.map((d) => [d.uuid, d]));
   const res = { accepted: [], errors: [], sonnet: [], unknown: [], missing: [] };
   const seen = new Set();
@@ -112,7 +134,14 @@ export function processAnswers(answers, draftItems, refs, state = emptyState(), 
     seen.add(a.uuid);
     const c = checkAnswer(a, refs, htmlOf(a.uuid));
     if (c.kind === "accepted") res.accepted.push({ ...d, status: "manual", confidence: "model", reason: `model: ${a.note ?? ""}`.trim(), rule: c.rule });
+    else if (c.kind === "notes-only") res.accepted.push({ ...d, status: "manual", confidence: "notes-only", reason: `notes-only: ${a.note ?? ""}`.trim(), rule: c.rule });
+    else if (c.kind === "needs-primitive") res.accepted.push({ ...d, status: "manual", confidence: "needs-primitive", reason: `needs-primitive: strike-gate; ${a.note ?? ""}`.trim(), rule: c.rule });
     else if (c.kind === "null") res.accepted.push({ ...d, status: "skip", confidence: null, reason: `model-null: ${c.note}`, rule: null });
+    else if (c.kind === "unsure" && final) {
+      // догадка проходит те же проверки, что и обычный ответ; негодная -> rule:null (правило по ней писать нечем)
+      const g = checkAnswer({ uuid: a.uuid, rule: c.guess, unsure: false }, refs, htmlOf(a.uuid));
+      res.accepted.push({ ...d, status: "manual", confidence: "needs-primitive", reason: `needs-primitive: ${a.note ?? ""}`.trim(), rule: ["accepted", "needs-primitive", "notes-only"].includes(g.kind) ? g.rule : null });
+    }
     else if (c.kind === "unsure") { state.sonnet[a.uuid] = { uuid: a.uuid, why: "unsure", note: a.note ?? "", guess: c.guess }; res.sonnet.push(a.uuid); }
     else fail(a.uuid, c.errors, a.rule ?? null);
   }
@@ -152,7 +181,7 @@ function main() {
   const inFile = arg("input");
   const expected = inFile ? [...readFileSync(inFile, "utf8").matchAll(/^### \d+ (\S+)/gm)].map((m) => m[1]) : [];
   const raw = readFileSync(file, "utf8").trim().replace(/^```(?:json)?\s*|\s*```$/g, "");
-  const res = processAnswers(JSON.parse(raw), drafts, refs, state, { htmlOf: (u) => html[u] ?? "", expected });
+  const res = processAnswers(JSON.parse(raw), drafts, refs, state, { htmlOf: (u) => html[u] ?? "", expected, final: process.argv.includes("--final") });
   if (res.accepted.length) writeText(aPath, serializeDrafts({ batch, pf2eVersion: meta.pf2eVersion }, mergeAccepted(existsSync(aPath) ? readJson(aPath) : null, res.accepted, { batch, pf2eVersion: meta.pf2eVersion }).items));
   writeJson(stPath, state);
   const retry = Object.values(state.retry).filter((r) => r.errors);

@@ -297,17 +297,17 @@ function execUse(messageId, skipIfDone) {
     const onUse = use.rule?.onUse;
     const area = onUse?.targets === "area";
 
-    if (use.confidence === "low") {
-      // §3.G: не исполняем; stepKey шагов apply = "u<i>"
+    const low = use.confidence === "low";
+    if (low) {
+      // §3.G: шаги apply не исполняем (только кнопкой); stepKey = "u<i>". Бросок испытания — как у high, применение степеней — кнопкой
       const applied = use.state?.derived?.applied ?? [];
       const pending = (onUse?.apply ?? []).map((_, i) => `u${i}`).filter((k) => !applied.includes(k));
-      await setState(message, { derived: { pending, applied }, done: true });
-      return;
+      await setState(message, { derived: { pending, applied } });
     }
 
-    if (onUse?.apply?.length && modeOf("effect") === "auto") await applyUseSteps(message, use, { targets: !area });   // область: цели берёт runRegion
+    if (!low && onUse?.apply?.length && modeOf("effect") === "auto") await applyUseSteps(message, use, { targets: !area });   // область: цели берёт runRegion
 
-    if (use.rule.macros?.some((m) => m.phase === "onUse") && modeOf("macro") !== "off") {
+    if (!low && use.rule.macros?.some((m) => m.phase === "onUse") && modeOf("macro") !== "off") {
       const targets = (await Promise.all(inRange(use.targets).map((t) => fromUuid(t.uuid)))).filter(Boolean);
       await macros.runMacros("onUse", { message, rule: use.rule, targets });
     }
@@ -341,10 +341,7 @@ export async function runRegion(region, message) {
         const pending = [...new Set([...(use.state?.derived?.pending ?? []), "zone"])];
         await setState(message, { derived: { pending, applied: use.state?.derived?.applied ?? [] }, zone: { regionUuid: region.uuid, status: "pending" } });
       }
-      return;
-    }
-
-    if (onUse.zone && zoneMode !== "off") {
+    } else if (onUse.zone && zoneMode !== "off") {
       const prev = use?.state?.zone?.regionUuid;
       if (prev && prev !== region.uuid) await tolerate("closeZone", () => zone.closeZone(prev));
       if (zoneMode === "auto") {
@@ -373,7 +370,7 @@ export async function runRegion(region, message) {
       ...Object.assign({}, ...u.drop.map((k) => forcedDelete(flagPath("use", "state", "challenge", "results", k))))
     });
 
-    if (targetSteps.length && modeOf("effect") === "auto") {
+    if (targetSteps.length && use.confidence !== "low" && modeOf("effect") === "auto") {
       for (const t of tokens) {
         const doc = await fromUuid(t.uuid);
         if (doc) await apply.applyOps(message, t.key, targetSteps, { scope: "apply", target: doc, region });

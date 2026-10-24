@@ -197,7 +197,7 @@ export function buildViewModel(message, user, env = null) {
   // испытание
   const ck = on.check, ch = on.challenge ?? ck;   // check: бросает автор (checks.mjs), результаты и применение — общие
   if (ch) {
-    const modeApply = env.mode("apply"), modeChallenge = env.mode("challenge");
+    const modeApply = use.confidence === "low" && env.mode("apply") === "auto" ? "button" : env.mode("apply"), modeChallenge = env.mode("challenge");
     const keys = [...new Set([
       ...(state.area?.keys ?? (on.targets === "area" ? [] : (use.targets ?? []).filter((x) => !x.far).map((x) => x.key))),
       ...Object.keys(state.challenge?.results ?? {})

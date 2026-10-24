@@ -1,4 +1,4 @@
-import { MOD, DEGREES, errText, sluggify } from "./util.mjs";
+import { MOD, DEGREES, ENDS_EARLY, errText, sluggify } from "./util.mjs";
 import { S, rev } from "./settings.mjs";
 import { isPredicate } from "./predicate.mjs";
 
@@ -624,6 +624,17 @@ const STOP = /(?<!\p{L})(?:из(?![\p{L}-])|без|уже|если|не|ни|и�
 const AUTHOR = /(?<!\p{L})(?:вы|вас|вам|вами|you)(?![\p{L}])/iu;
 // альтернатива/условие после значения: «испуг 1 вместо испуга 2», «frightened 3 if …»
 const ALT = /(?<!\p{L})(?:вместо|instead|if|если|unless)(?![\p{L}])/iu;
+// «на время действия заклинания»: срок берётся у самого документа (system.duration)
+const ITEM_DUR = /(?<!\p{L})(?:for\s+the\s+(?:spell['’]?s?\s+)?duration(?:\s+of\s+the\s+spell)?|на\s+(?:все\s+)?время\s+действия|на\s+(?:весь\s+)?срок\s+действия|в\s+течение\s+(?:всего\s+)?(?:времени\s+)?действия)/gu;
+// второе состояние «после первого»: одновременно оно не наступает, шагом правила последовательность не выразить
+const SEQ = /(?<!\p{L})(?:then|afterwards?|затем|потом|после\s+того)(?!\p{L})|(?<!\p{L})(?:after|when)\s+(?:it|they|the\s+\p{L}+)\s+(?:recovers?|is\s+no\s+longer|are\s+no\s+longer)(?!\p{L})/u;
+// текст меняет срок, который правило не выразит: «with a duration of 1 hour», «unlimited duration», «doesn't end when the spell's duration does»
+const DUR_CHANGED = /(?<!\p{L})(?:(?:doesn['’]?t|does\s+not|don['’]?t)\s+end|duration\s+(?:of|is)|(?:unlimited|indefinite)\s+duration)(?!\p{L})|продолжительност\p{L}*/u;
+/** system.duration pf2e ({value:"1 minute", sustained}) -> {value, unit} конечный срок; «sustained» — верхняя граница, как у эффектов pf2e. Иначе null. */
+export function itemDuration(d) {
+  const m = /^(?:up\s+to\s+)?(\d+)\s*(round|minute|hour|day)s?$/i.exec(String(d?.value ?? "").trim().replace(/^sustained\s+/i, ""));
+  return m && +m[1] >= 1 ? { value: +m[1], unit: UNIT_OF[m[2][0].toLowerCase()] } : null;
+}
 const blank = (s) => " ".repeat(s.length);
 const normTerm = (s) => s.toLowerCase().replace(/ё/g, "е").replace(/[\d:.,;()]/g, " ").replace(/\s+/g, " ").trim();
 
@@ -632,10 +643,11 @@ const normTerm = (s) => s.toLowerCase().replace(/ё/g, "е").replace(/[\d:.,;()]
  * («в течение 1 раунда», «for 1 round», «до начала своего следующего хода»): срок получает только состояние,
  * после которого он стоит вплотную (между ними одни пробелы).
  * Состояние без значения берётся, только если в описании оно есть ссылкой (linkedAll); иначе — в possible.
+ * itemDur — срок документа для «на время действия» (null — не выводится). flags: termText (в тексте есть срок), seq (последовательность состояний), keep (срок меняется текстом, «As failure, but for 1 minute» — срок блока-ссылки не у его состояний).
  * Мутирует conds, возвращает possible (slug[]).
  * ponytail: падежи — отбрасывается последняя буква имени и допускается до 2 букв окончания; без морфологии.
  */
-function addPlainConds(text, conds, terms, linkedAll) {
+function addPlainConds(text, conds, terms, linkedAll, itemDur = null, flags = {}) {
   const flat = text.replace(/@UUID\[[^\]]*\](?:\{[^}]*\})?|<[^>]*>|&nbsp;/g, blank).toLowerCase().replace(/ё/g, "е");
   const bounds = [...flat.matchAll(/[.;!?](?=\s|$)/g)].map((m) => m.index);
   const sentStart = (i) => (bounds.filter((b) => b < i).pop() ?? -1) + 1;
@@ -688,13 +700,22 @@ function addPlainConds(text, conds, terms, linkedAll) {
     }
     if (alt) for (const c of byAt.slice(i, j)) if (c.plain || j - i > 1) { conds.splice(conds.indexOf(c), 1); if (!possible.includes(c.slug)) possible.push(c.slug); }
   }
+  // «Stunned 3, then slowed 2»: второе наступает после первого, а не вместе с ним — в подсказку, правило low
+  const seqSorted = [...conds].sort((x, y) => x.at - y.at);
+  for (let i = 1; i < seqSorted.length; i++) {
+    const a = seqSorted[i - 1], b = seqSorted[i];
+    if (b.at < a.end || bounds.some((x) => x >= a.end && x < b.at) || !SEQ.test(flat.slice(a.end, b.at)) || !conds.includes(b)) continue;
+    flags.seq = true;
+    conds.splice(conds.indexOf(b), 1);
+    if (!possible.includes(b.slug)) possible.push(b.slug);
+  }
   // срок — только состоянию, после которого он стоит вплотную (между ними одни пробелы)
   const attach = (at, d, chain = false) => {
     let c = conds.find((c) => c.end <= at && !flat.slice(c.end, at).trim());
-    // «A and B until the start of its next turn»: срок и первому, если между ними только «and»/«и» (chain); у «A and B for 1 minute» — только ближайшему; испуг сам снижается каждый ход, срок не ему
+    // «A and B for 1 minute» / «A, B and C until the start of its next turn»: срок всей цепочке, между состояниями которой только запятые и «and»/«и» (chain); испуг сам снижается каждый ход, срок не ему
     while (c) {
       if (!c.duration) c.duration = d;
-      const prev = conds.filter((p) => p.slug !== "frightened" && p.end <= c.at && /^\s*(?:and|и)\s*$/u.test(flat.slice(p.end, c.at))).pop();
+      const prev = conds.filter((p) => p.slug !== "frightened" && p.end <= c.at && /^[\s,]*(?:(?:and|и)[\s,]*)?$/u.test(flat.slice(p.end, c.at))).sort((x, y) => x.end - y.end).pop();
       c = chain ? prev : null;
     }
   };
@@ -703,8 +724,9 @@ function addPlainConds(text, conds, terms, linkedAll) {
     const d = { value: +m[1], unit: UNIT_OF[m[2][0]] };
     // «X and Y, both for 1 minute»: срок обоим (всем состояниям фразы без срока)
     if (/(?<!\p{L})(?:both|all|each)\s*$/u.test(flat.slice(0, m.index))) for (const c of conds) { if (c.at >= sentStart(m.index) && c.end <= m.index && !c.duration) c.duration = d; }
-    else attach(m.index, d);
+    else attach(m.index, d, true);
   }
+  for (const m of flat.matchAll(ITEM_DUR)) if (itemDur) attach(m.index, itemDur, true);
   for (const m of flat.matchAll(NEXT_TURN)) {
     attach(m.index, { value: 1, unit: "rounds", expiry: /^(начала|start)/.test(m[1]) ? "turn-start" : "turn-end", of: /^(вашего|your)/.test(m[2]) ? "origin" : "target" }, true);
   }
@@ -712,8 +734,11 @@ function addPlainConds(text, conds, terms, linkedAll) {
   const ROLL_DUR = /\[\[\/g?m?r(?:oll)?\s+(\d+d\d+)[^\]]*?(?:#\s*(round|minute|hour|day)|\]\]\{[^}]*?(round|minute|hour|day))/giu;
   for (const m of flat.matchAll(ROLL_DUR)) {
     const unit = UNIT_OF[(m[2] ?? m[3])[0]], before = flat.slice(0, m.index);
-    if (/(?<!\p{L})(?:for|в течение|на)\s*$/u.test(before)) attach(before.search(/(?<!\p{L})(?:for|в течение|на)\s*$/u), { value: m[1].toLowerCase(), unit });
+    if (/(?<!\p{L})(?:for|в течение|на)\s*$/u.test(before)) attach(before.search(/(?<!\p{L})(?:for|в течение|на)\s*$/u), { value: m[1].toLowerCase(), unit }, true);
   }
+  // в тексте есть срок (кроме иммунитета: «immune for 1 day»); состояния без срока он теперь касается — решает вызывающий (low)
+  flags.termText = [DUR, NEXT_TURN, ITEM_DUR, ROLL_DUR].some((re) => [...flat.matchAll(re)].some((m) => !IMMUNITY.test(flat.slice(Math.max(sentStart(m.index), m.index - 60), m.index))));
+  flags.keep = DUR_CHANGED.test(flat);
   const byPos = [...conds].sort((a, b) => a.at - b.at);
   for (const c of [...conds]) {
     if (c.duration) continue;
@@ -905,6 +930,36 @@ function plainTerms(html, condNames, condSlug) {
  */
 /** Текст «use this … again, any existing one ends» (Timber Sentinel, Living Bonfire, Hallowed Ground): повтор заканчивает прежний эффект. */
 export const REPLACES = /\bagain\b[^.]{0,80}(?<!\b(?:until|once)\s+(?:the\s+)?)\b(?:existing|previous)\b[^.]{0,60}\bends?\b/i;   // «until/once the previous one ends» — запрет повтора, не замена (Turn the Wheel of Seasons)
+/** Текст для детекторов: без разметки, ссылки — подписью, @Check-спасбросок — словом «save», @Template — «AREA»; heightened-приписка отброшена. */
+const detectText = (html) => plainOf(String(html ?? "").replace(/@UUID\[[^\]]*\](?:\{([^}]*)\})?/g, "$1").replace(/@Check\[\s*(?:fortitude|reflex|will)[^\]]*\](?:\{[^}]*\})?/gi, " save ").replace(/@Template\[[^\]]*\](?:\{[^}]*\})?/g, " AREA ").replace(/@\w+\[[^\]]*\](?:\{([^}]*)\})?/g, "$1")).split(/\bHeightened\b/)[0];
+// «Each enemy in…/All enemies within…/Enemies who…»; не «your enemies» (бонус), «against all enemies», «adjacent to any enemy», «enemy forces»
+const ENEMY_AREA = /(?<!\b(?:your|an|of|against|vs\.?|another|other|all|any|each|every|adjacent to|next to|toward|from|for|than)\s)\b(?:(?:each|every|all|any)\s+(?:other\s+)?(?:living\s+)?(?:enem(?:y|ies)(?!\s+forces?)|foes?)\b|enemies\s+(?:in|within|inside|who|that|adjacent|standing|which|starting)\b)/i;
+// область затрагивает и союзников («You and all allies in the area gain…») или «each creature in the area» раньше врагов — разделить шаги нечем
+const ALLIES_TOO = /\b(?:an?|one|each|any|every|your)\s+(?:willing\s+)?ally\b|\bwilling\b|\b(?:all|each|your|any|other)\s+allies\s+(?:in|within|gain|get|receive|are|who|that|adjacent|take)\b|\ballies\s+(?:in|within|gain|get|receive|are)\b/i;
+const CREATURES_FIRST = /\b(?:each|all|every)\s+creatures?\s+(?:in|within)\b/i;
+/** Текст адресует только врагов автора: шагам «к цели» нужен who: "enemy". */
+export function enemiesOnly(html) {
+  const t = detectText(html), m = ENEMY_AREA.exec(t);
+  return !!m && !ALLIES_TOO.test(t) && !CREATURES_FIRST.test(t.slice(0, m.index));
+}
+// второе испытание («must attempt another Will save with the following effects»): блоки степеней после него относятся к нему, а не к первому; «another save to end it» — не оно
+const SECOND_SAVE = /\b(?:another|a\s+(?:new|second)|an\s+additional|new)\s+(?:\w+\s+)?(?:save|saving\s+throw)\b[^.]*?\b(?:the\s+following|these\s+results|as\s+follows)|(?:снова|повторн\p{L}*)\s+[^.]{0,40}спасбросок[^.]*?следующ/iu;
+// «Make a Strike… If it hits / On a critical hit, the target must attempt a save»: испытание зависит от исхода Удара
+const STRIKE_HIT = String.raw`(?:if\s+(?:the\s+Strike|it|that\s+Strike|this\s+Strike|the\s+attack|your\s+attack|you|he|she|they|the\s+target\s+is)\s+(?:hits?|succeeds?(?!\s+(?:at|on)\b)|damages?\b|(?:is|was)\s+(?:successful|a\s+(?:critical\s+)?(?:hit|success)))|if\s+successful|on\s+a\s+(?:critical\s+|successful\s+)?hit|on\s+a\s+success(?:ful\s+Strike)?|critical\s+success\s+on\s+your\s+attack\s+roll|(?:critically\s+)?hits?\s+(?:the|a|that|your)\s+(?:target|creature)|hit\s+by\s+(?:one\s+of\s+)?(?:these|this|the|that)\s+Strikes?|that\s+are\s+successful|critical(?:ly)?\s+hit(?!\s+by)|critically\s+succeed\s+(?:on|at|with)\s+a\s+Strike|(?:if|when)\s+(?:the\s+)?Strike\s+(?:hits|deals\s+damage|damages))`;
+// save не «к спасброску» («–2 to its save», «the same save»): штраф, а не испытание; «triggering Strike» — Удар чужой, это триггер реакции
+const STRIKE_GATE = new RegExp(String.raw`\bStrikes?\b(?<!triggering\s+Strike)[^]{0,300}?\b${STRIKE_HIT}\b[^.]{0,200}?(?<!\b(?:to|its|their|your|his|her|any|of|same)\s(?:(?!(?:attempt|make|succeed)\b)[\w–-]+\s){0,3})(?:\bsaves?\b|saving\s+throws?)`, "i");
+/** Испытание привязано к исходу Удара: при использовании его не бросать (нужен примитив strike-gate, ROADMAP пачка 7). */
+// Requirements/Trigger до Effect (или черты <hr>) — предусловие («ваше последнее действие — Удар, критически попавший»), а не сам Удар (Fearful Symmetry, Dreamcrusher, Violent Exorcism)
+export const strikeGate = (html) => STRIKE_GATE.test(detectText(html).replace(/\b(?:Requirements?|Trigger)\b.{0,400}?(?=\bEffect\b|---)/g, " "));
+/** Одно и то же who у всех шагов «к цели» всех степеней испытания -> оно, иначе null: испытание бросают только такие цели (saves.challengeTargets). */
+export function challengeWho(ch) {
+  const w = new Set(Object.values(ch?.byDegree ?? {}).flat().filter((a) => a.to === "target").map((a) => a.who ?? null));
+  return w.size === 1 ? [...w][0] : null;
+}
+/** Шагам «к цели» (apply и степени испытания/проверки) ставит who. */
+export function setWho(onUse, who) {
+  for (const l of [onUse?.apply, ...Object.values(onUse?.challenge?.byDegree ?? {}), ...Object.values(onUse?.check?.byDegree ?? {})]) for (const a of l ?? []) if (a.to === "target") a.who ??= who;
+}
 /** Шагам effect (кроме значка) onUse ставит replace: true. */
 export function markReplace(onUse) {
   for (const l of [onUse?.apply, ...Object.values(onUse?.challenge?.byDegree ?? {}), ...Object.values(onUse?.check?.byDegree ?? {})]) for (const a of l ?? []) if (a.effect && !a.effect.badge) a.effect.replace = true;
@@ -914,7 +969,7 @@ export function deriveFromMarkup(itemLike, labels, conditionSlugByUuid, condName
   if (!isStr(html)) return null;
   const sys = itemLike.system;
   const type = itemLike.type;
-  const hints = { inflicts: [], conditions: [], effects: [], unresolved: [], excluded: [], possible: [], template: false };
+  const hints = { inflicts: [], conditions: [], effects: [], unresolved: [], excluded: [], possible: [], lowWhy: [], template: false };
   const condSlug = (u) => conditionSlugByUuid?.(u) || null;
 
   const { blocks, markers } = parseBlocks(html, labelMap(labels));
@@ -937,15 +992,17 @@ export function deriveFromMarkup(itemLike, labels, conditionSlugByUuid, condName
     if (SAVES.includes(t) && (!check || (!infl(check) && infl(c)))) check = { ...c, type: t, at: m.index };
   }
   const save = sys.defense?.save;
+  const itemDur = itemDuration(sys.duration);
 
   const outLinks = linksOf(outside, condSlug, hints);
   hints.conditions = [...outLinks.conds.map((c) => c.slug), ...outLinks.timed];
   hints.effects = outLinks.effects;
 
-  const mk = (onUse, confidence) => {
+  const mk = (onUse, confidence, extra = {}) => {
     if (REPLACES.test(plainOf(html))) markReplace(onUse);
+    if (enemiesOnly(html)) setWho(onUse, "enemy");
     const v = validateRule({ v: RULE_VERSION, ...(itemLike.name && { label: itemLike.name }), onUse });
-    return v.ok ? { rule: v.rule, confidence, hints } : null;
+    return v.ok ? { rule: v.rule, confidence, hints, ...extra } : null;
   };
   const targetsOf = () => (area ? "area" : "selected");
 
@@ -977,11 +1034,12 @@ export function deriveFromMarkup(itemLike, labels, conditionSlugByUuid, condName
     const entries = {};
     for (const [deg, text] of Object.entries(blocks)) {
       const { conds, effects, timed } = linksOf(text, condSlug, hints);
-      for (const slug of [...timed, ...addPlainConds(text, conds, terms, linkedAll)]) if (!hints.possible.includes(`${deg}:${slug}`)) hints.possible.push(`${deg}:${slug}`);   // имя без ссылки и значения — только подсказка
+      const fl = {};
+      for (const slug of [...timed, ...addPlainConds(text, conds, terms, linkedAll, itemDur, fl)]) if (!hints.possible.includes(`${deg}:${slug}`)) hints.possible.push(`${deg}:${slug}`);   // имя без ссылки и значения — только подсказка
       for (const c of conds) if (NOT_ON_TARGET.has(c.slug)) hints.excluded.push(`${deg}:${c.slug}`);
       const pers = persistentOf(text, { outside, html });
       if (pers.possible && !hints.possible.includes(`${deg}:persistent-damage`)) hints.possible.push(`${deg}:persistent-damage`);
-      entries[deg] = { conds, effects, pers: pers.steps, ref: refDegree(text), neg: /(?<!\p{L})(?:instead|value|increase[sd]?|decrease[sd]?|вместо|значение)(?!\p{L})/iu.test(text.replace(/<[^>]*>/g, " ")) };
+      entries[deg] = { conds, effects, pers: pers.steps, ref: refDegree(text), fl, ownDur: conds.some((c) => c.duration), neg: /(?<!\p{L})(?:instead|value|increase[sd]?|decrease[sd]?|вместо|значение)(?!\p{L})/iu.test(text.replace(/<[^>]*>/g, " ")) };
     }
     // «As failure, but Clumsy 2»: то, что блок не переопределил, берётся у названной степени; срок — у состояния с тем же именем. «but not/instead» — наследуем только срок
     for (let pass = 0; pass < 2; pass++) for (const e of Object.values(entries)) {
@@ -996,11 +1054,22 @@ export function deriveFromMarkup(itemLike, labels, conditionSlugByUuid, condName
         if (!e.pers.length) e.pers = [...r.pers];
       }
     }
+    // low: срок и последовательность, которых правилом не выразить, и повтор испытания (блоки степеней — не первого)
+    const why = new Set();
+    if (SECOND_SAVE.test(detectText(html.slice(0, markers[0]?.start ?? 0)))) why.add("second-save");
+    for (const [deg, e] of Object.entries(entries)) {
+      if (e.fl.seq) why.add("sequence");
+      const termText = e.fl.termText || [e.ref, entries[e.ref]?.ref].some((r) => entries[r]?.fl.termText);
+      // срок есть в тексте, но состоянию он не достался (не выводится, не вплотную, «не кончается со сроком заклинания»); убывающие сами — без срока
+      if (e.conds.some((c) => !c.duration && !NOT_ON_TARGET.has(c.slug) && !ENDS_EARLY.has(c.slug) && c.slug !== "persistent-damage" && termText) || (e.fl.keep && e.conds.some((c) => c.duration)) || (e.ref && e.fl.termText && !e.ownDur && e.conds.some((c) => c.duration))) why.add("duration");
+    }
+    hints.lowWhy.push(...why);
     for (const [deg, e] of Object.entries(entries)) {
       const list = [...e.conds.filter((c) => !NOT_ON_TARGET.has(c.slug)).map((c) => condApply(c, "target")), ...e.effects.map((uuid) => ({ to: "target", effect: { uuid } })), ...e.pers.map((p) => ({ to: "target", persistent: p }))];
       if (list.length) challenge.byDegree[deg] = list;
     }
-    return mk({ targets: targetsOf(), excludeSelf: null, zone: null, challenge, apply: [] }, "high");
+    // strikeGate: правило остаётся (голова испытания нужна ограждениям тёзок в resolveRule), но в рантайм и в «готово» не идёт
+    return mk({ targets: targetsOf(), excludeSelf: null, zone: null, challenge, apply: [] }, why.size ? "low" : "high", strikeGate(html) ? { strikeGate: true } : {});
   }
 
   // пассивные черты/действия ничего не «используют»: догадки B1/B4 для них ложны (K7)
@@ -1068,9 +1137,10 @@ export async function loadCatalog() {
     if (!resp.ok) { if (!optional) warn(`не загружен rules/${name}: ${resp.status}`); return null; }
     try { return await resp.json(); } catch (e) { warn(`rules/${name}: битый JSON`, e); if (!optional) throw e; return null; }   // битый необязательный файл не должен ронять остальные каталоги
   };
-  const [cat, campaign, pa, onhit, labels] = await Promise.all([get("catalog.json"), get("catalog.campaign.json", true), get("catalog.pa.json", true), get("catalog.onhit.json", true), get("labels.json")]);
+  const [cat, campaign, pa, model, onhit, labels] = await Promise.all([get("catalog.json"), get("catalog.campaign.json", true), get("catalog.pa.json", true), get("catalog.model.json", true), get("catalog.onhit.json", true), get("labels.json")]);
   // при совпадении ключа побеждает последний: автоматический перенос PA — первым, проверенные вручную — после
-  return initCatalog([pa, onhit, cat, campaign].filter(Boolean), labels);   // onhit (tools/onhit.mjs): «при попадании Удара — состояние» по тексту; ручные каталоги главнее
+  // model (tools/drafts.mjs): черновики пачек от Haiku/Sonnet, прошедшие валидатор и выборку
+  return initCatalog([pa, model, onhit, cat, campaign].filter(Boolean), labels);   // onhit (tools/onhit.mjs): «при попадании Удара — состояние» по тексту; ручные каталоги главнее
 }
 export const ready = loadCatalog;
 
@@ -1231,6 +1301,9 @@ function withMarkupHead(rule, derived, html = "") {
   return { ...rule, onUse: { ...rule.onUse, challenge: { ...rest, byDegree, ...(imm && { immunity: imm }), statistic: d.statistic, dc: d.dc, basic: d.basic, ...(d.options && { options: d.options }), ...(d.traits && { traits: d.traits }) } } };
 }
 
+/** Есть ли у правила шаги, которые что-то применяют (apply, степени испытания/проверки, зона). */
+const hasSteps = (r) => !!(r.onUse?.apply?.length || r.onUse?.zone || [r.onUse?.challenge, r.onUse?.check].some((c) => Object.values(c?.byDegree ?? {}).some((l) => l.length)));
+
 /** Порядок §1.2: флаг -> world.bySource -> world.bySlug -> builtin.bySource -> builtin.bySlug -> разметка. */
 export function resolveRule(source) {
   const origin = source?.origin ?? null;
@@ -1267,6 +1340,8 @@ export function resolveRule(source) {
   if (b) return found(b.onUse?.challenge?.dc?.expr === "markup" ? withMarkupHead(b, derive()?.rule, item?.system?.description?.value ?? "") : b, "catalog");
 
   const d = derive();
-  if (d) return found(d.rule, "markup", d.confidence, d.hints);
+  // живой вывод из разметки сам не исполняется (выборки: ~половина high неверна): шаги — только кнопкой ведущего (low);
+  // проверенные правила документов компендия приходят из каталога (rules/catalog.model.json). Голова без шагов (спасбросок) — как вывел
+  if (d && !d.strikeGate) return found(d.rule, "markup", hasSteps(d.rule) ? "low" : d.confidence, d.hints);
   return null;
 }

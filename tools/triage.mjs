@@ -113,6 +113,7 @@ const asLike = (it, html) => ({
   system: {
     description: { value: html }, defense: it.defense ? { save: { statistic: it.defense.save, basic: it.defense.basic } } : undefined,
     area: it.area ? { type: it.area } : undefined, target: it.target ?? undefined, selfEffect: it.selfEffect ? { uuid: it.selfEffect } : undefined,
+    duration: it.duration ? { value: it.duration.replace(/^sustained\s*/, ""), sustained: it.duration.startsWith("sustained") } : undefined,
     actionType: { value: it.actionType }, traits: { value: it.traits }, category: it.category
   }
 });
@@ -120,7 +121,7 @@ const asLike = (it, html) => ({
 /** Шагов в правиле: apply + степени challenge/check + зона. 0 = правило ничего не делает (промах вывода). */
 export const stepCount = (r) => {
   const u = r?.onUse;
-  if (!u) return r?.onAttacked || r?.macros?.length ? 1 : 0;
+  if (!u) return r?.onAttacked || r?.macros?.length || r?.onEvent?.length ? 1 : 0;
   const deg = (c) => Object.values(c?.byDegree ?? {}).reduce((n, l) => n + l.length, 0);
   return (u.apply?.length ?? 0) + deg(u.challenge) + deg(u.check) + (u.zone ? 1 : 0);
 };
@@ -156,10 +157,12 @@ export function triageItem(it, html, ctx) {
 
   const d = deriveFromMarkup(asLike(it, html), ctx.labels, ctx.condSlugByUuid, ctx.condNames);
   // испытание без шагов, но с подсказками (выбор, условие): карточка всё равно показывает спасбросок, состояния — призраками для ГМа
+  // испытание после Удара: рантайм его не использует; долг «нужен примитив» (модель правило напишет, validate пометит needs-primitive)
+  if (d?.strikeGate) return done("manual", 3, `${selfNote}needs-primitive: strike-gate`, withBatch);
   if (d && !stepCount(d.rule) && !(d.rule.onUse?.challenge && d.hints.possible.length)) return done("manual", 3, `${selfNote}derive-empty:${ruleKind(d.rule)}; hints=${[...d.hints.possible, ...d.hints.unresolved].join(",")}`, withBatch);
   if (d) {
     const h = d.hints;
-    const note = ["possible", "unresolved", "excluded"].filter((k) => h[k].length).map((k) => `${k}=${h[k].join(",")}`).join("; ");
+    const note = ["possible", "unresolved", "excluded", "lowWhy"].filter((k) => h[k].length).map((k) => `${k}=${h[k].join(",")}`).join("; ");
     // испытание без шагов (только голова + подсказки): в рантайме правило работает, но автоматизацией не считается
     const head = !stepCount(d.rule);
     return { status: head ? "markup-head" : `markup-${d.confidence}`, layer: 2, confidence: d.confidence, reason: `${selfNote}${ruleKind(d.rule)}${note ? "; " + note : ""}`, rule: d.rule, ...withBatch, priority };

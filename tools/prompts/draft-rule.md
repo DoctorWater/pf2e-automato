@@ -24,7 +24,8 @@ CHALLENGE = { "statistic": "fortitude"|"reflex"|"will",
                   | {"value": 18}                 // fixed DC written in the text (@Check[...|dc:18])
                   | {"against": "class"}          // the author's statistic: "class" (class DC), "class-spell", "spell", "perception" or a skill
                   | {"expr": "markup"},           // DC is written in the item text as @Check[...] but is not a plain number: the module reads it itself
-              "basic": false, "byDegree": { DEG: [STEP...] } }
+              "basic": false, "byDegree": { DEG: [STEP...] },
+              "immunity": {"slug": "<item slug>", "duration": {"value": 1, "unit": "minutes"|"hours"|"days"}, "degrees": [DEG...]} }   // optional: "temporarily immune for N"; "degrees" = only after these results (omit = after any)
 CHECK     = { "statistic": a skill (athletics, deception...) | "perception" | "spell-attack",
               "vs": {"defense":"ac"|"perception"|"fortitude"|"reflex"|"will"} | {"dc": 15} | {"against": "<target's statistic: will, reflex, perception, a skill>"},
               "options": ["action:<slug>"], "byDegree": { DEG: [STEP...] } }
@@ -46,13 +47,18 @@ Rules of thumb:
 - A condition named in plain words without a link (e.g. "the target is dazzled for 1 round") is still a `condition` step: use its English slug (dazzled, off-guard, prone, fleeing...). Do not invent a condition that pf2e does not have; if the text names something else (a curse, a "mark"), use a `note` step.
 - If the header says `selfEffect`, the system ALREADY applies that effect to the user. Do not add a step for it; add only what comes on top (target effects, saves, notes), or answer `null` if nothing else is left.
 - Damage and healing are NOT automated: skip them or mention in a `note` step (Russian) only when the GM must act.
-- "Temporarily immune" after a save/effect cannot be expressed: leave it out (or a short `note`), do not invent fields.
+- "The target is temporarily immune for 1 minute" after the save -> `challenge.immunity` with the item's slug and that duration. Immunity after an effect ends (not after the save) cannot be expressed: leave it out.
 - Use only mechanics you see in the text. Do not add steps "just in case". Do not add fields that are not in the schema above; no macros.
 - Notes inside the rule are in Russian, one short sentence.
 - A rule that would have no steps at all is wrong: answer `null` instead.
+- "Each enemy" / "all enemies" / "enemies in the area" -> add `"who": "enemy"` to EVERY `to: "target"` step (allies in the area must not get the condition). "Each ally" -> `"who": "ally"`.
+- A condition that some degree avoids or ends goes into `byDegree` of those degrees, never into `apply` (apply runs for every target regardless of the save).
+- "The target must spend its first action / one action to …" (a command, a forced action) is NOT a condition: do not use fleeing/prone/etc. for it. Use a condition only when the text names it. Otherwise `unsure: true`, note "missing: forced action".
+- Afflictions with stages ("Stage 1 … Stage 2 …", diseases, poisons) and healing modifiers ("regains half as many Hit Points from healing", "can't be healed") are real mechanics: never `null`; use a linked effect if the text has one, else `unsure: true` with "missing: affliction stages" / "missing: healing modifier".
+- `null` (nothing to automate) ONLY when the text has no condition, effect, persistent damage, forced movement (push, pull, knock prone), numeric bonus/penalty, weakness/resistance, immunity or duration: pure damage/healing, narrative, GM judgment, objects/terrain, information. If any of these is there but the schema cannot express it, answer `unsure: true` and name the missing piece in `note` (e.g. "missing: push 10 ft", "missing: -2 penalty without effect link").
 
 # When to answer unsure (do NOT write an onUse rule for these)
-- The effect happens on a trigger rather than on use: "when it hits / Strikes", "when it dies", "when a creature enters or starts its turn in the aura", "whenever ...". Answer `unsure: true` (put `rule: null`).
+- The effect happens on a trigger rather than on use: "when it hits / Strikes", "make a Strike; if it hits (critically), the target attempts a save", "when it dies", "when a creature enters or starts its turn in the aura", "whenever ...". Answer `unsure: true` (put `rule: null`).
 - The item text ends with "…" (cut off): `unsure: true`. The marker `[flavor cut]` is fine: only descriptive text was removed.
 - Several different outcomes depending on a choice, a fixed DC you cannot find, or anything you cannot express with the schema.
 
@@ -98,7 +104,7 @@ Rules of thumb:
 ```json
 {"v":1,"label":"Nimble Dodge","onAttacked":{"trigger":"attack-on-self","bonus":{"stat":"ac","type":"circumstance","value":2}}}
 ```
-11. Nothing to automate (pure damage, passive, narrative): `{"uuid":"...","rule":null,"unsure":false,"note":"only damage"}`
+11. Nothing to automate (pure damage, passive, narrative; no condition/effect/movement/penalty in the text): `{"uuid":"...","rule":null,"unsure":false,"note":"only damage"}`
 12. Not sure (several different outcomes depending on a choice): `{"uuid":"...","rule":null,"unsure":true,"note":"target depends on a choice"}`
 13. Save against the user's class DC, ends on the target's turn (feat): "The target attempts a Fortitude save against your class DC. Success: dazzled until the end of its next turn. Failure: blinded for 1 round."
 ```json

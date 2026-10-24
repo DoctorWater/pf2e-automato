@@ -299,3 +299,13 @@ test("все цели вне дальности: пометка есть, СЛ �
   const near = buildViewModel(mkMsg({ targets: [{ key: "a", name: "Orc", far }, { key: "b", name: "Bob" }] }), gm, mkEnv());
   assert.deepEqual(near.challenge.rows.map((r) => r.key), ["b"]);
 });
+
+test("low + испытание: кнопка применения у ГМа при mode.apply=auto без autoTried; high — только после попытки; off — нет", () => {
+  const withResult = (confidence) => mkMsg({ confidence, state: { challenge: { results: { a: { degree: 1 } } } } });
+  const can = (confidence, apply) => buildViewModel(withResult(confidence), gm, mkEnv({ modes: { apply } })).challenge.rows[0].canApply;
+  assert.equal(can("low", "auto"), true);
+  assert.equal(can("low", "button"), true);
+  assert.equal(can("low", "off"), false);
+  assert.equal(can("high", "auto"), false);
+  assert.equal(can("high", "button"), true);
+});

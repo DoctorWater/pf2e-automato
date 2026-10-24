@@ -1,7 +1,7 @@
 // triage.json -> rules/drafts/<batch>.json. Контракт: { meta:{batch,generatedAt,pf2eVersion,seed?}, items:[{uuid,slug,type,name,nameRu,layer,status,confidence,reason,rule|null}] }
-import { existsSync } from "node:fs";
+import { existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
-import { ACCEPTED, DRAFTS, readJson, readOut, writeText, serializeDrafts, cmp, isMain } from "./lib.mjs";
+import { ROOT, ACCEPTED, DRAFTS, readJson, readOut, writeText, serializeDrafts, cmp, isMain } from "./lib.mjs";
 import { roundTrip } from "./validate.mjs";
 
 const DRAFT_STATUSES = new Set(["markup-high", "markup-head", "markup-low", "manual"]);
@@ -23,6 +23,17 @@ export function groupDrafts(items, tri) {
   return out;
 }
 
+/** Принятые ответы моделей (все drafts-accepted, кроме переноса PA — у него свой rules/catalog.pa.json) -> каталог рантайма по uuid. */
+export function modelCatalog(acceptedItems) {
+  const rows = acceptedItems.filter((d) => d.rule && d.confidence === "model").sort((a, b) => cmp(a.uuid, b.uuid));
+  return `{"v":1,\n"bySource":{\n${rows.map((d) => `${JSON.stringify(d.uuid)}:${JSON.stringify(d.rule)}`).join(",\n")}\n}}\n`;
+}
+
+/** Элементы всех rules/drafts-accepted/<batch>.json пачек (без pa-port* и _samples). */
+export function readModelAccepted() {
+  return readdirSync(ACCEPTED).filter((f) => /^b\d+-.*\.json$/.test(f)).flatMap((f) => readJson(join(ACCEPTED, f)).items);
+}
+
 function main() {
   const { meta, items } = readOut("items.json");
   const tri = readOut("triage.json").items;
@@ -34,6 +45,7 @@ function main() {
     const finalItems = list.map(({ _p, ...d }) => acc.get(d.uuid) ?? d);
     writeText(join(DRAFTS, `${batch}.json`), serializeDrafts({ batch, generatedAt: new Date().toISOString(), pf2eVersion: meta.pf2eVersion }, finalItems));
   }
+  writeText(join(ROOT, "rules/catalog.model.json"), modelCatalog(readModelAccepted()));
   console.log("drafts:", Object.fromEntries(Object.entries(groups).map(([k, v]) => [k, v.length])));
 }
 

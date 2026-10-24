@@ -211,7 +211,7 @@ test("resolveRule: флаг > каталог bySource > bySlug > разметк�
     assert.equal(R({ type: "consumable", slug: "smoke-ball-lesser", flags: { "pf2e-automato": { rule: flagRule } }, system: {} }).source, "flag");
     const markup = R({ type: "consumable", slug: "unknown", _stats: {}, system: { description: { value: `<p>@UUID[${EFF}]</p>` } } });
     assert.equal(markup.source, "markup");
-    assert.equal(markup.confidence, "high");
+    assert.equal(markup.confidence, "low");   // живой вывод с шагами сам не исполняется: проверенное — из каталога
     assert.equal(R({ type: "consumable", slug: "unknown", system: {} }), null);
     assert.equal(onAttackedIndex().get("nimble-dodge").onAttacked.bonus.value, 2);
     assert.equal(onAttackedIndex().has("breathe-fire"), false);

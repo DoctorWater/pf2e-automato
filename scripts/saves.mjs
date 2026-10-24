@@ -5,7 +5,8 @@ import { card } from "./card.mjs";
 import { headOf } from "./builtin/lib.mjs";
 import { inRange } from "./range.mjs";
 import { toolbeltTargetHelper, toolbeltMessageTargets } from "./compat.mjs";
-import { applyOps } from "./apply.mjs";
+import { applyOps, opposed } from "./apply.mjs";
+import { challengeWho } from "./rules.mjs";
 import { testPredicate } from "./predicate.mjs";
 import { runMacros } from "./macros.mjs";
 import { runCheck, findCheckByOrigin, applyImmunity, isCheck, isImmune } from "./checks.mjs";
@@ -81,7 +82,7 @@ export async function resolveDC(use, ctx = {}) {
 
   if (dc.source === "spell") return spellDC() ?? num(actorActor?.getStatistic?.("class")?.dc?.value);
   if (dc.against) {
-    return dc.against === "spell" ? spellDC() : num(actorActor?.getStatistic?.(dc.against)?.dc?.value);
+    return dc.against === "spell" ? spellDC() : num((actorActor?.getStatistic?.(dc.against) ?? actorActor?.getStatistic?.("class"))?.dc?.value);
   }
   if (dc.expr) {
     const rollData = { actor: actorActor, item };
@@ -101,7 +102,9 @@ export async function challengeTargets(message) {
   const use = useOf(message);
   if (!use) return [];
   const ch = challengeOf(use);
-  return (await challengeTargetsAll(message, use)).filter((t) => challengeApplies(ch, t.token?.actor, use.actor));
+  // who у всех шагов к цели («только враги»): союзник области не бросает и не получает иммунитет
+  const who = challengeWho(ch), myDisp = who ? (safeSync(use.token)?.disposition ?? 1) : 1;
+  return (await challengeTargetsAll(message, use)).filter((t) => challengeApplies(ch, t.token?.actor, use.actor) && (!who || (who === "enemy") === opposed(myDisp, t.token?.disposition ?? 0)));
 }
 
 /** challenge.when — условие на цель (target:*, target:self): не выполнено — цель не бросает и в карточке не показана (Возложение рук: бросает только нежить). */
@@ -317,10 +320,10 @@ async function afterRecord(messageId, tokenKey) {
     const hasSteps = DEGREES.some((d) => by[d]?.length) || !!ch.immunity;
     const hasMacros = useOf(message).rule.macros?.some((m) => m.phase === "onDegree");
     const apply = modeOf("apply");
-    if (apply === "auto" && (hasSteps || hasMacros)) await applyByDegree(messageId, tokenKey);
+    if (apply === "auto" && useOf(message).confidence !== "low" && (hasSteps || hasMacros)) await applyByDegree(messageId, tokenKey);
     if (await allResolved(message)) await afterChallenge(message);
   } catch (e) { console.error(`${MOD} | afterRecord`, e); }
-  if (modeOf("apply") === "auto") await markTried(messageId, "autoTried", tokenKey);
+  if (modeOf("apply") === "auto" && useOf(game.messages.get(messageId))?.confidence !== "low") await markTried(messageId, "autoTried", tokenKey);
 }
 
 export async function afterChallenge(message) {

@@ -209,3 +209,23 @@ test("acceptSavingThrow: degreeOfSuccess нет -> по СЛ и кубу", async
   await acceptSavingThrow(stMsg({ rolls: [{ total: 19, dice: [{ results: [{ active: true, result: 20 }] }] }] }, { options: [`${MOD}:M1:t1`] }));
   assert.equal(m.flags[MOD].use.state.challenge.results.t1.degree, 2);   // 19 vs 20 -> провал, нат.20 -> успех
 });
+
+test("resolveDC: against = слаг класса без такой статистики у актёра -> getStatistic('class')", async () => {
+  const ch = (dc) => ({ rule: { onUse: { challenge: { statistic: "reflex", dc } } } });
+  const stat = (v) => ({ dc: { value: v } });
+  const actor = { getStatistic: (s) => ({ class: stat(25), kineticist: stat(31) })[s] };
+  assert.equal(await resolveDC(ch({ against: "kineticist" }), { item: {}, actor }), 31);
+  assert.equal(await resolveDC(ch({ against: "commander" }), { item: {}, actor }), 25);
+  assert.equal(await resolveDC(ch({ against: "commander" }), { item: {}, actor: { getStatistic: () => null } }), null);
+});
+
+test("low: результат при mode.apply=auto не уходит в автоприменение (autoTried не ставится), high — уходит", async () => {
+  settings["mode.apply"] = "auto";
+  const run = async (id, confidence) => {
+    mkMessage(id, baseUse({ confidence }));
+    await recordResult(id, "t1", { degree: 2, total: 25, rollMessageId: `r-${id}` });
+    return !!msgs.get(id).flags[MOD].use.state.challenge.autoTried?.t1;
+  };
+  assert.equal(await run("L", "low"), false);
+  assert.equal(await run("H", "high"), true);
+});

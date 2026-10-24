@@ -114,9 +114,9 @@ test("срок: его/её/своего -> target, вашего/your -> origin"
   assert.equal(d("вашего"), "1rounds:turn-end:origin");
 });
 
-test("срок — только непосредственно предшествующему состоянию", () => {
-  assert.deepEqual(bd("Провал", "цель получает замедление 1 и испуг 2 на 1 минуту.", ""), { failure: [["slowed", 1, undefined], ["frightened", 2, "1minutes"]] });
-  assert.deepEqual(bd("Провал", "цель получает слепоту и замешательство на 1 минуту.", BL + `<p>${U("ConfusedAAAAAAAA")}</p>`), { failure: [["blinded", undefined, undefined], ["confused", undefined, "1minutes"]] });
+test("срок — состоянию вплотную и цепочке «A и B» перед ним", () => {
+  assert.deepEqual(bd("Провал", "цель получает замедление 1 и испуг 2 на 1 минуту.", ""), { failure: [["slowed", 1, "1minutes"], ["frightened", 2, "1minutes"]] });
+  assert.deepEqual(bd("Провал", "цель получает слепоту и замешательство на 1 минуту.", BL + `<p>${U("ConfusedAAAAAAAA")}</p>`), { failure: [["blinded", undefined, "1minutes"], ["confused", undefined, "1minutes"]] });
   assert.deepEqual(bd("Провал", "в течение 1 минуты цель получает замедление 1.", ""), { failure: [["slowed", 1, undefined]] });
 });
 

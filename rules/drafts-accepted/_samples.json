@@ -102,5 +102,35 @@
   "seed": 18,
   "n": 20,
   "pool": 20
+ },
+ "b01-save-conditions:model-35rules+15null:seed21": {
+  "seed": 21,
+  "n": 50,
+  "pool": "99 rules + 353 null"
+ },
+ "b01-save-conditions:30model+10null+10markup:seed22": {
+  "seed": 22,
+  "n": 50,
+  "pool": "98 model + 234 null + 469 markup-high"
+ },
+ "b01-save-conditions:markup:seed23": {
+  "seed": 23,
+  "n": 50,
+  "pool": 429
+ },
+ "review-markup:45model+5null:seed24": {
+  "seed": 24,
+  "n": 50,
+  "pool": "453 model + 13 null"
+ },
+ "rereview-sonnet:model:seed25": {
+  "seed": 25,
+  "n": 50,
+  "pool": 402
+ },
+ "b01-s2-sonnet:40model+10null:seed26": {
+  "seed": 26,
+  "n": 50,
+  "pool": "62 model + 41 null"
  }
 }

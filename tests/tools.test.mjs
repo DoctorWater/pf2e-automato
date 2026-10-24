@@ -3,13 +3,14 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { stripHtml, cut } from "../tools/lib.mjs";
 import { traceOf, isActive, batchOf, priorityOf, triageItem, makeContext, stepCount } from "../tools/triage.mjs";
-import { makeDraft } from "../tools/drafts.mjs";
+import { makeDraft, modelCatalog } from "../tools/drafts.mjs";
 import { checkAnswer, processAnswers, roundTrip, retryText, emptyState, mergeAccepted } from "../tools/validate.mjs";
 import { pick, rng, poolOf } from "../tools/sample.mjs";
 import { chunk, compress } from "../tools/haiku-input.mjs";
 import { translateItem, parseDebts } from "../tools/pa-port.mjs";
 import { validateRule } from "../scripts/rules.mjs";
-import { tally, replaceBlock } from "../tools/coverage.mjs";
+import { tally, replaceBlock, withAccepted, withPa } from "../tools/coverage.mjs";
+import { buildCatalog } from "../scripts/rules.mjs";
 import { normText } from "../tools/extract.mjs";
 
 const labels = JSON.parse(readFileSync(new URL("../rules/labels.json", import.meta.url)));
@@ -119,6 +120,7 @@ test("слой и статус: pf2e / catalog / skip / markup / manual", () => 
   const empty = triageItem(sv, "<p>@Check[will|dc:20] damage</p>", ctx);   // правило без шагов — не вывод, а manual
   assert.equal(empty.status, "manual");
   assert.ok(stepCount(ok.rule) > 0);
+  assert.equal(stepCount({ v: 1, onEvent: [{ on: "attack-roll" }] }), 1);   // правило только из onEvent — не пустое
 });
 
 test("слой 1 не переоценён: selfEffect с чужой частью и Aura без effects не закрыты системой", () => {
@@ -238,6 +240,23 @@ test("хайку-вход: номера кусков стабильны, отв�
   assert.match(f2.text, /39 items/);
 });
 
+test("catalog.model: принятые правила моделей -> bySource; null и не model в каталог не идут, в покрытии — model / skip", () => {
+  const rule = { v: 1, onUse: { targets: "self", apply: [{ to: "self", condition: { slug: "prone" } }] } };
+  const acc = [{ uuid: "U2", rule, confidence: "model" }, { uuid: "U1", rule: null, confidence: null, reason: "model-null: x" }, { uuid: "U4", rule: null, confidence: "needs-primitive", reason: "needs-primitive: push" }, { uuid: "U3", rule, confidence: "high" }];
+  const cat = buildCatalog([JSON.parse(modelCatalog(acc))]);
+  assert.deepEqual([...cat.bySource.keys()], ["U2"]);
+  assert.equal(cat.errors.length, 0);
+  const tri = withAccepted([{ uuid: "U1", status: "manual", reason: "x" }, { uuid: "U2", status: "manual" }, { uuid: "U4", status: "manual" }, { uuid: "U3", status: "catalog" }], acc);
+  assert.deepEqual(tri.map((t) => t.status), ["skip", "model", "manual", "catalog"]);
+  assert.equal(tri[0].reason, "model-null");
+});
+
+test("покрытие PA: перенесённое, покрытое и pf2e -> pa; долг и ложное покрытие остаются pa-port", () => {
+  const tri = ["a", "b", "c", "d", "e"].map((uuid) => ({ uuid, status: "pa-port" }));
+  const pd = [["a", "ported"], ["b", "covered"], ["c", "native"], ["d", "debt"], ["e", "false-coverage"]].map(([uuid, finalStatus]) => ({ uuid, finalStatus }));
+  assert.deepEqual(withPa(tri, pd).map((t) => t.status), ["pa", "pa", "pa", "pa-port", "pa-port"]);
+});
+
 test("coverage.md: блок сводки заменяется между маркерами и вставляется перед §0 (в блоке есть $ и скобки)", () => {
   const md = "# T\n\nintro\n\n## 0. Методика и оговорки\nbody\n";
   const b1 = "<!-- pipeline:start -->\nA $& $1 [x] \\s\\S\n<!-- pipeline:end -->\n";
@@ -278,4 +297,13 @@ test("pa-port: high только если ссылка есть в тексте,
   assert.equal(translateItem(base, "", { rules: [{ type: "handler", triggerType: "damage-roll", value: "h", target: "none" }] }, c).reason, "handler:h");
   assert.equal(translateItem(base, "", { rules: [{ type: "base", triggerType: "use", value: "Compendium.pf2e-automations.effects.Item.X", target: "SelfEffect" }] }, c).reason, "pa-own-effect");
   assert.equal(translateItem(base, "", { rules: [{ type: "complex", triggerType: "saving-throw", target: "ImmunitySelfEffect", values: [{ immunities: ["x"] }], predicate: ["outcome:success"] }] }, c).reason, "immunity-after-save");
+});
+
+test("validate: правило из одних заметок ведущему -> notes-only (не skip); с иммунитетом или состоянием — правило", () => {
+  const note = { to: "target", note: "Оттолкните цель на 10 футов" };
+  const ch = (extra = {}) => ({ v: 1, onUse: { targets: "selected", challenge: { statistic: "will", dc: { source: "spell" }, basic: false, byDegree: { failure: [note] }, ...extra }, apply: [] } });
+  assert.equal(checkAnswer({ uuid: "u", rule: ch() }, refs).kind, "notes-only");
+  assert.equal(checkAnswer({ uuid: "u", rule: ch({ immunity: { slug: "s", duration: { value: 1, unit: "minutes" } } }) }, refs).kind, "accepted");
+  const mixed = ch(); mixed.onUse.challenge.byDegree.criticalFailure = [{ to: "target", condition: { slug: "prone" } }];
+  assert.equal(checkAnswer({ uuid: "u", rule: mixed }, refs).kind, "accepted");
 });

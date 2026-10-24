@@ -160,6 +160,8 @@
           "dcHigh": "СЛ по уровню",
           "attack": "Бонус атаки",
           "attackAuto": "СЛ − 10",
+          "counteract": "Бонус развеивания",
+          "counteractAuto": "как у атаки",
           "perValue": "Раз в (число)",
           "perUses": "Сколько раз",
           "requires": "Требуется",

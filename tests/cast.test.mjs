@@ -5,7 +5,7 @@ import assert from "node:assert/strict";
 globalThis.foundry = { data: { regionBehaviors: { RegionBehaviorType: class {} }, fields: new Proxy({}, { get: () => class {} }) } };   // use.mjs тянет zone.mjs
 const { validateRule, deriveCast, deriveFromMarkup, frequencyOf } = await import("../scripts/rules.mjs");
 const { ruleToForm, formToRule, blankCast, buildReport, ruleUuids, dropSpec } = await import("../scripts/sheet.mjs");
-const { rankSource, usesLeft, withUse, withoutUse, requirementOf, highDc, highAttack, levelDc, tracksUses, entryId, ID } = await import("../scripts/cast.mjs");
+const { rankSource, usesLeft, withUse, withoutUse, requirementOf, highDc, highAttack, levelDc, tracksUses, entryId, ID, pickDc, itemOf } = await import("../scripts/cast.mjs");
 const { wantsSnapshot } = await import("../scripts/use.mjs");
 const { buildViewModel } = await import("../scripts/chat.mjs");
 const { castLine } = await import("../scripts/workshop/automation.mjs");
@@ -95,12 +95,12 @@ const SUN = `<p>A medallion.</p><hr /><p><strong>Activate</strong> <span class="
 <p><strong>Effect</strong> The <em>sun wheel</em> casts a @UUID[Compendium.pf2e.spells-srd.Item.TVKNbcgTee19PXZR]{Shield} spell benefiting you.</p>
 <p>If the attacker is adjacent, you can deal @Damage[2d6[fire]] damage, which it gets a @Check[reflex|dc:21|basic] save to resist.</p>`;
 
-test("deriveCast: Jolt Coil — СЛ из «spell DC … is 17», спеллхарт даёт раз в день; ранг не задан", () => {
-  const d = deriveCast(JOLT, { traits: ["spellheart"] });
-  assert.deepEqual(d.cast, [{ id: "electric-arc", spell: ARC, dc: 17, per: { value: 1, unit: "days" } }]);
+test("deriveCast: Jolt Coil — СЛ из «spell DC … is 17»; у спеллхарта частоты нет (кантрип не ограничен), ранг не задан", () => {
+  const d = deriveCast(JOLT);
+  assert.deepEqual(d.cast, [{ id: "electric-arc", spell: ARC, dc: 17 }]);
   assert.equal(d.confidence, "high");
-  assert.equal(deriveCast(JOLT).cast[0].per, undefined);   // без черты и фразы частоты нет
-  assert.equal(deriveCast(JOLT.replace("</p>\n<p><strong>Effect", " Once per day for each spell.</p>\n<p><strong>Effect")).cast[0].per.unit, "days");
+  assert.equal(deriveCast(JOLT.replace("</p>\n<p><strong>Effect", " Once per day for each spell.</p>\n<p><strong>Effect")).cast[0].per, undefined);   // фраза не частота
+  assert.equal(deriveCast(JOLT.replace("Cast a Spell</p>", "Cast a Spell</p><p><strong>Frequency</strong> once per day</p>")).cast[0].per.unit, "days");   // частота — только блок Frequency
 });
 
 test("deriveCast: Eelskin, Necklace, Habu's Cudgel — ранг, СЛ из @Check абзаца, частота из Frequency", () => {
@@ -290,4 +290,92 @@ test("tools: ответ агента с cast проходит валидатор
   assert.match(bad.errors[0], /not mentioned/);
   assert.equal(checkAnswer({ uuid: "u", rule: { v: 1, cast: [{ spell: "" }] } }, { conditions: any, effects: any }).errors[0].includes("Activation (cast)"), true);
   assert.deepEqual(semanticErrors(validateRule(ans.rule).rule, { conditions: {}, effects: {} }, null), []);
+});
+
+/* ---------- разбор Критика по пакету cast ---------- */
+
+const act = (eff, { head = "<strong>Activate</strong> Cast a Spell", freq = "" } = {}) => `<p>${head}</p>${freq && `<p><strong>Frequency</strong> ${freq}</p>`}<p><strong>Effect</strong> ${eff}</p>`;
+const L1 = `@UUID[${ARC}]{Electric Arc}`;
+
+test("deriveCast: СЛ, атака и противодействие прозой; штрафное испытание владельца СЛ не даёт", () => {
+  const d = (html, defs) => deriveCast(html, defs).cast[0];
+  assert.equal(d(act(`The device casts a DC 28 ${L1} spell.`)).dc, 28);
+  assert.equal(d(act(`You cast ${L1} with a DC of 22.`)).dc, 22);
+  assert.equal(d(`<p>The DC of any spell cast by Activating this item is 24.</p>${act(`You cast ${L1}.`)}`).dc, 24);
+  assert.equal(d(`<p>The DC of all spells cast by Activating this item is 22.</p>${act(`You cast ${L1}.`)}`).dc, 22);
+  assert.equal(d(`<p>The spell attack roll of any spell cast by Activating this item is [[/r 1d20+14 #spell attack roll]]{+14}, and the spell DC 24.</p>${act(`You cast ${L1}.`)}`).attack, 14);
+  assert.deepEqual(d(act(`You cast ${L1} with a spell attack roll of +13.`)), { id: "electric-arc", spell: ARC, attack: 13 });
+  assert.equal(d(act(`You cast ${L1}. The counteract modifier is +27.`)).counteract, 27);
+  assert.equal(d(`<p>When its rune is activated, the counteract modifier is +21.</p>${act(`You cast ${L1}.`)}`).counteract, 21);
+  assert.equal(d(`<p>The counteract modifier is +35 against darkness.</p>${act(`You cast ${L1}.`)}`).counteract, undefined);   // не про активацию
+  // Handkerchief: СЛ 16 — испытание самого владельца, не заклинания
+  const h = deriveCast(act(`The scarf casts ${L1} on you. You and your allies must succeed at a @Check[will|dc:16] save or perceive the illusion as intended.`), { spellDefs: { [ARC]: { slug: "x", save: false, attack: false } } });
+  assert.deepEqual([h.cast[0].dc, h.confidence, h.partial], [undefined, "high", false]);
+  assert.equal(validateRule({ v: 1, cast: [{ spell: ARC, counteract: 15 }] }).rule.cast[0].counteract, 15);
+  assert.ok(validateRule({ v: 1, cast: [{ spell: ARC, counteract: "x" }] }).errors.length);
+});
+
+test("frequencyOf: три/четыре раза; «per day per bead» — не частота; ранг «half its own»; «casting» и «effects of»", () => {
+  assert.deepEqual(frequencyOf("three times per day"), { value: 1, unit: "days", uses: 3 });
+  assert.deepEqual(frequencyOf("four times per hour"), { value: 1, unit: "hours", uses: 4 });
+  assert.equal(frequencyOf("once per day per bead"), null);
+  const cantrip = { [ARC]: { slug: "electric-arc", save: false, cantrip: true } }, plain = { [ARC]: { slug: "electric-arc", save: false } };
+  const half = act(`The relic casts ${L1} at a level equal to half its own.`);
+  assert.deepEqual([deriveCast(half, { spellDefs: cantrip }).cast[0].rank, deriveCast(half, { spellDefs: cantrip }).partial], [undefined, false]);   // кантрип: ранг ведёт уровень предмета
+  assert.equal(deriveCast(half, { spellDefs: plain }).partial, true);   // не кантрип — ранг по уровню предмета схемой не задать
+  assert.equal(deriveCast(act(`The ring, casting a 4th-rank ${L1} to your specifications.`)).cast[0].rank, 4);
+  assert.equal(deriveCast(act(`You gain the effects of ${L1} for 1 hour.`)).partial, true);   // «effects of» — найден, но не «как есть»
+});
+
+test("deriveCast: частично — активации без cast, @Check/@Damage/эффект/иммунитет после сотворения, выбор между заклинаниями, ложное «Cast a prepared Spell»", () => {
+  const defs = { [ARC]: { slug: "electric-arc", save: false, attack: false } }, p = (html) => deriveCast(html, { spellDefs: defs }).partial;
+  assert.equal(p(act(`You cast ${L1}.`)), false);
+  assert.equal(p(act(`You cast ${L1}.`) + "<p><strong>Activate</strong> Strike</p><p><strong>Effect</strong> You hit harder.</p>"), true);
+  assert.equal(p(act(`You cast ${L1}. Then you deal @Damage[2d6[fire]] damage.`)), true);
+  assert.equal(p(act(`You cast ${L1}.</p><p>Then the target gets @UUID[Compendium.pf2e.equipment-effects.Item.abc]{Effect: Boon}.`)), true);
+  assert.equal(p(act(`You cast ${L1}. The target is then immune for 24 hours.`)), true);
+  assert.equal(p(act(`The spectacles cast either see the unseen or a 3rd-rank ${L1}.`)), true);   // выбирает ГМ
+  assert.equal(p(act(`If your next action is to Cast a prepared Spell, you gain the effects of ${L1} for 1 hour.`)), true);
+  assert.equal(deriveCast(act(`You cast ${L1}.`) + "<p>It must be held in one hand to be used.</p>").cast[0].requires, "held");
+  assert.equal(deriveCast(act(`You cast ${L1}.`)).cast[0].requires, undefined);
+});
+
+test("checkCast: проверяет ВСЕ активации и весь абзац, а не только то, что вывел deriveCast", async () => {
+  const { checkCast } = await import("../tools/cast-batch.mjs");
+  const refs = { conditions: {}, effects: {} }, defs = { [ARC]: { slug: "electric-arc", save: false } };
+  const build = (html) => ({ v: 1, cast: deriveCast(html, { spellDefs: defs }).cast });
+  const good = act(`You cast ${L1}.`, { freq: "once per hour" });
+  assert.deepEqual(checkCast(build(good), good, refs, defs), []);
+  const more = good + "<p><strong>Activate</strong> Strike</p><p><strong>Effect</strong> You hit harder.</p>";
+  assert.match(checkCast(build(more), more, refs, defs)[0], /activations 2 != cast 1/);
+  const after = act(`You cast ${L1}. The target takes @Damage[2d6[fire]] damage.`);
+  assert.match(checkCast(build(after), after, refs, defs).join(), /extra/);
+  const three = act(`You cast ${L1}.`, { freq: "three times per day" });
+  assert.deepEqual(checkCast(build(three), three, refs, defs), []);
+  const choice = act(`The item casts either ${L1} or a 3rd-rank @UUID[Compendium.pf2e.spells-srd.Item.zzz]{Other}.`);
+  assert.ok(checkCast({ v: 1, cast: [{ id: "a", spell: ARC }] }, choice, refs, defs).length);
+  // правило без СЛ, а текст её называет — расхождение; с СЛ/атакой/противодействием из текста — чисто
+  const prose = `<p>The spell DC is 30 and the spell attack modifier is +20. When activated, the counteract modifier is +25.</p>${act(`You cast ${L1}.`)}`;
+  assert.match(checkCast({ v: 1, cast: [{ id: "a", spell: ARC }] }, prose, refs, defs).join(), /dc undefined != text 30/);
+  assert.deepEqual(checkCast({ v: 1, cast: [{ id: "a", spell: ARC, dc: 30, attack: 20, counteract: 25 }] }, prose, refs, defs), []);
+  // у спеллхарта частоты нет: правило с per при пустом Frequency — расхождение
+  assert.match(checkCast({ v: 1, cast: [{ id: "a", spell: ARC, per: { value: 1, unit: "days" } }] }, act(`You cast ${L1}.`), refs, defs).join(), /per/);
+});
+
+test("pickDc: текст -> СЛ по уровню предмета; кантрип спеллхарта — не ниже записи владельца; high — по уровню актёра", () => {
+  assert.deepEqual(pickDc({ dc: 24 }, { itemLevel: 3, bestDc: 30 }), { kind: "text", dc: 24 });   // запись владельца текст не перебивает
+  assert.deepEqual(pickDc({}, { itemLevel: 3, bestDc: 30 }), { kind: "level", dc: 18 });   // у мага низкого уровня и у воина — СЛ предмета
+  assert.deepEqual(pickDc({}, { itemLevel: 3, heartCantrip: true, bestDc: 30 }), { kind: "owner" });
+  assert.deepEqual(pickDc({ dc: 17 }, { itemLevel: 3, heartCantrip: true, bestDc: 16 }), { kind: "text", dc: 17 });   // своя СЛ только если выше
+  assert.deepEqual(pickDc({}, { itemLevel: 3, heartCantrip: true, bestDc: null }), { kind: "level", dc: 18 });
+  assert.deepEqual(pickDc({ dc: { level: "high" } }, { itemLevel: 3 }), { kind: "high" });
+});
+
+test("itemOf: вложенный предмет (спеллхарт, прикреплённый к оружию) ищется в subitems родителя", () => {
+  const sub = { id: "SUBSUBSUBSUBSUB1" }, weapon = { id: "W", subitems: { contents: [sub] } }, plain = { id: "P" };
+  const actor = { items: { get: (id) => (id === "P" ? plain : undefined) }, inventory: [weapon, plain] };
+  assert.equal(itemOf(actor, "P"), plain);
+  assert.equal(itemOf(actor, "SUBSUBSUBSUBSUB1"), sub);
+  assert.equal(itemOf(actor, "nope"), null);
+  assert.equal(itemOf(null, "P"), null);
 });

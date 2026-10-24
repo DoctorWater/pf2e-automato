@@ -590,11 +590,12 @@ function vCast(list, err) {
     const high = isObj(c.dc) && c.dc.level === "high" && Object.keys(c.dc).length === 1;
     if (c.dc != null && !high && !(isInt(c.dc) && c.dc >= 1)) return bad("dc");
     if (c.attack != null && !isInt(c.attack)) return bad("attack");
+    if (c.counteract != null && !isInt(c.counteract)) return bad("counteract");
     const p = c.per;
     if (p != null && !(isObj(p) && isInt(p.value) && p.value >= 1 && APPLY_UNITS.includes(p.unit) && (p.uses == null || (isInt(p.uses) && p.uses >= 1)))) return bad("per");
     if (c.requires != null && !CAST_REQUIRES.includes(c.requires)) return bad("requires");
     for (const k of ["label", "note"]) if (c[k] != null && !isStr(c[k])) return bad(k);
-    return [{ id, spell: c.spell, ...(c.rank != null && { rank: c.rank }), ...(c.dc != null && { dc: high ? { level: "high" } : c.dc }), ...(c.attack != null && { attack: c.attack }),
+    return [{ id, spell: c.spell, ...(c.rank != null && { rank: c.rank }), ...(c.dc != null && { dc: high ? { level: "high" } : c.dc }), ...(c.attack != null && { attack: c.attack }), ...(c.counteract != null && { counteract: c.counteract }),
       ...(p != null && { per: { value: p.value, unit: p.unit, ...(p.uses > 1 && { uses: p.uses }) } }), ...(c.requires != null && { requires: c.requires }), ...(c.label != null && { label: c.label }), ...(c.note != null && { note: c.note }) }];
   });
 }
@@ -1139,40 +1140,68 @@ export function markReplace(onUse) {
 /* ---------- активация «You cast X» (cast) ---------- */
 
 const SPELL_LINK = /@UUID\[(Compendium\.pf2e\.spells-srd\.Item\.[^\]]+)\](?:\{([^}]*)\})?/g;
-const WORD_COUNT = { once: 1, twice: 2, thrice: 3 };
+const WORD_COUNT = { once: 1, twice: 2, thrice: 3, two: 2, three: 3, four: 4, five: 5, six: 6 };
 const PER_UNIT = { round: ["rounds", 1], minute: ["minutes", 1], hour: ["hours", 1], day: ["days", 1], week: ["days", 7] };   // неделя — 7 дней: сбрасывается отдыхом, лимит мягкий
-/** Частота из текста («once per day», «twice per hour», «once per 10 minutes») -> {value, unit, uses?} | null. */
+/** Частота из текста («once per day», «three times per day», «once per 10 minutes») -> {value, unit, uses?} | null. */
 export function frequencyOf(text) {
-  const m = /\b(once|twice|thrice|(\d+)\s+times?)\s+per\s+(?:(\d+)\s+)?(round|minute|hour|day|week)s?\b/i.exec(text ?? "");
+  const m = /\b(once|twice|thrice|(\d+|two|three|four|five|six)\s+times?)\s+per\s+(?:(\d+)\s+)?(round|minute|hour|day|week)s?\b(?!\s+(?:per|for each)\b)/i.exec(text ?? "");
   if (!m) return null;
-  const uses = WORD_COUNT[m[1].toLowerCase()] ?? +m[2], [unit, k] = PER_UNIT[m[4].toLowerCase()];
+  const uses = WORD_COUNT[m[1].toLowerCase()] ?? WORD_COUNT[m[2].toLowerCase()] ?? +m[2], [unit, k] = PER_UNIT[m[4].toLowerCase()];
   return { value: (+m[3] || 1) * k, unit, ...(uses > 1 && { uses }) };
 }
 
+/** Текст для разбора активаций: без разметки, ссылка — подписью, встроенный бросок «[[/r 1d20+14 #…]]{+14}» — его итогом. */
+export const castProse = (html) => plainOf(String(html ?? "").replace(/\[\[\/\w+[^\]]*\]\](?:\{([^}]*)\})?/g, "$1").replace(/@UUID\[[^\]]*\](?:\{([^}]*)\})?/g, "$1"));
+const num1 = (re, text) => +re.exec(text)?.[1] || undefined;
+// заклинание, а не условие: «cast» только строчными («If your next action is to Cast a prepared Spell»), «gain the effects of @UUID[…]»
+const CAST_WORD = /\bcast(?:s|ing)?\b|\beffects? of\b/;
+// после сотворения в блоке ещё что-то: испытание/урон, эффект предмета, иммунитет, «также», исключения, условие «если следующим действием»
+const CAST_EXTRA = /@(?:Check|Damage|Template)\[|\binstead\b|@UUID\[Compendium\.pf2e\.[\w-]*effects\b|\bimmun|\balso\b|\bexcept\b|\bunlike\b|\bIf your next action\b/i;
+
 /**
  * Блоки «Activate … Effect: You cast @UUID[spells-srd]{X}» -> cast[] (ровно одна ссылка на заклинание и слово cast; иначе блок пропущен -> partial).
- * Ранг — «4th-rank»; СЛ — первый @Check[…|dc:N] абзаца с заклинанием (проверка в следующих абзацах — приписка предмета: low), иначе «spell DC … is N» всего текста; частота — «Frequency» блока, у спеллхарта (черта или фраза) — раз в день.
- * @Check блока уходит в cast.dc: onUse.challenge из него выводить нельзя (двойное испытание). spellDefs: {uuid: {slug, save, attack}} — high без СЛ у заклинания без испытания.
+ * Ранг — «4th-rank» («half its own/your level»: кантрипу ранг ведёт уровень предмета, иначе partial); СЛ — @Check того же предложения (не «you must succeed»), иначе «DC N» предложения,
+ * иначе «spell DC … is N» текста; атака и противодействие — «spell attack … +N», «counteract check/modifier … +N» (абзац активации либо предложение про активацию);
+ * частота — только «Frequency» блока (у кантрипов спеллхарта её нет). Partial: активация без cast, выбор между заклинаниями, после сотворения @Check/@Damage/эффект/иммунитет.
+ * @Check блока уходит в cast.dc: onUse.challenge из него выводить нельзя (двойное испытание). spellDefs: {uuid: {slug, save, attack, cantrip}} — high без СЛ у заклинания без испытания.
  * -> {cast, confidence, partial} | null
  */
-export function deriveCast(html, { spellDefs = {}, traits = [] } = {}) {
+export function deriveCast(html, { spellDefs = {} } = {}) {
   html = String(html ?? "");
   const starts = [...html.matchAll(/<strong>\s*Activate\b/gi)].map((m) => m.index);
   if (!starts.length) return null;
-  const all = plainOf(html), itemDc = /spell DC\b[^.]{0,80}?\bis (\d+)/i.exec(all)?.[1];
-  const hearts = traits.includes("spellheart") || /once per day for each spell/i.test(all);
+  const all = castProse(html), sentences = all.split(/(?<=[.!?])\s+/);
+  const itemDc = num1(/\bspell DC\b(?: of)?[^.]{0,80}?\bis (\d+)/i, all) ?? num1(/\bspell DC (?:of )?(\d+)/i, all) ?? num1(/\bDC of (?:any|all|each) spells?[^.]{0,80}?\bis (\d+)/i, all);
+  const itemAttack = num1(/\bspell attack (?:roll|modifier|bonus)\b[^.]{0,80}?\b(?:is|of) \+(\d+)/i, all);
+  const itemCounter = num1(/\bcounteract (?:check|modifier)\b[^.]{0,30}?\+(\d+)/i, sentences.find((s) => /\bactivat/i.test(s) && /\bcounteract (?:check|modifier)\b/i.test(s)) ?? "");
+  const requires = /\bmust be held\b/i.test(all) ? "held" : undefined;
   const cast = [];
   let partial = false;
   for (const a of starts) {
     const stop = html.slice(a + 1).search(/<strong>\s*(?:Activate|Craft Requirements)\b|<h2/i), block = html.slice(a, stop < 0 ? html.length : a + 1 + stop);
     const eff = /<strong>\s*Effect\s*<\/strong>([\s\S]*)/i.exec(block)?.[1];
     const links = eff ? [...eff.matchAll(SPELL_LINK)] : [];
-    if (links.length !== 1 || !/\bcasts?\b/i.test(plainOf(eff))) { partial = true; continue; }
-    const [, spell, label = ""] = links[0], def = spellDefs[spell], para = eff.split(/<\/p>/i)[0];
-    const dc = +(/@Check\[[^\]]*\bdc:(\d+)/.exec(para)?.[1] ?? itemDc) || null, rank = +/(\d+)(?:st|nd|rd|th)[- ]rank/i.exec(eff)?.[1] || null;
-    const per = frequencyOf(/<strong>\s*Frequency\s*<\/strong>([^<]*)/i.exec(block)?.[1]) ?? (hearts ? { value: 1, unit: "days" } : null);
+    if (links.length !== 1 || !CAST_WORD.test(castProse(eff))) { partial = true; continue; }
+    const [, spell, label = ""] = links[0], def = spellDefs[spell], para = eff.split(/<\/p>/i)[0], pt = castProse(para);
+    const sent = para.split(/(?<=[.!?])\s+/).find((t) => t.includes(spell)) ?? para;   // предложение со ссылкой
+    // @Check абзаца, но не испытание самого владельца («You … must succeed at a @Check»)
+    const own = (t) => /\b(?:you|those)\b[^.]*\bmust\b/i.test(castProse(t));
+    let taken = null;
+    for (const t of para.split(/(?<=[.!?])\s+/)) if (!own(t) && (taken = /@Check\[[^\]]*\bdc:(\d+)[^\]]*\](?:\{[^}]*\})?/.exec(t))) break;
+    const chk = taken?.[1];
+    const dc = +(chk ?? num1(/\bDC (?:of )?(\d+)/i, castProse(sent)) ?? itemDc) || null;
+    const attack = num1(/\bspell attack (?:roll|modifier|bonus)?\b[^.]{0,80}?\b(?:is|of) \+(\d+)/i, pt) ?? itemAttack;
+    const counteract = num1(/\bcounteract (?:check|modifier)\b[^.]{0,30}?\+(\d+)/i, pt) ?? itemCounter;
+    const half = /\bhalf (?:its|your|the)\b/i.test(pt), ranks = [...castProse(eff).matchAll(/(\d+)(?:st|nd|rd|th)[- ]rank/gi)].map((m) => +m[1]), rank = ranks[0] || null;
+    const per = frequencyOf(/<strong>\s*Frequency\s*<\/strong>([^<]*)/i.exec(block)?.[1]);
     const slug = def?.slug ?? sluggify(label), n = cast.length + 1, base = SLUG.test(slug) ? slug : `cast-${n}`;
-    cast.push({ id: cast.some((c) => c.id === base) ? `${base}-${n}` : base, spell, ...(rank && { rank }), ...(dc && { dc }), ...(per && { per }), sure: !/@(?:Check|Damage)\[/.test(eff.slice(para.length)) && (!!dc || (!!def && !def.save && !def.attack)) });
+    const pick = /\beither\b|\bone of\b|\bor (?:an? )?(?:\d+\w\w-rank )?@UUID/i.test(sent);   // выбор между заклинаниями — за ГМа
+    const viaEffect = !/\bcast(?:s|ing)?\b/.test(castProse(eff));   // только «effects of» — не сотворение «как есть»
+    const rest = eff.split(/(?<=[.!?])\s+|<\/p>/).filter((t) => !own(t)).map((t) => (t.includes(spell) ? t.replace(/@Check\[[^\]]*\](?:\{[^}]*\})?/g, "") : t)).join(" ");   // @Check того же предложения — СЛ/испытание самого заклинания; @Check с СЛ самого заклинания — не лишнее, это его СЛ
+    const extra = CAST_EXTRA.test(dc ? rest.replace(new RegExp(String.raw`@Check\[[^\]]*\bdc:${dc}\b[^\]]*\](?:\{[^}]*\})?`, "g"), "") : rest) || pick || viaEffect || ranks.length > 1 || (half && !def?.cantrip);
+    if (extra) partial = true;
+    cast.push({ id: cast.some((c) => c.id === base) ? `${base}-${n}` : base, spell, ...(rank && !half && { rank }), ...(dc && { dc }), ...(attack && { attack }), ...(counteract && { counteract }), ...(per && { per }), ...(requires && { requires }),
+      sure: !extra && (!!dc || (!!def && (!def.save && (!def.attack || attack != null)))) });
   }
   if (!cast.length) return null;
   return { cast: cast.map(({ sure: _s, ...c }) => c), confidence: !partial && cast.every((c) => c.sure) ? "high" : "low", partial };
@@ -1221,7 +1250,7 @@ export function deriveFromMarkup(itemLike, labels, conditionSlugByUuid, condName
   const targetsOf = () => (area ? "area" : "selected");
 
   // активация «You cast X»: @Check блока уходит в cast.dc, испытания onUse не будет (иначе оно бросилось бы дважды); ослабленный вывод — low
-  const dcast = type === "consumable" ? null : deriveCast(html, { traits: sys.traits?.value ?? [] });   // расходники (палочки, свитки): заряды ведёт pf2e, кнопки мимо них не нужны
+  const dcast = type === "consumable" ? null : deriveCast(html);   // расходники (палочки, свитки): заряды ведёт pf2e, кнопки мимо них не нужны
   const vcast = dcast && validateRule({ v: RULE_VERSION, ...(itemLike.name && { label: itemLike.name }), cast: dcast.cast });
   if (vcast?.ok) {
     if (dcast.partial) hints.lowWhy.push("cast-partial");

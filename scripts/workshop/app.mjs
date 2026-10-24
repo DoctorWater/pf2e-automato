@@ -577,6 +577,7 @@ export class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
           F.sel(`${p}.dcType`, t("sheet.dcLabel"), c.dcType, choices(["auto", "value", "high"], "au.cast.dc")),
           ...(c.dcType === "value" ? [F.num(`${p}.dc`, t("workshop.au.dcValue"), c.dc, { min: 1 })] : []),
           F.num(`${p}.attack`, t("workshop.au.cast.attack"), c.attack, { placeholder: t("workshop.au.cast.attackAuto") }),
+          F.num(`${p}.counteract`, t("workshop.au.cast.counteract"), c.counteract, { placeholder: t("workshop.au.cast.counteractAuto") }),
           F.num(`${p}.perValue`, t("workshop.au.cast.perValue"), c.perValue, { min: 1 }),
           F.sel(`${p}.perUnit`, t("workshop.au.unit"), c.perUnit, sheetChoices("unit", ["rounds", "minutes", "hours", "days"])),
           F.num(`${p}.perUses`, t("workshop.au.cast.perUses"), c.perUses, { min: 1, placeholder: "1" }),

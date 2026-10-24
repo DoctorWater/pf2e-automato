@@ -161,13 +161,13 @@ const trgForm = (t) => ({ on: t.on, per: t.per ?? "", apply: (t.apply ?? []).map
 const trgRule = (t) => ({ on: t.on, ...(t.per && { per: t.per }), ...((t.apply ?? []).length && { apply: t.apply.map(applyOf).filter(Boolean) }), ...(t.ch?.on && { challenge: chRule(t.ch) }) });
 
 // cast (plan-cast-activation.md): активации «You cast X» <-> форма; поля строками, пустое — «не задано»
-export const blankCast = () => ({ id: "", spell: "", rank: "", dcType: "auto", dc: "", attack: "", perValue: "", perUses: "", perUnit: "days", requires: "auto", label: "", note: "" });
-const castForm = (c) => ({ id: c.id, spell: c.spell, rank: c.rank ?? "", dcType: c.dc?.level ? "high" : c.dc != null ? "value" : "auto", dc: c.dc?.level ? "" : c.dc ?? "", attack: c.attack ?? "", perValue: c.per?.value ?? "", perUses: c.per?.uses ?? "", perUnit: c.per?.unit ?? "days", requires: c.requires ?? "auto", label: c.label ?? "", note: c.note ?? "" });
+export const blankCast = () => ({ id: "", spell: "", rank: "", dcType: "auto", dc: "", attack: "", counteract: "", perValue: "", perUses: "", perUnit: "days", requires: "auto", label: "", note: "" });
+const castForm = (c) => ({ id: c.id, spell: c.spell, rank: c.rank ?? "", dcType: c.dc?.level ? "high" : c.dc != null ? "value" : "auto", dc: c.dc?.level ? "" : c.dc ?? "", attack: c.attack ?? "", counteract: c.counteract ?? "", perValue: c.per?.value ?? "", perUses: c.per?.uses ?? "", perUnit: c.per?.unit ?? "days", requires: c.requires ?? "auto", label: c.label ?? "", note: c.note ?? "" });
 function castRule(c) {
-  const rank = num(c.rank), dc = num(c.dc), attack = num(c.attack), pv = num(c.perValue), pu = num(c.perUses);
+  const rank = num(c.rank), dc = num(c.dc), attack = num(c.attack), counteract = num(c.counteract), pv = num(c.perValue), pu = num(c.perUses);
   return {
     ...(c.id?.trim() && { id: c.id.trim() }), spell: String(c.spell ?? "").trim(), ...(rank !== undefined && { rank }),
-    ...(c.dcType === "high" ? { dc: { level: "high" } } : c.dcType === "value" && dc !== undefined && { dc }), ...(attack !== undefined && { attack }),
+    ...(c.dcType === "high" ? { dc: { level: "high" } } : c.dcType === "value" && dc !== undefined && { dc }), ...(attack !== undefined && { attack }), ...(counteract !== undefined && { counteract }),
     ...(pv !== undefined && { per: { value: pv, unit: c.perUnit, ...(pu !== undefined && { uses: pu }) } }),
     ...(c.requires && c.requires !== "auto" && { requires: c.requires }), ...(c.label?.trim() && { label: c.label.trim() }), ...(c.note?.trim() && { note: c.note.trim() })
   };

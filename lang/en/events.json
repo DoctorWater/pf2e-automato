@@ -160,6 +160,8 @@
           "dcHigh": "DC by level",
           "attack": "Attack bonus",
           "attackAuto": "DC - 10",
+          "counteract": "Counteract bonus",
+          "counteractAuto": "same as attack",
           "perValue": "Once per (number)",
           "perUses": "Times",
           "requires": "Requires",

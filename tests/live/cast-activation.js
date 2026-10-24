@@ -373,21 +373,76 @@ async () => {
     t.ok(await waitFor(() => !item.flags?.[MOD]?.uses?.["electric-arc"], 6000), `счётчик снят: ${JSON.stringify(item.flags?.[MOD]?.uses)}`);
   });
 
-  sc("no-caster", "Без СЛ и без записи заклинателя: воин сотворяет с СЛ по уровню предмета (пометка byLevel), с записью владельца — СЛ и запись лучшей", async (e, t) => {
+  sc("no-caster", "Без СЛ в правиле: СЛ по уровню предмета (воин, пометка byLevel); у кантрипа спеллхарта с записью владельца — большая из двух", async (e, t) => {
     const { pc, item, card, tP } = await stage(e, "jolt-coil", [{ id: "electric-arc", spell: ARC, requires: "none" }]);
     const { levelDc } = await imp("cast.mjs");
     const m0 = await e.click(card);
     t.ok(!!m0 && flagOf(m0)?.dc === levelDc(item.level) && flagOf(m0)?.byLevel === true, `воин: cast.dc ${flagOf(m0)?.dc}, СЛ уровня ${levelDc(item.level)}, byLevel ${flagOf(m0)?.byLevel}`);
     t.ok(/СЛ по уровню|DC by item level/.test(e.dom(card)?.textContent ?? ""), "кнопка подписана «СЛ по уровню предмета»");
-    // у владельца появилась запись: СЛ берётся у неё, запись карточки — настоящая (original)
+    // у владельца появилась запись; jolt-coil — спеллхарт, Electric Arc — кантрип: СЛ не ниже записи владельца (если выше — запись владельца)
     const actor = e.A(tP);
-    await actor.createEmbeddedDocuments("Item", [{ type: "spellcastingEntry", name: "AF запись", system: { ability: { value: "cha" }, prepared: { value: "spontaneous" }, tradition: { value: "arcane" }, proficiency: { value: 2 } } }]);
+    await actor.createEmbeddedDocuments("Item", [{ type: "spellcastingEntry", name: "AF запись", system: { ability: { value: "cha" }, prepared: { value: "spontaneous" }, tradition: { value: "arcane" }, proficiency: { value: 4 } } }, { type: "effect", name: "AF СЛ +20", system: { slug: "af-dc-plus", rules: [{ key: "FlatModifier", selector: "arcane-spell-dc", value: 20 }], duration: { value: -1, unit: "unlimited", sustained: false, expiry: null } } }]);   // СЛ записи заведомо выше СЛ предмета
     await wait(500);
     const entry = actor.spellcasting.find((x) => x.statistic), want = entry?.statistic?.dc?.value;
-    t.ok(want > 0, `у PC появилась запись с СЛ ${want}`);
+    t.ok(want > levelDc(item.level), `у PC появилась запись с СЛ ${want} выше СЛ уровня ${levelDc(item.level)}`);
     const m = await e.click(await e.card(item));
-    t.ok(!!m && flagOf(m)?.dc === want, `cast.dc = ${flagOf(m)?.dc}, СЛ записи ${want}`);
+    t.ok(!!m && flagOf(m)?.dc === want && !flagOf(m)?.byLevel, `кантрип спеллхарта: cast.dc = ${flagOf(m)?.dc}, СЛ записи ${want}`);
     t.ok(m && m.flags.pf2e.casting.id === entry.id, `запись карточки — настоящая: ${m?.flags?.pf2e?.casting?.id}`);
+  });
+
+  sc("item-dc", "СЛ по уровню предмета у мага (запись владельца выше СЛ предмета не подменяет её у заклинания не из спеллхарта и у не-кантрипа)", async (e, t) => {
+    const { pc, item, card, tP } = await stage(e, "habus-cudgel", [{ id: "fear", spell: await spellUuid("fear"), requires: "none" }]);
+    const { levelDc } = await imp("cast.mjs");
+    const actor = e.A(tP);
+    await actor.createEmbeddedDocuments("Item", [{ type: "spellcastingEntry", name: "AF запись", system: { ability: { value: "cha" }, prepared: { value: "spontaneous" }, tradition: { value: "arcane" }, proficiency: { value: 4 } } }, { type: "effect", name: "AF СЛ +20", system: { slug: "af-dc-plus", rules: [{ key: "FlatModifier", selector: "arcane-spell-dc", value: 20 }], duration: { value: -1, unit: "unlimited", sustained: false, expiry: null } } }]);   // СЛ записи заведомо выше СЛ предмета
+    await wait(500);
+    const want = actor.spellcasting.find((x) => x.statistic)?.statistic?.dc?.value;
+    t.ok(want > levelDc(item.level), `запись мага с СЛ ${want} выше СЛ уровня ${levelDc(item.level)}`);
+    const m = await e.click(card);
+    t.ok(!!m && flagOf(m)?.dc === levelDc(item.level) && flagOf(m)?.byLevel === true, `cast.dc = ${flagOf(m)?.dc}, СЛ уровня предмета ${levelDc(item.level)}, byLevel ${flagOf(m)?.byLevel}`);
+  });
+
+  sc("no-freq", "Кантрип из разметки без блока Frequency (спеллхарт): частоты нет, второй клик без вопроса «использовано»", async (e, t) => {
+    const { pc, tP } = await stage(e, "jolt-coil", [{ id: "x", spell: ARC, dc: 17, requires: "none" }]);
+    const d = await equip("jolt-coil");
+    d.name = PFX + "heart"; d.system.slug = "af-heart-test"; if (d._stats) d._stats.compendiumSource = null;
+    d.system.description.value = `<p>The spell DC of any spell cast by activating this item is 17.</p><p><strong>Activate</strong> Cast a Spell</p><p><strong>Effect</strong> You cast @UUID[${ARC}]{Electric Arc}.</p>`;
+    const [item] = await e.give(e.A(tP), d);
+    const res = (await imp("rules.mjs")).resolveRule(item);
+    t.ok(res?.rule?.cast?.length === 1 && res.rule.cast[0].per === undefined && res.rule.cast[0].dc === 17, `вывод: ${JSON.stringify(res?.rule?.cast)}`);
+    const card = await e.card(item);
+    t.ok(!!(await e.click(card)), "первое сотворение");
+    t.ok(!!(await e.click(card)), "второе сотворение");
+    t.ok(!e.dialogs.some((x) => /again|ещё раз|использ/i.test(x)) && !item.flags?.[MOD]?.uses, `без вопроса и без счётчика: окна [${e.dialogs}], uses ${JSON.stringify(item.flags?.[MOD]?.uses)}`);
+  });
+
+  sc("attached", "Спеллхарт, прикреплённый к оружию (subitems): кнопка на карточке работает, ChatMessage#item после prepareData жив, счётчик частоты пишется во вложенный предмет", async (e, t) => {
+    openChat(); needMode("mode.challenge", "off"); needMode("mode.apply", "off", "button");
+    const pc = await e.pc("владелец"), vic = await e.foe("цель");
+    const tP = await e.tok(pc, 500, 500, 1), tV = await e.tok(vic, 600, 500, -1);
+    await wait(700);
+    const actor = e.A(tP), rule = { v: 1, cast: [{ id: "electric-arc", spell: ARC, dc: 17, per: { value: 1, unit: "days" } }] };
+    const coil = await equip("jolt-coil"); coil.flags = { ...coil.flags, [MOD]: { rule } };
+    const [weapon, loose] = await e.give(actor, await equip("longsword"), coil);
+    t.ok(await weapon.attach(loose), "спеллхарт прикреплён");
+    const sub = await waitFor(() => actor.items.get(weapon.id)?.subitems?.contents?.[0], 5000);
+    t.ok(!!sub && !actor.items.get(sub.id), "предмет вложенный: в actor.items его нет");
+    if (!sub) return;
+    await e.aim(tP, tV);
+    const card = await e.card(sub);
+    t.ok(!!e.btn(card) && !e.btn(card).disabled, "кнопка есть и активна");
+    await e.fix(1);
+    const m = await e.click(card);
+    t.ok(!!m, "появилась карточка заклинания");
+    if (!m) return;
+    t.ok(flagOf(m)?.dc === 17, `cast.dc = ${flagOf(m)?.dc}`);
+    t.ok(await waitFor(() => e.results(m)[tV.id], 10000), `спасбросок цели: ${JSON.stringify(e.results(m))}`);
+    t.ok(await waitFor(() => actor.items.get(weapon.id)?.subitems.get(sub.id)?.flags?.[MOD]?.uses?.["electric-arc"]?.log?.length === 1, 6000), "счётчик записан во вложенный предмет");
+    await actor.update({ "system.details.blurb": "AF" });   // пересборка актёра: запись заклинателя пересоздаётся ленивой обёрткой по id вложенного предмета
+    await wait(500);
+    t.ok(game.messages.get(m.id).item?.spellcasting?.statistic?.dc?.value === 17, `message.item после prepareData: dc ${game.messages.get(m.id).item?.spellcasting?.statistic?.dc?.value}`);
+    await game.messages.get(m.id).delete();
+    t.ok(await waitFor(() => !actor.items.get(weapon.id)?.subitems.get(sub.id)?.flags?.[MOD]?.uses?.["electric-arc"], 6000), "удаление карточки вернуло использование");
   });
 
   sc("low-rule", "Правило из разметки (low): кнопка только у ведущего, у владельца-игрока нет; расходник (палочка) не получает cast из разметки", async (e, t) => {

@@ -64,12 +64,25 @@ export const perText = (per, t) => t("cast.per", { uses: per.uses ?? 1, window: 
 // лучшая запись владельца по СЛ (как у свитка, pf2e:51094; записи trick-* и наши в коллекцию не попадают)
 const bestEntry = (actor) => actor.spellcasting?.filter((e) => !!e.statistic).reduce((a, e) => (!a || e.statistic.dc.value > a.statistic.dc.value ? e : a), null) ?? null;
 
+/**
+ * Порядок СЛ активации: текст правила -> СЛ по уровню предмета (запись владельца СЛ предмета не заменяет: у мага низкого уровня она была бы ниже, у воина записи нет).
+ * Исключение — кантрип спеллхарта: своя запись владельца, если её СЛ выше (правило спеллхартов). -> {kind: "high" | "owner" | "level" | "text", dc?}
+ */
+export function pickDc(c, { itemLevel, heartCantrip = false, bestDc = null }) {
+  if (c.dc?.level) return { kind: "high" };
+  const dc = c.dc ?? levelDc(itemLevel);
+  return heartCantrip && bestDc != null && bestDc > dc ? { kind: "owner" } : { kind: c.dc == null ? "level" : "text", dc };
+}
+
+// кантрип ли заклинание: по индексу пака (поле traits запрашивает ready()); индекса нет — не кантрип (СЛ предмета, не завышаем)
+const isCantrip = (uuid) => { try { return !!fromUuidSync(uuid)?.system?.traits?.value?.includes("cantrip"); } catch { return false; } };
+
 function buildEntry(actor, id, c, item) {
   const best = bestEntry(actor), high = !!c.dc?.level;
-  // нет СЛ в правиле и нет записи у владельца — запасная СЛ по уровню предмета (byLevel: показываем пометку)
-  const byLevel = c.dc == null && !best, dc = high ? highDc(actor.level) : byLevel ? levelDc(item?.level) : c.dc ?? null;
+  const pick = pickDc(c, { itemLevel: item?.level, heartCantrip: !!item?.system?.traits?.value?.includes("spellheart") && isCantrip(c.spell), bestDc: best?.statistic.dc.value });
+  const byLevel = pick.kind === "level", dc = high ? highDc(actor.level) : pick.dc ?? null;
   const common = { id, byLevel, name: L("cast.entry"), actor, category: "items", sort: 0, spells: null, isEphemeral: true, isFlexible: false, isFocusPool: false, canCast: () => true };
-  if (dc == null) return { ...common, original: best, statistic: best.statistic, tradition: best.tradition, attribute: best.attribute, get counteraction() { return best.counteraction; } };
+  if (pick.kind === "owner") return { ...common, original: best, statistic: best.statistic, tradition: best.tradition, attribute: best.attribute, get counteraction() { return best.counteraction; } };
   // базовый Statistic: PerceptionStatistic (конструктор perception) подмешивает Мудрость. Ранга и атрибута нет — СЛ ровно СЛ предмета; атака — СЛ-10, как у NPC pf2e
   const Statistic = Object.getPrototypeOf(actor.perception.constructor), { Modifier } = game.pf2e;
   const mod = (value) => new Modifier({ slug: "af-cast", label: common.name, modifier: value, type: "untyped" });
@@ -79,7 +92,7 @@ function buildEntry(actor, id, c, item) {
     dc: { modifiers: [mod(dc - 10)], domains: ["spell-dc"] }
   });
   // createCounteractStatistic у pf2e внутренняя (берёт атрибут и ранг записи): собираем равную по модификатору без них
-  const counteraction = new Statistic(actor, { slug: "counteract", label: "PF2E.Item.Spell.Counteract.Label", check: { type: "check", modifiers: [mod(c.attack ?? (high ? dc - 8 : dc - 10))] } });
+  const counteraction = new Statistic(actor, { slug: "counteract", label: "PF2E.Item.Spell.Counteract.Label", check: { type: "check", modifiers: [mod(c.counteract ?? c.attack ?? (high ? dc - 8 : dc - 10))] } });
   return { ...common, statistic, counteraction, tradition: null, attribute: null };
 }
 
@@ -92,6 +105,9 @@ function entryFor(actor, item, c) {
   if (!rec.map.has(id)) rec.map.set(id, buildEntry(actor, id, c, item));
   return rec.map.get(id);
 }
+
+/** Предмет актёра по id: и вложенный (спеллхарт, прикреплённый к оружию/доспеху, лежит в subitems родителя — как ищет сам pf2e, pf2e:44166). */
+export const itemOf = (actor, id) => actor?.items.get(id) ?? actor?.inventory?.flatMap((i) => i.subitems?.contents ?? []).find((i) => i.id === id) ?? null;
 
 let installed = false;
 /**
@@ -107,7 +123,7 @@ function install() {
     if (!m) return orig.call(this, id);
     const rec = cache.get(this.actor);
     if (rec?.sig === this.actor?.synthetics && rec.map.get(id)) return rec.map.get(id);   // запись уже есть — правило не разбираем заново
-    const item = this.actor?.items.get(m[1]), c = item && rules.resolveRule(item)?.rule.cast?.find((x) => x.id === m[2]);
+    const item = itemOf(this.actor, m[1]), c = item && rules.resolveRule(item)?.rule.cast?.find((x) => x.id === m[2]);
     return (c && entryFor(this.actor, item, c)) || orig.call(this, id);
   };
   installed = true;
@@ -160,10 +176,14 @@ export async function castItem(item, id) {
   return { ok: true };
 }
 
+// флаг снимается: у вложенного предмета pf2e сливает правку mergeObject без performDeletions — ключ «-=» не сработает, пишем null (usesOf видит пусто)
+const unset = (item, path) => (item.parentItem ? { [path]: null } : forcedDelete(path));
+
 /** pf2e.restForTheNight: счётчики «раз в день» (и прочие) предметов отдохнувшего актёра обнуляются. */
 async function resetUses(actor) {
   const update = actor.items.filter((i) => i.flags?.[MOD]?.uses).map((i) => ({ _id: i.id, ...forcedDelete(flagPath("uses")) }));
   if (update.length) await actor.updateEmbeddedDocuments("Item", update);
+  for (const sub of actor.inventory?.flatMap((i) => i.subitems?.contents ?? []).filter((i) => i.flags?.[MOD]?.uses) ?? []) await sub.update(unset(sub, flagPath("uses")));   // вложенные: правка уходит в родителя
 }
 
 /** Карточка активации удалена — использование возвращается (у того клиента, что её удалил). */
@@ -172,7 +192,7 @@ async function giveBack(message, options, userId) {
   if (!c || userId !== game.user.id || options?.deleteAll) return;   // очистка лога — не отмена сотворения
   const item = await fromUuid(c.item), e = usesOf(item, c.id), next = withoutUse(e, message.id);
   if (!item || next === e) return;
-  await item.update(next ? { [flagPath("uses", c.id)]: next } : forcedDelete(flagPath("uses", c.id)));
+  await item.update(next ? { [flagPath("uses", c.id)]: next } : unset(item, flagPath("uses", c.id)));
 }
 
 export function init() {
@@ -183,5 +203,5 @@ export function init() {
 
 export function ready() {
   install();   // не успели на setup (игра уже была готова при подключении модуля)
-  game.packs.get("pf2e.spells-srd")?.getIndex();   // имена заклинаний для кнопок: fromUuidSync берёт их из индекса
+  game.packs.get("pf2e.spells-srd")?.getIndex({ fields: ["system.traits.value"] });   // имена заклинаний для кнопок: fromUuidSync берёт их из индекса
 }

@@ -4,7 +4,7 @@
 import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { readOut, readJson, writeText, serializeDrafts, stripHtml, ACCEPTED, arg, cmp, isMain } from "./lib.mjs";
-import { deriveCast, frequencyOf, validateRule, RULE_VERSION } from "../scripts/rules.mjs";
+import { deriveCast, frequencyOf, castProse, validateRule, RULE_VERSION } from "../scripts/rules.mjs";
 import { roundTrip, semanticErrors, mergeAccepted } from "./validate.mjs";
 import { readModelAccepted } from "./drafts.mjs";
 import { pick } from "./sample.mjs";
@@ -13,7 +13,6 @@ const CONV = "model: cast converter";
 const SPELL = /@UUID\[(Compendium\.pf2e\.spells-srd\.Item\.[^\]]+)\]/g;
 const OPEN = new Set(["manual", "markup-high", "markup-low", "markup-head"]);
 const OLD_DEBT = /missing: cast a spell activation|missing: cast spell, armor\/weapon effect choice/;   // прочий долг — ещё и другая механика: не затираем
-const bare = (s) => stripHtml(s).replace(/\s+/g, " ");
 
 /** Блоки «Activate» текста -> [{block, eff, links, para}] (те же границы, что у deriveCast). */
 function activations(html) {
@@ -25,31 +24,42 @@ function activations(html) {
   });
 }
 
-/** Собранное правило против текста -> [расхождения]. */
-export function checkCast(rule, html, refs, traits = []) {
+/**
+ * Собранное правило против текста -> [расхождения]. Проверка ширше вывода: ВСЕ активации предмета (без cast-а — долг), весь текст блока (лишнее после сотворения — долг),
+ * все числа СЛ/атаки/противодействия текста (чужих и не взятых не должно быть). spellDefs: {uuid: {cantrip}}.
+ */
+export function checkCast(rule, html, refs, spellDefs = {}) {
   const v = validateRule(rule);
   if (!v.ok) return [`validateRule: ${v.errors.map(String).join("; ").slice(0, 100)}`];
   if (!roundTrip(v.rule)) return ["roundTrip"];
   const bad = semanticErrors(rule, refs, html).map((e) => `semantic: ${String(e).slice(0, 80)}`);
-  const all = bare(html), itemDc = /spell DC\b[^.]{0,80}?\bis (\d+)/i.exec(all)?.[1];
-  const hearts = /once per day for each spell/i.test(all) || traits.includes("spellheart");
-  const isCast = (a) => /\bcasts?\b/i.test(bare(a.eff));
-  for (const a of activations(html)) if (isCast(a) && a.links.length > 1) bad.push(`activation with ${a.links.length} spell links`);
-  const acts = activations(html).filter((a) => isCast(a) && a.links.length);   // активация «cast» + @UUID заклинания
-  const els = rule.cast ?? [];
+  const all = castProse(html), own = (s) => /\b(?:you|those)\b[^.]*\bmust\b/i.test(s);   // «You … must succeed at a …» — испытание самого владельца, не СЛ заклинания
+  const sents = (t) => t.split(/(?<=[.!?])\s+/).filter((s) => !own(s));
+  const nums = (re, t) => new Set(sents(t).flatMap((s) => [...s.matchAll(re)].map((m) => +(m[1] ?? m[2]))));
+  const acts = activations(html), els = rule.cast ?? [];
   if (acts.length !== els.length) return [...bad, `activations ${acts.length} != cast ${els.length}`];
+  const itemSpellDc = nums(/\bspell DC\b[^.]{0,80}?(\d+)|\bDC of (?:any|all|each) spells?[^.]{0,80}?(\d+)/gi, all), attacks = nums(/\bspell attack\b[^.]{0,80}?\+(\d+)/gi, all);
+  const held = /\bmust be held\b/i.test(all) ? "held" : undefined;
   acts.forEach((a, i) => {
-    const c = els[i];
-    if (a.links.length !== 1 || a.links[0] !== c.spell) return bad.push(`activation ${i + 1}: spell differs`);
-    const rank = +/(\d+)(?:st|nd|rd|th)[- ]rank/i.exec(a.eff)?.[1] || undefined;
-    if (rank !== c.rank) bad.push(`activation ${i + 1}: rank ${c.rank} != text ${rank}`);
-    const chk = +/@Check\[[^\]]*\bdc:(\d+)/.exec(a.para)?.[1] || +itemDc || undefined;
-    if (chk !== c.dc) bad.push(`activation ${i + 1}: dc ${c.dc} != text ${chk}`);
-    if (!chk && /\bDC\s*\d+/.test(bare(a.block))) bad.push(`activation ${i + 1}: dc in text not taken`);
-    if (/@(?:Check|Damage)\[/.test(a.eff.slice(a.para.length))) bad.push(`activation ${i + 1}: extra check/damage after the cast`);
-    const f = frequencyOf(/<strong>\s*Frequency\s*<\/strong>([^<]*)/i.exec(a.block)?.[1]) ?? (hearts ? { value: 1, unit: "days" } : null) ?? frequencyOf(bare(a.block));
-    if (JSON.stringify(f) !== JSON.stringify(c.per ?? null)) bad.push(`activation ${i + 1}: per ${JSON.stringify(c.per)} != text ${JSON.stringify(f)}`);
-    if (c.requires) bad.push(`activation ${i + 1}: requires set`);
+    const c = els[i], n = `activation ${i + 1}`, text = castProse(a.eff);
+    if (a.links.length !== 1 || a.links[0] !== c.spell) return bad.push(`${n}: ${a.links.length ? "spell differs" : "no spell link"}`);
+    if (!/\bcast(?:s|ing)?\b/.test(text)) bad.push(`${n}: no cast word`);
+    if (/\beither\b|\bone of\b|\bor (?:an? )?(?:\d+\w\w-rank )?@UUID/i.test(a.eff)) bad.push(`${n}: choice between spells`);
+    const ranks = [...text.matchAll(/(\d+)(?:st|nd|rd|th)[- ]rank/gi)].map((m) => +m[1]), rank = ranks[0] || undefined, half = /\bhalf (?:its|your|the)\b/i.test(text);
+    if (ranks.length > 1) bad.push(`${n}: several ranks in text`);
+    if (half ? !spellDefs[c.spell]?.cantrip || c.rank != null : rank !== c.rank) bad.push(`${n}: rank ${c.rank} != text ${half ? "half level" : rank}`);
+    if (/@(?:Damage|Template)\[|\binstead\b|@UUID\[Compendium\.pf2e\.[\w-]*effects\b|\bimmun|\balso\b|\bexcept\b|\bunlike\b|\bIf your next action\b/i.test(a.eff)) bad.push(`${n}: extra effect after the cast`);
+    // @Check вне предложения с заклинанием и не владельца: допустим один — с СЛ правила (повтор СЛ приписью); остальное — лишнее после сотворения
+    const foreign = a.eff.split(/(?<=[.!?])\s+|<\/p>/).filter((x) => !own(castProse(x)) && !x.includes(c.spell)).flatMap((x) => [...x.matchAll(/@Check\[[^\]]*\]/g)].map((m) => m[0]));
+    if (foreign.length > (c.dc != null && foreign.some((x) => new RegExp(`\\bdc:${c.dc}\\b`).test(x)) ? 1 : 0)) bad.push(`${n}: extra check/damage after the cast`);
+    const dcs = new Set([...nums(/\bdc:(\d+)/g, a.eff), ...nums(/\bDC (?:of )?(\d+)/gi, text), ...itemSpellDc]);
+    if (c.dc == null ? dcs.size : !dcs.has(c.dc) || dcs.size > 1) bad.push(`${n}: dc ${c.dc} != text ${[...dcs]}`);
+    if (c.attack == null ? attacks.size : !attacks.has(c.attack) || attacks.size > 1) bad.push(`${n}: attack ${c.attack} != text ${[...attacks]}`);
+    const cs = nums(/\bcounteract (?:check|modifier)\b[^.]{0,30}?\+(\d+)/gi, all);
+    if (c.counteract == null ? cs.size : !cs.has(c.counteract)) bad.push(`${n}: counteract ${c.counteract} != text ${[...cs]}`);
+    const f = frequencyOf(/<strong>\s*Frequency\s*<\/strong>([^<]*)/i.exec(a.block)?.[1]) ?? frequencyOf(castProse(a.block));
+    if (JSON.stringify(f) !== JSON.stringify(c.per ?? null)) bad.push(`${n}: per ${JSON.stringify(c.per)} != text ${JSON.stringify(f)}`);
+    if (c.requires !== held) bad.push(`${n}: requires ${c.requires} != text ${held}`);
   });
   return bad;
 }
@@ -57,19 +67,19 @@ export function checkCast(rule, html, refs, traits = []) {
 export function buildBatch() {
   const html = readOut("html.json"), { items } = readOut("items.json"), refs = readOut("refs.json"), tri = new Map(readOut("triage.json").items.map((t) => [t.uuid, t]));
   const acc = new Map(readModelAccepted().map((d) => [d.uuid, d]));
-  const spellDefs = Object.fromEntries(items.filter((i) => i.pack === "spells-srd").map((i) => [i.uuid, { slug: i.slug, save: !!i.defense?.save }]));
+  const spellDefs = Object.fromEntries(items.filter((i) => i.pack === "spells-srd").map((i) => [i.uuid, { slug: i.slug, save: !!i.defense?.save, attack: /\bspell attack\b/i.test(i.descEn ?? ""), cantrip: (i.traits ?? []).includes("cantrip") }]));
   const ok = [], debt = [];
   for (const it of items) {
     const h = html[it.uuid], t = tri.get(it.uuid), a = acc.get(it.uuid);
     if (!h || it.type === "consumable" || !OPEN.has(t.status) || t.rule) continue;
-    const dc = deriveCast(h, { spellDefs, traits: it.traits ?? [] });
+    const dc = deriveCast(h, { spellDefs });
     if (!dc) continue;
     const ours = a?.reason === CONV || a?.reason?.includes("missing: cast:"), oldDebt = a?.confidence === "needs-primitive" && !ours && OLD_DEBT.test(a.reason);
     const nullCast = a && !a.rule && a.reason?.startsWith("model-null") && /cast/i.test(a.reason);
     if (a && !ours && !oldDebt && !nullCast) continue;   // готовое правило и прочий долг не трогаем
     const d = { uuid: it.uuid, slug: it.slug, type: it.type, name: it.name, nameRu: it.nameRu, layer: t.layer, batch: t.batchName, dupCount: it.dupCount };
     const rule = { v: RULE_VERSION, ...(it.name && { label: it.name }), cast: dc.cast };
-    const why = checkCast(rule, h, refs, it.traits ?? [])[0] ?? null;
+    const why = checkCast(rule, h, refs, spellDefs)[0] ?? null;
     if (why && (oldDebt || nullCast)) continue;   // прежнее решение остаётся
     if (why) debt.push({ ...d, status: "manual", confidence: "needs-primitive", reason: `needs-primitive: missing: cast: ${why}`, rule: null });
     else ok.push({ ...d, status: "manual", confidence: "model", reason: CONV, rule: validateRule(rule).rule });

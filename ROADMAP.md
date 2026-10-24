@@ -110,6 +110,8 @@
 | 0.5g5 | Встроенный `gear`: временная броня/щит от эффекта, своё снаряжение в паке | ~4 | ✓ |
 | 0.5g6 | Разовые встроенные: Shield Warden / Devoted Guardian, Life Link / Share Life / Shield Other, Channeling Block, Apparition Sense, Warden's Boon / Shared Prey | ~16 | ✓ |
 
+**Известная проблема для всех пачек (особенно 9):** копия способности NPC с `source`, но с другим текстом получает в рантайме правило источника (Evil Eye у NPC — Sickened вместо Frightened). Нужен механизм «текст копии расходится с источником → правило из разметки копии» (ограждение по отпечатку текста).
+
 Известные пробелы (`partial`, засчитаны, не слабее PA) — список в `coverage.md`. Регрессионный набор `tests/live/suite.js`: 4 падения существовали и до пачки 0.5 (tangle-vine, range-reach, shield-block, sickened) — разобрать отдельно.
 
 Не переносятся (решение пользователя 2026-10-23): иконки активностей исследования (Track, Investigate, Hustle, Search, Scout, Defend…). Правил внутри у них нет.

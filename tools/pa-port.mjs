@@ -821,7 +821,7 @@ export function subpackOf(reasons) {
 }
 
 /**
- * Вердикты по способности, а не по документу: запись без uuid, с slug (и необязательными type и scope "npc"|"compendium" — копия в актёре или документ компендиума) относится ко всем черновикам с этим slug, у которых нет своей записи по uuid и статус port.
+ * Вердикты по способности, а не по документу: запись без uuid, с slug (и необязательными type, scope "npc"|"compendium" — копия в актёре или документ компендиума, slugOnly — только копии без источника) относится ко всем черновикам с этим slug, у которых нет своей записи по uuid и статус port.
  * Правило записи не пишется, а берётся: accept:true — из черновика (перевод PA принят после чтения текста), accept:"markup" — выведенное из текста документа (PA ошибся или уступает тексту).
  * -> полный список записей по uuid (для buildPaCatalog / applyAccepted). Запись по uuid с полным rule остаётся как есть.
  */
@@ -829,7 +829,7 @@ export function resolveAccepted(accepted, drafts, derive) {
   const own = new Set(accepted.filter((a) => a.uuid).map((a) => a.uuid)), out = [];
   for (const a of accepted) {
     if (a.uuid && !a.accept) { const d = drafts.find((x) => x.uuid === a.uuid); out.push(d ? { slug: d.slug, type: d.type, name: d.name, status: "pa-port", ...(d.slugOnly && { slugOnly: true }), confidence: null, rule: null, ...a } : a); continue; }
-    const docs = a.uuid ? drafts.filter((d) => d.uuid === a.uuid) : drafts.filter((d) => d.slug === a.slug && (!a.type || d.type === a.type) && (!a.scope || (a.scope === "npc") === d.uuid.includes(".Actor.")) && !own.has(d.uuid) && !["covered", "native", "false-coverage", "not-ported"].includes(d.paStatus));
+    const docs = a.uuid ? drafts.filter((d) => d.uuid === a.uuid) : drafts.filter((d) => d.slug === a.slug && (!a.type || d.type === a.type) && (!a.scope || (a.scope === "npc") === d.uuid.includes(".Actor.")) && (!a.slugOnly || d.slugOnly) && !own.has(d.uuid) && !["covered", "native", "false-coverage", "not-ported"].includes(d.paStatus));
     for (const d of docs) {
       const { uuid, slug: s, type, slug, accept, partial, ...rest } = a;   // partial — перечень пробелов (annotateGaps), в запись каталога не идёт
       const rule = accept === "markup" ? derive(d) : accept ? d.rule ?? d.partial ?? null : (a.rule ?? null);

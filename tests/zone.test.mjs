@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 
 class Field { constructor(o) { this.o = o; } }
 globalThis.foundry = {
-  data: { fields: { StringField: Field, NumberField: Field, BooleanField: Field }, regionBehaviors: { RegionBehaviorType: class {} } }
+  data: { fields: { StringField: Field, NumberField: Field, BooleanField: Field, ArrayField: Field, ObjectField: Field }, regionBehaviors: { RegionBehaviorType: class {} } }
 };
 const { isExpired, ZoneBehaviorType } = await import("../scripts/zone.mjs");
 
@@ -22,7 +22,7 @@ test("схема: нет events и min у expiresAt; static events — enter/exi
   assert.equal("events" in s, false);
   assert.equal(s.expiresAt.o.min, undefined);
   assert.equal(s.expiresAt.o.nullable, true);
-  assert.deepEqual(Object.keys(ZoneBehaviorType.events).sort(), ["tokenEnter", "tokenExit"]);
+  assert.deepEqual(Object.keys(ZoneBehaviorType.events).sort(), ["tokenEnter", "tokenExit", "tokenTurnEnd", "tokenTurnStart"]);
 });
 
 test("static tokenEnter/Exit: не-ГМ ничего не делает, активный ГМ вызывает hold/release", async () => {

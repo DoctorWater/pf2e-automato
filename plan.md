@@ -67,7 +67,8 @@ pf2e 8.6.1 `.../systems/pf2e/pf2e.mjs` (далее `pf2e:NNNN` — номер с
 ```jsonc
 Zone := {
   "condition": { "slug": "concealed", "value": 1? } | null,   // состояние pf2e
-  "effect":    { "uuid": "Compendium...Item.xxx" } | null,    // и/или эффект (хотя бы одно из двух)
+  "effect":    { "uuid": "Compendium...Item.xxx" } | null,    // и/или эффект (хотя бы одно из двух — либо triggers)
+  "triggers":  [ { "on": "enter"|"turn-start"|"turn-end", "per": "round"|"turn"?, "challenge": Challenge?, "apply": [Apply to:"target"]? } ]?,   // (triggered-save T2, plan-triggered-save.md §2.B) существо вошло в область / начало / кончило в ней ход -> карточка-хозяин (events.hostChallenge) и/или шаги; хотя бы одно из challenge/apply. per — раз за раунд/ход боя на существо, общий для всех записей зоны (вне боя не действует). Снимок попадает в поведение зоны (system.triggers/dc/skipOrigin)
   "duration":  { "seconds": 60?, "rounds": 10? } | null,      // null = до закрытия; оба поля = «что наступит раньше»
   "events":    null                                           // ЗАРЕЗЕРВИРОВАНО (v2: tokenTurnStart/End); принимается только null
 }

@@ -3,8 +3,8 @@
 // Части окна у обоих режимов одни и те же (id), шаблоны подставляются по режиму в _configureRenderParts.
 import { MOD, L, errText, DEGREES, callGM, forcedReplace, forcedDelete, flagPath, damageLabel } from "../util.mjs";
 import { modeOf } from "../settings.mjs";
-import { DENY, dropSpec, ruleToForm, formToRule, blankRow, blankEvent, reportEnv, pickedTokens, ruleUuids, buildReport } from "../sheet.mjs";
-import { validateRule, resolveRule, slugOf, sourceOf, DAMAGE_TYPES, EVENT_ON, EVENT_SIDES, EVENT_TARGETED, EVENT_AFTER_USE } from "../rules.mjs";
+import { DENY, dropSpec, ruleToForm, formToRule, blankRow, blankEvent, blankTrigger, reportEnv, pickedTokens, ruleUuids, buildReport } from "../sheet.mjs";
+import { validateRule, resolveRule, slugOf, sourceOf, DAMAGE_TYPES, EVENT_ON, EVENT_SIDES, EVENT_TARGETED, EVENT_AFTER_USE, TRIGGER_ON, TRIGGER_PER } from "../rules.mjs";
 import { automationsGroups } from "../compat.mjs";
 import { safeUuid } from "../saves.mjs";
 import * as fx from "./effect.mjs";
@@ -184,6 +184,8 @@ export class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
       addMacro() { this.#au.f.macros.push({ uuid: "", phase: "onUse", degree: "" }); this.#au.open.macros = true; this.#redraw(); },
       addEvent() { this.#au.f.ev.push(blankEvent()); this.#au.open.events = true; this.#au.sel = null; this.#redraw(); },
       removeEvent(_e, el) { this.#au.f.ev.splice(Number(el.dataset.i), 1); this.#au.sel = null; this.#redraw(); },
+      addTrigger() { this.#au.f.zone.trig.push(blankTrigger()); this.#au.sel = null; this.#redraw(); },
+      removeTrigger(_e, el) { this.#au.f.zone.trig.splice(Number(el.dataset.i), 1); this.#au.sel = null; this.#redraw(); },
       insertTemplate() { return this.#guard(() => this.#insertTemplate()); },
       openSheet() { this.#item?.sheet.render(true); },
       saveItem() { return this.#guard(() => this.#saveItem()); },
@@ -498,6 +500,29 @@ export class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
       F.text("f.zone.effect", t("sheet.zoneEffect"), z.effect, { drop: "effect", cls: "ws-grow" }), F.num("f.zone.seconds", t("sheet.seconds"), z.seconds, { min: 1 }), F.num("f.zone.rounds", t("sheet.rounds"), z.rounds, { min: 1 })
     );
 
+    // триггеры зоны: событие, «не чаще», шаги существа и (по желанию) его испытание
+    const trgSel = !!a.sel?.startsWith("f.zone.trig.");
+    const trgs = f.targets === "area" && z.on ? z.trig.map((e, i) => {
+      const p = `f.zone.trig.${i}`, c = e.ch;
+      return {
+        i, title: `${i + 1}. ${t(`workshop.au.trg.on.${e.on}`)}`,
+        fields: [
+          F.sel(`${p}.on`, t("workshop.au.trg.onLabel"), e.on, choices(TRIGGER_ON, "au.trg.on")),
+          F.sel(`${p}.per`, t("workshop.au.trg.perLabel"), e.per, { "": t("workshop.au.trg.perNone"), ...choices(TRIGGER_PER, "au.trg.per") }),
+          F.chk(`${p}.ch.on`, t("workshop.au.trg.challenge"), c.on),
+          ...(c.on ? [
+            F.text(`${p}.ch.statistic`, t("sheet.statistic"), c.statistic, { list: "ws-skills" }), F.sel(`${p}.ch.dcType`, t("sheet.dcLabel"), c.dcType, sheetChoices("dc", ["value", "expr", "markup", "source", "against"])),
+            ...(["value", "expr", "against"].includes(c.dcType) ? [F.text(`${p}.ch.dcText`, t("workshop.au.dcValue"), c.dcText, { inpCls: "ws-num" })] : []),
+            F.chk(`${p}.ch.basic`, t("sheet.basic"), c.basic),
+            F.text(`${p}.ch.traits`, t("sheet.traits"), c.traits), F.text(`${p}.ch.options`, t("sheet.options"), c.options),
+            ...immFields(`${p}.ch.imm`, c.imm)
+          ] : [])
+        ],
+        apply: lst(`${p}.apply`, t("workshop.au.trg.apply")),
+        cols: c.on ? au.COLS.map((d) => lst(`${p}.ch.deg.${d}`, t(`sheet.degree.${d}`), d)) : null
+      };
+    }) : [];
+
     const macros = f.macros.map((m, i) => ({
       path: `f.macros.${i}`, name: m.form === "builtin" || m.uuid.startsWith("builtin:") ? "" : this.#names.get(m.uuid) ?? "",
       fields: [F.text(`f.macros.${i}.uuid`, "UUID", m.uuid, { drop: "macro", cls: "ws-grow", placeholder: "Macro.xxxxxxxx" }), F.sel(`f.macros.${i}.phase`, t("workshop.au.phase"), m.phase, sheetChoices("phase", ["onUse", "afterChallenge", "onDegree", "zoneEnter", "zoneExit", "onReaction"])),
@@ -538,7 +563,7 @@ export class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
         R("targets", { fields: targetFields, area: areaNote }),
         R("roll", { fields: rollFields }),
         R("outcome", { is_outcome: true, hintExcluded: a.hints?.excluded.length ? t("workshop.au.hintExcluded", { list: hintList(a.hints.excluded) }) : null, cols: mode === "none" ? null : au.COLS.map((d) => lst(`${au.degPath(mode)}.${d}`, t(`sheet.degree.${d}`), d)), imm: ((l) => ({ ...l, quiet: mode !== "none" && !l.steps.length && !l.picker }))(lst("f.apply", t(mode === "none" ? "workshop.au.immediate" : "workshop.au.immediateExtra"))), edit: evSel ? null : edit }),
-        R("zone", { fold: f.targets === "area", fields: zoneFields })
+        R("zone", { fold: f.targets === "area", fields: zoneFields, ...(f.targets === "area" && z.on && { is_trig: true, trgs, edit: trgSel ? edit : null }) })
       ] : []),
       R("macros", { is_macros: true, macros })
     ];

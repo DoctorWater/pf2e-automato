@@ -4,6 +4,7 @@ import { MOD, L, debug, isActiveGM } from "./util.mjs";
 import { modeOf, S } from "./settings.mjs";
 import { applyCondition, applyEffect, removeByKey } from "./apply.mjs";
 import { runMacros } from "./macros.mjs";
+import { resolveDC } from "./saves.mjs";
 import { visionActive, refreshZone, dropSource } from "./vision.mjs";
 
 const TYPE = `${MOD}.zone`;
@@ -46,18 +47,46 @@ export class ZoneBehaviorType extends foundry.data.regionBehaviors.RegionBehavio
       originUuid: new f.StringField({ blank: true }),
       originActor: new f.StringField({ blank: true }),
       messageId: new f.StringField({ blank: true }),
-      closed: new f.BooleanField()
+      closed: new f.BooleanField(),
+      triggers: new f.ArrayField(new f.ObjectField()),   // onUse.zone.triggers снимком: переживают удаление карточки
+      dc: new f.NumberField({ nullable: true, initial: null }),   // СЛ триггеров на момент создания (автор мог исчезнуть)
+      skipOrigin: new f.BooleanField()   // автор области (эманация) триггеров не получает
     };
   }
 
   // Статические события: работают при любом system.events и не редактируются в UI.
   static events = {
     tokenEnter: ZoneBehaviorType.#enter,
-    tokenExit: ZoneBehaviorType.#exit
+    tokenExit: ZoneBehaviorType.#exit,
+    tokenTurnStart: ZoneBehaviorType.#turn("turn-start"),
+    tokenTurnEnd: ZoneBehaviorType.#turn("turn-end")
   };
 
-  static async #enter(event) { if (isActiveGM()) await this.hold(event.data.token); }
+  static async #enter(event) {
+    if (!isActiveGM()) return;
+    const { token, movement } = event.data;
+    await this.hold(token);
+    // movement == null: регион создан/включён поверх токена или снят hidden — это не вход, стартовое испытание выдаёт сам запуск
+    if (movement) {
+      const c = game.combats.find((x) => x.started && x.combatants.some((m) => m.tokenId === token.id));
+      await this.trigger(token, "enter", { evId: `enter:${movement.id}`, combat: c?.id, round: c?.round, turn: c?.turn });
+    }
+  }
+  static #turn(on) {
+    return async function (event) {
+      const { token, combat, round, turn, skipped } = event.data;
+      if (!isActiveGM() || skipped) return;   // ядро шлёт события и за пропущенные ходы
+      await this.trigger(token, on, { evId: `${combat.id}:${round}:${turn}:${on}`, combat: combat.id, round, turn });
+    };
+  }
   static async #exit(event) { if (isActiveGM()) await this.release(event.data.token); }
+
+  /** Триггеры зоны (onUse.zone.triggers); events.mjs подгружаем лениво: он сам зависит от use.mjs -> zone.mjs. */
+  async trigger(tokenDoc, on, ev) {
+    if (!this.triggers?.some((t) => t.on === on) || !tokenDoc?.actor || this.region?.hidden || this.expired) return;
+    try { await (await import("./events.mjs")).fireZoneTrigger(this, tokenDoc, on, ev); }
+    catch (e) { console.error(`${MOD} | zone trigger`, e); }
+  }
 
   get expired() { return isExpired(this, game.time.worldTime); }
 
@@ -128,6 +157,9 @@ export async function attachZone(region, rule, originInfo = {}) {
   let behavior = zoneBehavior(region);
   if (!behavior) {
     const d = z.duration ?? {};
+    const trg = z.triggers ?? [], tc = trg.find((t) => t.challenge)?.challenge;
+    // СЛ триггеров считаем сейчас, пока автор и предмет на месте
+    const dc = tc ? await resolveDC({ rule: { onUse: { challenge: tc } }, item: { uuid: originInfo.originUuid }, actor: originInfo.originActor }).catch(() => null) : null;
     [behavior] = await region.createEmbeddedDocuments("RegionBehavior", [{
       type: TYPE,
       name: rule?.label ?? originInfo.name ?? L("zone.name"),
@@ -139,7 +171,9 @@ export async function attachZone(region, rule, originInfo = {}) {
         roundsLeft: d.rounds ?? null,
         originUuid: originInfo.originUuid ?? "",
         originActor: originInfo.originActor ?? "",
-        messageId: originInfo.messageId ?? ""
+        messageId: originInfo.messageId ?? "",
+        triggers: trg, dc: dc ?? null,
+        skipOrigin: !!trg.length && !!(rule?.onUse?.excludeSelf ?? region.flags?.pf2e?.areaShape === "emanation")
       }
     }]);
   }

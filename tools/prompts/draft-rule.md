@@ -16,6 +16,7 @@ Answer with ONLY a JSON array, no prose, no code fence. One element per item, sa
   "onUse": { "targets": "self" | "selected" | "area",
              "apply": [ STEP, ... ],            // applied on use, no roll
              "challenge": CHALLENGE | null,     // each target rolls a SAVE
+             "zone": {"duration": {"seconds": 60}, "triggers": [ {"on": "enter"|"turn-start"|"turn-end", "per": "round"|"turn"?, "challenge": CHALLENGE} ]} | null,   // only with targets "area": a cloud/wall/emanation that makes a creature save when it enters, starts or ends its turn in it ("Any creature that ends its turn in the cloud must attempt a Fortitude save"); the save at creation stays in "challenge"
              "check": CHECK | null },           // the USER rolls a check against the target's defense (never both challenge and check)
   "onAttacked": { "trigger": "attack-on-self", "bonus": {"stat": "ac", "type": "circumstance", "value": 2} }  // reaction giving an AC bonus when attacked; use INSTEAD of onUse
 }
@@ -112,7 +113,11 @@ Rules of thumb:
 ```json
 {"v":1,"label":"Black Powder Flash","onUse":{"targets":"selected","challenge":{"statistic":"fortitude","dc":{"against":"class"},"basic":false,"byDegree":{"success":[{"to":"target","condition":{"slug":"dazzled"},"duration":{"value":1,"unit":"rounds","expiry":"turn-end","of":"target"}}],"failure":[{"to":"target","condition":{"slug":"blinded"},"duration":{"value":1,"unit":"rounds"}}]}},"apply":[]}}
 ```
-14. Repeat save at the end of the target's turn (spell `save will`): "Failure: the target is slowed 1. At the end of each of its turns it can attempt another Will save to end the effect."
+14. Save for creatures that end their turn in a lingering cloud (spell with an area, no save at creation): "Any creature that ends its turn in the cloud must succeed at a Fortitude save or be sickened 1. The cloud lasts 1 minute."
+```json
+{"v":1,"label":"Spun Cloud","onUse":{"targets":"area","zone":{"duration":{"seconds":60},"triggers":[{"on":"turn-end","challenge":{"statistic":"fortitude","dc":{"source":"spell"},"basic":false,"byDegree":{"failure":[{"to":"target","condition":{"slug":"sickened","value":1}}],"criticalFailure":[{"to":"target","condition":{"slug":"sickened","value":2}}]}}}]},"apply":[]}}
+```
+15. Repeat save at the end of the target's turn (spell `save will`): "Failure: the target is slowed 1. At the end of each of its turns it can attempt another Will save to end the effect."
 ```json
 {"v":1,"label":"Undermine Reality","onUse":{"targets":"selected","challenge":{"statistic":"will","dc":{"source":"spell"},"basic":false,"byDegree":{"failure":[{"to":"target","condition":{"slug":"slowed","value":1},"repeat":{"on":"turn-end","end":["success","criticalSuccess"]}}]}}}}
 ```

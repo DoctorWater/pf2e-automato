@@ -111,6 +111,29 @@
           {{/if}}
         </div>
         {{/if}}
+        {{#if r.is_trig}}
+        <div class="ws-evs ws-full">
+          <span class="ws-note">{{localize "PF2E_AUTOMATO.workshop.au.trg.hint"}}</span>
+          {{#each r.trgs}}
+          <div class="ws-ev">
+            <div class="ws-ev-h"><span class="ws-lbl ws-accent">{{title}}</span>
+              <button type="button" class="ws-x" data-action="removeTrigger" data-i="{{i}}" name="rmTrigger-{{i}}" aria-label="{{localize "PF2E_AUTOMATO.workshop.au.trg.remove"}}"><i class="fa-solid fa-xmark" inert></i></button>
+            </div>
+            <div class="ws-pfields">{{#each fields}}{{> fld}}{{/each}}</div>
+            <div class="ws-lbl ws-dhead">{{apply.label}}</div>
+            {{> lst apply}}
+            {{#if cols}}<div class="ws-dgrid ws-full">{{#each cols}}<div class="ws-dcol"><div class="ws-lbl ws-dhead ws-d-{{deg}}">{{label}}</div>{{> lst}}</div>{{/each}}</div>{{/if}}
+          </div>
+          {{/each}}
+          <button type="button" class="ws-add" data-action="addTrigger" name="addTrigger"><i class="fa-solid fa-plus" inert></i> {{localize "PF2E_AUTOMATO.workshop.au.trg.add"}}</button>
+          {{#if r.edit}}
+          <div class="ws-sted ws-full">
+            <div class="ws-lbl ws-accent">{{r.edit.title}}</div>
+            <div class="ws-sted-f">{{#each r.edit.fields}}{{> fld}}{{/each}}</div>
+          </div>
+          {{/if}}
+        </div>
+        {{/if}}
         {{#if r.is_macros}}
         <div class="ws-mlist ws-full">
           {{#each r.macros}}

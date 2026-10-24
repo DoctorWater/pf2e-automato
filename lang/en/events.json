@@ -2,10 +2,17 @@
   "PF2E_AUTOMATO": {
     "events": {
       "host": "\"{item}\": {target} must attempt a challenge against the ability's owner.",
-      "repeat": "\"{item}\": {target} attempts the repeat save."
+      "repeat": "\"{item}\": {target} attempts the repeat save.",
+      "zone": "\"{item}\": {target} is in the area and must attempt a challenge."
     },
     "rules": {
       "err": {
+        "trg": {
+          "on": "A zone trigger has no event: enter, start or end of turn ({path})",
+          "per": "\"At most\" is once per round or once per turn ({path})",
+          "to": "Zone trigger steps apply only to the creature in the area (to: target) ({path})",
+          "empty": "The zone trigger is empty: add steps or a challenge ({path})"
+        },
         "ev": {
           "on": "An event entry has no event from the list ({path})",
           "side": "The event side is owner, roll target or origin ({path})",
@@ -35,6 +42,26 @@
         },
         "row": {
           "events": "Events"
+        },
+        "zoneTrig": "triggers: {n}",
+        "trg": {
+          "hint": "Zone triggers: what happens to a creature that enters the area or starts or ends its turn in it. The challenge and steps work as in events.",
+          "add": "Add trigger",
+          "remove": "Remove trigger",
+          "onLabel": "When",
+          "perLabel": "At most",
+          "perNone": "every time",
+          "challenge": "Creature's challenge",
+          "apply": "Steps",
+          "on": {
+            "enter": "Enters the area",
+            "turn-start": "Starts its turn in the area",
+            "turn-end": "Ends its turn in the area"
+          },
+          "per": {
+            "round": "once per round",
+            "turn": "once per turn"
+          }
         },
         "story": {
           "onEvent": "The rule fires on events. Each has its own condition, steps and challenge."

@@ -48,7 +48,8 @@ export function extraKeys(raw, norm, path = "") {
 }
 
 const stepsOf = (rule) => [...(rule.onUse?.apply ?? []), ...Object.values(rule.onUse?.challenge?.byDegree ?? {}).flat(), ...Object.values(rule.onUse?.check?.byDegree ?? {}).flat(),
-  ...(rule.onEvent ?? []).flatMap((e) => [...(e.apply ?? []), ...Object.values(e.challenge?.byDegree ?? {}).flat()])];
+  ...(rule.onEvent ?? []).flatMap((e) => [...(e.apply ?? []), ...Object.values(e.challenge?.byDegree ?? {}).flat()]),
+  ...(rule.onUse?.zone?.triggers ?? []).flatMap((e) => [...(e.apply ?? []), ...Object.values(e.challenge?.byDegree ?? {}).flat()])];
 
 /** Одни заметки ведущему (без иммунитета, зоны, событий): либо сюжет (автоматизировать нечего), либо механика без примитива (толчок, штраф без эффекта). Не skip: очередь «нужен примитив», в рантайм не идёт (решение пользователя 2026-10-24). */
 export const notesOnly = (rule) => {

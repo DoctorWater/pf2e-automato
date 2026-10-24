@@ -138,6 +138,11 @@ function evRule(e) {
   return { on: e.on, side: e.side, ...(when !== undefined && { when }), ...(e.once && { once: true }), ...(e.afterUse && { afterUse: true }), apply: (e.apply ?? []).map(applyOf).filter(Boolean), ...(e.ch?.on && { challenge: chRule(e.ch) }) };
 }
 
+// триггеры зоны (T2): запись onUse.zone.triggers <-> форма; испытание и шаги — как у onEvent
+export const blankTrigger = () => ({ on: "turn-end", per: "", apply: [], ch: chForm(null) });
+const trgForm = (t) => ({ on: t.on, per: t.per ?? "", apply: (t.apply ?? []).map(rowOf), ch: { ...chForm(t.challenge), on: !!t.challenge } });
+const trgRule = (t) => ({ on: t.on, ...(t.per && { per: t.per }), ...((t.apply ?? []).length && { apply: t.apply.map(applyOf).filter(Boolean) }), ...(t.ch?.on && { challenge: chRule(t.ch) }) });
+
 export function ruleToForm(rule) {
   const u = rule?.onUse, c = u?.challenge, k = u?.check, z = u?.zone, r = rule?.onAttacked;
   const vs = k?.vs ?? {};
@@ -147,7 +152,7 @@ export function ruleToForm(rule) {
     kind: u ? "onUse" : r ? "onAttacked" : rule?.onEvent?.length ? "onEvent" : "none",
     ev: (rule?.onEvent ?? []).map(evForm),
     targets: u?.targets ?? "self", excludeSelf: tri(u?.excludeSelf),
-    zone: { on: !!z, cond: z?.condition?.slug ?? "", condValue: z?.condition?.value ?? "", effect: z?.effect?.uuid ?? "", seconds: z?.duration?.seconds ?? "", rounds: z?.duration?.rounds ?? "" },
+    zone: { on: !!z, cond: z?.condition?.slug ?? "", condValue: z?.condition?.value ?? "", effect: z?.effect?.uuid ?? "", seconds: z?.duration?.seconds ?? "", rounds: z?.duration?.rounds ?? "", trig: (z?.triggers ?? []).map(trgForm) },
     ch: {
       on: !!c, statistic: c?.statistic ?? "reflex",
       dcType: dc.expr === "markup" ? "markup" : dc.source ? "source" : dc.against != null ? "against" : dc.expr != null ? "expr" : "value",
@@ -184,6 +189,7 @@ export function formToRule(f) {
         duration: s !== undefined || r !== undefined ? { ...(s !== undefined && { seconds: s }), ...(r !== undefined && { rounds: r }) } : null,
         events: null
       };
+      if (z.trig?.length) u.zone.triggers = z.trig.map(trgRule);
     }
     const c = f.ch;
     if (c?.on) {
@@ -241,8 +247,9 @@ export function dropSpec(data, doc) {
 export function ruleUuids(rule) {
   const u = rule.onUse, ch = u?.challenge, ck = u?.check, z = u?.zone;
   const evs = (rule.onEvent ?? []).flatMap((e) => [...(e.apply ?? []), ...DEGREES.flatMap((d) => e.challenge?.byDegree?.[d] ?? [])]);
-  const steps = [...(u?.apply ?? []), ...DEGREES.flatMap((d) => [...(ch?.byDegree?.[d] ?? []), ...(ck?.byDegree?.[d] ?? [])]), ...evs];
-  return [...new Set([...steps.flatMap((a) => [a.effect?.uuid, a.removeEffect?.uuid]), z?.effect?.uuid, ch?.immunity?.uuid, ck?.immunity?.uuid, ...(rule.onEvent ?? []).map((e) => e.challenge?.immunity?.uuid), ...(rule.macros ?? []).map((m) => m.uuid)].filter((u) => u && !u.startsWith("builtin:")))];
+  const trgs = (z?.triggers ?? []).flatMap((t) => [...(t.apply ?? []), ...DEGREES.flatMap((d) => t.challenge?.byDegree?.[d] ?? [])]);
+  const steps = [...(u?.apply ?? []), ...DEGREES.flatMap((d) => [...(ch?.byDegree?.[d] ?? []), ...(ck?.byDegree?.[d] ?? [])]), ...evs, ...trgs];
+  return [...new Set([...steps.flatMap((a) => [a.effect?.uuid, a.removeEffect?.uuid]), z?.effect?.uuid, ch?.immunity?.uuid, ck?.immunity?.uuid, ...(z?.triggers ?? []).map((t) => t.challenge?.immunity?.uuid), ...(rule.onEvent ?? []).map((e) => e.challenge?.immunity?.uuid), ...(rule.macros ?? []).map((m) => m.uuid)].filter((u) => u && !u.startsWith("builtin:")))];
 }
 
 const signed = (n) => (n >= 0 ? `+${n}` : String(n));

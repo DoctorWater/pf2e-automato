@@ -72,6 +72,11 @@ window.__afPa05 = { only: ["badge", "gear"], skip: [], cleanOnly: false }   // �
 Сценарии (id): `hit`, `miss`, `stale`, `npc-copies`, `crit-only`. Правило `onEvent.afterUse` — флагом на временном предмете-действии (не каталог); «испытание запустилось» — новое сообщение с `flags.pf2e-automato.use.state.event`. Нужен `mode.challenge` не `off`, иначе `SKIP`.
 Хрупкое: бонус атаки подкручивается под КЗ цели через `strike.totalModifier` (d20=10 — попал, 19 — крит, 1 — промах); Удар PC — безоружный (первый `isMelee` в `system.actions`); `stale` опирается на `pf2e.startTurn` и два `nextTurn()`.
 
+## zone-trigger (`zone-trigger.js`)
+Те же требования и приёмы, что у `repeat-save.js`. `window.__afZoneTrigger = { only: [...], skip: [...], cleanOnly: false }`; результат — `window.__afZoneTriggerResult`. Область — временный регион сцены «AF тест», поведение вешает `api.attachZone`.
+Сценарии (id): `start-turn` (в области в начале хода — бросок, вне — нет), `enter-move` (вход движением — карточка; область, созданная поверх токена, — без карточки), `per-round` (вход и конец хода в одном раунде — один бросок, в следующем раунде — снова).
+Хрупкое: вход движением идёт через `TokenDocument.move` (нет — `update({x, y})`); исход — фиксация d20; карточка триггера опознаётся по ключу `trg:` в `use.state.event`.
+
 ## repeat-save (`repeat-save.js`)
 Те же требования и приёмы, что у `strike-gate.js`. `window.__afRepeatSave = { only: [...], skip: [...], cleanOnly: false }`; результат — `window.__afRepeatSaveResult`.
 Сценарии (id): `apply`, `save-success`, `save-fail`, `author-gone`, `fear-drops` (испуг 1 падает сам — обёртки нет, карточек нет), `undo` (успех повтора -> `undoOps` карточки -> носитель и состояние вернулись). Правило — флаг на временном предмете-действии: Воля СЛ 20, провал и крит. провал -> замедление 1 (`slowed`; в `fear-drops` — испуг 1) с `repeat: {on: "turn-end", end: [success, criticalSuccess]}`; автор (PC) и цель (NPC-гоблин) в бою. «Повтор запустился» — новое сообщение с `flags.pf2e-automato.use.state.event`. Нужны `mode.challenge` и `mode.apply` = `auto`, иначе `SKIP`.

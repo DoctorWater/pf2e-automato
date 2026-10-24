@@ -56,8 +56,8 @@ test("формат черновика: ровно поля контракта", 
 
 test("эталонные правила промпта валидны и проходят круг форма-правило", () => {
   const md = readFileSync(new URL("../tools/prompts/draft-rule.md", import.meta.url), "utf8");
-  const rules = [...md.matchAll(/```json\n(.*)\n```/g)].map((m) => JSON.parse(m[1]));
-  assert.ok(rules.length >= 8 && rules.length <= 12);
+  const rules = [...md.matchAll(/```json\r?\n(.*?)\r?\n```/g)].map((m) => JSON.parse(m[1]));
+  assert.ok(rules.length >= 8 && rules.length <= 16);
   const any = new Proxy({}, { get: () => true });
   for (const r of rules) {
     const a = checkAnswer({ uuid: "u", rule: r }, { conditions: any, effects: any });

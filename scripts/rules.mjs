@@ -237,6 +237,22 @@ function vApplyList(list, path, defTo, err, basicOk = false) {
   return out.filter(Boolean);
 }
 
+// triggers (T2): существо входит в область / начинает / кончает в ней ход -> испытание и/или шаги к нему. per — не чаще раза за раунд / за ход боя (общий на все записи зоны с таким per)
+export const TRIGGER_ON = ["enter", "turn-start", "turn-end"];
+export const TRIGGER_PER = ["round", "turn"];
+function vTrigger(t, path, err) {
+  if (!isObj(t)) { err.push(E("notObj", path)); return null; }
+  const out = {};
+  if (!TRIGGER_ON.includes(t.on)) err.push(E("trg.on", `${path}.on`)); else out.on = t.on;
+  if (t.per != null) { if (!TRIGGER_PER.includes(t.per)) err.push(E("trg.per", `${path}.per`)); else out.per = t.per; }
+  if (t.challenge != null) { const c = vChallenge(t.challenge, `${path}.challenge`, err); if (c) out.challenge = c; }
+  const apply = vApplyList(t.apply, `${path}.apply`, "target", err);
+  if (apply.some((a) => a.to !== "target")) err.push(E("trg.to", `${path}.apply`));
+  if (apply.length) out.apply = apply;
+  if (!out.challenge && !apply.length) err.push(E("trg.empty", path));
+  return out;
+}
+
 function vZone(z, path, err) {
   if (!isObj(z)) { err.push(E("notObj", path)); return null; }
   const out = { condition: null, effect: null, duration: null, events: null };
@@ -252,7 +268,11 @@ function vZone(z, path, err) {
     if (!isObj(z.effect) || !isStr(z.effect.uuid)) err.push(E("effect.uuid", `${path}.effect.uuid`));
     else out.effect = { uuid: z.effect.uuid };
   }
-  if (!out.condition && !out.effect) err.push(E("zone.empty", path));
+  if (z.triggers != null) {
+    if (!Array.isArray(z.triggers)) err.push(E("notArr", `${path}.triggers`));
+    else { const list = z.triggers.map((t, i) => vTrigger(t, `${path}.triggers[${i}]`, err)).filter(Boolean); if (list.length) out.triggers = list; }
+  }
+  if (!out.condition && !out.effect && !out.triggers) err.push(E("zone.empty", path));
   if (z.duration != null) {
     const d = z.duration;
     if (!isObj(d)) err.push(E("zone.durObj", `${path}.duration`));

@@ -10,7 +10,8 @@ import { testPredicate } from "./predicate.mjs";
 import { useKindOf, buildSnapshot } from "./use.mjs";
 import { card } from "./card.mjs";
 import { messageTargets, esc, combatOf } from "./builtin/lib.mjs";
-import { parseMarker } from "./saves.mjs";
+import { parseMarker, challengeApplies } from "./saves.mjs";
+import { isImmune } from "./checks.mjs";
 import { repeatChallenge } from "./repeat.mjs";
 
 /* ---------- чистые функции ---------- */
@@ -259,6 +260,56 @@ export async function runRepeats(on, evId, actor) {
       await hostChallenge({ owner, other: actor, challenge: repeatChallenge(rp, m.key), key, name, build, text: "events.repeat" });
     } catch (e) { console.error(`${MOD} | repeat ${item.name}`, e); }
   }
+}
+
+/**
+ * Ключ идемпотентности триггера зоны. per (раунд/ход боя) — один ключ на существо и зону для ВСЕХ записей с этим per (запись и событие в ключ не входят:
+ * «вход» и «конец хода» с per:"round" делят один бросок); без per или вне боя — само событие (evId) и номер записи.
+ */
+export function triggerKey({ per, combat, round, turn, evId, region, token, i }) {
+  if (per && combat) return `trg:${combat}:${round}${per === "turn" ? `:${turn}` : ""}:${region}:${token}`;
+  return `trg:${evId}:${region}:${token}:${i}`;
+}
+
+const feedHas = (key) => game.messages.contents.slice(-100).some((m) => m.flags?.[MOD]?.use?.state?.event === key);   // переживает перезагрузку: карточка-хозяин помнит свой ключ
+
+/**
+ * Триггер зоны (onUse.zone.triggers): существо `token` вошло в область / начало / кончило в ней ход. sys — система поведения зоны.
+ * ev: { evId, combat?, round?, turn? } — evId стойкий (id перемещения либо бой:раунд:ход:событие). Закрытая/скрытая/просроченная зона не стреляет.
+ * Автор мог исчезнуть: владелец карточки null, СЛ — из снимка зоны (sys.dc).
+ */
+export async function fireZoneTrigger(sys, token, on, ev) {
+  const actor = token?.actor, region = sys.region, list = (sys.triggers ?? []).map((t, i) => ({ t, i })).filter(({ t }) => t.on === on);
+  if (!list.length || !actor || actor.isDead || !region || region.hidden || sys.expired || !guardActiveGM()) return;
+  if (sys.skipOrigin && sys.originActor && actor.uuid === sys.originActor) return;
+  const [owner, origin] = [await safeDoc(sys.originActor), await safeDoc(sys.originUuid)];
+  const name = origin?.name ?? sys.parent?.name ?? "";
+  const src = origin ? rules.sourceOf(null, origin) : null;
+  const build = (rule, dc) => buildSnapshot({
+    kind: "use", resolved: { rule, source: "catalog", slug: origin ? rules.slugOf(null, origin) : null, sourceUuid: src, confidence: "high" },
+    item: { uuid: sys.originUuid || null, name, type: origin?.type ?? "feat", sourceId: src },
+    actor: owner?.uuid ?? (sys.originActor || null), token: (owner && tokenOf(owner)?.uuid) || null, dc: dc ?? null, now: Date.now(), targets: []
+  });
+  await queue(`ztrg:${region.uuid}:${token.id}`, async () => {
+    for (const { t, i } of list) {
+      const key = triggerKey({ ...ev, per: t.per, region: region.uuid, token: token.id, i });
+      if (fired.has(key) || feedHas(key)) continue;
+      const ch = t.challenge, dc = ch?.dc?.value ?? sys.dc ?? null;
+      const card = ch && modeOf("challenge") !== "off" && challengeApplies(ch, actor, sys.originActor)
+        && !(rules.challengeWho(ch) && (rules.challengeWho(ch) === "enemy") !== apply.opposed(tokenOf(owner)?.disposition ?? 1, token.disposition ?? 0))
+        && !(ch.immunity && await isImmune(build(hostRule({ challenge: ch }, name), dc), token, ch));
+      const steps = t.apply?.length && modeOf("effect") === "auto";
+      if (!card && !steps) continue;
+      remember(key);   // после проверок: цель, не попавшая под испытание, раунд не гасит; remember — до первого await ниже
+      try {
+        if (steps) {
+          const twin = makeTwin(`ev:${key}`, { ...build({ v: 1, label: name, onEvent: [] }, dc), kind: "event", targets: [{ key: token.id, uuid: token.uuid, name: token.name, pc: !!actor.hasPlayerOwner }] });
+          for (const [j, step] of t.apply.entries()) await apply.applyOps(twin, token.id, [step], { scope: "apply", originActor: owner, originToken: tokenOf(owner), originItem: origin, rollOptions: [], target: token, stepKey: `${i}.${j}` });
+        }
+        if (card) await hostChallenge({ owner, other: actor, otherToken: token, challenge: ch, key, name, build: (r) => build(r, dc), text: "events.zone" });
+      } catch (e) { console.error(`${MOD} | zone trigger ${name}[${i}]`, e); }
+    }
+  });
 }
 
 /** Опции `origin-effect:<slug>` для владельца side:origin: эффекты «другого» (носителя), автор которых — именно этот владелец (не любой автор любого эффекта). */

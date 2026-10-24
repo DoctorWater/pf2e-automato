@@ -196,6 +196,7 @@
     },
     "affliction": {
       "stage": "«{item}»: {target} — стадия {n} из {of}.",
+      "onset": "Начало",
       "cleared": "«{item}»: {target} избавился от недуга.",
       "ended": "«{item}»: срок недуга у {target} вышел — недуг закончился."
     },
@@ -205,7 +206,9 @@
     },
     "chat": {
       "stepAffliction": "недуг «{name}»: стадия {stage} из {of}",
-      "stepAfflictionDC": "недуг «{name}»: стадия {stage} из {of} (СЛ {dc})"
+      "stepAfflictionDC": "недуг «{name}»: стадия {stage} из {of} (СЛ {dc})",
+      "stepStageDelta": "сдвинуть стадию недуга по степени (успех — вниз, провал — вверх)",
+      "stepRemoveKey": "снять эффект, вызвавший испытание"
     }
   }
 }

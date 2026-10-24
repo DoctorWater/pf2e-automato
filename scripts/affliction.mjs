@@ -4,7 +4,10 @@
 import { sluggify } from "./util.mjs";
 
 export const UNIT_S = { rounds: 6, minutes: 60, hours: 3600, days: 86400 };   // раунд = CONFIG.time.roundTime (pf2e: 6 с)
-export const secondsOf = (d) => (d && UNIT_S[d.unit] ? d.value * UNIT_S[d.unit] : null);
+export const secondsOf = (d) => {
+  const s = d?.unit === "rounds" ? globalThis.CONFIG?.time?.roundTime ?? UNIT_S.rounds : UNIT_S[d?.unit];
+  return s ? d.value * s : null;
+};
 /** Состояния, которые pf2e не привязывает к недугу (pf2e.mjs zl): поднимаем по max без снятия при смене стадии, чужое не трогаем. */
 export const UNLINKED = new Set(["frightened", "sickened", "drained", "doomed", "stunned", "unconscious"]);
 

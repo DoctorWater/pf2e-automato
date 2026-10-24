@@ -107,10 +107,12 @@ export function normalizeRule(rule, html, kind = null) {
 
 /** Текст со стадиями, а в ответе недуга нет: определение собирает код (tools/affliction.mjs), испытание и остальные степени остаются от модели. Не собралось — правило как есть (semanticErrors скажет почему). */
 function withAffliction(rule, html, refs, kind) {
-  if (!html || !afflictionStages(html) || stepsOf(rule).some((s) => s.affliction)) return rule;
+  if (!html || !afflictionStages(html) || stepsOf(rule).some((s) => s.affliction)) return { rule };
   const byId = new Map(Object.entries(refs.conditions ?? {}).map(([slug, c]) => [c.id, slug]));
   const r = afflictionRule(html, { name: rule.label, traits: kind?.traits ?? [], base: rule, condSlug: (u) => (u.includes(".conditionitems.") ? byId.get(u.split(".").pop()) ?? null : null) });
-  return r?.rule ?? rule;
+  // часть стадий не разобрана (кроме СЛ, её берёт испытание): неполный недуг теряет эффекты молча — на Sonnet
+  if (r?.unsure.some((u) => u !== "dc")) return { rule: r.rule ?? rule, unsure: r.unsure };
+  return { rule: r?.rule ?? rule };
 }
 
 /** Один ответ агента -> { kind: "accepted"|"notes-only"|"needs-primitive"|"null"|"unsure"|"error", rule?, errors? }. */
@@ -123,7 +125,9 @@ export function checkAnswer(ans, refs, html = null, kind = null) {
   if (!v.ok) return { kind: "error", errors: v.errors.map(fmtErr) };
   const extra = extraKeys(ans.rule, v.rule);
   if (extra.length) return { kind: "error", errors: [`unknown fields (not in the schema): ${extra.join(", ")}`] };
-  v.rule = withAffliction(v.rule, html, refs, kind);
+  const w = withAffliction(v.rule, html, refs, kind);
+  if (w.unsure) return { kind: "unsure", guess: w.rule };
+  v.rule = w.rule;
   const sem = semanticErrors(v.rule, refs, html);
   if (sem.length) return { kind: "error", errors: sem };
   if (!roundTrip(v.rule)) return { kind: "error", errors: ["rule does not survive the form round-trip: remove fields that are not in the schema"] };

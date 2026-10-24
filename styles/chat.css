@@ -104,6 +104,7 @@
 }
 .paf-card .paf-card-head i { flex: none; width: 16px; text-align: center; font-size: 13px; color: #5e0000; }
 .paf-card .paf-note { padding: 8px 10px; }
+.paf-card .paf-onset { display: inline-block; padding: 0 0.5em; margin-right: 0.3em; border: 1px solid #5e0000; border-radius: 1em; font-size: 0.85em; color: #5e0000; }
 .paf-card .paf-note p { margin: 0 0 0.4em; }
 .paf-card .paf-note p:last-child { margin-bottom: 0; }
 .paf-card .paf-card-actions { display: grid; grid-template-columns: repeat(auto-fit, minmax(7.5em, 1fr)); gap: 6px; padding: 0 10px 10px; }

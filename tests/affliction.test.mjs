@@ -39,7 +39,7 @@ const validate = rules.validateRule;
 beforeEach(() => {
   Object.assign(settings, { "mode.challenge": "auto", "mode.effect": "auto", "mode.apply": "auto", "mode.macro": "auto", useToolbeltTargetHelper: false, yieldToAutomations: false, resumeMinutes: 30 });
   msgs = new Map(); uuids = new Map(); created = []; dealt = []; warned.length = 0; now = 1000;
-  game.combats = [];
+  game.combats = []; run.resetTracked();
 });
 
 const stg = (o = {}) => ({ duration: { value: 1, unit: "rounds" }, damage: [{ formula: "1d10", damageType: "poison" }], conditions: [{ slug: "sickened", value: 1 }], ...o });
@@ -480,7 +480,7 @@ test("хуки времени: конец хода участника боя т�
   assert.equal(cards().length, 0);   // участник боя ждёт конца своего хода
   await h["pf2e.endTurn"][0]({ id: "c1", actor: v }, { id: "E", round: 2, turn: 0 }); await new Promise((r) => setTimeout(r, 20));
   assert.equal(cards().length, 1);
-  game.combats = [];
+  game.combats = []; run.resetTracked();
   now = 1012; carrierOf(v).flags[MOD].meta.affliction.pending = null;
   h.updateWorldTime[0](); await new Promise((r) => setTimeout(r, 20));
   assert.equal(cards().length, 2);
@@ -576,4 +576,87 @@ test("validate.mjs: на тексте со стадиями null и правил
   const by = r.rule.onUse.challenge.byDegree;
   assert.deepEqual([by.failure[0].affliction.stage, by.failure[0].affliction.def.stages.length, by.criticalFailure[0].affliction.stage], [1, 3, 2]);
   assert.equal(checkAnswer({ uuid: "u", rule: head, unsure: false }, refs, "<p>Failure: sickened 1</p>").kind, "accepted");   // текст без стадий — как раньше
+});
+
+/* ---------- замечания Критика ---------- */
+
+test("откат: состояния, созданные отменяемой стадией, снимаются (и при первом наложении); поднятое возвращается к прежнему значению", async () => {
+  const v = setup();
+  const def = DEF({ stages: [stg({ conditions: [{ slug: "sickened", value: 1 }] }), stg({ conditions: [{ slug: "sickened", value: 1 }, { slug: "frightened", value: 1 }] })] });
+  const step = startStep(def);
+  const { m: m1 } = await expose(v, step, 1, "M1");
+  const { m: m2 } = await expose(v, step, 1, "M2");   // повторное воздействие ядом: стадия 2, создан frightened
+  assert.equal(carrierOf(v).system.badge.value, 2);
+  assert.ok(condOf(v, "frightened"));
+  await undoOps(m2, "t1");
+  assert.equal(condOf(v, "frightened"), undefined);
+  assert.ok(condOf(v, "sickened"));
+  assert.equal(carrierOf(v).system.badge.value, 1);
+  await undoOps(m1, "t1");   // первое наложение: носитель и созданное стадией 1 уходят (хука deleteItem в тесте нет)
+  assert.equal(v.items.length, 0);
+  // поднятое по max: откат возвращает prev
+  const raised = [];
+  game.pf2e.ConditionManager.updateConditionValue = async (id, actor, val) => { raised.push([id, val]); };
+  const cond = mkActor("Actor.other").createEmbeddedDocuments("Item", [{ name: "sickened", type: "condition", system: { slug: "sickened" } }]);
+  const [it] = await cond;
+  await run.afflictionUnmake([{ item: it.uuid, prev: 1 }]);
+  delete game.pf2e.ConditionManager.updateConditionValue;
+  assert.deepEqual(raised, [[it.id, 1]]);
+});
+
+test("откат и повторное «Применить»: урон стадии второй раз не наносится (журнал state.damaged сообщения)", async () => {
+  const v = setup();
+  const step = startStep(DEF());
+  const { m } = await expose(v, step);
+  assert.equal(dealt.length, 1);
+  await undoOps(m, "t1");
+  assert.equal(v.items.length, 0);
+  await applyOps(m, "t1", [step], { scope: "challenge", degree: 1, originActor: mkActor("Actor.author") });
+  assert.equal(carrierOf(v).system.badge.value, 1);
+  assert.equal(dealt.length, 1);
+});
+
+test("гонка: два одновременных наложения — один носитель; два тика подряд — одна карточка", async () => {
+  const v = setup();
+  const step = startStep(DEF({ maxDuration: null }));
+  await Promise.all([expose(v, step, 1, "M1"), expose(v, step, 1, "M2")]);
+  assert.equal(carriers(v).length, 1);
+  assert.equal(carrierOf(v).system.badge.value, 2);   // второй шаг — повторное воздействие ядом
+  now = 1012;
+  await Promise.all([run.tick(v, "a"), run.tick(v, "b")]);
+  assert.equal(cards().length, 1);
+});
+
+test("pending помнит id карточки: жива — нового броска нет; карточку удалили — на конце интервала бросок заново", async () => {
+  const v = setup();
+  await expose(v, startStep(DEF({ maxDuration: null })));
+  now = 1006; await run.tick(v, "p1");
+  const id = carrierOf(v).flags[MOD].meta.affliction.pending.msg;
+  assert.equal(id, cards()[0].id);
+  now = 1012; await run.tick(v, "p2");
+  assert.equal(cards().length, 1);
+  msgs.delete(id);
+  now = 1018; await run.tick(v, "p3");
+  assert.equal(cards().length, 2);
+});
+
+test("validate.mjs: недуг с неразобранным текстом стадии — unsure (на Sonnet); «XdY тип» без слова damage разбирается", async () => {
+  const { checkAnswer } = await import("../tools/validate.mjs");
+  const ids = { sickened: "a", clumsy: "b", fatigued: "c" };
+  const refs = { conditions: Object.fromEntries(Object.entries(ids).map(([s, id]) => [s, { id }])), effects: {} };
+  const html = SPIDER.replace(/conditionitems\.Item\.(sickened|clumsy)\]/g, (_m, s) => `conditionitems.Item.${ids[s]}]`);
+  const head = { v: 1, label: "Spider Venom", onUse: { targets: "selected", challenge: { statistic: "fortitude", dc: { value: 22 }, byDegree: { failure: [{ to: "target", condition: { slug: "sickened", value: 1 } }] } } } };
+  const odd = html.replace("<strong>Stage 1</strong>", "<strong>Stage 1</strong> the target hums a sad tune and");
+  const r = checkAnswer({ uuid: "u", rule: head, unsure: false }, refs, odd, { type: "consumable", traits: ["poison"] });
+  assert.equal(r.kind, "unsure");
+  assert.equal(checkAnswer({ uuid: "u", rule: head, unsure: false }, refs, html, { type: "consumable", traits: ["poison"] }).kind, "accepted");
+  const plain = parseAffliction(SPIDER.replace("@Damage[1d10[poison]] damage", "1d10 poison"), { name: "Spider Venom", traits: ["poison"], condSlug });
+  assert.deepEqual(plain.def.stages[0].damage, [{ formula: "1d10", damageType: "poison" }]);
+});
+
+test("раунд недуга берётся из CONFIG.time.roundTime", () => {
+  CONFIG.time = { roundTime: 10 };
+  assert.equal(A.secondsOf({ value: 2, unit: "rounds" }), 20);
+  delete CONFIG.time;
+  assert.equal(A.secondsOf({ value: 2, unit: "rounds" }), 12);
 });

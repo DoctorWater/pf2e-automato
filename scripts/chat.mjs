@@ -99,6 +99,8 @@ export function stepText(a, env, defTo) {
     const { def, stage } = a.affliction, v = { name: def.name, stage, of: def.stages.length, dc: def.save.dc };
     return def.save.dc ? t("chat.stepAfflictionDC", v) : t("chat.stepAffliction", v);
   }
+  if (a.stageDelta) return t("chat.stepStageDelta");
+  if (a.removeKey) return t("chat.stepRemoveKey");
   const p = a.persistent;
   if (a.choose) return t(`chat.stepChoose.${a.choose.from}`, { options: (a.choose.options ?? []).map((o) => o.label ?? o.value).join(" / ") });
   const to = { self: "Self", target: "Target", party: "Party", allies: "Allies", chosen: "Chosen" }[a.to ?? defTo] ?? "Target", rank = a.rank ? `[${t("chat.stepRank", { range: a.rank.min != null && a.rank.max != null ? (a.rank.min === a.rank.max ? a.rank.min : `${a.rank.min}–${a.rank.max}`) : a.rank.min != null ? `${a.rank.min}+` : `≤${a.rank.max}` })}] ` : "";

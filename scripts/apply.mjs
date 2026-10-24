@@ -12,7 +12,7 @@ import { escapeDC, offerEscape } from "./escape.mjs";
 import { repeatMeta, sameCarrier } from "./repeat.mjs";
 import { forcedMove, undoMove, areaPoint } from "./move.mjs";
 import { rulesOfMods, textOfMods, inlineSlug } from "./inline-effect.mjs";
-import { afflictionStep, afflictionUndo, afflictionRestore } from "./affliction-run.mjs";
+import { afflictionStep, afflictionUndo, afflictionUnmake, afflictionRestore } from "./affliction-run.mjs";
 
 const esc = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
@@ -590,8 +590,8 @@ export async function applyOps(message, tokenKey, steps, ctx = {}) {
       continue;
     }
     if (step.affliction || step.stageDelta) {   // недуг: наложение и сдвиг стадии (affliction-run.mjs); носитель — свой эффект с meta.affliction
-      const r = await afflictionStep(actor, step, { meta, scope, use, tokenKey, degree: ctx.degree, selfActor, originToken, originItem, traits });
-      if (r.op !== "skipped") ops.push({ op: r.op, ...(r.item && { item: r.item.uuid }), ...(r.data && { actor: actor.uuid, data: r.data }), ...(r.prev != null && { prev: r.prev }) });
+      const r = await afflictionStep(actor, step, { message, meta, scope, use, tokenKey, degree: ctx.degree, selfActor, originToken, originItem, traits });
+      if (r.op !== "skipped") ops.push({ op: r.op, ...(r.item && { item: r.item.uuid }), ...(r.data && { actor: actor.uuid, data: r.data }), ...(r.prev != null && { prev: r.prev }), ...(r.made?.length && { made: r.made }) });
       continue;
     }
     const tgt = step.to === "target" ? targetDoc : null;
@@ -684,11 +684,12 @@ export async function undoOps(message, tokenKey) {
       }
       if (o.op === "afflicted") {   // стадия, streak и часы назад (вне очереди актёра: внутри applyStage своя)
         const it = await fromUuid(o.item);
-        if (it?.actor) { await afflictionUndo(it, o.prev); undone++; }
+        if (it?.actor) { await afflictionUndo(it, o.prev, o.made); undone++; }
         continue;
       }
       const item = await fromUuid(o.item);
       if (!item?.actor) continue;
+      if (o.made) await afflictionUnmake(o.made);   // недуг: состояния, созданные/поднятые его стадией, до снятия носителя
       await queue(`actor:${item.actor.uuid}`, async () => {
         if (o.op === "created") await item.delete({ [MOD]: { undo: true } });   // откат — не «снятие эффекта»: events.onItem такие удаления игнорирует
         else if (o.op === "raised") await game.pf2e.ConditionManager.updateConditionValue(item.id, item.actor, o.prev);

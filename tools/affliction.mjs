@@ -38,7 +38,7 @@ function parseStage(html, { condSlug, known }) {
     return " ";
   });
   t = t.replace(/(\d+d\d+(?:\s*[+-]\s*\d+)?)\s+persistent\s+([a-z]+)(?:\s+damage)?/gi, (m, f, ty) => (DAMAGE_TYPES.includes(ty.toLowerCase()) ? (out.persistent ??= { formula: f.replace(/\s+/g, ""), damageType: ty.toLowerCase() }, " ") : m));
-  t = t.replace(/(\d+d\d+(?:\s*[+-]\s*\d+)?)\s+([a-z]+)\s+damage/gi, (m, f, ty) => (DAMAGE_TYPES.includes(ty.toLowerCase()) ? (out.damage.push({ formula: f.replace(/\s+/g, ""), damageType: ty.toLowerCase() }), " ") : m));
+  t = t.replace(/(\d+d\d+(?:\s*[+-]\s*\d+)?)\s+([a-z]+)(?:\s+damage)?/gi, (m, f, ty) => (DAMAGE_TYPES.includes(ty.toLowerCase()) ? (out.damage.push({ formula: f.replace(/\s+/g, ""), damageType: ty.toLowerCase() }), " ") : m));
   const add = (slug, value) => { if (!out.conditions.some((c) => c.slug === slug)) out.conditions.push({ slug, ...(value != null && { value }) }); };
   t = t.replace(/@UUID\[([^\]]+)\](?:\{([^}]*)\})?/g, (m, uuid, label = "") => {
     const slug = condSlug(uuid);

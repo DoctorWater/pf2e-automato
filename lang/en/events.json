@@ -196,6 +196,7 @@
     },
     "affliction": {
       "stage": "\"{item}\": {target} is at stage {n} of {of}.",
+      "onset": "Onset",
       "cleared": "\"{item}\": {target} is rid of the affliction.",
       "ended": "\"{item}\": the maximum duration on {target} has run out — the affliction ends."
     },
@@ -205,7 +206,9 @@
     },
     "chat": {
       "stepAffliction": "affliction \"{name}\": stage {stage} of {of}",
-      "stepAfflictionDC": "affliction \"{name}\": stage {stage} of {of} (DC {dc})"
+      "stepAfflictionDC": "affliction \"{name}\": stage {stage} of {of} (DC {dc})",
+      "stepStageDelta": "shift the affliction stage by the degree (success down, failure up)",
+      "stepRemoveKey": "remove the effect that called for the save"
     }
   }
 }

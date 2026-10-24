@@ -470,7 +470,7 @@ test("mode.challenge=off и мёртвая цель: карточек нет", a
 
 test("хуки времени: конец хода участника боя тикает, вне боя — updateWorldTime; бой не стартовал — как вне боя", async () => {
   const v = setup();
-  game.actors = [v];
+  game.actors = Object.assign([v], { has: () => true });
   const h = {}; globalThis.Hooks = { on: (n, f) => { (h[n] ??= []).push(f); } };
   run.init();
   await expose(v, startStep(DEF({ maxDuration: null })));

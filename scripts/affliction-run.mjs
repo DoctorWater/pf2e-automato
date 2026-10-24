@@ -230,13 +230,14 @@ export async function tick(actor, evId = `w:${now()}`) {
 
 const inCombat = (actor) => !!combatOf(game.combats, actor)?.started;
 const hasCarrier = (actor) => !!actor?.items?.some?.(isCarrier);
+const gone = (a) => (a.token ? !a.token.parent?.tokens?.has(a.token.id) || !game.scenes.has(a.token.parent.id) : !game.actors.has(a.id));   // удалённый актёр или токен: Foundry держит документ, но сцены/мира уже нет
 
 /** Все актёры мира вне боя: смена времени, смена лидера (подхват работы ушедшего). */
 export async function sweep() {
   if (!guardActiveGM()) return;
   tracked ??= new Map(worldActors().filter(hasCarrier).map((a) => [a.uuid, a]));   // новые носители добавляет track (создание, откат снятия, createItem)
   for (const [uuid, actor] of [...tracked]) {
-    if (!hasCarrier(actor)) { tracked.delete(uuid); continue; }
+    if (gone(actor) || !hasCarrier(actor)) { tracked.delete(uuid); continue; }
     if (!inCombat(actor)) await tick(actor);
   }
 }

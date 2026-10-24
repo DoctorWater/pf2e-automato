@@ -192,17 +192,20 @@ async () => {
   const targetTurnEnd = async (c) => { for (let i = 0; i < 4; i++) await nextTurn(c); };
 
   /** PC-автор и NPC-цель (в бою по желанию); d20 = fix -> недуг по правилу. */
-  const cast = async (e, { rule = RULE(DEF()), fix = 8, combat = true } = {}) => {
+  const cast = async (e, { rule = RULE(DEF()), fix = 8, combat = true, pre = null } = {}) => {
     openChat(); needMode("mode.challenge", "off"); needMode("mode.apply", "off", "button");
     const pc = await e.pc("автор"), vic = await e.foe("цель");
     const tP = await e.tok(pc, 500, 500, 1), tV = await e.tok(vic, 600, 500, -1);
     await wait(700);
+    if (pre) await pre(e.A(tV));
     const item = await e.ruleItem(pc, rule);
     let c = null;
     if (combat) { c = await e.combat([tP, tV], [20, 10]); await c.startCombat(); await wait(1200); }
     await e.fix(fix);
     const m = await e.fire(item, tP, tV);
+    // носитель создаётся раньше, чем применена стадия (состояния, урон): ждём applied; в onset он остаётся null
     await waitFor(() => carrier(e.A(tV)), 8000);
+    if (!rule.onUse.challenge.byDegree.failure[0].affliction.def.onset) await waitFor(() => aff(e.A(tV))?.applied != null, 8000), await wait(1500);
     return { pc, vic, tP, tV, c, m, item };
   };
   const again = async (e, x, fix) => { await e.fix(fix); const m = await e.fire(x.item, x.tP, x.tV); await wait(1500); return m; };
@@ -277,7 +280,7 @@ async () => {
   });
 
   sc("onset", "Onset: эффектов нет, пока не прошёл срок; после game.time.advance — стадия применена", async (e, t) => {
-    const x = await cast(e, { rule: RULE(DEF({ onset: { value: 1, unit: "hours" } })), combat: false });
+    const x = await cast(e, { rule: RULE(DEF({ onset: { value: 1, unit: "hours" }, maxDuration: { value: 1, unit: "days" } })), combat: false });
     const a = e.A(x.tV);
     t.ok(badge(a) === 1 && !e.cond(a, "sickened") && hp(a) === a.hitPoints.max, `в onset: бейдж ${badge(a)}, тошноты нет, урона нет`);
     await game.time.advance(3601); await wait(2500);
@@ -286,11 +289,10 @@ async () => {
   });
 
   sc("foreign-sickened", "Чужая тошнота 2 не поднята и не снята стадией 1 и лечением", async (e, t) => {
-    const x = await cast(e, { combat: false });
+    // чужая тошнота 2 уже висит до недуга: стадия 1 (тошнота 1, max) её не трогает
+    const x = await cast(e, { combat: false, pre: (a) => api().applyCondition(a, { slug: "sickened", value: 2, policy: "max" }, { key: "foreign" }) });
     const target = e.A(x.tV);
-    await api().applyCondition(target, { slug: "sickened", value: 2, policy: "max" }, { key: "foreign" });
-    await wait(500);
-    t.ok(e.cond(target, "sickened")?.value >= 2, "чужая тошнота висит");
+    t.ok(!!carrier(target) && e.cond(target, "sickened")?.value === 2, `чужая тошнота 2 при недуге (${e.cond(target, "sickened")?.value})`);
     await carrier(target)?.delete(); await wait(1500);
     t.ok(e.cond(target, "sickened")?.value === 2, `после снятия недуга чужая тошнота цела (${e.cond(target, "sickened")?.value})`);
   });
@@ -317,9 +319,11 @@ async () => {
     t.ok(await waitFor(() => !e.cond(a, "sickened"), 6000), "состояние снято вместе с ним");
   });
 
-  sc("reload-pending", "Карточка без результата: повторный тик (как после перезагрузки, память пуста) второй бросок не создаёт", async (e, t) => {
+  sc("reload-pending", "Карточка без результата (цель с игроком-владельцем): повторный тик (как после перезагрузки, память пуста) второй бросок не создаёт", async (e, t) => {
     const x = await cast(e, { combat: false });
     const a = e.A(x.tV), t0 = e.since();
+    await a.update({ ownership: { default: 0, [game.users.find((u) => !u.isGM).id]: 3 } });   // игрок-владелец: карточка ждёт его броска, а не бросается сама
+    await wait(500);
     await e.fix(null);
     await game.time.advance(7); await wait(2500);
     const n = cards(e, t0).length;
@@ -357,7 +361,7 @@ async () => {
     const x = await cast(e, { rule: RULE(DEF({ name: "AF чума", kind: "disease", virulent: true }), 2, 2), fix: 8, combat: false });
     const a = e.A(x.tV);
     t.ok(badge(a) === 2, `старт со стадии 2 (${badge(a)})`);
-    await e.fix(20);
+    await e.fix(Math.min(19, Math.max(2, 21 - a.saves.fortitude.mod)));   // обычный успех: натуральная 20 дала бы крит. успех
     await game.time.advance(7); await wait(3000);
     t.ok(badge(a) === 2 && aff(a)?.streak === 1, `первый успех: стадия ${badge(a)}, streak ${aff(a)?.streak}`);
     await game.time.advance(7); await wait(3000);

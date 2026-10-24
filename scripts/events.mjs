@@ -11,6 +11,7 @@ import { useKindOf, buildSnapshot } from "./use.mjs";
 import { card } from "./card.mjs";
 import { messageTargets, esc, combatOf } from "./builtin/lib.mjs";
 import { parseMarker } from "./saves.mjs";
+import { repeatChallenge } from "./repeat.mjs";
 
 /* ---------- чистые функции ---------- */
 
@@ -209,21 +210,55 @@ export async function runEntry(ev, owner, { item, rule }, { i, entry }, sink = n
   }
 
   if (entry.challenge && other && modeOf("challenge") !== "off") {
-    const t = otherToken ?? tokenOf(other);
-    if (t) {
-      const r = hostRule(entry, item.name);
-      const use = snap(r, "use");
-      use.targets = [{ key: t.id, uuid: t.uuid, name: t.name, pc: !!other.hasPlayerOwner }];
-      use.state.event = key;   // карточка испытания: события на её бросках не запускаем (цепочки нет)
-      const msg = await ChatMessage.create({
-        content: card(L("events.host", { item: esc(item.name), target: esc(t.name) }), "", { title: esc(item.name), icon: "fa-bolt" }),
-        speaker: ChatMessage.getSpeaker?.({ actor: owner }), flags: { [MOD]: { use } }
-      });
-      if (msg) res.host = msg.id;
-    }
+    const id = await hostChallenge({ owner, other, otherToken, challenge: entry.challenge, key, name: item.name, build: (r) => snap(r, "use") });
+    if (id) res.host = id;
   }
   debug("event", ev.id, item.name, i, res.recs.length);
   return res.recs.length || res.host ? res : null;
+}
+
+/**
+ * Карточка испытания «другой участник бросает challenge против владельца» (общая для onEvent и повтора спасброска). owner может быть null
+ * (автор удалён): говорящий — name, актёр снимка строкой кладёт build. build(rule) -> снимок use; targets и state.event ставим здесь. -> id карточки | null
+ */
+export async function hostChallenge({ owner, other, otherToken = null, challenge, key, name, build, text = "events.host" }) {
+  const t = otherToken ?? tokenOf(other);
+  if (!t) return null;
+  const use = build(hostRule({ challenge }, name));
+  use.targets = [{ key: t.id, uuid: t.uuid, name: t.name, pc: !!other.hasPlayerOwner }];
+  use.state.event = key;   // карточка испытания: события на её бросках не запускаем (цепочки нет)
+  const msg = await ChatMessage.create({
+    content: card(L(text, { item: esc(name), target: esc(t.name) }), "", { title: esc(name), icon: "fa-bolt" }),
+    speaker: owner ? ChatMessage.getSpeaker?.({ actor: owner }) : { alias: name }, flags: { [MOD]: { use } }
+  });
+  return msg?.id ?? null;
+}
+
+/**
+ * Повторный спасбросок (шаг repeat, repeat.mjs): у актёра на границе его хода каждый носитель с meta.repeat.on === on получает карточку-хозяина.
+ * Автор мог пропасть (owner null): СЛ и степени снятия — из снимка в meta.repeat, иначе цель осталась бы под эффектом навсегда.
+ */
+export async function runRepeats(on, evId, actor) {
+  if (!actor || actor.isDead || modeOf("challenge") === "off") return;
+  for (const item of [...(actor.items ?? [])]) {
+    const m = item.flags?.[MOD]?.meta, rp = m?.repeat;
+    if (rp?.on !== on) continue;
+    // обёртка-состояние без живого выданного (состояние кончилось само): носитель пуст — снять, не слать карточки вечно
+    if ((item.system?.rules ?? []).some((r) => r.key === "GrantItem") && !Object.values(item.flags?.pf2e?.itemGrants ?? {}).some((g) => actor.items.has?.(g.id))) { await item.delete().catch(() => {}); continue; }
+    const key = `${evId}:${item.uuid}:repeat`;
+    if (fired.has(key)) continue;
+    remember(key);
+    try {
+      const [owner, origin] = [await safeDoc(m.by), await safeDoc(m.origin)];
+      const name = origin?.name ?? item.name, src = origin ? rules.sourceOf(null, origin) : null;
+      const build = (rule) => buildSnapshot({
+        kind: "use", resolved: { rule, source: "catalog", slug: origin ? rules.slugOf(null, origin) : null, sourceUuid: src, confidence: "high" },
+        item: { uuid: m.origin ?? item.uuid, name, type: origin?.type ?? item.type, sourceId: src },
+        actor: owner?.uuid ?? m.by ?? null, token: (owner && tokenOf(owner)?.uuid) || null, dc: rp.dc, now: Date.now(), targets: []
+      });
+      await hostChallenge({ owner, other: actor, challenge: repeatChallenge(rp, m.key), key, name, build, text: "events.repeat" });
+    } catch (e) { console.error(`${MOD} | repeat ${item.name}`, e); }
+  }
 }
 
 /** Опции `origin-effect:<slug>` для владельца side:origin: эффекты «другого» (носителя), автор которых — именно этот владелец (не любой автор любого эффекта). */
@@ -377,7 +412,10 @@ async function actorEvent(on, evId, actor, { extra = [], effect = null } = {}) {
   if (effect) for (const o of origins) { for (const x of o.getRollOptions?.() ?? []) set.add(x); for (const x of actor.getSelfRollOptions?.("target") ?? []) set.add(x); }
   // у события без броска цели нет: владельцу-носителю «другой» — только тот, на ком эффект (сторона origin)
   const ev = { id: evId, options: set, otherFor: (side) => (side === "origin" ? actor : null), otherTokenFor: () => null };
-  await queue(`events:${evId}`, () => runEvent(ev, on, { self: [actor], origin: origins }));
+  await queue(`events:${evId}`, async () => {
+    try { await runEvent(ev, on, { self: [actor], origin: origins }); }
+    finally { if (!effect && (on === "turn-start" || on === "turn-end")) await runRepeats(on, evId, actor); }   // сбой onEvent не гасит повторы
+  });
 }
 
 const onTurn = (on) => (combatant, encounter) => actorEvent(on, `turn:${encounter?.id}:${encounter?.round}:${encounter?.turn}:${combatant?.id}:${on}`, combatant?.actor).catch((e) => console.error(`${MOD} | events ${on}`, e));

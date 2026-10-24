@@ -20,6 +20,8 @@
     "apply": {
       "immune": "\"{name}\" is immune to this effect — not applied.",
       "alreadyImmune": "\"{name}\" is temporarily immune to this effect — not applied.",
+      "repeatTaken": "\"{name}\" already has this condition or effect — repeat save not attached, the existing one is left alone.",
+      "repeatNoDC": "\"{name}\": the repeat-save DC is unknown — not applied.",
       "needEnemy": "\"{name}\": target exactly one enemy (for the mark) — effect not applied.",
       "noChoice": "\"{name}\": no option chosen — effect not applied.",
       "noCandidates": "\"{name}\": nobody to choose on the scene — steps for the chosen creature skipped.",

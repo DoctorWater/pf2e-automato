@@ -110,6 +110,7 @@ Apply := {
   "removeEffect": { "slug": "rage" | "uuid": "Compendium...", "of": "origin"? } | null,  // (0.5g2) снять эффект получателя; of:"origin" — созданный автором; откат создаёт заново по сохранённым данным (op effRemoved)
   "extendEffect": { "slug": "inspire-courage", "rounds": 1 } | null,   // (0.5g2) продлить действующий эффект на раунды (op extended: prev {value, unit}); повтор по meta.key не продлевает
   "rollOption": { "domain": "all", "option": "mighty-rage-attack", "value": false? } | null,   // (0.5g2) toggleRollOption получателя; value:false — выключить; op option {prev}
+  "repeat": { "on": "turn-start"|"turn-end", "end": ["success","criticalSuccess"]?, "statistic": "will"?, "dc": 25?, "traits"?, "options"? }?,   // (triggered-save T1, plan-triggered-save.md §2.C) только to:"target" + condition|effect, не с escape; носитель — свой документ с meta.repeat (condition без duration — обёртка unlimited); вне challenge statistic и dc обязательны; на pf2e.startTurn/endTurn цели events.runRepeats кидает карточку-хозяин (hostChallenge), степени end снимают носитель внутренним шагом removeKey
   "range": 30?,                               // (0.5g2) только при to:"allies": радиус в футах, целое >= 5
   "rank": { "min": 3?, "max": 5? }?,           // (0.5f) шаг только если круг сотворения (castRank, у не-заклинания — уровень предмета) в границах; 1..10, min<=max. Любого вида шаг
   "note": "string?"                           // текст в блоке (для "ничего не делается", напр. «урон ×½»)

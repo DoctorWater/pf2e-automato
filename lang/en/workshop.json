@@ -435,7 +435,8 @@
           "chosen": "the chosen creature",
           "basic": "basic save: x0 / x1/2 / x1 / x2 by degree",
           "when": "if {when}",
-          "escape": "victim can Escape"
+          "escape": "victim can Escape",
+          "repeat": "repeat save on the target's turn"
         }
       },
       "item": {

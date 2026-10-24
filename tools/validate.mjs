@@ -64,6 +64,7 @@ export function semanticErrors(rule, refs, html = null) {
   for (const s of stepsOf(rule)) {
     if (s.condition && !refs.conditions[s.condition.slug]) bad.push(`condition "${s.condition.slug}" does not exist in pf2e`);
     if (s.removeCondition && !refs.conditions[s.removeCondition.slug]) bad.push(`condition "${s.removeCondition.slug}" does not exist in pf2e`);
+    if (s.repeat?.statistic && !SAVES.includes(s.repeat.statistic)) bad.push(`repeat.statistic must be fortitude, reflex or will (got "${s.repeat.statistic}")`);
     for (const x of [s.effect?.uuid, s.unlessEffect]) if (x && !refs.effects[x]) bad.push(`effect ${x} not found: copy the UUID exactly from the item text`);
     for (const x of [s.effect?.uuid, s.unlessEffect]) if (x && html !== null && !html.includes(x)) bad.push(`effect ${x} is not mentioned in this item's text: use only effects linked in the text`);
   }

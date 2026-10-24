@@ -39,6 +39,7 @@ STEP      = { "to": "self"|"target", ONE of:
               ("expiry" turn-end/turn-start = ends at the end/start of a turn; "of" = whose turn: "origin" (the user, default) or "target" (the affected creature: "until the end of ITS next turn");
                use value 0 + expiry turn-end for "until the end of this turn")
             + optional "who": "ally"|"enemy"   // apply to this step's target only if it is an ally / an enemy of the user (use when one cast hits both allies and enemies differently)
+            + optional "repeat": {"on": "turn-start"|"turn-end", "end": ["success","criticalSuccess"]} on a condition/effect step of the target INSIDE a challenge byDegree: "at the end of each of its turns it can attempt another save to end it" (the save and DC are those of the challenge; "end" = the degrees that end it)
 ```
 Rules of thumb:
 - Spell with a save in the item header (`save will`, `save reflex`...) -> `challenge` with `dc: {"source":"spell"}` and `basic` as shown. Put conditions from each degree of the text into byDegree. Targets: `selected` (or `area` if the item has an area).
@@ -69,7 +70,7 @@ Rules of thumb:
 ```json
 {"v":1,"label":"Fear","onUse":{"targets":"selected","challenge":{"statistic":"will","dc":{"source":"spell"},"basic":false,"byDegree":{"success":[{"to":"target","condition":{"slug":"frightened","value":1}}],"failure":[{"to":"target","condition":{"slug":"frightened","value":2}}],"criticalFailure":[{"to":"target","condition":{"slug":"frightened","value":3}},{"to":"target","condition":{"slug":"fleeing"},"duration":{"value":1,"unit":"rounds"}}]}},"apply":[]}}
 ```
-2. Basic save, condition only on a critical failure (cantrip `save will basic`): "Critical Failure: the target is stunned 1."
+2. Basic save, condition only on a critical failure (cantrip `save will basic`): "Critical Failure: the target is slowed 1."
 ```json
 {"v":1,"label":"Daze","onUse":{"targets":"selected","challenge":{"statistic":"will","dc":{"source":"spell"},"basic":true,"byDegree":{"criticalFailure":[{"to":"target","condition":{"slug":"stunned","value":1}}]}},"apply":[]}}
 ```
@@ -110,4 +111,8 @@ Rules of thumb:
 13. Save against the user's class DC, ends on the target's turn (feat): "The target attempts a Fortitude save against your class DC. Success: dazzled until the end of its next turn. Failure: blinded for 1 round."
 ```json
 {"v":1,"label":"Black Powder Flash","onUse":{"targets":"selected","challenge":{"statistic":"fortitude","dc":{"against":"class"},"basic":false,"byDegree":{"success":[{"to":"target","condition":{"slug":"dazzled"},"duration":{"value":1,"unit":"rounds","expiry":"turn-end","of":"target"}}],"failure":[{"to":"target","condition":{"slug":"blinded"},"duration":{"value":1,"unit":"rounds"}}]}},"apply":[]}}
+```
+14. Repeat save at the end of the target's turn (spell `save will`): "Failure: the target is slowed 1. At the end of each of its turns it can attempt another Will save to end the effect."
+```json
+{"v":1,"label":"Undermine Reality","onUse":{"targets":"selected","challenge":{"statistic":"will","dc":{"source":"spell"},"basic":false,"byDegree":{"failure":[{"to":"target","condition":{"slug":"slowed","value":1},"repeat":{"on":"turn-end","end":["success","criticalSuccess"]}}]}}}}
 ```

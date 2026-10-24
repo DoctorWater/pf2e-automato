@@ -9,6 +9,7 @@ import { resolveFormula, isZeroFormula, isActiveStep } from "./rules.mjs";
 import { testPredicate } from "./predicate.mjs";
 import { setSource, dropSource, visionActive } from "./vision.mjs";
 import { escapeDC, offerEscape } from "./escape.mjs";
+import { repeatMeta, sameCarrier } from "./repeat.mjs";
 
 const metaOf = (item) => item?.flags?.[MOD]?.meta;
 const notify = (key, data) => globalThis.ui?.notifications?.warn?.(L(key, data));
@@ -30,12 +31,13 @@ const withMeta = (data, meta) => { data.flags ??= {}; data.flags[MOD] = { ...dat
  * Состояние с длительностью: эффект-обёртка pf2e + GrantItem состояния (значение — алтерацией badge-value, она применяется один раз при выдаче).
  * Снимается вместе с обёрткой (cascade). Обычные состояния обёртка держит (grantee restrict — ГМ не удалит состояние, пока жива обёртка);
  * убывающие и кончающиеся досрочно (ENDS_EARLY) — detach: ГМ уменьшает/снимает их вручную, а обёртка по истечении срока снимет остаток.
+ * Носитель повтора (meta.repeat) — cascade: конец выданного состояния уносит и обёртку (иначе пустая обёртка слала бы карточки вечно).
  */
 async function createTimed(actor, spec, meta, ctx, base) {
   const d = spec.duration, valued = !!base.system?.value?.isValued;
   // getCondition() отдаёт копию без uuid — источник в компендиуме берём из _stats/sourceId
   const uuid = base.uuid ?? base._stats?.compendiumSource ?? base.sourceId;
-  const grant = { key: "GrantItem", uuid, onDeleteActions: { grantee: ENDS_EARLY.has(sluggify(spec.slug)) ? "detach" : "restrict" },
+  const grant = { key: "GrantItem", uuid, onDeleteActions: { grantee: meta.repeat ? "cascade" : ENDS_EARLY.has(sluggify(spec.slug)) ? "detach" : "restrict" },
     ...(valued && { alterations: [{ mode: "override", property: "badge-value", value: spec.value ?? 1 }] }) };
   const tToken = ctx.target ?? actor.getActiveTokens(true, true)[0];
   // pf2e считает turn-start/turn-end по ходу context.origin.actor: для of:"target" автором срока делаем получателя
@@ -216,6 +218,15 @@ export function removeEffect(actor, spec, ctx = {}) {
     // выданное другим предметом (grantedBy) и эффект ауры (fromAura) не трогаем — как состояния в removeCondition
     const hit = effectsOf(actor, spec).filter((e) => !e.grantedBy && !e.fromAura && (spec.of !== "origin" || e.system?.context?.origin?.actor === ctx.originActor?.uuid));
     return hit.length ? dropEffects(hit, actor) : { op: "skipped" };
+  });
+}
+
+/** Шаг removeKey (карточка повтора): снять носитель с meta.key; выданное состояние уходит с обёрткой (granter cascade). -> effRemoved | skipped */
+export function removeCarrier(actor, key) {
+  return queue(`actor:${actor.uuid}`, async () => {
+    const hit = actor.items.filter((i) => metaOf(i)?.key === key && metaOf(i)?.repeat);
+    if (!hit.length) return { op: "skipped" };
+    return dropEffects(hit, actor);
   });
 }
 
@@ -529,9 +540,22 @@ export async function applyOps(message, tokenKey, steps, ctx = {}) {
     }
     const tgt = step.to === "target" ? targetDoc : null;
     if (step.condition?.policy === "reduce" && doneOps.some((o) => o.key === meta.key)) continue;
+    let dur = step.duration;
+    if (step.repeat) {   // носитель — всегда свой документ с meta.repeat; чужой не трогаем (иначе повтор снимет чужое)
+      if (findByKey(actor, meta.key)) continue;   // повтор того же шага
+      const ch = scope === "challenge" ? use.rule?.onUse?.challenge ?? use.rule?.onUse?.check : null;
+      const dc = step.repeat.dc ?? (scope === "challenge" ? use.dc ?? use.state?.challenge?.results?.[tokenKey]?.dc ?? await (await import("./saves.mjs")).resolveDC(use) : null);
+      if (dc == null) { notify("apply.repeatNoDC", { name: actor.name }); continue; }
+      meta.repeat = repeatMeta(step.repeat, ch, dc);
+      const taken = actor.items.some((it) => sameCarrier(meta, metaOf(it)))
+        || (step.condition ? actor.itemTypes.condition.some((c) => c.slug === sluggify(step.condition.slug) && !c.isLocked && !c.grantedBy) : hasEffect(actor, step.effect.uuid, selfActor?.uuid));
+      if (taken) { notify("apply.repeatTaken", { name: actor.name }); continue; }
+      if (step.condition) dur ??= { value: -1, unit: "unlimited", expiry: null, of: "origin" };
+    }
     const r = step.persistent ? await applyPersistent(actor, step.persistent, meta, persVars)
       : step.condition
-      ? await applyCondition(actor, step.duration ? { ...step.condition, duration: step.duration } : step.condition, meta, { ...ectx, target: tgt })
+      ? await applyCondition(actor, dur ? { ...step.condition, duration: dur } : step.condition, meta, { ...ectx, target: tgt })
+      : step.removeKey ? await removeCarrier(actor, step.removeKey)
       : step.removeEffect ? await removeEffect(actor, step.removeEffect, ectx)
       : step.extendEffect ? await extendEffect(actor, step.extendEffect, meta)
       : step.rollOption ? await setRollOption(actor, step.rollOption)

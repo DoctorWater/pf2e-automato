@@ -2,7 +2,7 @@
 import { test, beforeEach, afterEach } from "node:test";
 import assert from "node:assert/strict";
 import { MOD, degreeFromTotal } from "../scripts/util.mjs";
-import { damageMultiplier, parseMarker, dcFromEnriched, resolveDC, recordResult, acceptSavingThrow } from "../scripts/saves.mjs";
+import { damageMultiplier, parseMarker, dcFromEnriched, resolveDC, recordResult, acceptSavingThrow, rollSave } from "../scripts/saves.mjs";
 import { runMacros } from "../scripts/macros.mjs";
 
 const settings = {};
@@ -228,4 +228,19 @@ test("low: результат при mode.apply=auto не уходит в авт
   };
   assert.equal(await run("L", "low"), false);
   assert.equal(await run("H", "high"), true);
+});
+
+test("rollSave: черты испытания — и в опциях броска (pf2e ищет incapacitation в опциях, не в params.traits)", async () => {
+  const saved = { game: globalThis.game, ui: globalThis.ui, fromUuid: globalThis.fromUuid };
+  const rolls = [];
+  globalThis.game = { messages: { get: () => null }, i18n: { localize: (k) => k, format: (k) => k } };
+  globalThis.ui = { notifications: { warn() {}, info() {} } };
+  globalThis.fromUuid = async () => null;
+  const actor = { name: "T", getActiveTokens: () => [], getStatistic: () => ({ check: { roll: async (p) => { rolls.push(p); return { degreeOfSuccess: 1, total: 10, dice: [] }; } } }) };
+  try {
+    await rollSave(actor, { statistic: "fortitude", traits: ["incapacitation"] }, { dc: 20 });
+    assert.ok(rolls[0].extraRollOptions.includes("incapacitation"));
+    assert.ok(rolls[0].extraRollOptions.includes("item:trait:incapacitation"));
+    assert.deepEqual(rolls[0].traits, ["incapacitation"]);
+  } finally { Object.assign(globalThis, saved); }
 });

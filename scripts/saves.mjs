@@ -164,7 +164,9 @@ export async function rollSave(actor, challenge, ctx = {}) {
   const origin = (await safeUuid(use?.actor)) ?? item?.actor ?? undefined;
   const token = ctx.token ?? actor.getActiveTokens(true, true)[0] ?? undefined;
   const extraRollOptions = [...(tokenKey ? [marker(message.id, tokenKey)] : []), ...(challenge.options ?? []),
-    ...(challenge.basic ? ["damaging-effect"] : [])];
+    ...(challenge.basic ? ["damaging-effect"] : []),
+    // черты испытания — и в опции броска: pf2e проверяет incapacitation по опциям до того, как добавит params.traits (как инлайн-@Check)
+    ...(challenge.traits ?? []).flatMap((t) => [t, `item:trait:${t}`])];
 
   let rollMessage = null;
   const params = {

@@ -71,3 +71,8 @@ window.__afPa05 = { only: ["badge", "gear"], skip: [], cleanOnly: false }   // �
 Те же требования и приёмы, что у `pa05.js`. `window.__afStrikeGate = { only: [...], skip: [...], cleanOnly: false }`; результат — `window.__afStrikeGateResult`.
 Сценарии (id): `hit`, `miss`, `stale`, `npc-copies`, `crit-only`. Правило `onEvent.afterUse` — флагом на временном предмете-действии (не каталог); «испытание запустилось» — новое сообщение с `flags.pf2e-automato.use.state.event`. Нужен `mode.challenge` не `off`, иначе `SKIP`.
 Хрупкое: бонус атаки подкручивается под КЗ цели через `strike.totalModifier` (d20=10 — попал, 19 — крит, 1 — промах); Удар PC — безоружный (первый `isMelee` в `system.actions`); `stale` опирается на `pf2e.startTurn` и два `nextTurn()`.
+
+## repeat-save (`repeat-save.js`)
+Те же требования и приёмы, что у `strike-gate.js`. `window.__afRepeatSave = { only: [...], skip: [...], cleanOnly: false }`; результат — `window.__afRepeatSaveResult`.
+Сценарии (id): `apply`, `save-success`, `save-fail`, `author-gone`, `fear-drops` (испуг 1 падает сам — обёртки нет, карточек нет), `undo` (успех повтора -> `undoOps` карточки -> носитель и состояние вернулись). Правило — флаг на временном предмете-действии: Воля СЛ 20, провал и крит. провал -> замедление 1 (`slowed`; в `fear-drops` — испуг 1) с `repeat: {on: "turn-end", end: [success, criticalSuccess]}`; автор (PC) и цель (NPC-гоблин) в бою. «Повтор запустился» — новое сообщение с `flags.pf2e-automato.use.state.event`. Нужны `mode.challenge` и `mode.apply` = `auto`, иначе `SKIP`.
+Хрупкое: исход повтора задаётся фиксацией d20 (20 — успех, 1 — провал) против СЛ 20; опирается на `pf2e.endTurn` и `combat.nextTurn()`; `author-gone` удаляет токен и актёра автора посреди боя.

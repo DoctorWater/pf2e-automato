@@ -1,7 +1,8 @@
 {
   "PF2E_AUTOMATO": {
     "events": {
-      "host": "\"{item}\": {target} must attempt a challenge against the ability's owner."
+      "host": "\"{item}\": {target} must attempt a challenge against the ability's owner.",
+      "repeat": "\"{item}\": {target} attempts the repeat save."
     },
     "rules": {
       "err": {

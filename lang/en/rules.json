@@ -35,6 +35,7 @@
           "choice": "Step: an effect choice needs a value and only works together with an effect ({path})",
           "unless": "Step: \"unless the target has the effect\" — choose an effect ({path})",
           "escape": "Step: \"escape\" — only on a condition or effect of the target; skills are Athletics, Acrobatics, unarmed attack; DC is an integer from 1 ({path})",
+          "repeat": "Step: \"repeat\" — only on a condition or effect of the target, not together with \"escape\"; \"on\" is turn-start or turn-end, \"end\" lists degrees; outside a challenge statistic and DC (integer from 1) are required ({path})",
           "rank": "Step: \"rank\" — a minimum and/or a maximum, integers from 1 to 10, minimum not above maximum ({path})",
           "range": "Step: a radius in feet (integer, 5 or more) is required for nearby allies and only for them ({path})",
           "groupKind": "Step: a visibility change cannot be applied to a group ({path})",

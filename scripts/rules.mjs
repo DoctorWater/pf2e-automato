@@ -80,10 +80,12 @@ const isPersStep = (s) => isPersFormula(s) && (!hasVars(s) ? !isZeroFormula(s) :
 const E = (key, path, more) => ({ key, data: { path, ...more }, toString() { return `${key} (${path})`; } });
 
 export const ESCAPE_STATS = ["athletics", "acrobatics", "unarmed"];
+export const REPEAT_ON = ["turn-start", "turn-end"];
+export const REPEAT_END = ["success", "criticalSuccess"];
 
 /** Шаг apply делает что-то с получателем (есть вид шага); note — только текст в блоке. */
 export const STEP_KINDS = ["condition", "effect", "visibility", "persistent", "removeCondition", "removeEffect", "extendEffect", "rollOption", "damage", "choose"];
-export const isActiveStep = (a) => STEP_KINDS.some((k) => a?.[k]);
+export const isActiveStep = (a) => STEP_KINDS.some((k) => a?.[k]) || !!a?.removeKey;   // removeKey — внутренний шаг карточки повтора (repeat.mjs), в схему не входит
 // получатели шага: self — автор, target — цель, party — участники партий автора, allies — союзники автора в радиусе range футов от его токена,
 // chosen — существо, которое автор выбрал предыдущим шагом choose (from: allies | enemies)
 export const APPLY_TO = ["self", "target", "party", "allies", "chosen"];
@@ -207,6 +209,17 @@ function vApply(a, path, defTo, err, basicOk = false) {
       || !Array.isArray(stats) || !stats.length || !stats.every((s) => ESCAPE_STATS.includes(s))
       || (e.dc != null && !(isInt(e.dc) && e.dc >= 1)) || (e.dcStat != null && !isStr(e.dcStat))) err.push(E("apply.escape", `${path}.escape`));
     else out.escape = { stats: [...new Set(stats)], ...(e.dc != null && { dc: e.dc }), ...(e.dcStat != null && { dcStat: e.dcStat }) };
+  }
+  // repeat — повторный спасбросок цели на границе её хода (носитель — созданные шагом состояние/эффект): on — когда, end — степени, снимающие носитель;
+  // внутри challenge statistic/dc/traits/options берутся из испытания, вне него statistic и dc обязательны
+  if (a.repeat != null) {
+    const r = a.repeat, end = r?.end ?? REPEAT_END;
+    const list = (k) => r[k] == null || (Array.isArray(r[k]) && r[k].every(isStr));
+    if (!isObj(r) || out.to !== "target" || (a.condition == null && a.effect == null) || a.escape != null || a.condition?.policy === "reduce" || a.effect?.badge != null || a.effect?.replace != null || !REPEAT_ON.includes(r.on)
+      || !Array.isArray(end) || !end.length || !end.every((d) => DEGREES.includes(d))
+      || (r.statistic != null && !(isStr(r.statistic) && SLUG.test(r.statistic))) || (r.dc != null && !(isInt(r.dc) && r.dc >= 1))
+      || (!basicOk && (r.statistic == null || r.dc == null)) || !list("traits") || !list("options")) err.push(E("apply.repeat", `${path}.repeat`));
+    else out.repeat = { on: r.on, ...(r.statistic != null && { statistic: r.statistic }), ...(r.dc != null && { dc: r.dc }), ...(r.traits != null && { traits: [...r.traits] }), ...(r.options != null && { options: [...r.options] }), end: DEGREES.filter((d) => end.includes(d)) };
   }
   return out;
 }

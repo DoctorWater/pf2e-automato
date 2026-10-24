@@ -55,6 +55,7 @@
     {{else}}
       <p>{{localize "PF2E_AUTOMATO.sheet.none"}}</p>
     {{/if}}
+    {{#if diverged}}<p class="af-hints">{{diverged}}</p>{{/if}}
     <p class="af-meta">slug: <code>{{#if slug}}{{slug}}{{else}}&mdash;{{/if}}</code>
       &middot; source: <code>{{#if sourceUuid}}{{sourceUuid}}{{else}}&mdash;{{/if}}</code></p>
     {{#if covered}}

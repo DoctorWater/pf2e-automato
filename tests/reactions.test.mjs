@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { recalcWithBonus, ruleOfItem } from "../scripts/reactions.mjs";
-import { buildCatalog } from "../scripts/rules.mjs";
+import { initCatalog } from "../scripts/rules.mjs";
 
 // Минимальное attack-roll сообщение: итог, нат. d20, степень, СЛ.
 const msg = (total, die, degree, dc) => ({
@@ -49,10 +49,10 @@ test("useReaction: реакция уже потрачена в этом раун
 
 test("ruleOfItem: ищет как resolveRule — slug@type и армейские способности не по общему slug", () => {
   const r = (v) => ({ v: 1, onAttacked: { trigger: "attack-on-self", bonus: { stat: "ac", type: "circumstance", value: v }, cost: "reaction", notify: ["owner"] } });
-  const idx = buildCatalog([{ bySlug: { dodge: r(1), "twin@action": r(2) } }]).bySlug;
+  initCatalog([{ bySlug: { dodge: r(1), "twin@action": r(2) } }], {});
   const it = (slug, type) => ({ type, name: slug, slug, system: { slug }, _stats: {} });
-  assert.equal(ruleOfItem(it("dodge", "feat"), idx).onAttacked.bonus.value, 1);
-  assert.equal(ruleOfItem(it("dodge", "campaignFeature"), idx), null);   // армейская способность общий slug не берёт
-  assert.equal(ruleOfItem(it("twin", "action"), idx).onAttacked.bonus.value, 2);
-  assert.equal(ruleOfItem(it("twin", "feat"), idx), null);
+  assert.equal(ruleOfItem(it("dodge", "feat")).onAttacked.bonus.value, 1);
+  assert.equal(ruleOfItem(it("dodge", "campaignFeature")), null);   // армейская способность общий slug не берёт
+  assert.equal(ruleOfItem(it("twin", "action")).onAttacked.bonus.value, 2);
+  assert.equal(ruleOfItem(it("twin", "feat")), null);
 });

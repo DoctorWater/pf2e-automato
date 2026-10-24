@@ -141,7 +141,7 @@
 
 **Открыто на следующую сессию:**
 - стадии недугов: незаконченный код на ветке `wip-affliction` (worktree `.claude/worktrees/agent-ad88efee101406172`), план `plan-affliction.md` прошёл Критика; дальше — доделать, юнит, влить, живой `tests/live/affliction.js`;
-- ограждение копий NPC (относительно состояний правила): план v2 `plan-copy-guard.md` принят, реализация не начата;
+- ограждение копий NPC (относительно состояний правила): реализовано по `plan-copy-guard.md` v2 (`guardCopy`, `tools/copy-guard-report.mjs`, живой `tests/live/copy-guard.js` не прогнан), ждёт слияния;
 - `move`: `from:"point"` и порядок «дальние → ближние» в `auto` — не начато;
 - прогнать моделями долг пачки 1 в новых формах (`repeat`, `zone.triggers`, `move`, `effect.mods`): метки `missing: …` в `rules/drafts-accepted/b01-save-conditions.json`;
 - `cast`: прогнать `deriveCast` по 73 документам долга и проверить выборкой 50; бонус после активации спеллхарта (`origin:item:cast-by-activation` уже в опциях); счётчик «раз в раунд» — только в бою; СЛ NPC «high» = таблица DC pf2e + 2 (сверить с Monster Core);

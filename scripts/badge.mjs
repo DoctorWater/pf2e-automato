@@ -29,6 +29,7 @@ export function badgeTip(res, { t, groups = [], yielded = false, statLabel }) {
   if (yielded) return t("sheet.badge.yielded", { groups: groups.join(", ") });
   const parts = [t("sheet.badge.tip", { what: ruleParts(res.rule, t, statLabel).join(", ") || t("sheet.badge.rule") }), t(`sheet.src.${res.source}`)];
   if (res.confidence === "low") parts.push(t("sheet.confLow"));
+  if (res.diverged) parts.push(t("sheet.diverged"));
   return parts.join(" · ");
 }
 

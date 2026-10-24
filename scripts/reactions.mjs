@@ -1,7 +1,7 @@
 // K5 «Реакции»: подсказка шёпотом + пересчёт исхода этой атаки, без висящего бонуса. plan.md §3.D'.
 import { MOD, L, DEGREES, degreeFromTotal, isActiveGM, queue, debug, callGM } from "./util.mjs";
-import { modeOf, S } from "./settings.mjs";
-import { onAttackedIndex, itemFlagRule, slugOf, sourceOf, bySlugOf } from "./rules.mjs";
+import { modeOf, S, rev } from "./settings.mjs";
+import { resolveRule, slugOf } from "./rules.mjs";
 import { runMacros } from "./macros.mjs";
 import { buildReactionViewModel } from "./chat.mjs";
 import { noReactions } from "./inline-effect.mjs";
@@ -98,10 +98,15 @@ export function reactionAvailable(actor) {
   return !(c && c.id === f.combat && c.round === f.round);
 }
 
-// Правило onAttacked предмета: каталоги (slug/источник) или флаг на предмете.
-export function ruleOfItem(item, idx = onAttackedIndex()) {
-  const slug = slugOf(null, item), src = sourceOf(null, item);
-  return (slug && bySlugOf(idx, slug, item?.type)) || (src && idx.get(src)) || itemFlagRule(item);   // как resolveRule: ключ slug@type, армейские способности — не по общему slug
+const ruleCache = new Map();   // uuid -> { mt, rv, rule }, как eventRuleOf в events.mjs; ponytail: растёт с числом предметов
+// Правило предмета — тем же resolveRule, что у использования и событий (ограждение копий NPC, ключ slug@type, флаг на предмете).
+export function ruleOfItem(item) {
+  const mt = item?._stats?.modifiedTime ?? 0, hit = item?.uuid ? ruleCache.get(item.uuid) : null;
+  if (hit && hit.mt === mt && hit.rv === rev.n && !item.flags?.[MOD]?.rule) return hit.rule;
+  let rule = null;
+  try { rule = resolveRule(item)?.rule ?? null; } catch (e) { console.warn(`${MOD} | reactions: правило ${item?.name}`, e); }
+  if (item?.uuid) ruleCache.set(item.uuid, { mt, rv: rev.n, rule });
+  return rule;
 }
 
 function reactionItems(actor) {
@@ -109,7 +114,7 @@ function reactionItems(actor) {
   const out = [];
   const seen = new Set();   // дубли способности на листе (старая и новая копия одного slug) — одна подсказка
   for (const item of actor.items) {
-    const rule = ruleOfItem(item, idx), key = slugOf(null, item) || item.name;
+    const rule = ruleOfItem(item), key = slugOf(null, item) || item.name;
     if (rule?.onAttacked && !seen.has(key)) { seen.add(key); out.push({ item, reaction: rule.onAttacked }); }
   }
   return out;

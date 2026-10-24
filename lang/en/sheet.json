@@ -11,6 +11,8 @@
       "source": "Rule source",
       "confLow": "Low confidence",
       "confLowHint": "The rule was inferred from the text approximately: check it before use.",
+      "diverged": "Copy text differs from the catalog rule",
+      "divergedHint": "This NPC copy names other conditions than the catalog rule ({states}), so the rule is not applied. Run it manually after checking.",
       "badge": {"tip":"AuTOMATO: {what}","rule":"rule","challenge":"save: {stat}","check":"check","states":"conditions","zone":"zone","reaction":"reaction to attack","macros":"macros","yielded":"Handled by pf2e-automations: {groups}"},
       "none": "No rule found (no flag, catalog entry or markup).",
       "src": { "flag": "item flag", "world": "world catalog", "catalog": "module catalog", "markup": "description markup" },

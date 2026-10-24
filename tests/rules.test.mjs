@@ -217,3 +217,9 @@ test("resolveRule: флаг > каталог bySource > bySlug > разметк�
     assert.equal(onAttackedIndex().has("breathe-fire"), false);
   } finally { delete globalThis.game; }
 });
+
+test("resolveRule(документ эффекта): геттер pf2e origin (актёр) не считается origin карточки", () => {
+  // у EffectPF2e .origin — актёр-автор: rollOptions у него объект (раньше — TypeError в slugOf)
+  const effect = { name: "Эффект без slug", type: "effect", system: { slug: null }, _stats: {}, origin: { rollOptions: {}, sourceId: "Compendium.x.y.Item.z" } };
+  assert.doesNotThrow(() => resolveRule(effect));
+});

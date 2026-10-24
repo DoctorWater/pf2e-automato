@@ -129,10 +129,12 @@ async () => {
     /** Заклинатель: спонтанные ячейки 1-2 круга, при focus — ещё фокусная запись (focus-заклинания идут туда). */
     e.caster = async (name, spells, { focus = [], items = [] } = {}) => {
       const a = await e.pc(name, items, { system: { resources: { focus: { max: 1, value: 1 } }, details: { alliance: "party" } } });
-      const [entry, fEntry] = await a.createEmbeddedDocuments("Item", [
+      // порядок ответа createEmbeddedDocuments не гарантирован (заклинание попадало в фокусную запись) — записи по имени
+      const made = await a.createEmbeddedDocuments("Item", [
         { type: "spellcastingEntry", name: "AF спонтанные", system: { tradition: { value: "occult" }, prepared: { value: "spontaneous" }, ability: { value: "cha" }, slots: { slot1: { max: 4, value: 4 }, slot2: { max: 4, value: 4 }, slot5: { max: 1, value: 1 } } } },
         { type: "spellcastingEntry", name: "AF фокус", system: { tradition: { value: "occult" }, prepared: { value: "focus" }, ability: { value: "cha" } } }
       ]);
+      const entry = made.find((i) => i.name === "AF спонтанные"), fEntry = made.find((i) => i.name === "AF фокус");
       const docs = [];
       for (const s of spells) { const d = await spell(s); d.system.location = { value: entry.id }; docs.push(d); }
       for (const s of focus) { const d = await spell(s); d.system.location = { value: fEntry.id }; docs.push(d); }
@@ -276,11 +278,12 @@ async () => {
     await e.fix(10);
     await e.aim(tC, tF);
     const { card, sp } = await e.cast(caster, "tangle-vine");
-    t.ok(!!e.use(card), "снимок use на карточке заклинания");
+    t.ok(!!card, "карточка заклинания");   // check.roll = system: снимок use ложится на бросок атаки (wantsSnapshot), не на карточку
     const t1 = e.since();
     await bound("атака заклинанием (rollAttack)", sp.rollAttack(SHIFT()));
     const att = await waitFor(() => e.msgs(t1).find((m) => /attack-roll/.test(m.flags?.pf2e?.context?.type ?? "")), 8000);
     t.ok(!!att, "атака заклинанием брошена");
+    t.ok(await waitFor(() => e.use(att), 6000), "снимок use на броске атаки");
     await waitFor(() => e.block(att)?.querySelector("button[data-action^=apply]"), 6000);
     await e.applyAll(att); await wait(1500);
     t.ok(e.has(e.T(tF).actor, "spell-effect-tangle-vine"), `эффект лианы на цели (${e.states(e.T(tF).actor)})`);
@@ -390,8 +393,9 @@ async () => {
     t.ok(await waitFor(() => !e.metaEffect(caster, "spellshape"), 8000), "следующее сотворение сняло эффект");
   });
 
+  const runicOn = (actor) => actor.itemTypes.effect.some((i) => i._stats?.compendiumSource === "Compendium.pf2e.spell-effects.Item.GnWkI3T3LYRlm3X8");
   const rangeSetup = async (e, items = []) => {
-    const caster = await e.caster("маг", ["runic-weapon"], { items }), ally = await e.pc("союзник");
+    const caster = await e.caster("маг", ["runic-weapon"], { items }), ally = await e.pc("союзник", [held(await equip("shortsword"))]);   // оружие — цель ChoiceSet эффекта
     const tC = await e.tok(caster, 500, 500, 1), tA = await e.tok(ally, 700, 500, 1);   // 200 px = 10 фт
     await wait(700);
     openChat();
@@ -400,23 +404,28 @@ async () => {
   };
 
   sc("range", "Дальность: Рунное оружие на 10 фт без метамагии -> «вне дальности», кнопки «Применить» нет", async (e, t) => {
-    const { caster } = await rangeSetup(e);
+    const { caster, tA } = await rangeSetup(e);
     const { card } = await e.cast(caster, "runic-weapon");
+    t.ok(!!card, "карточка сотворения");
     const far = e.use(card)?.targets?.some((x) => x.far);
     t.ok(!!far, "цель помечена far");
     await waitFor(() => /вне дальности|out of range/i.test(e.block(card)?.textContent ?? ""), 6000);
     t.ok(/вне дальности|out of range/i.test(e.block(card)?.textContent ?? ""), "в блоке «вне дальности»");
     t.ok(!e.block(card)?.querySelector("button[data-action^=apply]"), "кнопки «Применить» нет");
+    await wait(4000);   // как дольше всего ждёт появления range-reach: иначе «эффекта нет» проверяется до автоприменения
+    t.ok(!runicOn(e.T(tA).actor), "эффекта на союзнике нет");
   });
 
   sc("range-reach", "Дальнее заклинание + Рунное оружие на 10 фт -> в дальности", async (e, t) => {
-    const { caster } = await rangeSetup(e, [await feat("reach-spell")]);
+    const { caster, tA } = await rangeSetup(e, [await feat("reach-spell")]);
     const { eff } = await shapeFeat(e, caster, "reach-spell");
     t.ok(!!eff, "эффект метамагии «Дальнее заклинание»");
     const { card } = await e.cast(caster, "runic-weapon");
+    t.ok(!!card, "карточка сотворения");
     t.ok(!e.use(card)?.targets?.some((x) => x.far), "цель не far");
     t.ok(!/вне дальности|out of range/i.test(e.block(card)?.textContent ?? ""), "«вне дальности» нет");
-    t.ok(!!e.block(card)?.querySelector("button[data-action^=apply]"), "кнопка «Применить» есть");
+    // mode.effect = auto — эффект вешает модуль, кнопки нет; button — кнопка «Применить»
+    t.ok(await waitFor(() => runicOn(e.T(tA).actor) || e.block(card)?.querySelector("button[data-action^=apply]"), 6000), "эффект на союзнике или кнопка «Применить»");
   });
 
   sc("tentacles", "Руки-щупальца: эффект, досягаемость безоружных Ударов 10 фт", async (e, t) => {
@@ -465,11 +474,10 @@ async () => {
     t.ok(!!w, "шёпот с кнопкой блока");
     const btn = await waitFor(() => e.dom(w)?.querySelector("[data-af-shield-block]"), 6000);
     t.ok(!!btn, "кнопка блока в DOM");
-    const hp0 = pc.hitPoints.value;
+    const hp0 = pc.hitPoints.value, hardness = pc.attributes.shield?.hardness ?? 0;   // до клика: после Блока щитом эффект Щита снимается
     btn?.click();
     t.ok(await waitFor(() => game.messages.get(w.id)?.flags?.[MOD]?.shieldBlock?.used, 8000), "блок использован");
     const lost = hp0 - pc.hitPoints.value, total = dmg.rolls[0].total;
-    const hardness = pc.attributes.shield?.hardness ?? 0;
     t.ok(lost === Math.max(0, total - hardness), `потеряно ${lost}, ожидалось max(0, ${total} − твёрдость ${hardness})`);
   });
 

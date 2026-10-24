@@ -10,7 +10,9 @@ async () => {
   const imp = (f) => import(`/modules/${MOD}/scripts/${f}`);
   const rows = [], check = (id, ok, detail = "") => rows.push({ id, ok: !!ok, detail: String(detail) });
   const made = { scene: null, actors: [], msgs: [] };
-  const prevScene = game.scenes.viewed;
+  const prevScene = game.scenes.viewed, prevCombat = game.combat;
+  // pf2e берёт start.initiative и ход из game.combat (= ui.combat.viewed): без этого при живом бое в мире эффект считается по чужому бою
+  const viewCombat = async (c) => { try { await ui.combat.initialize({ combat: c ?? null }); } catch (e) { console.warn("viewCombat", e); } };
   try {
     const scene = made.scene = await Scene.create({ name: `${PFX}inline`, width: 1500, height: 1500, padding: 0, grid: { size: 100, distance: 5 }, navigation: false, tokenVision: false });
     await scene.view(); await wait(800);
@@ -52,7 +54,7 @@ async () => {
     // срок: заново и через бой — «до начала следующего хода автора» (раунд 1 -> 2)
     const combat = await Combat.create({ scene: scene.id, active: true });
     await combat.createEmbeddedDocuments("Combatant", [{ tokenId: tH.id, sceneId: scene.id, actorId: hero.id, initiative: 20 }, { tokenId: tF.id, sceneId: scene.id, actorId: foe.id, initiative: 10 }]);
-    await combat.startCombat(); await wait(500);
+    await combat.startCombat(); await viewCombat(combat); await wait(500);
     await applyOps(game.messages.get(msg.id), tF.id, steps, { scope: "apply" }).catch(() => null);
     const again = await waitFor(() => A().itemTypes.effect.find((e) => e.system.slug?.startsWith("af-")));
     check("effect (бой)", !!again || rows.some((r) => r.id === "idempotent"), "после undo ключ шага свободен или повтор пропущен");
@@ -68,6 +70,7 @@ async () => {
   } finally {
     try { if (made.msgs.length) await ChatMessage.deleteDocuments(made.msgs.filter((id) => game.messages.has(id))); } catch { /* уже нет */ }
     for (const c of game.combats.filter((c) => c.scene?.id === made.scene?.id)) await c.delete().catch(() => {});
+    await viewCombat(prevCombat);
     await made.scene?.delete().catch(() => {});
     for (const a of made.actors) await a.delete().catch(() => {});
     if (prevScene) await prevScene.view().catch(() => {});

@@ -38,10 +38,11 @@ async () => {
     const eq = game.packs.get("pf2e.equipment-srd"), ei = await eq.getIndex({ fields: ["system.slug"] });
     const sw = (await eq.getDocument(ei.find((i) => i.system?.slug === "shortsword")._id)).toObject(); sw.system.equipped = { carryType: "held", handsHeld: 1 };
     await ally.createEmbeddedDocuments("Item", [sw]);
-    const [spont, focus] = await sorc.createEmbeddedDocuments("Item", [
+    const entries = await sorc.createEmbeddedDocuments("Item", [
       { type: "spellcastingEntry", name: "AF спонтанные", system: { tradition: { value: "occult" }, prepared: { value: "spontaneous" }, ability: { value: "cha" }, slots: { slot1: { max: 4, value: 4 } } } },
       { type: "spellcastingEntry", name: "AF фокус", system: { tradition: { value: "occult" }, prepared: { value: "focus" }, ability: { value: "cha" } } }
     ]);
+    const spont = entries.find((i) => i.name === "AF спонтанные"), focus = entries.find((i) => i.name === "AF фокус");   // порядок ответа не гарантирован
     const SP = "Compendium.pf2e.spells-srd.Item.";
     const plan = [
       ["shield", "TVKNbcgTee19PXZR", "none"], ["figment", "0zU8CPejjQFnhZFI", "none"], ["telekinetic-projectile", "60sgbuMWN0268dB7", "foe"],

@@ -1369,8 +1369,10 @@ const hasSteps = (r) => !!(r.onUse?.apply?.length || r.onUse?.zone || [r.onUse?.
 
 /** Порядок §1.2: флаг -> world.bySource -> world.bySlug -> builtin.bySource -> builtin.bySlug -> разметка. */
 export function resolveRule(source) {
-  const origin = source?.origin ?? null;
-  const item = liveItem(origin, source?.system ? source : (source?.item ?? null));
+  // документ предмета — сам источник; его .origin (у эффекта pf2e — актёр-автор) не origin карточки
+  const isDoc = !!source?.system;
+  const origin = isDoc ? null : source?.origin ?? null;
+  const item = liveItem(origin, isDoc ? source : (source?.item ?? null));
   const slug = slugOf(origin, item);
   const sourceUuid = sourceOf(origin, item);
   const found = (rule, src, confidence = "high", hints) => ({ rule, source: src, slug, sourceUuid, confidence, ...(hints && { hints }) });

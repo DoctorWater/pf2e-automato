@@ -2,7 +2,7 @@
 // Запуск: node tools/sample.mjs <batch> [--source markup|model|pa-port|all] [--n 50] [--seed 1] [--with immunity] [--subpack 0.5b|0.5d|0.5f|0.5g1|0.5g2|0.5g3]
 // --with <поле>: в пул только правила, у чьего challenge/check есть это поле (выборка по примитиву подпачки, напр. immunity для 0.5c)
 // Отдельная выборка по источнику нужна, чтобы считать долю ошибок Haiku (model) отдельно от разметки (markup) и переноса PA.
-import { existsSync } from "node:fs";
+import { existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { ROOT, ACCEPTED, readJson, readOut, writeText, outPath, arg, cmp, isMain } from "./lib.mjs";
 
@@ -62,12 +62,18 @@ export const usesPrimitive05g4 = (rule) => {
 };
 export const inSubpack = (d, sub) => sub === "0.5g4" ? usesPrimitive05g4(d.rule) : sub === "0.5g1" ? !!d.lifted?.some((l) => G1.includes(l)) : sub === "0.5g3" ? usesPrimitive05g3(d.rule) : sub === "0.5g2" ? usesPrimitive05g2(d.rule) : sub === "0.5f" ? usesPrimitive05f(d.rule) : sub === "0.5d" ? !!d.paEffects?.length : sub !== "0.5b" || !!(d.lifted?.some((l) => !G1.includes(l)) || d.confidence === "manual" || /@/.test(d.catSlug ?? "") || d.rule?.onUse?.challenge?.dc?.expr === "markup");
 
+/** Пачка `activate`: черновики из rules/drafts/* (после tools/drafts.mjs — с принятыми ответами) только по uuid пула tools/out/activate-pool.json. */
+export function activateDrafts() {
+  const pool = new Set(readOut("activate-pool.json").map((p) => p.uuid)), dir = join(ROOT, "rules/drafts");
+  return { items: readdirSync(dir).flatMap((f) => readJson(join(dir, f)).items).filter((d) => pool.has(d.uuid)) };
+}
+
 function main() {
   const batch = process.argv[2];
   if (!batch || batch.startsWith("--")) throw new Error("usage: node tools/sample.mjs <batch> [--source markup|model|pa-port|all] [--n 50] [--seed 1] [--with <поле>] [--subpack 0.5b|0.5d|0.5f|0.5g1|0.5g2|0.5g3|0.5g4]");
   const n = +arg("n", 50), seed = +arg("seed", 1), source = arg("source", batch === "pa-port" ? "pa-port" : "all");
   // pa-port: только правила, попавшие в rules/catalog.pa.json впервые (tools/pa-port.mjs пишет их в out/pa-catalog.json; база сравнения — `--since <rev>` у pa-port.mjs, по умолчанию HEAD)
-  const drafts = batch === "pa-port" ? readOut("pa-catalog.json") : readJson(join(ROOT, "rules/drafts", `${batch}.json`));
+  const drafts = batch === "pa-port" ? readOut("pa-catalog.json") : batch === "activate" ? activateDrafts() : readJson(join(ROOT, "rules/drafts", `${batch}.json`));
   const itemBy = new Map(readOut("items.json").items.map((i) => [i.uuid, i]));
   const only = arg("with", null), sub = arg("subpack", null);
   if (sub && !["0.5b", "0.5d", "0.5f", "0.5g1", "0.5g2", "0.5g3", "0.5g4"].includes(sub)) throw new Error(`unknown --subpack ${sub}: 0.5b|0.5d|0.5f|0.5g1|0.5g2|0.5g3|0.5g4`);

@@ -1,10 +1,11 @@
 // Ответ агента (JSON-массив {uuid, rule|null, unsure, note}) -> валидация -> принятые в rules/drafts-accepted, очереди повтора и Sonnet.
 // Запуск: node tools/validate.mjs <ответ.json> <batch> [--input tools/out/haiku/<batch>-NN.md] [--final]
+// <batch> = activate (tools/haiku-input.mjs activate): черновики — из всех пачек по uuid пула (tools/out/activate-pool.json), принятые ложатся в файл исходной пачки.
 // --final — ответы последней ступени (Sonnet): unsure не уходит дальше, а принимается долгом needs-primitive с правилом-догадкой.
 import { readFileSync, readdirSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { isDeepStrictEqual } from "node:util";
-import { ROOT, ACCEPTED, serializeDrafts, readJson, readOut, writeJson, writeText, outPath, arg, cmp, isMain } from "./lib.mjs";
+import { ROOT, ACCEPTED, DRAFTS, serializeDrafts, readJson, readOut, writeJson, writeText, outPath, arg, cmp, isMain } from "./lib.mjs";
 import { validateRule, activateOf, activateSpells, activateUses, dupActivate, enemiesOnly, strikeGate, setWho, afflictionStages } from "../scripts/rules.mjs";
 import { ruleToForm, formToRule } from "../scripts/sheet.mjs";
 import { BUILTIN } from "../scripts/builtin/index.mjs";
@@ -213,14 +214,18 @@ function main() {
   if (!file || !batch || batch.startsWith("--")) throw new Error("usage: node tools/validate.mjs <answer.json> <batch> [--input haiku-file.md]");
   const refs = readOut("refs.json"), html = readOut("html.json"), { meta, items: itemList } = readOut("items.json"), items = new Map(itemList.map((i) => [i.uuid, i]));
   const dPath = join(ROOT, "rules/drafts", `${batch}.json`), aPath = join(ACCEPTED, `${batch}.json`);
-  const drafts = readJson(dPath).items;
+  const poolBatch = batch === "activate" ? new Map(readJson(outPath("activate-pool.json")).map((p) => [p.uuid, p.batch])) : null;
+  const drafts = poolBatch ? readdirSync(DRAFTS).flatMap((f) => readJson(join(DRAFTS, f)).items).filter((d) => poolBatch.has(d.uuid)) : readJson(dPath).items;
   const stPath = outPath("validate", `${batch}.state.json`);
   const state = existsSync(stPath) ? readJson(stPath) : emptyState();
   const inFile = arg("input");
   const expected = inFile ? [...readFileSync(inFile, "utf8").matchAll(/^### \d+ (\S+)/gm)].map((m) => m[1]) : [];
   const raw = readFileSync(file, "utf8").trim().replace(/^```(?:json)?\s*|\s*```$/g, "");
   const res = processAnswers(JSON.parse(raw), drafts, refs, state, { htmlOf: (u) => html[u] ?? "", actionTypeOf: (u) => items.get(u)?.actionType ?? null, traitsOf: (u) => items.get(u)?.traits ?? [], expected, final: process.argv.includes("--final") });
-  if (res.accepted.length) writeText(aPath, serializeDrafts({ batch, pf2eVersion: meta.pf2eVersion }, mergeAccepted(existsSync(aPath) ? readJson(aPath) : null, res.accepted, { batch, pf2eVersion: meta.pf2eVersion }).items));
+  for (const [b, acc] of Object.entries(Object.groupBy(res.accepted, (d) => poolBatch?.get(d.uuid) ?? batch))) {
+    const p = poolBatch ? join(ACCEPTED, `${b}.json`) : aPath;
+    writeText(p, serializeDrafts({ batch: b, pf2eVersion: meta.pf2eVersion }, mergeAccepted(existsSync(p) ? readJson(p) : null, acc, { batch: b, pf2eVersion: meta.pf2eVersion }).items));
+  }
   writeJson(stPath, state);
   const retry = Object.values(state.retry).filter((r) => r.errors);
   writeText(outPath("validate", `${batch}.retry.md`), retry.length ? retryText(retry, blocksIndex(outPath("haiku"))) : "");

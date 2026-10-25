@@ -6,7 +6,7 @@ import { traceOf, isActive, batchOf, priorityOf, triageItem, makeContext, stepCo
 import { makeDraft, modelCatalog } from "../tools/drafts.mjs";
 import { checkAnswer, processAnswers, roundTrip, retryText, emptyState, mergeAccepted } from "../tools/validate.mjs";
 import { pick, rng, poolOf } from "../tools/sample.mjs";
-import { chunk, compress } from "../tools/haiku-input.mjs";
+import { chunk, compress, activateChunks } from "../tools/haiku-input.mjs";
 import { translateItem, parseDebts } from "../tools/pa-port.mjs";
 import { validateRule } from "../scripts/rules.mjs";
 import { tally, replaceBlock, withAccepted, withPa } from "../tools/coverage.mjs";
@@ -326,4 +326,18 @@ test("аура владельца (onEvent near): range принимается, 
   assert.equal(checkAnswer({ uuid: "u", rule: near({ aura: "frightful-aura" }) }, refs).kind, "accepted");
   assert.equal(checkAnswer({ uuid: "u", rule: near({ aura: "Frightful Aura" }) }, refs).kind, "error");
   assert.equal(checkAnswer({ uuid: "u", rule: near({ range: 30, side: "self" }) }, refs).kind, "error");
+});
+
+test("пачка activate: примеры памятки валидны, блоки несут REASON/CURRENT/RU", () => {
+  const memo = readFileSync(new URL("../tools/prompts/activate-memo.md", import.meta.url), "utf8");
+  const rules = [...memo.matchAll(/```json\r?\n(.*?)\r?\n```/g)].map((m) => JSON.parse(m[1]));
+  assert.equal(rules.length, 3);
+  const any = new Proxy({}, { get: () => true });
+  for (const r of rules) assert.equal(checkAnswer({ uuid: "u", rule: r }, { conditions: any, effects: any }).kind, "accepted", JSON.stringify(r).slice(0, 60));
+  const pool = Array.from({ length: 3 }, (_, i) => ({ it: { ...base, uuid: `u${i}`, descEn: "Activate x", descRu: i ? "Активация" : null }, why: "choice between spells", current: i === 2 ? { v: 1 } : null }));
+  const [f] = activateChunks(pool, {}, 40, "MEMO", { u0: "<p><strong>Activate</strong> Real Name</p>" });
+  assert.equal(f.name, "activate-01.md");
+  assert.match(f.text, /MEMO[\s\S]*Real Name[\s\S]*REASON: choice between spells/);
+  assert.equal((f.text.match(/^CURRENT: /gm) ?? []).length, 1);
+  assert.equal((f.text.match(/^RU: /gm) ?? []).length, 2);
 });

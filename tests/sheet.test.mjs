@@ -125,3 +125,23 @@ test("значок: фильтры использования и подпись 
   const ck = validateRule({ v: 1, onUse: { targets: "selected", challenge: { statistic: "athletics", dc: { value: 15 } } } }).rule;
   assert.deepEqual(ruleParts(ck, t, (s) => `L:${s}`), ['sheet.badge.challenge{"stat":"L:athletics"}']);
 });
+
+test("вкладка листа: строки как их читает DOM (всё строками) не теряют поля «Дополнительно», свойства эффекта, выбор, replace, ch.when", () => {
+  const dur = { value: 1, unit: "rounds", expiry: "turn-end", of: "target" };
+  const rule = validateRule({ v: 1, onUse: { targets: "selected", challenge: { statistic: "will", dc: { value: 20 }, basic: false, rollerRole: "target", when: ["target:trait:undead"], byDegree: {
+    failure: [
+      { to: "target", condition: { slug: "slowed", value: 1, policy: "max" }, who: "enemy", escape: { stats: ["athletics", "unarmed"], dc: 18, dcStat: "spell" } },
+      { to: "target", effect: { uuid: "Compendium.x.Item.e" }, repeat: { on: "turn-start", end: ["failure", "criticalSuccess"] }, unlessEffect: "Compendium.x.Item.i" },
+      { to: "target", effect: { mods: [{ bonus: { target: "will", type: "status", value: -2 } }, { forbid: "reactions" }] }, duration: dur, escape: { stats: ["athletics"] } }
+    ],
+    success: [{ to: "target", effect: { uuid: "Compendium.x.Item.e", replace: true }, mark: "enemy", choice: 2, who: "ally" }] } },
+  apply: [{ to: "self", choose: { from: "options", prompt: "?", options: [{ value: "fire", label: "Огонь", when: ["feat:x"] }, { value: "cold" }] } }] } });
+  assert.ok(rule.ok, rule.errors.join());
+  const dom = (rows) => rows.map((r) => Object.fromEntries(Object.entries(r).map(([k, v]) => [k, typeof v === "boolean" ? v : String(v ?? "")])));
+  const f = ruleToForm(rule.rule);
+  f.apply = dom(f.apply);
+  for (const d of Object.keys(f.ch.deg)) f.ch.deg[d] = dom(f.ch.deg[d]);
+  const back = validateRule(formToRule(f));
+  assert.ok(back.ok, back.errors.join());
+  assert.deepEqual(back.rule, rule.rule);
+});

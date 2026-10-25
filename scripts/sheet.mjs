@@ -35,6 +35,16 @@ export const blankRow = () => ({ to: "target", kind: "condition", text: "", valu
 const KEEP = ["who", "mark", "choice", "unlessEffect", "escape", "repeat"];
 const keepOf = (a) => { const k = Object.fromEntries(KEEP.filter((n) => a[n] != null).map((n) => [n, a[n]])); return Object.keys(k).length ? JSON.stringify(k) : ""; };   // dmgBasic — «обычное» испытание у шага damage
 
+/** Строка keep <-> объект. Мастерская правит эти поля через keepGet/keepSet (automation.mjs), вкладка листа несёт строку скрытым полем data-r="keep". */
+export function keepGet(row) {
+  try { const k = row?.keep ? JSON.parse(row.keep) : {}; return k && typeof k === "object" && !Array.isArray(k) ? k : {}; } catch { return {}; }
+}
+export function keepSet(row, name, v) {
+  const k = keepGet(row);
+  if (v == null) delete k[name]; else k[name] = v;
+  row.keep = Object.keys(k).length ? JSON.stringify(k) : "";
+}
+
 function rowOf(a) {
   return { ...rowCore(a), rankMin: a.rank?.min ?? "", rankMax: a.rank?.max ?? "", stack: a.effect?.badge === "increment", stackBy: a.effect?.by ?? "", stackStart: a.effect?.start ?? "", unstack: a.effect?.badge === "decrement", replace: !!a.effect?.replace,
     range: a.range ?? "", when: whenText(a.when), domain: a.rollOption?.domain ?? "all", optOff: a.rollOption?.value === false, ofOrigin: a.removeEffect?.of === "origin", dmgBasic: !!a.damage?.basic };
@@ -65,9 +75,9 @@ function rowCore(a) {
 export function applyOf(r) {
   const out = applyCore(r);
   if (!out) return null;
-  let keep = {};
-  try { keep = r.keep ? JSON.parse(r.keep) : {}; } catch { /* битая строка: прочие поля не восстанавливаем */ }
-  for (const n of KEEP) if (keep[n] != null && !((n === "mark" || n === "choice") && !out.effect)) out[n] = keep[n];   // mark/choice валидны только у effect
+  const keep = keepGet(r);
+  // mark/choice валидны только у effect; пустые unlessEffect/choice — плашка включена, значения ещё нет: в правило не идут
+  for (const n of KEEP) if (keep[n] != null && keep[n] !== "" && !((n === "mark" || n === "choice") && !out.effect)) out[n] = keep[n];
   if ((r.dmgBasic === true || r.dmgBasic === "true") && out.damage) out.damage.basic = true;   // «обычное» испытание: ×0 / ×½ / ×1 / ×2 по степени (допустимо только в byDegree испытания)
   const lo = num(r.rankMin), hi = num(r.rankMax);
   if (lo !== undefined || hi !== undefined) out.rank = { ...(lo !== undefined && { min: lo }), ...(hi !== undefined && { max: hi }) };

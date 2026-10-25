@@ -4,7 +4,10 @@ import { DEGREES, degreeFromTotal } from "../util.mjs";
 import { stepText } from "../chat.mjs";
 import { textOfMods } from "../inline-effect.mjs";
 import { stagesText } from "../affliction.mjs";
-import { modOf } from "../sheet.mjs";
+import { modOf, keepGet, keepSet } from "../sheet.mjs";
+import { ESCAPE_STATS, REPEAT_END } from "../rules.mjs";
+import { STEP_TARGETS } from "./effect.mjs";
+import { parseWhen, whenText } from "../predicate.mjs";
 import { defenseDc, pickStatistic } from "../checks.mjs";
 import { perText } from "../cast.mjs";
 
@@ -71,6 +74,200 @@ export function areaPatch({ isSpell, srcArea, description }, area, base, targets
   return html === (description ?? "") ? null : { "system.description.value": html };
 }
 
+/* ---------- «Дополнительно»: плашки-переключатели шага ----------
+ * Поля шага вне строки формы (who, escape, repeat, unlessEffect, mark, choice) лежат в row.keep (JSON-строка): вкладка листа
+ * несёт её скрытым полем и ничего не теряет, Мастерская правит через keepGet/keepSet. Допустимость — как в валидаторе (rules.mjs vApply). */
+
+export const REFINE = ["ally", "enemy", "escape", "repeat", "unless", "mark", "choice"];
+const REFINE_CARD = new Set(["escape", "repeat", "unless", "choice"]);   // плашки с параметрами: клик открывает карточку
+const ESCAPE_DEFAULT = ["athletics", "acrobatics"];
+const text = (v) => String(v ?? "").trim();
+const csvList = (s) => text(s).split(",").map((x) => x.trim()).filter(Boolean);
+const numOrRaw = (v) => { const s = text(v).replace(",", "."); return s === "" ? null : Number.isFinite(Number(s)) ? Number(s) : s; };   // нечисло уйдёт в валидатор ошибкой
+
+/** Шаг лежит в списке по степеням испытания: повтор берёт навык и СЛ у испытания. */
+export const inChallenge = (path) => /(^|\.)ch\.deg\./.test(path);
+/** Эффект шага собран из свойств (effect.mods), а не готовый. */
+export const isOwn = (row) => row.kind === "effect" && text(row.text).startsWith("[");
+
+function refineWhy(row, key) {
+  const own = isOwn(row), carrier = row.kind === "condition" || row.kind === "effect", k = keepGet(row);
+  const base = (row.to !== "target" && "needTarget") || (!carrier && "needCarrier") || null;
+  switch (key) {
+    case "escape": return base || (k.repeat != null && "vsRepeat") || null;
+    case "repeat": return base || (k.escape != null && "vsEscape") || (row.kind === "condition" && row.policy === "reduce" && "noReduce")
+      || (row.kind === "effect" && (row.stack || row.unstack) && "noBadge") || (row.kind === "effect" && row.replace && "noReplace") || null;
+    case "unless": return own ? "noOwn" : k.unlessEffect === "" ? "empty" : null;
+    case "mark": return row.kind !== "effect" ? "needEffect" : own ? "noOwn" : null;
+    case "choice": return row.kind !== "effect" ? "needEffect" : own ? "noOwn" : k.choice === "" ? "empty" : null;
+    default:   // ally | enemy: в рантайме who проверяется только у шагов «к цели» (apply.mjs), у остальных молча не работает
+      return row.to !== "target" || row.kind === "choose" ? "needTarget" : null;
+  }
+}
+
+/** Плашки шага: [{key, on, card, why (код причины|null), locked (недоступна), bad (включена, но не сочетается или пуста)}]. */
+export function refineState(row) {
+  const k = keepGet(row);
+  const on = { ally: k.who === "ally", enemy: k.who === "enemy", escape: k.escape != null, repeat: k.repeat != null, unless: k.unlessEffect != null, mark: k.mark != null, choice: k.choice != null };
+  return REFINE.map((key) => { const why = refineWhy(row, key); return { key, on: on[key], card: REFINE_CARD.has(key), why, locked: !!why && !on[key], bad: !!why && on[key] }; });
+}
+
+export function refineSet(row, key, on) {
+  if (key === "ally" || key === "enemy") keepSet(row, "who", on ? key : null);   // взаимоисключающие: одно поле who
+  else if (key === "mark") keepSet(row, "mark", on ? "enemy" : null);
+  else if (key === "escape") keepSet(row, "escape", on ? { stats: [...ESCAPE_DEFAULT] } : null);
+  else if (key === "repeat") keepSet(row, "repeat", on ? { on: "turn-end" } : null);
+  else if (key === "unless") keepSet(row, "unlessEffect", on ? "" : null);   // включена, значения ещё нет: applyOf пустое не пишет
+  else if (key === "choice") keepSet(row, "choice", on ? "" : null);
+}
+
+/** Убрать из keep всё, что для строки недопустимо (после смены вида шага). hold — не поле правила, остаётся. */
+export function keepFit(row) {
+  for (const s of refineState(row)) if (s.on && s.why) refineSet(row, s.key, false);
+}
+
+/** Клик по плашке -> открыта ли её карточка. Недоступная — ничего; с параметрами: выключенная включается и открывается, включённая открывает/закрывает карточку. */
+export function refineClick(row, key, open = false) {
+  const s = refineState(row).find((x) => x.key === key);
+  if (!s || s.locked) return false;
+  if (s.card) { if (s.on) return !open; refineSet(row, key, true); return true; }
+  refineSet(row, key, !s.on);
+  return false;
+}
+
+/** Значения для полей карточек. */
+export function keepView(row) {
+  const k = keepGet(row), e = k.escape ?? {}, r = k.repeat ?? {}, es = e.stats ?? ESCAPE_DEFAULT, re = r.end ?? REPEAT_END;
+  return {
+    unless: k.unlessEffect ?? "", choice: k.choice ?? "",
+    escape: { stats: Object.fromEntries(ESCAPE_STATS.map((s) => [s, es.includes(s)])), dc: e.dc ?? "", dcStat: e.dcStat ?? "" },
+    repeat: { on: r.on ?? "turn-end", end: Object.fromEntries(DEGREES.map((d) => [d, re.includes(d)])), statistic: r.statistic ?? "", dc: r.dc ?? "", traits: (r.traits ?? []).join(", "), options: (r.options ?? []).join(", ") }
+  };
+}
+
+/** Правка поля карточки: path — `unless`, `choice`, `escape.stats.<стат>`, `escape.dc|dcStat`, `repeat.on|end.<степень>|statistic|dc|traits|options`. */
+export function keepEdit(row, path, v) {
+  const [a, b, c] = path.split(".");
+  if (a === "unless") return keepSet(row, "unlessEffect", text(v));
+  if (a === "choice") {   // тип сохраняется: у числоподобной строки из каталога ("-2") остаётся строка
+    const was = keepGet(row).choice, asText = typeof was === "string" && /^-?\d+$/.test(was);
+    return keepSet(row, "choice", !asText && /^-?\d+$/.test(text(v)) ? Number(text(v)) : text(v));
+  }
+  const o = { ...(keepGet(row)[a] ?? {}) }, put = (key, val) => { if (val == null || val === "" || (Array.isArray(val) && !val.length)) delete o[key]; else o[key] = val; };
+  if (b === "stats") o.stats = ESCAPE_STATS.filter((s) => (s === c ? !!v : (o.stats ?? ESCAPE_DEFAULT).includes(s)));
+  else if (b === "end") o.end = DEGREES.filter((d) => (d === c ? !!v : (o.end ?? REPEAT_END).includes(d)));
+  else if (b === "dc") put("dc", numOrRaw(v));
+  else if (b === "traits" || b === "options") put(b, csvList(v));
+  else put(b, text(v));
+  keepSet(row, a, o);
+}
+
+/* ---------- шаг «эффект»: готовый | свой (effect.mods в row.text как JSON) ---------- */
+
+export const MODS_MAX = 4;
+export const MOD_ADD = ["bonus", "speed", "resist", "weak", "forbid"];
+const MOD_DEFAULT = { bonus: { type: "status", value: -1 }, speed: { type: "status", value: -10 }, resist: { dmg: "fire", value: 5 }, weak: { dmg: "fire", value: 5 } };
+export const modsOf = (row) => { try { const l = JSON.parse(row.text); return Array.isArray(l) ? l : []; } catch { return []; } };
+const modsPut = (row, list) => { row.text = JSON.stringify(list); };
+const modParts = (m) => { const [kind, v] = Object.entries(m ?? {})[0] ?? ["bonus", {}]; return [kind, kind === "forbid" ? null : v ?? {}]; };
+const freeTarget = (list) => STEP_TARGETS.find((t) => !list.some((m) => m?.bonus?.target === t));
+
+/** Свойства для списка: [{i, kind, value?, type?, target?, dmg?, except?}]. */
+export const modsView = (row) => modsOf(row).map((m, i) => { const [kind, v] = modParts(m); return { i, kind, ...(v && { ...v, except: (v.except ?? []).join(", ") }) }; });
+/** Можно добавить свойство вида: до 4, а дубль вида (у бонуса — той же цели) валидатор отвергает. */
+export const modCanAdd = (row, kind) => { const l = modsOf(row); return l.length < MODS_MAX && (kind === "bonus" ? freeTarget(l) !== undefined : !l.some((m) => m?.[kind] != null)); };
+export function modAdd(row, kind) {
+  if (!modCanAdd(row, kind)) return;
+  const l = modsOf(row);
+  l.push(kind === "forbid" ? { forbid: "reactions" } : { [kind]: { ...(kind === "bonus" && { target: freeTarget(l) }), ...MOD_DEFAULT[kind] } });
+  modsPut(row, l);
+}
+export function modRemove(row, i) { const l = modsOf(row); l.splice(i, 1); modsPut(row, l); }
+/** Правка поля свойства. Значение — целое число (допустим ведущий «+»); пока набирается нечисло, едет строкой (валидатор покажет ошибку). */
+export function modSet(row, i, field, v) {
+  const l = modsOf(row), [kind, o] = modParts(l[i]);
+  if (!o) return;
+  if (field === "value") o.value = /^[+\-−]?\d+$/.test(text(v)) ? Number(text(v).replace("−", "-")) : text(v);
+  else if (field === "except") { const x = csvList(v); if (x.length) o.except = x; else delete o.except; }
+  else o[field] = v;
+  l[i] = { [kind]: o };
+  modsPut(row, l);
+}
+/* Снятое при смене режима прячется в keep.hold (в правило и в поля вкладки листа не идёт: applyOf берёт из keep только свои имена) и возвращается при возврате. */
+const hold = (row, name, v) => { const h = { ...keepGet(row).hold }; if (v == null) delete h[name]; else h[name] = v; keepSet(row, "hold", Object.keys(h).length ? h : null); };
+const HELD = ["unlessEffect", "mark", "choice"];
+
+/** Переключить источник эффекта: "own" — свойства (срок обязателен, значок/замена/метка/выбор/«кроме» не сочетаются), "ready" — готовый (UUID). */
+export function setEffectSource(row, src) {
+  const k = keepGet(row);
+  if (src === "own" && !isOwn(row)) {
+    if (text(row.text)) hold(row, "uuid", text(row.text));
+    for (const n of HELD) if (k[n] != null) { hold(row, n, k[n]); keepSet(row, n, null); }
+    Object.assign(row, { text: "[]", stack: false, unstack: false, replace: false, durValue: text(row.durValue) || "1" });
+    modAdd(row, "bonus");
+  } else if (src === "ready" && isOwn(row)) {
+    const h = k.hold ?? {};
+    Object.assign(row, { text: h.uuid ?? "", durValue: "", durOf: "origin" });
+    for (const n of ["uuid", ...HELD]) { if (n !== "uuid" && h[n] != null) keepSet(row, n, h[n]); hold(row, n, null); }
+  }
+}
+
+/* ---------- правка вида/текста шага: логика, общая для отрисовки ---------- */
+
+/** Смена вида шага: текст и значение сбрасываются (у choose — заготовка JSON), спрятанное и недопустимое для нового вида уходит из keep. */
+export function setStepKind(row, kind) {
+  Object.assign(row, { kind, text: kind === "persistent" ? "1d6" : kind === "choose" ? JSON.stringify({ from: "allies" }) : "", value: "" });
+  keepSet(row, "hold", null);
+  keepFit(row);
+}
+/** Правка основного текста шага: состояние подставляет значение (valued — значимое ли), у эффекта «[…]» набрать нельзя (это свойства своего эффекта). */
+export function setStepText(row, v, valued = false) {
+  row.text = v;
+  if (row.kind === "condition") row.value = valued ? row.value || "1" : "";
+  else if (row.kind === "effect") row.text = String(v).replace(/^[\s[]+/, "");
+}
+
+/* ---------- шаг «Игрок выбирает» (row.text — JSON {from, options?, prompt?, range?, of?, withSelf?}) ---------- */
+
+export const CHOOSE_FROM = ["allies", "enemies", "options"];
+export const chooseOf = (row) => { try { const c = JSON.parse(row.text); return c && typeof c === "object" && !Array.isArray(c) ? c : {}; } catch { return {}; } };
+const optsOf = (c) => (Array.isArray(c.options) ? c.options.map((o) => (typeof o === "string" ? { value: o } : { ...o })) : []);
+export function chooseView(row) {
+  const c = chooseOf(row);
+  return { from: c.from ?? "", prompt: c.prompt ?? "", range: c.range ?? "", of: c.of ?? "", options: optsOf(c).map((o, i) => ({ i, value: o.value ?? "", label: o.label ?? "", when: typeof o.when === "string" ? o.when : whenText(o.when) })) };
+}
+/** Правка поля: from, prompt, range, of, добавление/удаление вариантов (`opt.add`, `opt.<i>.remove`) и их полей (`opt.<i>.value|label|when`). */
+export function chooseSet(row, name, v) {
+  const c = chooseOf(row), [a, i, f] = name.split(".");
+  if (a === "opt") {
+    const opts = optsOf(c);
+    if (i === "add") opts.push({ value: "" });
+    else if (f === "remove") opts.splice(Number(i), 1);
+    else if (f === "when") { const w = parseWhen(v); if (w === undefined) delete opts[Number(i)].when; else opts[Number(i)].when = w; }
+    else if (f === "value") opts[Number(i)].value = text(v);
+    else if (text(v)) opts[Number(i)][f] = text(v); else delete opts[Number(i)][f];
+    c.options = opts;
+  } else if (a === "from") {
+    c.from = v;
+    const held = keepGet(row).hold?.options;   // варианты прячутся при уходе к существам и возвращаются обратно
+    if (v === "options") { for (const k of ["range", "of", "withSelf"]) delete c[k]; c.options = optsOf(c).length ? optsOf(c) : held?.length ? held : [{ value: "" }]; hold(row, "options", null); }
+    else { if (optsOf(c).length) hold(row, "options", optsOf(c)); delete c.options; if (v !== "allies") delete c.withSelf; }
+  } else if (a === "range") { const n = numOrRaw(v); if (n == null) delete c.range; else c.range = n; }
+  else if (a === "of") { if (v === "target") c.of = "target"; else delete c.of; }
+  else if (text(v)) c[a] = text(v); else delete c[a];
+  row.text = JSON.stringify(c);
+}
+
+/* ---------- макросы: «макрос | встроенный» ---------- */
+
+/** Смена вида макроса: оба начинают пустыми (встроенный — «—», обработчик выбирает ГМ). */
+export function macroSetForm(m, form) {
+  if ((form === "builtin") === (m.form === "builtin")) return;
+  Object.assign(m, { form: form === "builtin" ? "builtin" : "", uuid: "" });
+}
+/** Список обработчиков для выбора: [[builtin:<id>, «Название (id)» или id]] по названию. name(id) — подпись из lang или null. */
+export const builtinOptions = (ids, name) => ids.map((id) => { const n = name(id); return [`builtin:${id}`, n && n !== id ? `${n} (${id})` : id]; }).sort((a, z) => a[1].localeCompare(z[1]));
+
 /* ---------- плашки шагов и сводки ---------- */
 
 const plus = (n) => (n >= 0 ? `+${n}` : String(n));
@@ -79,8 +276,7 @@ const plus = (n) => (n >= 0 ? `+${n}` : String(n));
 export function plate(row, env) {
   const { t } = env;
   const dv = num(row.durValue) ?? (/^\d+d\d+$/i.test(String(row.durValue ?? "").trim()) ? String(row.durValue).trim() : null);
-  let keep = {};
-  try { keep = row.keep ? JSON.parse(row.keep) : {}; } catch { /* битая строка: пометок нет */ }
+  const keep = keepGet(row);
   const [lo, hi] = [num(row.rankMin), num(row.rankMax)];
   const range = lo !== null && hi !== null ? (lo === hi ? lo : `${lo}–${hi}`) : lo !== null ? `${lo}+` : hi !== null ? `≤${hi}` : null;
   const note = [range !== null && t("workshop.au.keep.rank", { range }), row.kind === "effect" && row.stack && t("workshop.au.keep.stack"), row.kind === "effect" && row.unstack && !row.stack && t("workshop.au.keep.unstack"), row.kind === "removeEffect" && row.ofOrigin && t("workshop.au.keep.ofOrigin"),

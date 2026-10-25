@@ -39,7 +39,7 @@
           "damage": "Stage damage: up to four entries with a dice formula and a damage type ({path})",
           "persistent": "Stage persistent damage: dice formula, damage type, DC is an integer from 1 ({path})",
           "conditions": "Stage conditions: up to six distinct ones, slug and a value from 1 to 10 ({path})",
-          "mods": "Stage penalties: the same blocks as a step effect (up to four) ({path})",
+          "mods": "Stage penalties: the same properties as a step effect (up to four) ({path})",
           "text": "Stage text is a string of up to 600 characters ({path})",
           "to": "An affliction is applied to the target only (to: target) ({path})"
         }

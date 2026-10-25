@@ -39,9 +39,9 @@
         "unlimitedLong": "Unlimited, removed manually"
       },
       "gives": "What it does",
-      "noBlocks": "The effect does nothing yet. Pick a block below, for example an AC bonus.",
-      "add": "Add a block",
-      "remove": "Remove block",
+      "noBlocks": "The effect does nothing yet. Pick a property below, for example an AC bonus.",
+      "add": "Add a property",
+      "remove": "Remove property",
       "kind": {
         "bonus": "Bonus / penalty",
         "resist": "Resistance",
@@ -112,7 +112,7 @@
       "dim": "Dim light, ft",
       "rawJson": "Rule Element (object or array)",
       "preview": "How pf2e will see it",
-      "descEmpty": "The description appears once you add blocks.",
+      "descEmpty": "The description appears once you add properties.",
       "rules": "Rule Elements · {n}",
       "footHint": "Fine tuning — in the regular pf2e effect sheet.",
       "create": "Create effect",
@@ -144,8 +144,8 @@
         "name": "Enter an effect name.",
         "level": "Level must be a whole number from 0.",
         "duration": "Duration must be a whole number above zero (or choose “Unlimited”).",
-        "empty": "Add at least one block.",
-        "block": "Block {n}: {what}",
+        "empty": "Add at least one property.",
+        "block": "Property {n}: {what}",
         "more": "(and {n} more)",
         "value": "the value must be a number above zero.",
         "except": "exceptions are pf2e keys in Latin letters, comma-separated.",
@@ -214,7 +214,43 @@
       },
       "modes": "Workshop mode",
       "au": {
-        "denied": "This item type has no automation rule.",
+        "chWhen": "When (challenge condition)",
+        "chWhenHint": "pf2e predicate: the challenge is made only for matching targets. Roll options separated by commas (all must hold) or JSON.",
+        "mod": {
+          "source": "Source", "ready": "ready-made effect", "own": "custom", "dur": "Duration", "durHint": "A custom effect needs a duration: a number or a die (1d4).", "to": "to",
+          "ft": "ft", "weak": "Weakness", "forbid": "No reactions", "max": "up to {n} properties", "none": "Add at least one property.", "remove": "Remove property",
+          "slugNote": "The target gets an effect named “Effect: [item]” with slug af-[item slug]; the “remove effect” and “extend effect” steps find it by that slug."
+        },
+        "chs": {
+          "from": "From", "allies": "allies", "enemies": "enemies", "options": "options", "prompt": "Question for the player", "range": "Range, ft", "of": "From", "ofOrigin": "author", "ofTarget": "target",
+          "optionsLabel": "Options", "value": "Code", "label": "Label", "when": "Condition", "whenHint": "shown if…", "add": "Add option", "remove": "Remove option",
+          "hint": "The code is a latin slug (fire); conditions of later steps check it as choice:fire. An option condition is a pf2e predicate on the author."
+        },
+        "mac": { "kind": "Kind", "macro": "macro", "builtin": "built-in", "handler": "Handler" },
+        "ref": {
+          "label": "Extras", "off": "Remove",
+          "pill": { "ally": "allies only", "enemy": "enemies only", "escape": "Escape", "repeat": "repeat save", "unless": "unless already affected", "mark": "mark on enemy", "choice": "choice value" },
+          "why": {
+            "needTarget": "Only when the step applies to the target.",
+            "needCarrier": "Needs a condition or effect step: this removes what the step created.",
+            "vsRepeat": "Cannot be combined with a repeat save.",
+            "vsEscape": "Cannot be combined with Escape.",
+            "noReduce": "Cannot be combined with the condition policy “reduce by value”.",
+            "noBadge": "Cannot be combined with a badge (+1 / −1).",
+            "noReplace": "Cannot be combined with “replace”.",
+            "needEffect": "Only on an effect step.",
+            "noOwn": "Cannot be combined with an effect made of properties.",
+            "empty": "No value set: the pill does nothing."
+          },
+          "card": { "escape": "Escape", "repeat": "Repeat save", "unless": "Unless already affected", "choice": "Choice value" },
+          "escStats": "What the victim escapes with", "unarmed": "Unarmed attack", "escDc": "DC", "escDcAuto": "auto", "escDcStat": "Author's DC",
+          "escHint": "The victim removes what this step created with a check. An empty DC uses the DC of the use. “Author's DC”: spell is the author's spell DC, or a skill name.",
+          "repWhen": "When", "repOn": { "turn-start": "at the start of the target's turn", "turn-end": "at the end of the target's turn" }, "repEnd": "Removed on", "repStat": "Save", "repDc": "DC",
+          "repHintIn": "The save and DC come from the rule's challenge.", "repHintOut": "Outside a challenge the save and DC are required.",
+          "unlessHint": "The step is skipped if the recipient already has this effect (for example, an immunity after the action).",
+          "choiceValue": "Value", "choiceHint": "Preselects the value in the effect's choice prompt (ChoiceSet), for example a skill name."
+        },
+        "denied":"This item type has no automation rule.",
         "switchTitle": "Unsaved changes",
         "switch": "The rule of “{name}” has unsaved changes. Discard them and switch?",
         "ruleSource": "Rule:",
@@ -350,10 +386,10 @@
         "persFormula": "Formula",
         "persType": "Damage type",
         "persDc": "Recovery DC (default 15)",
-        "effDur": "Effect duration (a number or dice like 1d4; empty — as the effect has it)",
+        "effDur": "Duration",
+        "effDurHint": "A number or a die (1d4); empty — the effect's own duration.",
         "healing": "Healing",
-        "chooseJson": "Choice (JSON: from — allies / enemies / options, options, prompt, range)",
-        "choosePlate": "The player chooses",
+        "chooseKind": "player chooses", "choosePlate": "The player chooses",
         "kindDamage": "Damage or healing",
         "kindMove": "Push / pull",
         "moveDist": "Distance, ft",
@@ -476,7 +512,7 @@
         "typeHint": {
           "consumable": "Potion, elixir, scroll — used up when activated",
           "equipment": "Passive properties while worn or invested",
-          "weapon": "Damage die and type, group; extra properties as blocks",
+          "weapon": "Damage die and type, group; extra properties",
           "action": "An ability with an effect on yourself",
           "feat": "Passive or action with an effect on yourself"
         },
@@ -543,11 +579,11 @@
           "free": "Free action",
           "passive": "Passive"
         },
-        "blocksNote": "Properties while the item is worn — the same blocks as in Effect mode; written straight into the item.",
+        "blocksNote": "Properties while the item is worn — the same properties as in Effect mode; written straight into the item.",
         "does": {
           "consumable": "The automation rule applies the chosen effect when the consumable is used — to the user or to the selected target.",
           "equipment": "Rule Elements work while the item is worn (for an item with the Invested trait — while invested too): no extra conditions needed, pf2e requires this itself.",
-          "weapon": "The blocks affect this weapon while it is held (or worn): “all Strikes” is narrowed to the weapon itself.",
+          "weapon": "The properties affect this weapon while it is held (or worn): “all Strikes” is narrowed to the weapon itself.",
           "action": "The effect is written into pf2e’s native “effect on self” field: the system draws the card button itself.",
           "feat": "The effect is written into pf2e’s native “effect on self” field: the system draws the card button itself."
         },

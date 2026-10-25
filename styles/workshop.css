@@ -125,6 +125,7 @@
 .pf2e-automato-workshop .ws-chev { flex: none; color: #786452; transition: transform .2s; }
 .pf2e-automato-workshop .ws-psum[aria-expanded="true"] .ws-chev { transform: rotate(180deg); }
 .pf2e-automato-workshop .ws-pfields { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 14px 20px; padding: 0 14px 16px 0; }
+.pf2e-automato-workshop .ws-pfields > .ws-grow { flex: 1 1 260px; }
 .pf2e-automato-workshop .ws-full { flex: 1 1 100%; min-width: 0; }
 .pf2e-automato-workshop .ws-areanote { display: flex; align-items: center; gap: 8px; font-size: 12px; line-height: 1.45; color: #5b5048; }
 .pf2e-automato-workshop .ws-areanote i { flex: none; }
@@ -316,3 +317,36 @@
 .pf2e-automato-workshop .ws-ev { width: 100%; box-sizing: border-box; padding: 10px 12px; display: flex; flex-direction: column; gap: 10px; background: #fff; border: 1px solid #ddd2c0; border-radius: 3px; }
 .pf2e-automato-workshop .ws-ev-h { display: flex; align-items: center; gap: 8px; }
 .pf2e-automato-workshop .ws-ev-h .ws-lbl { flex: 1; }
+
+/* «Дополнительно»: плашки-переключатели; включённая — #443730, недоступная — пунктир; карточка параметров — «карточка поверх» */
+.pf2e-automato-workshop .ws-pills { display: flex; flex-wrap: wrap; gap: 6px; }
+.pf2e-automato-workshop .ws-pill { width: auto; height: 26px; margin: 0; padding: 0 10px; display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 500; color: #2a2420; background: #fffdf9; border: 1px solid #baa991; border-radius: 10px; box-shadow: none; cursor: pointer; transition: background-color .15s, border-color .15s, color .15s; }
+.pf2e-automato-workshop .ws-pill:hover { background: #fff; border-color: #786452; }
+.pf2e-automato-workshop .ws-pill[aria-pressed="true"] { color: #fff; background: #443730; border-color: #443730; }
+.pf2e-automato-workshop .ws-pill[aria-pressed="true"]:hover { border-color: #2a2420; }
+.pf2e-automato-workshop .ws-pill i { font-size: 11px; transition: transform .15s; }
+.pf2e-automato-workshop .ws-pill[aria-expanded="true"] i { transform: rotate(180deg); }
+.pf2e-automato-workshop .ws-pill.is-bad { border-color: #8c1c1c; box-shadow: 0 0 0 1px #8c1c1c; }
+.pf2e-automato-workshop .ws-pill.is-off { color: #786452; border-style: dashed; cursor: not-allowed; }
+.pf2e-automato-workshop .ws-pill.is-off:hover { background: #fffdf9; border-color: #baa991; }
+.pf2e-automato-workshop .ws-pop { box-sizing: border-box; width: 100%; max-width: 460px; margin-top: 8px; background: #f8f4f1; border: 1px solid #baa991; border-radius: 3px; }
+.pf2e-automato-workshop .ws-pop-h { padding: 6px 10px 5px; font: 600 15px/1.2 Eczar, Georgia, serif; background: #efe7dc; border-bottom: 1px solid #d8c384; border-radius: 3px 3px 0 0; }
+.pf2e-automato-workshop .ws-pop-b { display: flex; flex-direction: column; gap: 10px; padding: 10px; }
+.pf2e-automato-workshop .ws-pop-b .ws-note, .pf2e-automato-workshop .ws-inl, .pf2e-automato-workshop .ws-adds .ws-note { padding: 0; }
+.pf2e-automato-workshop .ws-pop-off { align-self: flex-start; }
+.pf2e-automato-workshop .ws-chks { display: flex; flex-wrap: wrap; gap: 0 14px; }
+
+/* Свойства своего эффекта и варианты выбора: строки с крестиком */
+.pf2e-automato-workshop .ws-modlist { background: #f8f4f1; border: 1px solid #ddd2c0; border-radius: 3px; }
+.pf2e-automato-workshop .ws-mod { display: grid; grid-template-columns: auto minmax(0, 1fr) 28px; gap: 8px; align-items: center; padding: 6px 6px 6px 10px; }
+.pf2e-automato-workshop .ws-mod + .ws-mod { border-top: 1px solid #ddd2c0; }
+.pf2e-automato-workshop .ws-modf { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.pf2e-automato-workshop .ws-modf .ws-fld { flex: 0 0 auto; }
+.pf2e-automato-workshop .ws-modf .ws-fld.ws-grow, .pf2e-automato-workshop .ws-modf .ws-fld:last-child { flex: 1 1 100px; min-width: 0; }
+.pf2e-automato-workshop .ws-modf .ws-inp:not(.ws-num) { width: auto; max-width: 100%; }
+.pf2e-automato-workshop .ws-modf .ws-grow .ws-inp { width: 100%; }
+.pf2e-automato-workshop .ws-adds { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.pf2e-automato-workshop .ws-add:disabled { opacity: .5; cursor: not-allowed; }
+.pf2e-automato-workshop .ws-opt { display: grid; grid-template-columns: 110px minmax(0, 1fr) 150px 28px; gap: 8px; align-items: center; }
+.pf2e-automato-workshop .ws-opt .ws-inp { width: 100%; box-sizing: border-box; }
+.pf2e-automato-workshop .ws-req { color: #8c1c1c; font-weight: 700; }

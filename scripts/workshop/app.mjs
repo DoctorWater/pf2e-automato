@@ -4,12 +4,13 @@
 import { MOD, L, errText, DEGREES, callGM, forcedReplace, forcedDelete, flagPath, damageLabel } from "../util.mjs";
 import { modeOf } from "../settings.mjs";
 import { DENY, divergedHint, dropSpec, ruleToForm, formToRule, blankRow, blankEvent, blankTrigger, blankCast, reportEnv, pickedTokens, ruleUuids, buildReport } from "../sheet.mjs";
-import { validateRule, resolveRule, divergedOf, slugOf, sourceOf, DAMAGE_TYPES, EVENT_ON, EVENT_SIDES, EVENT_TARGETED, EVENT_AFTER_USE, NEAR_ON, TRIGGER_ON, TRIGGER_PER } from "../rules.mjs";
+import { validateRule, resolveRule, divergedOf, slugOf, sourceOf, DAMAGE_TYPES, EVENT_ON, EVENT_SIDES, EVENT_TARGETED, EVENT_AFTER_USE, NEAR_ON, TRIGGER_ON, TRIGGER_PER, ESCAPE_STATS, REPEAT_ON } from "../rules.mjs";
 import { automationsGroups } from "../compat.mjs";
 import { safeUuid } from "../saves.mjs";
 import * as fx from "./effect.mjs";
 import * as au from "./automation.mjs";
 import * as im from "./item.mjs";
+import { BUILTIN } from "../builtin/index.mjs";
 import { hintsView, hintList } from "../hints.mjs";
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
@@ -55,10 +56,13 @@ const F = {
   num: (path, label, value, extra = {}) => ({ path, label, type: "number", value, inpCls: "ws-num", ...extra }),
   text: (path, label, value, extra = {}) => ({ path, label, type: "text", value, ...extra }),
   sel: (path, label, value, opts, extra = {}) => ({ path, label, value, options: withCur(opts, value), ...extra }),
-  chk: (path, label, value) => ({ path, label, check: true, value })
+  chk: (path, label, value, extra = {}) => ({ path, label, check: true, value, ...extra })
 };
 const TRI = ["auto", "yes", "no"];
 const triSeg = (path, label, cur) => F.seg(path, label, cur, TRI.map((k) => [k, t(`workshop.au.tri.${k}`)]));
+
+/** Условие испытания (предикат pf2e по целям): испытание проводится только для подходящих. */
+const chWhen = (p, c) => F.text(`${p}.when`, t("workshop.au.chWhen"), c.when, { cls: "ws-full", placeholder: "target:trait:undead", hint: t("workshop.au.chWhenHint") });
 
 /** Невосприимчивость после действия (испытание и проверка): p — путь модели (f.ch.imm | f.ck.imm), m — её значение. */
 const immFields = (p, m) => [
@@ -71,11 +75,11 @@ const immFields = (p, m) => [
 ];
 
 /** Поля раскрытого шага (строка apply / степени). row — строка модели формы, p — её путь. */
-function stepFields(row, p, names) {
+function stepFields(row, p, names, card) {
   const out = [
     F.seg(`${p}.to`, t("workshop.au.stepTo"), row.to, ["target", "self", "party", "allies", "chosen"].map((k) => [k, t(`sheet.to.${k}`)])),
     ...(row.to === "allies" ? [F.num(`${p}.range`, t("sheet.row.range"), row.range, { min: 5, placeholder: "30" })] : []),
-    F.sel(`${p}.kind`, t("workshop.au.stepKind"), row.kind, sheetChoices("row", row.kind === "affliction" ? ["affliction"] : ["condition", "effect", "note", "visibility", "persistent", "remove", "removeEffect", "extendEffect", "rollOption", "damage", "choose", "move"]))   // недуг — только чтение: свой единственный вид, новых строк не создаём
+    F.sel(`${p}.kind`, t("workshop.au.stepKind"), row.kind, Object.assign(sheetChoices("row", row.kind === "affliction" ? ["affliction"] : ["condition", "effect", "note", "visibility", "persistent", "remove", "removeEffect", "extendEffect", "rollOption", "damage", "choose", "move"]), { choose: t("workshop.au.chooseKind") })   // недуг — только чтение: свой единственный вид, новых строк не создаём
   ];
   const rank = [F.num(`${p}.rankMin`, t("sheet.row.rankMin"), row.rankMin, { min: 1 }), F.num(`${p}.rankMax`, t("sheet.row.rankMax"), row.rankMax, { min: 1 })];
   if (row.kind === "remove") out.push(F.sel(`${p}.text`, t("workshop.au.condition"), row.text, { "": "—", ...Object.fromEntries(grantable().map((c) => [c.slug, c.label])) }));
@@ -89,18 +93,27 @@ function stepFields(row, p, names) {
       F.sel(`${p}.durExpiry`, t("workshop.expires"), row.durExpiry, { "": t("sheet.expiry.none"), "turn-start": t("sheet.expiry.start"), "turn-end": t("sheet.expiry.end") }),
       F.sel(`${p}.durOf`, t("workshop.au.durOf"), row.durOf, sheetChoices("of", ["origin", "target"]))
     );
-  } else if (row.kind === "effect") out.push(F.text(`${p}.text`, t("workshop.au.effectUuid"), row.text, { drop: "effect", cls: "ws-grow", hint: names.get(row.text) ?? "" }), F.chk(`${p}.stack`, t("workshop.au.stack"), row.stack), F.chk(`${p}.unstack`, t("workshop.au.unstack"), row.unstack), ...(row.stack ? [F.num(`${p}.stackBy`, t("workshop.au.stackBy"), row.stackBy, { min: 1, placeholder: "1" }), F.num(`${p}.stackStart`, t("workshop.au.stackStart"), row.stackStart, { min: 1, placeholder: "1" })] : []),
-    // срок эффекта: переопределение; значение — число или кубик (1d4)
-    F.text(`${p}.durValue`, t("workshop.au.effDur"), row.durValue, { placeholder: "1d4" }),
-    F.sel(`${p}.durUnit`, t("workshop.au.unit"), row.durUnit, sheetChoices("unit", ["rounds", "minutes", "hours", "days"])),
-    F.sel(`${p}.durExpiry`, t("workshop.expires"), row.durExpiry, { "": t("sheet.expiry.none"), "turn-start": t("sheet.expiry.start"), "turn-end": t("sheet.expiry.end") }));
+  } else if (row.kind === "effect") {
+    const own = au.isOwn(row);   // «свой»: effect.mods — список свойств; «готовый»: UUID эффекта из компендиума
+    out.push(F.seg(`${p}.src`, t("workshop.au.mod.source"), own ? "own" : "ready", [["ready", t("workshop.au.mod.ready")], ["own", t("workshop.au.mod.own")]]));
+    if (own) out.push(modsField(row, p));
+    else out.push(F.text(`${p}.text`, t("workshop.au.effectUuid"), row.text, { drop: "effect", cls: "ws-grow", hint: names.get(row.text) ?? "" }),
+      F.chk(`${p}.stack`, t("workshop.au.stack"), row.stack, { disabled: row.replace && !row.stack }), F.chk(`${p}.unstack`, t("workshop.au.unstack"), row.unstack, { disabled: row.replace && !row.unstack }),
+      ...(row.stack ? [F.num(`${p}.stackBy`, t("workshop.au.stackBy"), row.stackBy, { min: 1, placeholder: "1" }), F.num(`${p}.stackStart`, t("workshop.au.stackStart"), row.stackStart, { min: 1, placeholder: "1" })] : []),
+      F.chk(`${p}.replace`, t("sheet.row.replace"), row.replace, { tip: t("sheet.row.replaceTip"), disabled: (row.stack || row.unstack) && !row.replace }));
+    // срок: у готового — переопределение (число или кубик 1d4); у своего — обязателен, плюс «чей ход»
+    out.push(F.text(`${p}.durValue`, t(own ? "workshop.au.mod.dur" : "workshop.au.effDur"), row.durValue, { inpCls: "ws-num", placeholder: "1d4", req: own, tip: t(own ? "workshop.au.mod.durHint" : "workshop.au.effDurHint") }),
+      F.sel(`${p}.durUnit`, t("workshop.au.unit"), row.durUnit, sheetChoices("unit", ["rounds", "minutes", "hours", "days"])),
+      F.sel(`${p}.durExpiry`, t("workshop.expires"), row.durExpiry, { "": t("sheet.expiry.none"), "turn-start": t("sheet.expiry.start"), "turn-end": t("sheet.expiry.end") }),
+      ...(own ? [F.sel(`${p}.durOf`, t("workshop.au.durOf"), row.durOf, sheetChoices("of", ["origin", "target"]))] : []));
+  }
   else if (row.kind === "damage") out.push(
     F.text(`${p}.text`, t("workshop.au.persFormula"), row.text, { placeholder: "2d6" }),
     F.sel(`${p}.pType`, t("workshop.au.persType"), row.pType, [["healing", t("workshop.au.healing")], ...DAMAGE_TYPES.map((v) => [v, damageLabel(v)])]),
     F.chk(`${p}.dmgBasic`, t("workshop.au.dmgBasic"), row.dmgBasic)
   );
   else if (row.kind === "move") out.push(F.num(`${p}.text`, t("workshop.au.moveDist"), row.text, { min: 5, placeholder: "10" }), F.sel(`${p}.moveMode`, t("workshop.au.moveMode"), row.moveMode, sheetChoices("moveMode", ["push", "pull"])), F.sel(`${p}.moveFrom`, t("workshop.au.moveFrom"), row.moveFrom ?? "origin", sheetChoices("moveFrom", ["origin", "point"])));
-  else if (row.kind === "choose") out.push(F.text(`${p}.text`, t("workshop.au.chooseJson"), row.text, { cls: "ws-grow", placeholder: "{\"from\":\"allies\"}" }));
+  else if (row.kind === "choose") out.push(...chooseFields(row, p));
   else if (row.kind === "removeEffect") out.push(F.text(`${p}.text`, t("workshop.au.effectRef"), row.text, { drop: "effect", cls: "ws-grow", hint: names.get(row.text) ?? "" }), F.chk(`${p}.ofOrigin`, t("workshop.au.ofOrigin"), row.ofOrigin));
   else if (row.kind === "extendEffect") out.push(F.text(`${p}.text`, t("workshop.au.effectSlug"), row.text, { cls: "ws-grow" }), F.num(`${p}.value`, t("workshop.au.extendRounds"), row.value, { min: 1 }));
   else if (row.kind === "rollOption") out.push(F.text(`${p}.domain`, t("sheet.row.domain"), row.domain, { placeholder: "all" }), F.text(`${p}.text`, t("workshop.au.optionName"), row.text, { cls: "ws-grow" }), F.chk(`${p}.optOff`, t("workshop.au.optOff"), row.optOff));
@@ -116,8 +129,53 @@ function stepFields(row, p, names) {
     F.text(`${p}.visUntil`, t("workshop.au.visUntil"), row.visUntil, { placeholder: t("sheet.row.until") })
   );
   if (row.kind !== "note" && row.kind !== "visibility") out.push(...rank);   // круг сотворения: шаг только в этом диапазоне
-  if (row.kind !== "note") out.push(F.text(`${p}.when`, t("workshop.au.stepWhen"), row.when, { cls: "ws-grow", placeholder: "feat:x, target:trait:undead", hint: t("workshop.au.stepWhenHint") }));   // условие шага (предикат pf2e)
+  if (row.kind !== "note") out.push(F.text(`${p}.when`, t("workshop.au.stepWhen"), row.when, { cls: "ws-full", placeholder: "feat:x, target:trait:undead", hint: t("workshop.au.stepWhenHint") }));   // условие шага (предикат pf2e)
+  if (row.kind !== "choose" && row.kind !== "affliction") out.push(refineField(row, p, names, card));
   return out;
+}
+
+/** Свойства своего эффекта (effect.mods): строки по видам, кнопки добавления. */
+function modsField(row, p) {
+  const bare = { bare: true };
+  const list = au.modsView(row).map((m) => {
+    const q = `${p}.mods.${m.i}`, val = F.text(`${q}.value`, t("workshop.value"), m.value, { ...bare, inpCls: "ws-num" });
+    const type = F.sel(`${q}.type`, t("workshop.type"), m.type, choices(fx.BONUS_TYPES, "btype"), bare), dmg = F.sel(`${q}.dmg`, t("workshop.damage"), m.dmg, choices(fx.RESIST_TYPES, "dtype"), bare);
+    const fields = { bonus: [val, type, { note: t("workshop.au.mod.to") }, F.sel(`${q}.target`, t("workshop.target"), m.target, choices(fx.STEP_TARGETS, "targets"), { ...bare, cls: "ws-grow" })],
+      speed: [val, { note: t("workshop.au.mod.ft") }, type], resist: [dmg, val, F.text(`${q}.except`, t("workshop.except"), m.except, { ...bare, placeholder: t("workshop.exceptHint") })], weak: [dmg, val], forbid: [{ note: t("workshop.text.forbid") }] }[m.kind] ?? [];
+    return { i: m.i, kind: t(m.kind === "weak" ? "workshop.au.mod.weak" : m.kind === "forbid" ? "workshop.au.mod.forbid" : `workshop.kind.${m.kind}`), fields, rm: { path: p, op: `modRm:${m.i}` } };
+  });
+  const adds = au.MOD_ADD.map((kind) => ({ path: p, op: `modAdd:${kind}`, label: t(kind === "weak" ? "workshop.au.mod.weak" : kind === "forbid" ? "workshop.au.mod.forbid" : `workshop.kind.${kind}`), off: !au.modCanAdd(row, kind) }));
+  return { mods: { list, adds, hint: t("workshop.au.mod.max", { n: au.MODS_MAX }), note: t("workshop.au.mod.slugNote"), empty: !list.length && t("workshop.au.mod.none") }, label: "" };
+}
+
+/** Шаг «Игрок выбирает»: источник, вопрос; для существ — дальность и «от кого», для вариантов — строки {value, label?, when?}. */
+function chooseFields(row, p) {
+  const c = au.chooseView(row), q = `${p}.choose`;
+  const out = [F.seg(`${q}.from`, t("workshop.au.chs.from"), c.from, au.CHOOSE_FROM.map((k) => [k, t(`workshop.au.chs.${k}`)])), F.text(`${q}.prompt`, t("workshop.au.chs.prompt"), c.prompt, { cls: "ws-grow" })];
+  if (c.from === "options") out.push({ opts: {
+    list: c.options.map((o) => ({ i: o.i, fields: [F.text(`${q}.opt.${o.i}.value`, t("workshop.au.chs.value"), o.value, { bare: true, placeholder: "fire" }), F.text(`${q}.opt.${o.i}.label`, t("workshop.au.chs.label"), o.label, { bare: true, placeholder: t("workshop.au.chs.label") }),
+      F.text(`${q}.opt.${o.i}.when`, t("workshop.au.chs.when"), o.when, { bare: true, placeholder: t("workshop.au.chs.whenHint") })], rm: { path: p, op: `opt:opt.${o.i}.remove` } })),
+    add: { path: p, op: "opt:opt.add" }, hint: t("workshop.au.chs.hint") }, label: t("workshop.au.chs.optionsLabel") });
+  else out.push(F.num(`${q}.range`, t("workshop.au.chs.range"), c.range, { min: 5, placeholder: "—" }), F.seg(`${q}.of`, t("workshop.au.chs.of"), c.of, [["", t("workshop.au.chs.ofOrigin")], ["target", t("workshop.au.chs.ofTarget")]]));
+  return out;
+}
+
+/** «Дополнительно»: плашки-переключатели и карточка открытой плашки. card — "<путь шага>|<плашка>" или null. */
+function refineField(row, p, names, card) {
+  const open = card?.startsWith(`${p}|`) ? card.slice(p.length + 1) : null, v = au.keepView(row), inCh = au.inChallenge(p);
+  const list = au.refineState(row).map((s) => ({ ...s, path: p, label: t(`workshop.au.ref.pill.${s.key}`), tip: s.why ? t(`workshop.au.ref.why.${s.why}`) : "", open: open === s.key }));
+  const K = `${p}.keep`, deg = (path, on, d) => F.chk(path, t(`sheet.degree.${d}`), on);
+  const cards = {
+    escape: { fields: [{ group: { label: t("workshop.au.ref.escStats"), fields: ESCAPE_STATS.map((s) => F.chk(`${K}.escape.stats.${s}`, s === "unarmed" ? t("workshop.au.ref.unarmed") : t(`workshop.targets.${s}`), v.escape.stats[s])) }, label: "" },
+      F.num(`${K}.escape.dc`, t("workshop.au.ref.escDc"), v.escape.dc, { min: 1, placeholder: t("workshop.au.ref.escDcAuto") }), F.text(`${K}.escape.dcStat`, t("workshop.au.ref.escDcStat"), v.escape.dcStat, { list: "ws-skills", placeholder: "spell" })], hint: t("workshop.au.ref.escHint") },
+    repeat: { fields: [F.seg(`${K}.repeat.on`, t("workshop.au.ref.repWhen"), v.repeat.on, REPEAT_ON.map((k) => [k, t(`workshop.au.ref.repOn.${k}`)])),
+      { group: { label: t("workshop.au.ref.repEnd"), fields: DEGREES.slice().reverse().map((d) => deg(`${K}.repeat.end.${d}`, v.repeat.end[d], d)) }, label: "" },
+      ...(inCh ? [] : [F.text(`${K}.repeat.statistic`, t("workshop.au.ref.repStat"), v.repeat.statistic, { list: "ws-skills", placeholder: "will" }), F.num(`${K}.repeat.dc`, t("workshop.au.ref.repDc"), v.repeat.dc, { min: 1 }),
+        F.text(`${K}.repeat.traits`, t("sheet.traits"), v.repeat.traits), F.text(`${K}.repeat.options`, t("sheet.options"), v.repeat.options)])], hint: t(inCh ? "workshop.au.ref.repHintIn" : "workshop.au.ref.repHintOut") },
+    unless: { fields: [F.text(`${K}.unless`, t("workshop.au.effectUuid"), v.unless, { drop: "effect", cls: "ws-grow", hint: names.get(v.unless) ?? "" })], hint: t("workshop.au.ref.unlessHint") },
+    choice: { fields: [F.text(`${K}.choice`, t("workshop.au.ref.choiceValue"), v.choice, { cls: "ws-grow" })], hint: t("workshop.au.ref.choiceHint") }
+  };
+  return { refine: { path: p, list, card: open && cards[open] ? { key: open, path: p, title: t(`workshop.au.ref.card.${open}`), off: t("workshop.au.ref.off"), ...cards[open] } : null }, label: t("workshop.au.ref.label") };
 }
 
 export class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
@@ -168,13 +226,24 @@ export class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
       async openDone() { (await safeUuid(this.#wiz.done?.uuid))?.sheet.render(true); },
       newItem() { this.#wiz = { m: im.blankItem(), step: 0, q: "", found: [], seq: 0, picked: null, picker: false, done: null }; this.render(); },
       toggleRow(_e, el) { const o = this.#au.open; o[el.dataset.row] = !o[el.dataset.row]; this.#redraw(); },
-      toggleStep(_e, el) { const a = this.#au; a.sel = a.sel === el.dataset.path ? null : el.dataset.path; this.#redraw(); },
+      toggleStep(_e, el) { const a = this.#au; a.sel = a.sel === el.dataset.path ? null : el.dataset.path; a.card = null; this.#redraw(); },
+      // правка раскрытого шага кнопками: свойства своего эффекта, варианты выбора, плашки «Дополнительно» (op — "вид:аргумент")
+      rowOp(_e, el) {
+        const a = this.#au, row = foundry.utils.getProperty(a, el.dataset.path), [op, arg] = el.dataset.op.split(":");
+        if (op === "modAdd") au.modAdd(row, arg);
+        else if (op === "modRm") au.modRemove(row, Number(arg));
+        else if (op === "opt") au.chooseSet(row, arg);
+        else if (op === "pill") { const id = `${el.dataset.path}|${arg}`; a.card = au.refineClick(row, arg, a.card === id) ? id : null; }
+        else if (op === "pillOff") { au.refineSet(row, arg, false); a.card = null; }
+        this.#redraw();
+      },
       togglePicker(_e, el) { const a = this.#au; a.picker = a.picker === el.dataset.list ? null : el.dataset.list; this.#redraw(); },
       addStep(_e, el) { this.#addStep(el.dataset.list, { kind: el.dataset.kind ?? "condition", text: el.dataset.slug ?? "" }); },
       removeStep(_e, el) {
         const [list, i] = this.#split(el.dataset.path);
         foundry.utils.getProperty(this.#au, list).splice(i, 1);
         this.#au.sel = null;
+        this.#au.card = null;
         this.#redraw();
       },
       stepVal(_e, el) {
@@ -267,7 +336,7 @@ export class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
     if (!res) f.kind = "onUse";
     const area = au.initialArea({ isSpell: item.type === "spell", area: item._source.system.area, description: item._source.system.description?.value });
     const hints = res?.source === "markup" && game.user.isGM ? hintsView(res.hints, { condLabel, degLabel: (d) => t(`sheet.degree.${d}`).toLowerCase() }) : null;
-    this.#au = { hints, f, base: JSON.stringify(f), area, baseArea: { ...area }, open: prev?.open ?? { when: false, targets: false, roll: true, outcome: true, zone: false, macros: false, events: true, cast: true }, sel: prev?.sel ?? null, picker: null, probeDc: prev?.probeDc ?? "" };
+    this.#au = { hints, f, base: JSON.stringify(f), area, baseArea: { ...area }, open: prev?.open ?? { when: false, targets: false, roll: true, outcome: true, zone: false, macros: false, events: true, cast: true }, sel: prev?.sel ?? null, picker: null, card: null, probeDc: prev?.probeDc ?? "" };
   }
 
   #dirty() {
@@ -287,13 +356,17 @@ export class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
       a.sel = null;
       return;
     }
-    foundry.utils.setProperty(a, path, v);
+    // поля, которых нет в строке формы как есть: «Дополнительно» (row.keep), свойства эффекта и варианты выбора (JSON в row.text), источник эффекта, вид макроса
+    const sub = [[/^(.*)\.keep\.(.+)$/, au.keepEdit], [/^(.*)\.mods\.(\d+\.\w+)$/, (r, n, x) => { const [i, field] = n.split("."); au.modSet(r, Number(i), field, x); }], [/^(.*)\.choose\.(.+)$/, au.chooseSet], [/^(.*)\.src$/, (r, _n, x) => au.setEffectSource(r, x)]];
+    for (const [re, fn] of sub) { const hit = re.exec(path); if (hit) return fn(foundry.utils.getProperty(a, hit[1]), hit[2], v); }
+    const mac = /^f\.macros\.(\d+)\.form$/.exec(path);
+    if (mac) return au.macroSetForm(f.macros[Number(mac[1])], v);
     const m = /^(.*)\.(kind|text)$/.exec(path);
     const row = m && m[1] !== "f" && m[1] !== "f.zone" ? foundry.utils.getProperty(a, m[1]) : null;
-    if (row && "durOf" in row) {   // строка шага: смена вида сбрасывает текст, выбор состояния подставляет значение
-      if (m[2] === "kind") Object.assign(row, { text: v === "persistent" ? "1d6" : "", value: "" });
-      else if (row.kind === "condition") row.value = condValued(v) ? row.value || "1" : "";
-    }
+    if (row && "durOf" in row) {   // строка шага: смена вида и текста — в ядре
+      if (m[2] === "kind") au.setStepKind(row, v);
+      else au.setStepText(row, v, row.kind === "condition" && condValued(v));
+    } else foundry.utils.setProperty(a, path, v);
     if (path === "f.targets" && v === "self") a.sel = null;
     // событие без цели (ход, эффект, урон по носителю): сторона «цель броска» невозможна — вернуть «владелец»
     const ev = /^(f\.ev\.\d+)\.on$/.exec(path);
@@ -448,7 +521,7 @@ export class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
     let edit = null;
     if (a.sel) {
       const row = foundry.utils.getProperty(a, a.sel);
-      if (row) edit = { path: a.sel, title: au.plateText(au.plate(row, env)), fields: stepFields(row, a.sel, this.#names) };
+      if (row) edit = { path: a.sel, title: au.plateText(au.plate(row, env)), fields: stepFields(row, a.sel, this.#names, a.card) };
       else a.sel = null;
     }
 
@@ -482,7 +555,7 @@ export class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
         F.text("f.ch.statistic", t("sheet.statistic"), c.statistic, { list: "ws-skills" }), F.sel("f.ch.dcType", t("sheet.dcLabel"), c.dcType, sheetChoices("dc", ["value", "expr", "markup", "source", "against"]))
       );
       if (["value", "expr", "against"].includes(c.dcType)) rollFields.push(F.text("f.ch.dcText", t("workshop.au.dcValue"), c.dcText, { inpCls: "ws-num" }));
-      rollFields.push(F.chk("f.ch.basic", t("sheet.basic"), c.basic), F.text("f.ch.traits", t("sheet.traits"), c.traits), F.text("f.ch.options", t("sheet.options"), c.options), ...immFields("f.ch.imm", c.imm));
+      rollFields.push(F.chk("f.ch.basic", t("sheet.basic"), c.basic), F.text("f.ch.traits", t("sheet.traits"), c.traits), F.text("f.ch.options", t("sheet.options"), c.options), chWhen("f.ch", c), ...immFields("f.ch.imm", c.imm));
     } else if (mode === "check") {
       const k = f.ck, defs = sheetChoices("stat", ["fortitude", "reflex", "will", "perception"]);
       rollFields.push(
@@ -521,7 +594,7 @@ export class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
             F.text(`${p}.ch.statistic`, t("sheet.statistic"), c.statistic, { list: "ws-skills" }), F.sel(`${p}.ch.dcType`, t("sheet.dcLabel"), c.dcType, sheetChoices("dc", ["value", "expr", "markup", "source", "against"])),
             ...(["value", "expr", "against"].includes(c.dcType) ? [F.text(`${p}.ch.dcText`, t("workshop.au.dcValue"), c.dcText, { inpCls: "ws-num" })] : []),
             F.chk(`${p}.ch.basic`, t("sheet.basic"), c.basic),
-            F.text(`${p}.ch.traits`, t("sheet.traits"), c.traits), F.text(`${p}.ch.options`, t("sheet.options"), c.options),
+            F.text(`${p}.ch.traits`, t("sheet.traits"), c.traits), F.text(`${p}.ch.options`, t("sheet.options"), c.options), chWhen(`${p}.ch`, c),
             ...immFields(`${p}.ch.imm`, c.imm)
           ] : [])
         ],
@@ -530,9 +603,11 @@ export class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
       };
     }) : [];
 
+    const builtins = au.builtinOptions(Object.keys(BUILTIN), (id) => (game.i18n.has(`PF2E_AUTOMATO.card.${id}`) ? game.i18n.localize(`PF2E_AUTOMATO.card.${id}`) : null));
     const macros = f.macros.map((m, i) => ({
       path: `f.macros.${i}`, name: m.form === "builtin" || m.uuid.startsWith("builtin:") ? "" : this.#names.get(m.uuid) ?? "",
-      fields: [F.text(`f.macros.${i}.uuid`, "UUID", m.uuid, { drop: "macro", cls: "ws-grow", placeholder: "Macro.xxxxxxxx" }), F.sel(`f.macros.${i}.phase`, t("workshop.au.phase"), m.phase, sheetChoices("phase", ["onUse", "afterChallenge", "onDegree", "zoneEnter", "zoneExit", "onReaction"])),
+      fields: [F.seg(`f.macros.${i}.form`, t("workshop.au.mac.kind"), m.form === "builtin" ? "builtin" : "", [["", t("workshop.au.mac.macro")], ["builtin", t("workshop.au.mac.builtin")]]),
+        m.form === "builtin" ? F.sel(`f.macros.${i}.uuid`, t("workshop.au.mac.handler"), m.uuid, [["", "—"], ...builtins], { cls: "ws-grow" }) : F.text(`f.macros.${i}.uuid`, "UUID", m.uuid, { drop: "macro", cls: "ws-grow", placeholder: "Macro.xxxxxxxx" }), F.sel(`f.macros.${i}.phase`, t("workshop.au.phase"), m.phase, sheetChoices("phase", ["onUse", "afterChallenge", "onDegree", "zoneEnter", "zoneExit", "onReaction"])),
         ...(m.phase === "onDegree" ? [F.sel(`f.macros.${i}.degree`, t("workshop.au.degree"), m.degree, { "": t("sheet.anyDegree"), ...sheetChoices("degree", DEGREES) })] : [])]
     }));
 
@@ -557,7 +632,7 @@ export class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
             F.text(`${p}.ch.statistic`, t("sheet.statistic"), c.statistic, { list: "ws-skills" }), F.sel(`${p}.ch.dcType`, t("sheet.dcLabel"), c.dcType, sheetChoices("dc", ["value", "expr", "markup", "source", "against"])),
             ...(["value", "expr", "against"].includes(c.dcType) ? [F.text(`${p}.ch.dcText`, t("workshop.au.dcValue"), c.dcText, { inpCls: "ws-num" })] : []),
             F.chk(`${p}.ch.basic`, t("sheet.basic"), c.basic),
-            F.text(`${p}.ch.traits`, t("sheet.traits"), c.traits), F.text(`${p}.ch.options`, t("sheet.options"), c.options),
+            F.text(`${p}.ch.traits`, t("sheet.traits"), c.traits), F.text(`${p}.ch.options`, t("sheet.options"), c.options), chWhen(`${p}.ch`, c),
             ...immFields(`${p}.ch.imm`, c.imm)
           ] : [])
         ],

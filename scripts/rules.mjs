@@ -675,7 +675,7 @@ export function validateRule(raw) {
   };
   const events = vEvents(raw.onEvent, err);
   if (events.length) rule.onEvent = events;   // нет событий — поля нет (правила без него не меняются)
-  if (raw.activate != null && raw.cast != null) warn("правило несёт activate и cast: берём activate");
+  if (raw.activate != null && raw.cast != null && !dupWarned.has(raw.label)) { dupWarned.add(raw.label); warn(`правило «${raw.label ?? "?"}» несёт activate и cast: берём activate`); }
   const cast = vCast(activateOf(raw), err);
   if (cast.length) rule.activate = cast;
   const cp = coatPlaces({ ...rule, onEvent: events });
@@ -1399,6 +1399,7 @@ export function deriveFromMarkup(itemLike, labels, conditionSlugByUuid, condName
 let labelsData = null;
 let builtin = { bySource: new Map(), bySlug: new Map() };
 const warn = (...a) => console.warn(`${MOD} |`, ...a);
+const dupWarned = new Set();   // activate+cast: одно предупреждение на правило, validateRule зовётся на каждую отрисовку
 
 /** Чистая сборка индексов из JSON каталогов; невалидные записи пропускаются и попадают в errors. */
 export function buildCatalog(jsons) {

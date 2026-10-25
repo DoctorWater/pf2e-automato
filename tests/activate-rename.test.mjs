@@ -84,7 +84,7 @@ test("migrateWorld: мировой каталог, предмет мира, пр
   globalThis.game = {
     settings: { get: () => catalog, set: async (_m, _k, v) => { catalog = v; writes.push(["catalog"]); } },
     items: [mkItem("world", { v: 1, cast: list })],
-    actors: [{ items: [weapon, plain] }]
+    actors: { *[Symbol.iterator]() { yield { items: [weapon, plain] }; } }   // как Collection Foundry: итерируется, flatMap нет
   };
   assert.equal(await migrateWorld(), 4);
   assert.deepEqual(writes.map((w) => w[0]).sort(), ["catalog", "heart", "staff", "world"]);

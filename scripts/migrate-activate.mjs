@@ -40,8 +40,11 @@ export async function migrateWorld() {
   let n = 0;
   const cat = renameCatalog(S.get("catalog"));
   if (cat) { await S.set("catalog", cat); n++; }
-  const tops = [...game.items, ...game.actors.flatMap((a) => [...a.items])];
-  for (const top of tops) for (const item of [top, ...(top.subitems ?? [])]) n += await migrateItem(item);
+  const tops = [...game.items, ...[...game.actors].flatMap((a) => [...a.items])];
+  for (const top of tops) for (const item of [top, ...(top.subitems ?? [])]) {
+    try { n += await migrateItem(item); }
+    catch (e) { console.warn(`${MOD} | migrate activate: ${item.uuid}`, e); }   // битый предмет не держит остальных
+  }
   if (n) console.log(`${MOD} | cast -> activate: переписано ${n}`);
   return n;
 }

@@ -128,6 +128,7 @@ export function checkAnswer(ans, refs, html = null, kind = null) {
   if (dup) return { kind: "error", errors: [fmtErr(dup)] };
   const v = validateRule(ans.rule);
   if (!v.ok) return { kind: "error", errors: v.errors.map(fmtErr) };
+  if (ans.rule.cast != null) return { kind: "error", errors: ["use `activate`, not `cast` (the key was renamed)"] };
   const extra = extraKeys(ans.rule, v.rule);
   if (extra.length) return { kind: "error", errors: [`unknown fields (not in the schema): ${extra.join(", ")}`] };
   const w = withAffliction(v.rule, html, refs, kind);

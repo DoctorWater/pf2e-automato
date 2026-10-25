@@ -78,7 +78,7 @@
 2. **Рантайм:** вызов `withActivation(resolved.rule, flag)` в `onPreCreateMessage` (у `hasSnapshot` ничего не меняется); README (схема/раздел «Активации», строка про PA); `draft-rule.md`, `activate-memo.md`, сверка `tools.test.mjs`.
 3. **Мастерская:** блок «Свой срок» и `immFields(\`${p}.imm\`)` в записи/варианте; раунд-трип.
 4. **Правило Dominate** (§3): черновик триажа → `repeat`/`controlled`/срок → принять → `catalog.model.json`; юнит на правило (`validateRule`, ступени, `repeat` у failure). Отдельный коммит.
-5. **Данные:** патч 15 Dominate (`immunity` скриптом) и 8+3 записей со сроком (правкой черновиков); `drafts.mjs` → `catalog.model.json`; выборка Критика (все записи); при расхождении — Sonnet; `coverage.md` и строка «Долг» в ROADMAP.
+5. **Данные:** патч 15 Dominate (`immunity` скриптом) и 8+3 записей со сроком (правкой черновиков); подключить `activationWarnings` (`tools/validate.mjs`) к прогону патча (правило заклинания искать как `resolveRule`: сначала по источнику, затем по slug — Invisibility лежит только в `bySlug`); `drafts.mjs` → `catalog.model.json`; выборка Критика (все записи); при расхождении — Sonnet; `coverage.md` и строка «Долг» в ROADMAP.
 6. **Живой прогон** `tests/live/activate-ext.js` (вкладка ГМа, бой, «AF тест», цель — NPC; по одному; **вести и с клиента игрока**, и с ГМа; **фиксировать состояние pf2e-automations**, прогнать вкл и выкл):
    - перед началом сверить **срок эффекта Heroism по паку** `pf2e.spell-effects` (`game.packs`, не по памяти) — в этой среде пака 8.6.1 под рукой нет, срок 1 час в плане **не проверен**;
    - (а) Cloak of Social Graces: эффект Heroism на владельце длится 1 минуту; откат снимает;

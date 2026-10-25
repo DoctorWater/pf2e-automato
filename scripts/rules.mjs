@@ -94,6 +94,16 @@ export const CHOOSE_FROM = ["allies", "enemies", "options"];
 /** Урон шага damage: типы урона и лечение (healing — формула лечит). */
 export const STEP_DAMAGE_TYPES = ["healing", ...DAMAGE_TYPES];
 
+/** Срок {value, unit, expiry, of?}: общая проверка шага (vApply) и записи активации (vCast). ofOk — поле `of` допустимо. null — ошибка (уже в err). */
+function vDuration(d, path, err, ofOk) {
+  const dice = isStr(d?.value) && /^\d+d\d+$/i.test(d.value.trim());
+  if (!isObj(d) || !(dice || (isInt(d.value) && (d.value >= 1 || (d.value === 0 && d.expiry === "turn-end")))) || !APPLY_UNITS.includes(d.unit)) err.push(E("dur.bad", path));
+  else if (d.expiry != null && !["turn-start", "turn-end"].includes(d.expiry)) err.push(E("dur.expiry", `${path}.expiry`));
+  else if (d.of != null && (!ofOk || !["origin", "target"].includes(d.of))) err.push(E("dur.of", `${path}.of`));
+  else return { value: dice ? d.value.trim().toLowerCase() : d.value, unit: d.unit, expiry: d.expiry ?? null };
+  return null;
+}
+
 function vApply(a, path, defTo, err, basicOk = false) {
   if (!isObj(a)) { err.push(E("notObj", path)); return null; }
   const out = { to: a.choose != null && a.to == null ? "self" : a.to ?? defTo };   // choose — выбор делает автор: получатель шага всегда «self»
@@ -155,13 +165,12 @@ function vApply(a, path, defTo, err, basicOk = false) {
   }
   // duration: у состояния — срок обёртки-эффекта (of: чей ход считает); у эффекта — переопределение срока созданного эффекта (value — число или кубик «1d4», бросается при создании)
   if (a.duration != null) {
-    const d = a.duration, dice = isStr(d?.value) && /^\d+d\d+$/i.test(d.value.trim());
     if (a.condition == null && a.effect == null) err.push(E("dur.needCond", `${path}.duration`));
-    else if (!isObj(d) || !(dice || (isInt(d.value) && (d.value >= 1 || (d.value === 0 && d.expiry === "turn-end")))) || !APPLY_UNITS.includes(d.unit)) err.push(E("dur.bad", `${path}.duration`));
-    else if (d.expiry != null && !["turn-start", "turn-end"].includes(d.expiry)) err.push(E("dur.expiry", `${path}.duration.expiry`));
-    else if (d.of != null && ((a.effect != null && a.effect.mods == null) || !["origin", "target"].includes(d.of))) err.push(E("dur.of", `${path}.duration.of`));
-    else if (out.condition) out.duration = { value: dice ? d.value.trim().toLowerCase() : d.value, unit: d.unit, expiry: d.expiry ?? null, of: d.of ?? "origin" };
-    else if (a.effect != null) out.duration = { value: dice ? d.value.trim().toLowerCase() : d.value, unit: d.unit, expiry: d.expiry ?? null, ...(a.effect.mods != null && { of: d.of ?? "origin" }) };   // у inline-эффекта срок считает ход автора или цели, как у состояния
+    else {
+      const o = vDuration(a.duration, `${path}.duration`, err, !(a.effect != null && a.effect.mods == null));
+      if (o && out.condition) out.duration = { ...o, of: a.duration.of ?? "origin" };
+      else if (o && a.effect != null) out.duration = { ...o, ...(a.effect.mods != null && { of: a.duration.of ?? "origin" }) };   // у inline-эффекта срок считает ход автора или цели, как у состояния
+    }
   }
   // damage — урон (или лечение, type "healing") по формуле: бросок и применение pf2e без кнопок, с учётом сопротивлений
   if (a.damage != null) {
@@ -663,6 +672,14 @@ function vCast(list, err) {
     const base = [sluggify(c.label ?? ""), sluggify(isStr(c.spell) ? c.spell.split(".").pop().toLowerCase() : "")].find((s) => SLUG.test(s)) ?? `${fallback}-${hashOf(String(c.label ?? ""))}`;
     return c.id ?? (taken.has(base) ? `${base}-${i + 1}` : base);
   };
+  // duration/immunity записи или варианта — только при spell (у onUse срок пишется в шаге); undefined — поля нет, null — ошибка
+  const own = (c, at) => {
+    const bad = (k) => { err.push(E("cast.bad", `${at}.${k}`)); return null; };
+    if ((c.duration != null || c.immunity != null) && c.spell == null) return bad(c.duration != null ? "duration" : "immunity");
+    const duration = c.duration != null ? vDuration(c.duration, `${at}.duration`, err, false) : undefined;
+    const n = err.length, immunity = c.immunity != null ? vImmunity(c.immunity, `${at}.immunity`, err) : undefined;
+    return duration === null || err.length > n ? null : { ...(duration && { duration }), ...(immunity && { immunity }) };
+  };
   return list.flatMap((c, i) => {
     const at = `activate[${i}]`, bad = (k) => { err.push(E("cast.bad", `${at}.${k}`)); return []; };
     if (!isObj(c)) return bad("spell");
@@ -683,6 +700,8 @@ function vCast(list, err) {
     if (p != null && !(isObj(p) && isInt(p.value) && p.value >= 1 && APPLY_UNITS.includes(p.unit) && (p.uses == null || (isInt(p.uses) && p.uses >= 1)))) return bad("per");
     if (c.requires != null && !CAST_REQUIRES.includes(c.requires)) return bad("requires");
     for (const k of ["label", "note"]) if (c[k] != null && !isStr(c[k])) return bad(k);
+    const ext = own(c, at);
+    if (!ext) return [];
     let onUse, choices;
     if (c.onUse != null) { onUse = vActOnUse(c.onUse, at, err); if (!onUse) return []; }
     if (c.choices != null) {
@@ -700,13 +719,15 @@ function vCast(list, err) {
         const vr = v.rank != null ? vRank(v.rank) : undefined, vd = v.dc != null ? vActDc(v.dc) : undefined;
         if (v.rank != null && (vr === undefined || v.spell == null)) return vbad("rank");
         if (v.dc != null && vd === undefined) return vbad("dc");
+        const vx = own(v, vat);
+        if (!vx) return [];
         const vu = v.onUse != null ? vActOnUse(v.onUse, vat, err) : undefined;
         if (v.onUse != null && !vu) return [];
-        return [{ id: vid, ...(v.spell != null && { spell: v.spell }), ...(vr !== undefined && { rank: vr }), ...(vd !== undefined && { dc: vd }), ...(v.label != null && { label: v.label }), ...(vu && { onUse: vu }) }];
+        return [{ id: vid, ...(v.spell != null && { spell: v.spell }), ...(vr !== undefined && { rank: vr }), ...(vd !== undefined && { dc: vd }), ...vx, ...(v.label != null && { label: v.label }), ...(vu && { onUse: vu }) }];
       });
       if (choices.length !== c.choices.length) return [];
     }
-    return [{ id, ...(c.spell != null && { spell: c.spell }), ...(rank !== undefined && { rank }), ...(dc !== undefined && { dc }), ...(c.attack != null && { attack: c.attack }), ...(c.counteract != null && { counteract: c.counteract }),
+    return [{ id, ...(c.spell != null && { spell: c.spell }), ...(rank !== undefined && { rank }), ...(dc !== undefined && { dc }), ...ext, ...(c.attack != null && { attack: c.attack }), ...(c.counteract != null && { counteract: c.counteract }),
       ...(p != null && { per: { value: p.value, unit: p.unit, ...(p.uses > 1 && { uses: p.uses }) } }), ...(c.requires != null && { requires: c.requires }), ...(c.label != null && { label: c.label }), ...(c.note != null && { note: c.note }),
       ...(onUse && { onUse }), ...(choices && { choices }) }];
   });
@@ -1830,4 +1851,25 @@ export function resolveRule(source) {
   // проверенные правила документов компендия приходят из каталога (rules/catalog.model.json). Голова без шагов (спасбросок) — как вывел
   if (d && !d.strikeGate) return { ...found(d.rule, "markup", hasSteps(d.rule) || diverged ? "low" : d.confidence, d.hints), ...(diverged && { diverged }) };
   return null;
+}
+
+/**
+ * Наложение полей записи активации (метка activation: duration, immunity) на правило заклинания, не мутируя его (resolveRule отдаёт объект каталога по ссылке).
+ * Срок получают шаги с effect/condition в onUse.apply и byDegree испытания и проверки; пропуск: condition.policy "reduce" (срока не бывает) и шаги с repeat (срок остаётся заклинательным).
+ * immunity записи заменяет иммунитет испытания. Нет полей или нечего менять — то же правило.
+ */
+export function withActivation(rule, flag) {
+  const { duration: d, immunity } = flag ?? {};
+  const u = rule?.onUse;
+  if (!u || (!d && !immunity)) return rule;
+  const step = (s) => {
+    if (!d || s.repeat || (!s.condition && !s.effect) || s.condition?.policy === "reduce") return s;
+    const of = s.condition || s.effect.mods != null ? { of: s.duration?.of ?? "origin" } : {};
+    return { ...s, duration: { value: d.value, unit: d.unit, expiry: d.expiry ?? null, ...of } };
+  };
+  const byDegree = (b) => b && Object.fromEntries(Object.entries(b).map(([k, v]) => [k, v.map(step)]));
+  const out = { ...u, ...(u.apply && { apply: u.apply.map(step) }) };
+  if (u.challenge) out.challenge = { ...u.challenge, ...(u.challenge.byDegree && { byDegree: byDegree(u.challenge.byDegree) }), ...(immunity && { immunity }) };
+  if (u.check) out.check = { ...u.check, ...(u.check.byDegree && { byDegree: byDegree(u.check.byDegree) }) };
+  return { ...rule, onUse: out };
 }

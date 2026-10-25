@@ -341,3 +341,11 @@ test("пачка activate: примеры памятки валидны, бло�
   assert.equal((f.text.match(/^CURRENT: /gm) ?? []).length, 1);
   assert.equal((f.text.match(/^RU: /gm) ?? []).length, 2);
 });
+
+test("промпты знают поля записи duration и immunity (activate-ext)", () => {
+  for (const f of ["draft-rule.md", "activate-memo.md"]) {
+    const md = readFileSync(new URL(`../tools/prompts/${f}`, import.meta.url), "utf8");
+    assert.match(md, /`duration` `{/, f);
+    assert.match(md, /`immunity`/, f);
+  }
+});

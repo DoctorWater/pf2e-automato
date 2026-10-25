@@ -193,11 +193,14 @@ const kindOf = (c) => (c.choices ? "choice" : c.spell != null && c.onUse ? "both
 // ранг и СЛ — общие у записи и варианта
 const rkForm = (c) => ({
   rankMode: typeof c.rank === "object" ? `half-${c.rank.half}` : c.rank != null ? "value" : "base", rank: typeof c.rank === "number" ? c.rank : "", rankMin: c.rank?.min ?? 1,
-  dcType: c.dc?.level ? "high" : c.dc?.against ? "class" : typeof c.dc === "number" ? "value" : "auto", dc: typeof c.dc === "number" ? c.dc : ""
+  dcType: c.dc?.level ? "high" : c.dc?.against ? "class" : typeof c.dc === "number" ? "value" : "auto", dc: typeof c.dc === "number" ? c.dc : "",
+  durValue: c.duration?.value ?? "", durUnit: c.duration?.unit ?? "minutes", durExpiry: c.duration?.expiry ?? "", imm: immForm(c.immunity)   // свой срок и иммунитет записи (при spell)
 });
 function rkRule(c, withSpell) {
   const m = c.rankMode ?? (num(c.rank) !== undefined ? "value" : "base"), rank = num(c.rank), dc = num(c.dc);
+  const dt = String(c.durValue ?? "").trim(), dv = /^\d+d\d+$/i.test(dt) ? dt.toLowerCase() : num(dt);
   return {
+    ...(withSpell && dv !== undefined && { duration: { value: dv, unit: c.durUnit, ...(c.durExpiry && { expiry: c.durExpiry }) } }), ...(withSpell && c.imm?.on && { immunity: immRule(c.imm) }),
     ...(withSpell && (m === "value" ? rank !== undefined && { rank } : m.startsWith("half-") && { rank: { half: m.slice(5), min: num(c.rankMin) ?? 1 } })),
     ...(c.dcType === "high" ? { dc: { level: "high" } } : c.dcType === "class" ? { dc: { against: "class-spell" } } : c.dcType === "value" && dc !== undefined && { dc })
   };

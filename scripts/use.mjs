@@ -107,7 +107,8 @@ function onPreCreateMessage(message, data, options, userId) {
   const origin = message.flags.pf2e.origin;
   const item = message.item ?? (origin.uuid ? fromUuidSync(origin.uuid) : null);
   if (item?.system?.selfEffect) return;   // делает система (pf2e:54140)
-  const resolved = rules.resolveRule({ origin, item });
+  const found = rules.resolveRule({ origin, item });
+  const resolved = found && { ...found, rule: rules.withActivation(found.rule, message.flags?.[MOD]?.activation) };   // срок/иммунитет записи активации поверх правила заклинания (копия)
   if (!resolved || !wantsSnapshot(kind, resolved.rule)) return;
 
   const sp = message.speaker ?? {};

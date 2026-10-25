@@ -258,7 +258,7 @@ export async function castItem(item, id) {
     flag.rank = eph.rank;   // ранг сотворения: сообщение активации не несёт origin.castRank, applyOps берёт ранг отсюда
     msg.updateSource({
       "flags.pf2e.origin.rollOptions": [...(msg.flags.pf2e?.origin?.rollOptions ?? []), "origin:item:cast-by-activation", ...options],
-      [flagPath("activation")]: { ...flag, dc: info.dc, rank: eph.rank, ...(info.byLevel && { byLevel: true }) },
+      [flagPath("activation")]: { ...flag, dc: info.dc, rank: eph.rank, ...(info.byLevel && { byLevel: true }), ...(c.duration && { duration: c.duration }), ...(c.immunity && { immunity: c.immunity }) },
       ...(actions && { [flagPath("cast")]: { actions } })
     });
     card = await ChatMessage.create(msg.toObject());

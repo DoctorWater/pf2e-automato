@@ -6,7 +6,7 @@ import { readFileSync, readdirSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { isDeepStrictEqual } from "node:util";
 import { ROOT, ACCEPTED, DRAFTS, serializeDrafts, readJson, readOut, writeJson, writeText, outPath, arg, cmp, isMain } from "./lib.mjs";
-import { validateRule, activateOf, activateSpells, activateUses, dupActivate, enemiesOnly, strikeGate, setWho, afflictionStages } from "../scripts/rules.mjs";
+import { validateRule, activateOf, activateSpells, activateUses, withActivation, dupActivate, enemiesOnly, strikeGate, setWho, afflictionStages } from "../scripts/rules.mjs";
 import { ruleToForm, formToRule } from "../scripts/sheet.mjs";
 import { BUILTIN } from "../scripts/builtin/index.mjs";
 import { stepCount } from "./triage.mjs";
@@ -97,6 +97,25 @@ export function semanticErrors(rule, refs, html = null) {
   const seen = new Set(bad);
   for (const o of activateUses(rule)) for (const e of semanticErrors({ v: 1, onUse: o, macros: [] }, refs, html)) if (!seen.has(e) && !e.startsWith("the rule has no steps")) { seen.add(e); bad.push(e); }   // испытание, зона, проверка внутри onUse активации — как у корневого
   return bad;
+}
+
+/**
+ * Предупреждения (не ошибки) по полям записи активации duration/immunity: накладывать не на что. spellRule(uuid) -> правило заклинания из каталога | null.
+ * Рантайм при этом ничего не ломает (наложение — то же правило), но запись бесполезна, пока правило заклинания не появится или не изменится.
+ */
+export function activationWarnings(rule, spellRule) {
+  const out = [];
+  for (const c of activateOf(rule) ?? []) for (const e of [c, ...(c.choices ?? [])]) {
+    if (!e.spell || (!e.duration && !e.immunity)) continue;
+    const sr = spellRule(e.spell), at = `${c.id}${e === c ? "" : `.${e.id}`}`;
+    if (!sr) { out.push(`${at}: no catalog rule for spell ${e.spell}: duration/immunity have nothing to apply to`); continue; }
+    const carriers = stepsOf(sr).filter((s) => s.condition || s.effect);
+    if (e.duration && isDeepStrictEqual(withActivation(sr, { duration: e.duration }), sr)) out.push(`${at}: the spell rule has no condition/effect step that takes a duration`);
+    else if (e.duration && carriers.some((s) => s.repeat)) out.push(`${at}: a spell step with repeat does not take the entry duration (the spell duration stays on it)`);
+    if (e.immunity && sr.onUse?.challenge?.immunity) out.push(`${at}: the entry immunity replaces the spell rule's own challenge.immunity`);
+    if (e.immunity && !sr.onUse?.challenge) out.push(`${at}: the spell rule has no onUse.challenge: immunity does nothing`);
+  }
+  return out;
 }
 
 /**

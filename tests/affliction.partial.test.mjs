@@ -228,3 +228,22 @@ test("круг 1: virulent только из трейтов/скобок; наз
   assert.equal(g("The mist turns into a foaming mist that must settle."), "прочее");
   assert.equal(g("Peaceful rest only works after a counteract check against the poison."), "прочее");
 });
+
+test("текстовый иммунитет по черте: challenge.when с not target:trait; носитель и чужие фразы — без when", async () => {
+  const { immuneTraits } = await import("../tools/affliction.mjs");
+  const { testPredicate } = await import("../scripts/predicate.mjs");
+  const body = (t) => `<p>${t}</p>` + SV + stage(1, D(1)) + stage(2, D(2));
+  const R = (t) => afflictionRule(body(t), { name: "X", traits: ["poison"], condSlug });
+  const r = R("Creatures with the fungus trait are immune to this poison.");
+  assert.deepEqual(r.rule.onUse.challenge.when, [{ not: "target:trait:fungus" }]);
+  assert.equal(r.rule.onUse.challenge.byDegree.failure[0].affliction.def.kind, "poison");
+  assert.ok(!("when" in r.rule.onUse.challenge.byDegree.failure[0].affliction), "носитель без when");
+  assert.deepEqual(R("Plants and fungi are immune.").rule.onUse.challenge.when, [{ not: "target:trait:fungus" }, { not: "target:trait:plant" }]);
+  assert.deepEqual(immuneTraits("<p>Goblins and goblin dogs are immune to goblin pox.</p>"), ["goblin"]);
+  for (const t of ["Undead don't have their normal immunity to this disease.", "Krakens are immune to this poison.", "You are immune to fire for 3 days.", "Goblins are not immune.", "Myceloids are immune to this disease."]) assert.deepEqual(immuneTraits(`<p>${t}</p>`), [], t);
+  assert.deepEqual(immuneTraits("<p>Oozes are immune to this poison, but plants take double damage.</p>"), ["ooze"]);
+  assert.equal(R("Nothing special.").rule.onUse.challenge.when, undefined);
+  const w = r.rule.onUse.challenge.when;
+  assert.equal(testPredicate(w, new Set(["target:trait:fungus"])), false);
+  assert.equal(testPredicate(w, new Set(["target:trait:humanoid"])), true);
+});

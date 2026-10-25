@@ -283,6 +283,18 @@ export function parseAffliction(html, { name, traits = [], kind = null, save = n
   };
 }
 
+// Текстовый иммунитет по черте (план, шаг Д): «Goblins … are immune», «Creatures with the fungus trait are immune». Подлежащее без черты (Krakens, Gugs, имена) не покрыто — оно в заметке.
+const IMMUNE_TRAITS = [["goblin", /\bgoblins?\b/i], ["fungus", /\bfung(?:us|i)\b/i], ["plant", /\bplants\b/i], ["ooze", /\boozes\b/i], ["ethereal", /\bethereal\b/i], ["troll", /\btrolls\b/i], ["anadi", /\banadis?\b/i]];
+export function immuneTraits(html) {
+  const out = new Set();
+  for (const s of stripHtml(html).split(/(?<=[.;])\s+|\n/)) {
+    if (!/\b(?:are|is) immune\b(?!\s+to\s+(?:fire|critical))/i.test(s) || /\bnot\b|n['’]t\b|\bif\b|\beven\b/i.test(s)) continue;
+    const subj = s.split(/\b(?:are|is) immune\b/i)[0];   // черта только в подлежащем
+    for (const [t, re] of IMMUNE_TRAITS) if (re.test(subj)) out.add(t);
+  }
+  return [...out];
+}
+
 /**
  * Правило недуга: провал -> стадия 1, крит. провал -> стадия 2. base — правило модели/вывода: его испытание (навык, СЛ, basic, черты) и остальные степени остаются,
  * провал и крит. провал заменяются шагами недуга. Без base испытание строится из @Check текста.
@@ -292,10 +304,10 @@ export function afflictionRule(html, opts = {}) {
   const p = parseAffliction(html, { ...opts, save: opts.save ?? opts.base?.onUse?.challenge });
   if (!p) return null;
   const c = opts.base?.onUse?.challenge, step = (stage) => ({ to: "target", affliction: { stage, def: p.def } });
-  const dc = p.def.save.dc != null ? { value: p.def.save.dc } : c?.dc ?? { expr: "markup" };
+  const immune = immuneTraits(html), dc = p.def.save.dc != null ? { value: p.def.save.dc } : c?.dc ?? { expr: "markup" };
   const challenge = {
     statistic: c?.statistic ?? p.def.save.statistic, dc: c?.dc ?? dc, basic: false, rollerRole: "target",
-    ...(c?.traits && { traits: c.traits }), ...(c?.options && { options: c.options }), ...(c?.when && { when: c.when }),
+    ...(c?.traits && { traits: c.traits }), ...(c?.options && { options: c.options }), ...((c?.when || immune.length) && { when: [...(c?.when ?? []), ...immune.map((t) => ({ not: `target:trait:${t}` }))] }),
     byDegree: { ...c?.byDegree, failure: [step(1)], criticalFailure: [step(Math.min(2, p.def.stages.length))] }
   };
   const rule = { v: 1, ...(opts.name && { label: opts.name }), onUse: { targets: opts.base?.onUse?.targets ?? "selected", excludeSelf: null, zone: null, challenge, apply: opts.base?.onUse?.apply ?? [] } };

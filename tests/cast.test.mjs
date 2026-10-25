@@ -31,7 +31,8 @@ test("cast: правило из одних активаций валидно, id
 });
 
 test("cast: spell обязателен, rank 1–10, dc — число или {level:high}, attack — целое, per.unit из единиц Apply, requires из списка, id уникален", () => {
-  assert.match(errs([{}])[0], /cast\.bad \(activate\[0\]\.spell\)/);
+  assert.match(errs([{}])[0], /activate\.kind \(activate\[0\]\)/);   // пустая запись: не хватает spell/choices/onUse
+  assert.match(errs([{ spell: 5 }])[0], /cast\.bad \(activate\[0\]\.spell\)/);
   assert.match(errs([{ spell: ARC, rank: 0 }])[0], /\.rank/);
   assert.match(errs([{ spell: ARC, rank: 11 }])[0], /\.rank/);
   assert.match(errs([{ spell: ARC, dc: 0 }])[0], /\.dc/);

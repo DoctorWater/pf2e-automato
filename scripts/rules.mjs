@@ -613,28 +613,99 @@ export const dupActivate = (raw) => (raw?.activate != null && raw?.cast != null 
 // activate (прежде cast): активация снаряжения «вы сотворяете X» (plan-cast-activation.md). Один элемент — одна активация; id по умолчанию — slug метки или заклинания.
 // per — раз в value единиц (uses раз; по умолчанию один); dc — число | {level:"high"} (СЛ по уровню владельца, NPC) | нет (СЛ лучшей записи владельца); requires нет — по предмету
 export const CAST_REQUIRES = ["invested", "equipped", "held", "none"];
+// Расширение (plan-activate §5.1): запись — ровно одно из spell | choices | onUse либо пара spell+onUse; без spell и choices нужна label.
+// rank — 1–10 | {half:"actor"|"item", min}; dc — число | {level:"high"} | {against:"class-spell"}; choices — 2–6 вариантов {id, label?, spell?, onUse?, rank?, dc?}.
+/** Все UUID заклинаний записи активации: своё и вариантов выбора. */
+export const activateSpells = (c) => [c.spell, ...(c.choices ?? []).map((v) => v.spell)].filter(Boolean);
+/** onUse всех записей активации и их вариантов (нормализованное правило). */
+export const activateUses = (rule) => (activateOf(rule) ?? []).flatMap((c) => [c.onUse, ...(c.choices ?? []).map((v) => v.onUse)]).filter(Boolean);
+export const ACTIVATE_HALF = ["actor", "item"];
+export const ACTIVATE_AGAINST = ["class-spell"];
+export const CHOICES_MIN = 2, CHOICES_MAX = 6;
+
+/** Ранг записи/варианта -> нормализованный вид или undefined (неверный). */
+function vRank(r) {
+  if (isInt(r) && r >= 1 && r <= 10) return r;
+  if (isObj(r) && Object.keys(r).every((k) => k === "half" || k === "min") && ACTIVATE_HALF.includes(r.half) && (r.min == null || (isInt(r.min) && r.min >= 1 && r.min <= 10))) return { half: r.half, min: r.min ?? 1 };
+}
+function vActDc(d) {
+  if (isInt(d) && d >= 1) return d;
+  if (isObj(d) && Object.keys(d).length === 1 && d.level === "high") return { level: "high" };
+  if (isObj(d) && Object.keys(d).length === 1 && ACTIVATE_AGAINST.includes(d.against)) return { against: d.against };
+}
+
+/** onUse активации: грамматика rule.onUse, но СЛ испытания не `against`/`source`/`level`/`from` (считается при нажатии: challenge.dc.value -> dc записи -> СЛ по уровню предмета), поэтому dc можно опустить. */
+function vActOnUse(u, at, err) {
+  const sub = [];
+  let noDc = false;
+  if (isObj(u) && isObj(u.challenge)) {
+    const d = u.challenge.dc, fine = isObj(d) && Object.keys(d).length === 1 && isNum(d.value);
+    // белый список: только {value} или без dc; vChallenge требует dc — подставляем заглушку (и после dcForm, чтобы не было второй ошибки) и снимаем после
+    if (d == null || !fine) { noDc = true; u = { ...u, challenge: { ...u.challenge, dc: { value: 1 } } }; }
+    if (d != null && !fine) sub.push(E("activate.dcForm", "onUse.challenge.dc"));
+  }
+  const out = vOnUse(u, sub);
+  if (noDc && out?.challenge) delete out.challenge.dc;
+  for (const e of sub) { const { path, ...more } = e.data; err.push(E(e.key, `${at}.${path}`, more)); }
+  return out;
+}
+
 function vCast(list, err) {
   if (list == null) return [];
   if (!Array.isArray(list)) { err.push(E("notArr", "activate")); return []; }
   const ids = new Set();
+  // id по умолчанию — slug метки (если латиницей), иначе хвост UUID заклинания (стабилен при правках списка); повтор получает номер
+  const hashOf = (s) => { let h = 5381; for (const ch of s) h = ((h * 33) ^ ch.codePointAt(0)) >>> 0; return h.toString(36); };   // стабильный запасной id: не зависит от позиции
+  const idOf = (c, taken, i, fallback) => {
+    const base = [sluggify(c.label ?? ""), sluggify(isStr(c.spell) ? c.spell.split(".").pop().toLowerCase() : "")].find((s) => SLUG.test(s)) ?? `${fallback}-${hashOf(String(c.label ?? ""))}`;
+    return c.id ?? (taken.has(base) ? `${base}-${i + 1}` : base);
+  };
   return list.flatMap((c, i) => {
-    const bad = (k) => { err.push(E("cast.bad", `activate[${i}].${k}`)); return []; };
-    if (!isObj(c) || !isStr(c.spell)) return bad("spell");
-    // id по умолчанию — slug метки (если латиницей), иначе хвост UUID заклинания (стабилен при правках списка); повтор получает номер
-    const base = [sluggify(c.label ?? ""), sluggify(c.spell.split(".").pop().toLowerCase())].find((s) => SLUG.test(s)) ?? `cast-${i + 1}`, id = c.id ?? (ids.has(base) ? `${base}-${i + 1}` : base);
+    const at = `activate[${i}]`, bad = (k) => { err.push(E("cast.bad", `${at}.${k}`)); return []; };
+    if (!isObj(c)) return bad("spell");
+    const kinds = ["spell", "choices", "onUse"].filter((k) => c[k] != null);
+    if (c.spell != null && !isStr(c.spell)) return bad("spell");
+    if (!kinds.length || (c.choices != null && kinds.length > 1)) { err.push(E("activate.kind", at)); return []; }
+    if (c.spell == null && c.choices == null && !(isStr(c.label) && c.label.trim())) { err.push(E("activate.label", `${at}.label`)); return []; }
+    const id = idOf(c, ids, i, "cast");
     if (!(isStr(id) && SLUG.test(id)) || ids.has(id)) return bad("id");
     ids.add(id);
-    if (c.rank != null && !(isInt(c.rank) && c.rank >= 1 && c.rank <= 10)) return bad("rank");
-    const high = isObj(c.dc) && c.dc.level === "high" && Object.keys(c.dc).length === 1;
-    if (c.dc != null && !high && !(isInt(c.dc) && c.dc >= 1)) return bad("dc");
-    if (c.attack != null && !isInt(c.attack)) return bad("attack");
-    if (c.counteract != null && !isInt(c.counteract)) return bad("counteract");
+    const rank = c.rank != null ? vRank(c.rank) : undefined;
+    if (c.rank != null && (rank === undefined || c.spell == null)) return bad("rank");
+    const dc = c.dc != null ? vActDc(c.dc) : undefined;
+    if (c.dc != null && dc === undefined) return bad("dc");
+    if (c.attack != null && !(isInt(c.attack) && c.spell != null)) return bad("attack");
+    if (c.counteract != null && !(isInt(c.counteract) && c.spell != null)) return bad("counteract");
     const p = c.per;
     if (p != null && !(isObj(p) && isInt(p.value) && p.value >= 1 && APPLY_UNITS.includes(p.unit) && (p.uses == null || (isInt(p.uses) && p.uses >= 1)))) return bad("per");
     if (c.requires != null && !CAST_REQUIRES.includes(c.requires)) return bad("requires");
     for (const k of ["label", "note"]) if (c[k] != null && !isStr(c[k])) return bad(k);
-    return [{ id, spell: c.spell, ...(c.rank != null && { rank: c.rank }), ...(c.dc != null && { dc: high ? { level: "high" } : c.dc }), ...(c.attack != null && { attack: c.attack }), ...(c.counteract != null && { counteract: c.counteract }),
-      ...(p != null && { per: { value: p.value, unit: p.unit, ...(p.uses > 1 && { uses: p.uses }) } }), ...(c.requires != null && { requires: c.requires }), ...(c.label != null && { label: c.label }), ...(c.note != null && { note: c.note }) }];
+    let onUse, choices;
+    if (c.onUse != null) { onUse = vActOnUse(c.onUse, at, err); if (!onUse) return []; }
+    if (c.choices != null) {
+      if (!Array.isArray(c.choices) || c.choices.length < CHOICES_MIN || c.choices.length > CHOICES_MAX) { err.push(E("activate.choices", `${at}.choices`)); return []; }
+      const cids = new Set();
+      choices = c.choices.flatMap((v, j) => {
+        const vat = `${at}.choices[${j}]`, vbad = (k) => { err.push(E("activate.choice", `${vat}.${k}`)); return []; };
+        if (!isObj(v) || (v.spell == null && v.onUse == null)) return vbad("spell");
+        if (v.spell != null && !isStr(v.spell)) return vbad("spell");
+        if (v.label != null && !isStr(v.label)) return vbad("label");
+        if (v.spell == null && !(isStr(v.label) && v.label.trim())) return vbad("label");
+        const vid = idOf(v, cids, j, "choice");
+        if (!(isStr(vid) && SLUG.test(vid)) || cids.has(vid)) return vbad("id");
+        cids.add(vid);
+        const vr = v.rank != null ? vRank(v.rank) : undefined, vd = v.dc != null ? vActDc(v.dc) : undefined;
+        if (v.rank != null && (vr === undefined || v.spell == null)) return vbad("rank");
+        if (v.dc != null && vd === undefined) return vbad("dc");
+        const vu = v.onUse != null ? vActOnUse(v.onUse, vat, err) : undefined;
+        if (v.onUse != null && !vu) return [];
+        return [{ id: vid, ...(v.spell != null && { spell: v.spell }), ...(vr !== undefined && { rank: vr }), ...(vd !== undefined && { dc: vd }), ...(v.label != null && { label: v.label }), ...(vu && { onUse: vu }) }];
+      });
+      if (choices.length !== c.choices.length) return [];
+    }
+    return [{ id, ...(c.spell != null && { spell: c.spell }), ...(rank !== undefined && { rank }), ...(dc !== undefined && { dc }), ...(c.attack != null && { attack: c.attack }), ...(c.counteract != null && { counteract: c.counteract }),
+      ...(p != null && { per: { value: p.value, unit: p.unit, ...(p.uses > 1 && { uses: p.uses }) } }), ...(c.requires != null && { requires: c.requires }), ...(c.label != null && { label: c.label }), ...(c.note != null && { note: c.note }),
+      ...(onUse && { onUse }), ...(choices && { choices }) }];
   });
 }
 
@@ -718,7 +789,7 @@ export function sourceOf(origin, item = null) {
 /* ---------- Вывод из разметки (§1.3), синхронно ---------- */
 
 // valued-состояния pf2e (значение берётся из подписи; у остальных value не ставится)
-const VALUED = new Set(["clumsy", "doomed", "drained", "dying", "enfeebled", "frightened", "sickened", "slowed", "stunned", "stupefied", "wounded"]);
+export const VALUED = new Set(["clumsy", "doomed", "drained", "dying", "enfeebled", "frightened", "sickened", "slowed", "stunned", "stupefied", "wounded"]);
 const SAVES = ["fortitude", "reflex", "will"];
 const EFFECT_UUID = /^Compendium\.[^.]+\.[a-z0-9-]*effects[a-z0-9-]*\.Item\./i;
 const COND_UUID = /^Compendium\.[^.]+\.conditionitems\.Item\./;

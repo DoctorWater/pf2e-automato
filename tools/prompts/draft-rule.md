@@ -20,10 +20,10 @@ Answer with ONLY a JSON array, no prose, no code fence. One element per item, sa
              "check": CHECK | null },           // the USER rolls a check against the target's defense (never both challenge and check)
   "onEvent": [ {"on": "enter"|"turn-start"|"turn-end", "side": "near", "range": 30, "per": "round"|"turn"?, "challenge": CHALLENGE} ],   // AURA of the item's owner (a monster ability, feat or gear: "creatures that enter or end their turn within 30 feet must attempt a save"); use INSTEAD of onUse; "range" = feet from the owner, "per" = "once per round/turn" limit; "enter" = a creature (or the owner) moves into the aura
   "onAttacked": { "trigger": "attack-on-self", "bonus": {"stat": "ac", "type": "circumstance", "value": 2} },  // reaction giving an AC bonus when attacked; use INSTEAD of onUse
-  "activate": [ {"spell": "Compendium.pf2e.spells-srd.Item.xxxx", "rank": 4, "dc": 38, "per": {"value": 1, "unit": "hours"}, "note": "<Russian GM note>"} ]   // an ACTIVATION of gear ("Activate … Effect: You cast @UUID[Compendium.pf2e.spells-srd...]{Spell}"): one entry per activation, use INSTEAD of onUse; the spell's own save, damage and conditions are handled by the module from the spell, not by you
-}
-CHALLENGE = { "statistic": "fortitude"|"reflex"|"will",
-              "dc": {"source":"spell"}            // DC of the spell / of the item's own caster (use for spells with a save in the header)
+  // Entry shape: {id?, label?, per?, requires?, note?} + EXACTLY ONE of "spell" | "choices" | "onUse", or the pair "spell"+"onUse" (a cast plus an extra of the item). Without "spell" and "choices" "label" is required, and so is an explicit latin slug "id" (counters are keyed by it). "attack"/"counteract"/"rank" only with "spell".
+  //   "onUse": same grammar as the root onUse, used INSTEAD of the root onUse — the activation's OWN steps (a root onUse stays null for such an item); inside it a challenge.dc is either {"value": N} or OMITTED (then the entry's "dc" is used, else the item-level DC); never {"against"}, {"source"}, {"expr"} or a bare number.
+  //   "choices": 2-6 options [{"id": "face1", "label": "...", "spell": "..."?, "onUse": {...}?, "rank"?, "dc"?}] ("X or Y" activations: the user picks one when pressing); each option has spell or onUse, an option without spell needs "label" and an explicit "id"; no nested choices; ids unique.
+  //   "rank": 1-10 (only with "spell"), or {"half": "actor"|"item", "min": 1} = max(min, floor(level/2)) of the actor / the item. "dc": number | {"level": "high"} | {"against": "class-spell"} (the DC of the actor's best spellcasting entry).
                   | {"value": 18}                 // fixed DC written in the text (@Check[...|dc:18])
                   | {"against": "class"}          // the author's statistic: "class" (class DC), "class-spell", "spell", "perception" or a skill
                   | {"expr": "markup"},           // DC is written in the item text as @Check[...] but is not a plain number: the module reads it itself
@@ -151,4 +151,9 @@ Rules of thumb:
 19. Gear activation that casts a spell (equipment): "Activate—Win Them Over (concentrate). Frequency once per hour. Effect: You cast a 4th-rank @UUID[Compendium.pf2e.spells-srd.Item.vLA0q0WOK2YPuJs6]{Charm} spell with a @Check[will|dc:38]." One `activate` entry; the @Check DC goes into `dc`, not into a challenge:
 ```json
 {"v":1,"label":"Necklace of Allure","activate":[{"spell":"Compendium.pf2e.spells-srd.Item.vLA0q0WOK2YPuJs6","rank":4,"dc":38,"per":{"value":1,"unit":"hours"}}]}
+```
+
+20. Gear activation with its own steps and a choice (no spell): "Activate—Cube (manipulate). Frequency once per day. Effect: Choose one face. Face 1: you gain the @UUID[Compendium.pf2e.effects.Item.aaaaaaaaaaaaaaaa]{Effect: Face One}. Face 2: each creature in a 10-foot emanation attempts a DC 30 Fortitude save; on a failure it is sickened 1." One entry with `choices`; the second option's `dc` is omitted from the challenge, so it comes from the option's/entry's `dc` (here 30); `label` and `id` are explicit; a half-level rank is only for options that cast:
+```json
+{"v":1,"label":"Cube","activate":[{"id":"cube","label":"Cube","per":{"value":1,"unit":"days"},"choices":[{"id":"face1","label":"Face 1","onUse":{"targets":"self","apply":[{"to":"self","effect":{"uuid":"Compendium.pf2e.effects.Item.aaaaaaaaaaaaaaaa"}}]}},{"id":"face2","label":"Face 2","dc":30,"onUse":{"targets":"area","challenge":{"statistic":"fortitude","byDegree":{"failure":[{"to":"target","condition":{"slug":"sickened","value":1}}]}}}},{"id":"face3","spell":"Compendium.pf2e.spells-srd.Item.vLA0q0WOK2YPuJs6","rank":{"half":"item","min":1}}]}]}
 ```

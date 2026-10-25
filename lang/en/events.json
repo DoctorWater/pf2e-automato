@@ -28,10 +28,15 @@
           "gate": "Internal entry condition (gate): target - damage to the armed target, removed - the save only after the carrier was removed, idle - out of combat only ({path})"
         },
         "activate": {
-          "dup": "The rule has both activate and cast: keep only activate ({path})"
+          "dup": "The rule has both activate and cast: keep only activate ({path})",
+          "kind": "Activation: exactly one of spell, choices, onUse is needed (or the pair spell + onUse); choices cannot be combined with the others ({path})",
+          "label": "Activation without a spell and without choices: a label is required ({path})",
+          "choices": "Choices: a list of 2-6 options ({path})",
+          "choice": "Choice option: needs spell or onUse, an option without spell needs a label; id is Latin and unique; rank and dc as in the entry, rank only together with spell ({path})",
+          "dcForm": "Activation step DC: only an object {value: N} or no dc is allowed (the against, source, expr, level, from forms and a bare number are not supported) (otherwise the entry's dc or the item-level DC is used) ({path})"
         },
         "cast": {
-          "bad": "Activation (activate): needs a spell (UUID), rank 1-10, DC as a number or level: high, attack as a number, frequency as once per N rounds/minutes/hours/days, requirement invested, equipped, held or none; the key (id) is unique ({path})"
+          "bad": "Activation (activate): needs a spell (UUID), rank 1-10 or {half: actor|item, min}, DC as a number, level: high or {against: class-spell}, attack as a number, frequency as once per N rounds/minutes/hours/days, requirement invested, equipped, held or none; the key (id) is unique ({path})"
         },
         "afflict": {
           "bad": "Step \"affliction\": an object with the definition def and an optional stage number is required ({path})",
@@ -196,6 +201,8 @@
     "cast": {
       "entry": "Item activation",
       "btn": "Cast: {name}",
+      "btnUse": "Activate: {name}",
+      "choose": "\"{name}\": choose an activation option.",
       "rank": "rank {rank}",
       "per": "{uses}/{window}{unit}",
       "byLevel": "DC by item level",

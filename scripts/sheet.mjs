@@ -1,7 +1,7 @@
 // K6: вкладка «Автоматизация» в листе предмета (AppV1, plan.md §6). Только ГМ.
 import { MOD, L, errText, DEGREES, callGM, forcedReplace, sluggify, damageLabel } from "./util.mjs";
 import { S } from "./settings.mjs";
-import { validateRule, resolveRule, divergedOf, slugOf, sourceOf, DAMAGE_TYPES } from "./rules.mjs";
+import { validateRule, activateSpells, activateUses, resolveRule, divergedOf, slugOf, sourceOf, DAMAGE_TYPES } from "./rules.mjs";
 import { automationsGroups } from "./compat.mjs";
 import { hintsView, hintList } from "./hints.mjs";
 import { resolveDC, safeUuid } from "./saves.mjs";
@@ -187,11 +187,12 @@ const trgRule = (t) => ({ on: t.on, ...(t.per && { per: t.per }), ...((t.apply ?
 
 // cast (plan-cast-activation.md): активации «You cast X» <-> форма; поля строками, пустое — «не задано»
 export const blankCast = () => ({ id: "", spell: "", rank: "", dcType: "auto", dc: "", attack: "", counteract: "", perValue: "", perUses: "", perUnit: "days", requires: "auto", label: "", note: "" });
-const castForm = (c) => ({ id: c.id, spell: c.spell, rank: c.rank ?? "", dcType: c.dc?.level ? "high" : c.dc != null ? "value" : "auto", dc: c.dc?.level ? "" : c.dc ?? "", attack: c.attack ?? "", counteract: c.counteract ?? "", perValue: c.per?.value ?? "", perUses: c.per?.uses ?? "", perUnit: c.per?.unit ?? "days", requires: c.requires ?? "auto", label: c.label ?? "", note: c.note ?? "" });
+// keep: поля, которых у формы вкладки нет (onUse, choices, rank {half}, dc {against}) — едут как были до редактора в Мастерской
+const castForm = (c) => ({ id: c.id, spell: c.spell ?? "", keep: { ...(c.onUse && { onUse: c.onUse }), ...(c.choices && { choices: c.choices }), ...(typeof c.rank === "object" && { rank: c.rank }), ...(c.dc?.against && { dc: c.dc }) }, rank: typeof c.rank === "number" ? c.rank : "", dcType: c.dc?.level ? "high" : typeof c.dc === "number" ? "value" : "auto", dc: typeof c.dc === "number" ? c.dc : "", attack: c.attack ?? "", counteract: c.counteract ?? "", perValue: c.per?.value ?? "", perUses: c.per?.uses ?? "", perUnit: c.per?.unit ?? "days", requires: c.requires ?? "auto", label: c.label ?? "", note: c.note ?? "" });
 function castRule(c) {
   const rank = num(c.rank), dc = num(c.dc), attack = num(c.attack), counteract = num(c.counteract), pv = num(c.perValue), pu = num(c.perUses);
   return {
-    ...(c.id?.trim() && { id: c.id.trim() }), spell: String(c.spell ?? "").trim(), ...(rank !== undefined && { rank }),
+    ...c.keep, ...(c.id?.trim() && { id: c.id.trim() }), ...(String(c.spell ?? "").trim() && { spell: String(c.spell).trim() }), ...(rank !== undefined && { rank }),
     ...(c.dcType === "high" ? { dc: { level: "high" } } : c.dcType === "value" && dc !== undefined && { dc }), ...(attack !== undefined && { attack }), ...(counteract !== undefined && { counteract }),
     ...(pv !== undefined && { per: { value: pv, unit: c.perUnit, ...(pu !== undefined && { uses: pu }) } }),
     ...(c.requires && c.requires !== "auto" && { requires: c.requires }), ...(c.label?.trim() && { label: c.label.trim() }), ...(c.note?.trim() && { note: c.note.trim() })
@@ -309,7 +310,7 @@ export function ruleUuids(rule) {
   const evs = (rule.onEvent ?? []).flatMap((e) => [...(e.apply ?? []), ...DEGREES.flatMap((d) => e.challenge?.byDegree?.[d] ?? [])]);
   const trgs = (z?.triggers ?? []).flatMap((t) => [...(t.apply ?? []), ...DEGREES.flatMap((d) => t.challenge?.byDegree?.[d] ?? [])]);
   const steps = [...(u?.apply ?? []), ...DEGREES.flatMap((d) => [...(ch?.byDegree?.[d] ?? []), ...(ck?.byDegree?.[d] ?? [])]), ...evs, ...trgs];
-  return [...new Set([...steps.flatMap((a) => [a.effect?.uuid, a.removeEffect?.uuid]), ...(rule.activate ?? []).map((c) => c.spell), z?.effect?.uuid, ch?.immunity?.uuid, ck?.immunity?.uuid, ...(z?.triggers ?? []).map((t) => t.challenge?.immunity?.uuid), ...(rule.onEvent ?? []).map((e) => e.challenge?.immunity?.uuid), ...(rule.macros ?? []).map((m) => m.uuid)].filter((u) => u && !u.startsWith("builtin:")))];
+  return [...new Set([...steps.flatMap((a) => [a.effect?.uuid, a.removeEffect?.uuid]), ...(rule.activate ?? []).flatMap(activateSpells), ...activateUses(rule).flatMap((o) => ruleUuids({ onUse: o })), z?.effect?.uuid, ch?.immunity?.uuid, ck?.immunity?.uuid, ...(z?.triggers ?? []).map((t) => t.challenge?.immunity?.uuid), ...(rule.onEvent ?? []).map((e) => e.challenge?.immunity?.uuid), ...(rule.macros ?? []).map((m) => m.uuid)].filter((u) => u && !u.startsWith("builtin:")))];
 }
 
 const signed = (n) => (n >= 0 ? `+${n}` : String(n));
@@ -327,7 +328,7 @@ export function buildReport(rule, tokens, env) {
   const slugCheck = (slug) => { if (!env.conditionKnown(slug)) problems.add(t("sheet.test.badSlug", { slug })); };
   const uuidCheck = (uuid) => { if (!env.uuidName(uuid)) problems.add(t("sheet.test.badUuid", { uuid })); };
   const byDeg = (bd) => DEGREES.slice().reverse().filter((d) => bd?.[d]?.length).map((d) => `${t(`sheet.degree.${d}`)}: ${bd[d].map(step).join("; ")}`);
-  const steps = [...(u?.apply ?? []), ...DEGREES.flatMap((d) => [...(ch?.byDegree?.[d] ?? []), ...(ck?.byDegree?.[d] ?? [])])];
+  const steps = [...(u?.apply ?? []), ...DEGREES.flatMap((d) => [...(ch?.byDegree?.[d] ?? []), ...(ck?.byDegree?.[d] ?? [])]), ...activateUses(rule).flatMap((o) => [...(o.apply ?? []), ...DEGREES.flatMap((d) => o.challenge?.byDegree?.[d] ?? [])])];
   for (const a of steps) { if (a.condition) slugCheck(a.condition.slug); if (a.removeCondition) slugCheck(a.removeCondition.slug); if (a.effect?.uuid) uuidCheck(a.effect.uuid); if (a.removeEffect?.uuid) uuidCheck(a.removeEffect.uuid); }
   const z = u?.zone;
   if (z?.condition) slugCheck(z.condition.slug);
@@ -335,7 +336,7 @@ export function buildReport(rule, tokens, env) {
   if (ch?.immunity?.uuid) uuidCheck(ch.immunity.uuid);
   if (ck?.immunity?.uuid) uuidCheck(ck.immunity.uuid);
   for (const m of rule.macros ?? []) if (m.uuid && !m.uuid.startsWith("builtin:")) uuidCheck(m.uuid);   // builtin:<id> — встроенный обработчик, не UUID
-  for (const c of rule.activate ?? []) uuidCheck(c.spell);
+  for (const c of rule.activate ?? []) activateSpells(c).forEach(uuidCheck);
 
   const authorStat = ck && env.author ? pickStatistic(env.author, ck.statistic) : null;
   if (ck && !env.author) problems.add(t("sheet.test.noOwner"));
@@ -360,7 +361,7 @@ export function buildReport(rule, tokens, env) {
     }
     return { name, lines, problems: tp };
   });
-  const cast = (rule.activate ?? []).map((c, i) => t("sheet.test.cast", { name: env.uuidName(c.spell) ?? c.spell, rank: c.rank ?? "—", dc: env.cast?.[i]?.dc ?? "?" }));   // активации без сотворения: что и с какой СЛ получится
+  const cast = (rule.activate ?? []).map((c, i) => t("sheet.test.cast", { name: c.spell ? env.uuidName(c.spell) ?? c.spell : c.label ?? c.id, rank: typeof c.rank === "object" ? `½ (${c.rank.half === "item" ? "предмет" : "актёр"}, ≥${c.rank.min})` : c.rank ?? "—", dc: env.cast?.[i]?.dc ?? "?" }));   // активации без сотворения: что и с какой СЛ получится
   return { problems: [...problems], apply: (u?.apply ?? []).map(step), cast, tokens: out };
 }
 

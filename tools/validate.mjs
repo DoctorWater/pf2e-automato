@@ -5,7 +5,7 @@ import { readFileSync, readdirSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { isDeepStrictEqual } from "node:util";
 import { ROOT, ACCEPTED, serializeDrafts, readJson, readOut, writeJson, writeText, outPath, arg, cmp, isMain } from "./lib.mjs";
-import { validateRule, activateOf, dupActivate, enemiesOnly, strikeGate, setWho, afflictionStages } from "../scripts/rules.mjs";
+import { validateRule, activateOf, activateSpells, activateUses, dupActivate, enemiesOnly, strikeGate, setWho, afflictionStages } from "../scripts/rules.mjs";
 import { ruleToForm, formToRule } from "../scripts/sheet.mjs";
 import { BUILTIN } from "../scripts/builtin/index.mjs";
 import { stepCount } from "./triage.mjs";
@@ -48,7 +48,7 @@ export function extraKeys(raw, norm, path = "") {
   return out;
 }
 
-const stepsOf = (rule) => [...(rule.onUse?.apply ?? []), ...(rule.onUse?.apply ?? []).flatMap((a) => Object.values(a.coat?.challenge?.byDegree ?? {}).flat()), ...Object.values(rule.onUse?.challenge?.byDegree ?? {}).flat(), ...Object.values(rule.onUse?.check?.byDegree ?? {}).flat(),
+const stepsOf = (rule) => [...activateUses(rule).flatMap((o) => stepsOf({ onUse: o })), ...(rule.onUse?.apply ?? []), ...(rule.onUse?.apply ?? []).flatMap((a) => Object.values(a.coat?.challenge?.byDegree ?? {}).flat()), ...Object.values(rule.onUse?.challenge?.byDegree ?? {}).flat(), ...Object.values(rule.onUse?.check?.byDegree ?? {}).flat(),
   ...(rule.onEvent ?? []).flatMap((e) => [...(e.apply ?? []), ...Object.values(e.challenge?.byDegree ?? {}).flat()]),
   ...(rule.onUse?.zone?.triggers ?? []).flatMap((e) => [...(e.apply ?? []), ...Object.values(e.challenge?.byDegree ?? {}).flat()])];
 
@@ -71,7 +71,7 @@ export function semanticErrors(rule, refs, html = null) {
     for (const x of [s.effect?.uuid, s.unlessEffect]) if (x && !refs.effects[x]) bad.push(`effect ${x} not found: copy the UUID exactly from the item text`);
     for (const x of [s.effect?.uuid, s.unlessEffect]) if (x && html !== null && !html.includes(x)) bad.push(`effect ${x} is not mentioned in this item's text: use only effects linked in the text`);
   }
-  for (const c of rule.activate ?? []) if (html !== null && !html.includes(c.spell)) bad.push(`cast spell ${c.spell} is not mentioned in this item's text: copy the spell UUID from the \`You cast\` link`);
+  for (const s of (rule.activate ?? []).flatMap(activateSpells)) if (html !== null && !html.includes(s)) bad.push(`cast spell ${s} is not mentioned in this item's text: copy the spell UUID from the \`You cast\` link`);
   // «Stage 1 … Stage 2 …» без шага affliction: стадии остались бы текстом (яд/болезнь не вели бы счёт)
   if (html && afflictionStages(html) && !stepsOf(rule).some((s) => s.affliction)) bad.push("the text has affliction stages (Stage 1, Stage 2 …): the rule needs an `affliction` step on failure / critical failure (see the affliction example); do not recreate stages with plain condition steps");
   for (const e of rule.onEvent ?? []) if (e.aura && !/^[a-z0-9-]+$/.test(e.aura)) bad.push(`onEvent aura "${e.aura}" must be the slug of a pf2e Aura rule element (lowercase, dashes); if you do not know it use "range" in feet`);
@@ -85,7 +85,7 @@ export function semanticErrors(rule, refs, html = null) {
   for (const c of [u?.challenge, ...(u?.apply ?? []).map((a) => a.coat?.challenge), ...(rule.onEvent ?? []).map((e) => e.challenge), ...(u?.zone?.triggers ?? []).map((t) => t.challenge)]) {
     if (!c) continue;
     if (!SAVES.includes(c.statistic)) bad.push(`challenge.statistic must be fortitude, reflex or will (got "${c.statistic}")`);
-    if (c.dc.against && !DC_AGAINST.has(c.dc.against)) bad.push(`dc.against "${c.dc.against}" is unknown: use spell, class, class-spell, a class slug (kineticist…), perception or a skill`);
+    if (c.dc?.against && !DC_AGAINST.has(c.dc.against)) bad.push(`dc.against "${c.dc.against}" is unknown: use spell, class, class-spell, a class slug (kineticist…), perception or a skill`);
   }
   const k = u?.check;
   if (k) {
@@ -93,6 +93,8 @@ export function semanticErrors(rule, refs, html = null) {
     if (k.vs?.against && !VS_AGAINST.has(k.vs.against)) bad.push(`vs.against "${k.vs.against}" is unknown`);
   }
   for (const m of rule.macros ?? []) if (!m.builtin || !BUILTIN[m.builtin]) bad.push(`macro ${m.builtin ?? m.uuid} is not available: do not use macros`);
+  const seen = new Set(bad);
+  for (const o of activateUses(rule)) for (const e of semanticErrors({ v: 1, onUse: o, macros: [] }, refs, html)) if (!seen.has(e) && !e.startsWith("the rule has no steps")) { seen.add(e); bad.push(e); }   // испытание, зона, проверка внутри onUse активации — как у корневого
   return bad;
 }
 
@@ -129,6 +131,8 @@ export function checkAnswer(ans, refs, html = null, kind = null) {
   const v = validateRule(ans.rule);
   if (!v.ok) return { kind: "error", errors: v.errors.map(fmtErr) };
   if (ans.rule.cast != null) return { kind: "error", errors: ["use `activate`, not `cast` (the key was renamed)"] };
+  const noId = (ans.rule.activate ?? []).flatMap((c, i) => [...(c.spell == null && c.id == null ? [`activate[${i}]`] : []), ...(c.choices ?? []).flatMap((x, j) => (x.spell == null && x.id == null ? [`activate[${i}].choices[${j}]`] : []))]);
+  if (noId.length) return { kind: "error", errors: [`an explicit latin slug \`id\` is required on an activation or choice without a \`spell\` (counters are keyed by it): ${noId.join(", ")}`] };
   const extra = extraKeys(ans.rule, v.rule);
   if (extra.length) return { kind: "error", errors: [`unknown fields (not in the schema): ${extra.join(", ")}`] };
   const w = withAffliction(v.rule, html, refs, kind);

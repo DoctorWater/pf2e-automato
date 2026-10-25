@@ -2,7 +2,8 @@
 import { existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { ROOT, ACCEPTED, DRAFTS, readJson, readOut, writeText, serializeDrafts, cmp, isMain } from "./lib.mjs";
-import { roundTrip } from "./validate.mjs";
+import { roundTrip, activationWarnings } from "./validate.mjs";
+import { buildCatalog, bySlugOf } from "../scripts/rules.mjs";
 
 const DRAFT_STATUSES = new Set(["markup-high", "markup-head", "markup-low", "manual"]);
 
@@ -34,6 +35,16 @@ export function readModelAccepted() {
   return readdirSync(ACCEPTED).filter((f) => /^b\d+-.*\.json$/.test(f)).flatMap((f) => readJson(join(ACCEPTED, f)).items);
 }
 
+/** Предупреждения activationWarnings по принятым записям активации; правило заклинания — как resolveRule: источник, затем slug (порядок каталогов — loadCatalog). Печать без отказа. */
+export function printActivationWarnings(items, accepted) {
+  const cat = buildCatalog(["catalog.pa", "catalog.model", "catalog.onhit", "catalog", "catalog.campaign"].map((n) => readJson(join(ROOT, "rules", `${n}.json`))));
+  const slugOf = new Map(items.map((i) => [i.uuid, i.slug]));
+  const spellRule = (u) => cat.bySource.get(u) ?? bySlugOf(cat.bySlug, slugOf.get(u), "spell");
+  const out = accepted.filter((d) => d.rule?.activate && d.confidence === "model").flatMap((d) => activationWarnings(d.rule, spellRule).map((w) => `${d.name}: ${w}`));
+  for (const w of out) console.warn("activation:", w);
+  return out;
+}
+
 function main() {
   const { meta, items } = readOut("items.json");
   const tri = readOut("triage.json").items;
@@ -46,6 +57,7 @@ function main() {
     writeText(join(DRAFTS, `${batch}.json`), serializeDrafts({ batch, generatedAt: new Date().toISOString(), pf2eVersion: meta.pf2eVersion }, finalItems));
   }
   writeText(join(ROOT, "rules/catalog.model.json"), modelCatalog(readModelAccepted()));
+  printActivationWarnings(items, readModelAccepted());
   console.log("drafts:", Object.fromEntries(Object.entries(groups).map(([k, v]) => [k, v.length])));
 }
 

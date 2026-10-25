@@ -1,0 +1,168 @@
+{
+  "_doc": "Словарь механизмов долга. Порядок ключей = приоритет внутри куска причины. Причина делится по ; и , (вне скобок); каждый кусок сводится к ключу. aliases — регэкспы (без учёта регистра) по строке «кусок @тип/вид-действия/черты,через,запятую». primitive: имя готового примитива или null. prompt:false — примитив в рантайме есть, промпт draft-rule.md модель ему не учит. via — долг закрывает другой инструмент, не tools/debt-pool.mjs. rule — регэксп по JSON правила у partial-записей (механизм виден не в причине долга, а в заметке правила).",
+  "mechanisms": {
+    "ammo-bomb": {
+      "title": "Боеприпасы и бомбы: эффект при попадании/уроне/всплеске",
+      "primitive": null,
+      "aliases": ["ammo/bomb", "ammunition", "^strike-gate.* @ammo/", "^strike-gate.* @\\S*\\bbomb\\b"]
+    },
+    "affliction-injury": {
+      "title": "Недуг от действия NPC / активации оружия (не нанесение яда)",
+      "primitive": null,
+      "aliases": ["affliction: (npc injury|envenom|weapon activation)"]
+    },
+    "affliction-stage-text": {
+      "title": "Недуг: уточнения в тексте стадии не разобраны",
+      "primitive": null,
+      "aliases": ["affliction: (stage clarification|structure|second save|virulent|untyped)"]
+    },
+    "affliction-linger": {
+      "title": "Недуг: остаточный срок (linger, постоянно, каждый час)",
+      "primitive": null,
+      "aliases": ["affliction: linger"]
+    },
+    "random-duration": {
+      "title": "Недуг: срок броском (решение пользователя 2026-10-26: ниже порога сознательно)",
+      "primitive": null,
+      "aliases": ["affliction: random duration"]
+    },
+    "affliction-duration": {
+      "title": "Недуг: срок стадии/начала не число или не задан",
+      "primitive": null,
+      "aliases": ["affliction: (duration|onset)"]
+    },
+    "affliction-no-save": {
+      "title": "Недуг без спасброска / без меток стадий",
+      "primitive": null,
+      "aliases": ["affliction: no (save|stage)"]
+    },
+    "affliction-stages": {
+      "title": "Недуг со стадиями (шаг affliction), в т.ч. заклинания с таблицей степеней",
+      "primitive": "affliction (plan-affliction.md)",
+      "aliases": ["^affliction stages", "affliction: (spell with degree table|note)"]
+    },
+    "hold": {
+      "title": "Недуг: состояние нельзя снять/уменьшить, пока не излечён (считается по заметке partial-правила)",
+      "primitive": null,
+      "rule": "(can.t|cannot) be (reduced|removed|healed|cured)"
+    },
+    "healing-modifier": {
+      "title": "Модификатор лечения («восстанавливает вдвое меньше»)",
+      "primitive": null,
+      "aliases": ["healing modifier"]
+    },
+    "passive-hit-trigger": {
+      "title": "Пассивный триггер при попадании/уроне/крите (не активность с Ударом)",
+      "primitive": "onEvent attack-roll/damage-roll/damage-taken + when (0.5g3)",
+      "prompt": false,
+      "aliases": ["^strike-gate.* @\\w+/passive/", "trigger on (hit|damage|critical|each strike|successful)", "^triggered \\w+ on critical hit","crit-strike trigger", "strike trigger", "weapon-hit trigger"]
+    },
+    "weapon-next-strike": {
+      "title": "Оружие: активация на следующий Удар / проклятие или эффект оружия",
+      "primitive": null,
+      "aliases": ["^strike-gate.* @weapon/", "next strike", "weapon activation", "curse on weapon"]
+    },
+    "strike-gate": {
+      "title": "Активность с Ударом, испытание по исходу Удара",
+      "primitive": "onEvent.afterUse (plan-strike-gate.md)",
+      "aliases": ["^strike-gate"]
+    },
+    "next-cast": {
+      "title": "«Следующее сотворение»: эффект на следующее заклинание (пачка 7)",
+      "primitive": null,
+      "aliases": ["^next-cast", "next cast", "next spell"]
+    },
+    "push-by-hits": {
+      "title": "Толчок с дистанцией по числу попаданий",
+      "primitive": null,
+      "aliases": ["push.*(hit count|number of hits|per hit)", "push at \\d actions"]
+    },
+    "forced-movement-other": {
+      "title": "Принудительное перемещение не «толчок/притяжение на дистанцию»: падение, подъём, к образу, из строя, к ближайшему месту",
+      "primitive": null,
+      "aliases": ["forced (movement|fall|jump|landing|prone)", "lift/", "toward image", "out of line", "nearest space", "random push"]
+    },
+    "push": {
+      "title": "Толчок/притяжение с фиксированной дистанцией (по степеням)",
+      "primitive": "move (plan-forced-movement.md)",
+      "aliases": ["\\b(push|pull)(ed)?\\b"]
+    },
+    "triggered-save": {
+      "title": "Спасбросок от ауры / входа в область / начала или конца хода",
+      "primitive": "onEvent side:near / zone.triggers (plan-triggered-save.md)",
+      "aliases": ["aura", "\\benter(s|ing)?\\b", "\\bentry\\b", "stepping through", "move into", "on movement", "turn[ -](start|end)", "(start|end)[- ]of[- ](its )?turn", "start of its turn", "end turn", "\\bin (the )?(area|radius|river)", "webbing", "zone with turn", "emanation zone", "icy surface"]
+    },
+    "reaction-trigger": {
+      "title": "Реакция/активация по триггеру: условие события и ответ",
+      "primitive": null,
+      "aliases": ["reaction (trigger|activation)s?", "triggered activations", "trigger activation", "on reaction"]
+    },
+    "event-trigger": {
+      "title": "Срабатывание по прочему событию: смерть цели, взгляд, сотворение, прыжок, предмет и т.п.",
+      "primitive": null,
+      "aliases": ["\\btriggers?\\b", "triggered", "on (sight|cast|jump)"]
+    },
+    "repeat-save": {
+      "title": "Повторный спасбросок на границе хода цели",
+      "primitive": "repeat (plan-triggered-save.md)",
+      "aliases": ["repeated save", "repeat save", "ongoing save", "save each turn"]
+    },
+    "cast-activation": {
+      "title": "Активация снаряжения «вы сотворяете X»",
+      "primitive": "activate (plan-cast-activation.md)",
+      "via": "tools/activate-pool.mjs",
+      "aliases": ["^cast\\b", "cast spell", "cast: "]
+    },
+    "forced-action": {
+      "title": "Принудительное действие цели (команда, контроль)",
+      "primitive": null,
+      "aliases": ["forced (committed )?actions?", "forced repeat of actions", "action restriction", "control effect", "command restriction", "obey"]
+    },
+    "hostile-actions": {
+      "title": "Запрет враждебных действий против источника",
+      "primitive": null,
+      "aliases": ["hostile actions"]
+    },
+    "mode-choice": {
+      "title": "Выбор режима/грани/нескольких активаций",
+      "primitive": "activate choices (plan-activate.md)",
+      "via": "tools/activate-pool.mjs",
+      "aliases": ["mode choice", "several modes", "\\bmodes\\b", "choice", "cube face", "face choice", "activations"]
+    },
+    "mods": {
+      "title": "Числовой штраф/бонус без связанного эффекта, запрет реакций",
+      "primitive": "effect.mods (plan-modifier-effect.md)",
+      "aliases": ["^[-+]\\d[^,;]*(penalty|bonus)(?!.* per )", "without effect", "^(can.t use|no) reactions$"]
+    },
+    "degree-shift": {
+      "title": "Сдвиг степени успеха/результата",
+      "primitive": null,
+      "aliases": ["degree shift", "one degree (better|worse)", "degree drop"]
+    },
+    "teleport": {
+      "title": "Телепортация",
+      "primitive": null,
+      "aliases": ["teleport"]
+    },
+    "trample": {
+      "title": "Шаг сквозь существ (топтание)",
+      "primitive": null,
+      "aliases": ["trample", "stride through"]
+    },
+    "condition-link": {
+      "title": "Состояние, привязанное к другому состоянию, или последовательность состояний",
+      "primitive": null,
+      "aliases": ["condition tied", "sequence"]
+    },
+    "duration-unclear": {
+      "title": "Срок эффекта не определён в тексте",
+      "primitive": null,
+      "aliases": ["unclear"]
+    },
+    "effect-too-long": {
+      "title": "Бессрочный эффект ради разового бонуса (нужен конец по событию)",
+      "primitive": null,
+      "aliases": ["effect too long"]
+    }
+  }
+}

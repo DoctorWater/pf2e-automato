@@ -1,6 +1,7 @@
 // Ответ агента (JSON-массив {uuid, rule|null, unsure, note}) -> валидация -> принятые в rules/drafts-accepted, очереди повтора и Sonnet.
 // Запуск: node tools/validate.mjs <ответ.json> <batch> [--input tools/out/haiku/<batch>-NN.md] [--final]
 // <batch> = activate (tools/haiku-input.mjs activate): черновики — из всех пачек по uuid пула (tools/out/activate-pool.json), принятые ложатся в файл исходной пачки.
+// <batch> = mdebt (tools/debt-pool.mjs): то же по пулам долга debt-pool.json и mdebt-pool.json; ответ возвращается в файл пачки записи (правило или новая причина).
 // --final — ответы последней ступени (Sonnet): unsure не уходит дальше, а принимается долгом needs-primitive с правилом-догадкой.
 import { readFileSync, readdirSync, existsSync } from "node:fs";
 import { join } from "node:path";
@@ -233,7 +234,9 @@ function main() {
   if (!file || !batch || batch.startsWith("--")) throw new Error("usage: node tools/validate.mjs <answer.json> <batch> [--input haiku-file.md]");
   const refs = readOut("refs.json"), html = readOut("html.json"), { meta, items: itemList } = readOut("items.json"), items = new Map(itemList.map((i) => [i.uuid, i]));
   const dPath = join(ROOT, "rules/drafts", `${batch}.json`), aPath = join(ACCEPTED, `${batch}.json`);
-  const poolBatch = batch === "activate" ? new Map(readJson(outPath("activate-pool.json")).map((p) => [p.uuid, p.batch])) : null;
+  // mdebt: пул долга по механизмам (tools/debt-pool.mjs) и прежний пул debt-pool.json; ответ — правило или новая причина needs-primitive с ключами словаря
+  const poolFiles = batch === "activate" ? ["activate-pool.json"] : batch === "mdebt" ? ["debt-pool.json", "mdebt-pool.json"].filter((f) => existsSync(outPath(f))) : null;
+  const poolBatch = poolFiles ? new Map(poolFiles.flatMap((f) => readJson(outPath(f)).map((p) => [p.uuid, p.batch ?? "b01-save-conditions"]))) : null;
   const drafts = poolBatch ? readdirSync(DRAFTS).flatMap((f) => readJson(join(DRAFTS, f)).items).filter((d) => poolBatch.has(d.uuid)) : readJson(dPath).items;
   const stPath = outPath("validate", `${batch}.state.json`);
   const state = existsSync(stPath) ? readJson(stPath) : emptyState();

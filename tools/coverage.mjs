@@ -3,6 +3,7 @@ import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { ROOT, readJson, readOut, writeJson, outPath, isMain } from "./lib.mjs";
 import { readModelAccepted } from "./drafts.mjs";
+import { debtByMechanism, renderDebtMd } from "./mechanisms.mjs";
 
 export const STATUSES = ["pf2e", "catalog", "pa", "model", "partial", "markup-high", "markup-head", "markup-low", "pa-port", "manual", "skip"];
 const NEED = STATUSES.filter((s) => s !== "skip");
@@ -102,7 +103,8 @@ ${table("пачка", d.byBatch)}
 ${table("приоритет", d.byPriority)}
 ### Приоритет 1 по пачкам
 
-${table("пачка", d.priority1ByBatch)}${END}
+${table("пачка", d.priority1ByBatch)}
+${d.mechanisms ? renderDebtMd(d.mechanisms) : ""}${END}
 `;
 }
 
@@ -117,9 +119,12 @@ export function replaceBlock(md, block) {
 function main() {
   const { meta, items } = readOut("items.json");
   const pd = join(ROOT, "rules/drafts/pa-port.json");
-  const tri = withPa(withAccepted(readOut("triage.json").items, readModelAccepted()), existsSync(pd) ? readJson(pd).items : []);
+  const accepted = readModelAccepted();
+  const tri = withPa(withAccepted(readOut("triage.json").items, accepted), existsSync(pd) ? readJson(pd).items : []);
   const pa = existsSync(outPath("pa-port.json")) ? readOut("pa-port.json") : null;
   const d = buildReport({ meta, items, tri, pa });
+  const { byUuid, ...mech } = debtByMechanism(accepted, items);
+  d.mechanisms = mech;
   writeJson(outPath("coverage.json"), d, 1);
   const p = join(ROOT, "coverage.md");
   let md = readFileSync(p, "utf8");

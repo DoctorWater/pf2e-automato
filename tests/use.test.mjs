@@ -173,3 +173,13 @@ test("low + challenge: runUse бросает цели; high — так же; are
     assert.equal(rolled(m), true, `${confidence}: бросок запущен`);
   }
 });
+
+test("awaitingActions: снимок ставит флаг, isResumable его уважает", () => {
+  const r = resolved({ v: 1, onUse: { apply: [] } });
+  assert.equal(buildSnapshot({ ...base, kind: "use", resolved: r, awaitingActions: true }).state.awaitingActions, true);
+  assert.equal(buildSnapshot({ ...base, kind: "use", resolved: r, awaitingActions: false }).state.awaitingActions, undefined);
+  assert.equal(buildSnapshot({ ...base, kind: "use", resolved: r, awaitingActions: true, yielded: "pf2e-automations" }).state.awaitingActions, undefined);
+  const ok = { kind: "use", createdAt: 100, state: {} };
+  assert.equal(isResumable({ ...ok, state: { awaitingActions: true } }, 100, 30), false);
+  assert.equal(isResumable({ ...ok, state: { awaitingActions: false } }, 100, 30), true);
+});

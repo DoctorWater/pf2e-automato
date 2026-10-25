@@ -11,6 +11,11 @@ const CHOICES = { "1 to 3": [1, 2, 3], "1 or 2": [1, 2], "2 or 3": [2, 3] };
 /** Слаги заклинаний «столько снарядов, сколько действий» (Magic Missile — старое название, оба в pf2e). */
 export const MISSILE_SLUGS = new Set(["force-barrage", "magic-missile"]);
 
+const CAST = "origin:action:slug:cast-a-spell";
+
+/** Чистая: сообщение сотворения (origin) переменного заклинания, число действий которого ещё спросят (use.mjs ставит state.awaitingActions). */
+export const asksActions = (origin, time) => origin?.type === "spell" && !!origin.rollOptions?.includes(CAST) && !!actionChoices(time);
+
 /** Чистая: допустимые числа действий по system.time.value или null (время не переменное). */
 export const actionChoices = (time) => CHOICES[String(time ?? "").trim().toLowerCase()] ?? null;
 
@@ -123,21 +128,30 @@ async function rollMissiles(message, spell, actions) {
 }
 
 /** createChatMessage на КАЖДОМ клиенте и вкладке. Игрок: у себя (две вкладки — побеждает та, что первой записала выбор).
- *  ГМ: только лидер вкладок своего пользователя (не активный ГМ мира: сотворил может и второй ГМ), окно общее (sharedDialog, первый ответ побеждает). */
+ *  ГМ: только лидер вкладок своего пользователя (не активный ГМ мира: сотворил может и второй ГМ). Снимает state.awaitingActions на любом выходе. */
 export async function onMessage(message) {
-  if (!message.isAuthor || message.flags?.[MOD]?.cast) return;
+  if (!message.isAuthor || message.flags?.[MOD]?.cast?.actions) return;
   if (game.user.isGM && !isLeader()) return;
   const origin = castOrigin(message);
-  if (origin?.type !== "spell" || !origin.rollOptions?.includes("origin:action:slug:cast-a-spell")) return;
-  const spell = origin.uuid ? await fromUuid(origin.uuid) : null;
-  const choices = actionChoices(spell?.system?.time?.value);
-  if (!choices) return;
-  const actions = Number((await askActions(spell.name, choices))?.action);
-  if (!choices.includes(actions)) return;
-  if (game.messages.get(message.id)?.flags?.[MOD]?.cast) return;   // другая вкладка того же игрока уже выбрала
-  await message.update({
-    "flags.pf2e.origin.rollOptions": [...origin.rollOptions, `origin:item:cast:actions:${actions}`],
-    [flagPath("cast")]: { actions }
-  });
-  if (MISSILE_SLUGS.has(spell.slug)) await rollMissiles(message, spell, actions);
+  if (origin?.type !== "spell" || !origin.rollOptions?.includes(CAST)) return;
+  // awaitingActions ставит автор (use.mjs) до создания сообщения; снимаем в том же update, что пишет число; на отмене и любой ошибке — без опции
+  const release = { [flagPath("use", "state", "awaitingActions")]: false };
+  const standing = () => !!game.messages.get(message.id)?.flags?.[MOD]?.use?.state?.awaitingActions;
+  let spell = null, actions = 0;
+  try {
+    spell = origin.uuid ? await fromUuid(origin.uuid) : null;
+    const choices = actionChoices(spell?.system?.time?.value);
+    if (!choices) return;
+    actions = Number((await askActions(spell.name, choices).catch(() => null))?.action);
+    if (!choices.includes(actions)) { actions = 0; return; }
+    if (game.messages.get(message.id)?.flags?.[MOD]?.cast?.actions) { actions = 0; return; }   // другая вкладка того же игрока уже выбрала (и сняла флаг)
+    await message.update({
+      "flags.pf2e.origin.rollOptions": [...origin.rollOptions, `origin:item:cast:actions:${actions}`],
+      [flagPath("cast")]: { actions },
+      ...release
+    });
+  } finally {
+    if (standing()) await message.update(release);
+  }
+  if (actions && MISSILE_SLUGS.has(spell.slug)) await rollMissiles(message, spell, actions);
 }

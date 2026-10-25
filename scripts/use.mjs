@@ -12,6 +12,7 @@ import * as actions from "./actions.mjs";
 import { itemRange, markFar, inRange, TENTACLES } from "./range.mjs";
 import { recentShape, spentOptions } from "./builtin/spellshape.mjs";
 import { moveOrder, areaPoint } from "./move.mjs";
+import { asksActions } from "./builtin/variable-cast.mjs";
 
 const CAST = "origin:action:slug:cast-a-spell";
 const CARD_TYPES = new Set(["consumable", "equipment", "spell", "weapon", "armor", "treasure", "backpack", "shield"]);
@@ -54,6 +55,8 @@ export function buildSnapshot(i) {
   if (i.yielded) state.yielded = i.yielded;
   // расходник с областью: актом использования станет регион из карточки (§3.A-6)
   if (i.kind === "use" && i.consume && rule.onUse?.targets === "area") state.awaitingRegion = true;
+  // переменное заклинание: исполнение ждёт число действий, его пишет и флаг снимает variable-cast (state.awaitingActions), продолжает updateChatMessage
+  if (i.kind === "use" && i.awaitingActions && !i.yielded) state.awaitingActions = true;
   return {
     v: 1, kind: i.kind, rule, src: i.resolved.source, confidence: i.resolved.confidence,
     ...(((i.resolved.hints?.possible?.length ?? 0) + (i.resolved.hints?.excluded?.length ?? 0)) && { hints: { possible: i.resolved.hints.possible ?? [], excluded: i.resolved.hints.excluded ?? [] } }),   // подсказки разметки (только ГМу в чате)
@@ -84,7 +87,7 @@ export function areaUpdate(use, regionUuid, tokens) {
 
 /** §3.H: можно ли дозапускать автоматически. */
 export function isResumable(use, now, maxAgeMinutes) {
-  if (!use || use.kind !== "use" || use.state?.yielded || use.state?.done || use.state?.awaitingRegion) return false;
+  if (!use || use.kind !== "use" || use.state?.yielded || use.state?.done || use.state?.awaitingRegion || use.state?.awaitingActions) return false;
   return now - (use.createdAt ?? 0) <= maxAgeMinutes * 60000;
 }
 
@@ -126,6 +129,7 @@ function onPreCreateMessage(message, data, options, userId) {
   const yielded = compat.shouldYield(resolved.rule, { slug: resolved.slug, sourceUuid: resolved.sourceUuid }) ? "pf2e-automations" : null;
   const snapshot = buildSnapshot({
     kind, resolved, consume: isConsume(message), yielded, dc, targets, now: Date.now(),
+    awaitingActions: modeOf("macro") !== "off" && !message.flags?.[MOD]?.cast?.actions && asksActions(origin, item?.system?.time?.value),
     item: { uuid: origin.uuid ?? null, name: item?.name ?? origin.name ?? "", type: origin.type ?? item?.type ?? null, sourceId: resolved.sourceUuid },
     actor, token: tokenDoc?.uuid ?? null
   });
@@ -172,7 +176,7 @@ const setState = (message, patch) =>
   message.update(Object.fromEntries(Object.entries(patch).map(([k, v]) => [flagPath("use", "state", k), v])));
 const useOf = (message) => message?.flags?.[MOD]?.use;
 
-async function onCreateMessage(message) {
+export async function onCreateMessage(message) {
   if (!guardActiveGM()) return;
   const ctx = message.flags?.pf2e?.context?.type;
   if (ctx === "saving-throw" || ctx === "skill-check" || ctx === "perception-check" || ctx === "flat-check") {
@@ -180,7 +184,15 @@ async function onCreateMessage(message) {
     if (!accepted) await tolerate("onRollMessage", () => actions.onRollMessage(message));   // бросок действия из листа/макроса — без карточки
   } else if (ctx === "attack-roll") await tolerate("onRollMessage", () => actions.onRollMessage(message));
   if (ctx === "attack-roll") await tolerate("onAttackMessage", () => reactions.onAttackMessage(message));
-  if (useOf(message)?.kind === "use") await tolerate("runUse", () => execUse(message.id, true));
+  if (useOf(message)?.kind === "use" && !useOf(message).state?.awaitingActions) await tolerate("runUse", () => execUse(message.id, true));
+}
+
+/** variable-cast снял awaitingActions (число записано или окно отменено) — ГМ продолжает исполнение. */
+export async function onUpdateMessage(message, changes) {
+  if (!guardActiveGM() || changes?.flags?.[MOD]?.use?.state?.awaitingActions !== false) return;
+  if (useOf(message)?.kind !== "use") return;
+  await tolerate("runUse", () => execUse(message.id, true));
+  await tolerate("resumeRegion", () => resumeRegion(message.id));   // область поставили до ответа в окне — runRegion её пропустил
 }
 
 async function onCreateRegion(region) {
@@ -200,6 +212,7 @@ export function init() {
   Hooks.on("preCreateChatMessage", onPreCreateMessage);
   Hooks.on("preCreateRegion", onPreCreateRegion);
   Hooks.on("createChatMessage", onCreateMessage);
+  Hooks.on("updateChatMessage", onUpdateMessage);
   Hooks.on("createRegion", onCreateRegion);
   Hooks.on("deleteRegion", onDeleteRegion);
   Hooks.on("userConnected", () => { if (guardActiveGM()) tolerate("resume", () => resumePending()); });
@@ -245,6 +258,7 @@ export function applyUse(messageId, targetKey) {
     const message = game.messages.get(messageId), use = useOf(message);
     if (!use || use.kind !== "use" || use.confidence === "low" || use.state?.yielded) throw new Error("applyUse: недоступно для этого сообщения");
     if (modeOf("effect") === "off") throw new Error("applyUse: режим effect=off");
+    if (use.state?.awaitingActions) throw new Error("applyUse: ждёт числа действий");
     await applyUseSteps(message, use, { only: targetKey || null });
     return true;
   });
@@ -333,7 +347,7 @@ function execUse(messageId, skipIfDone) {
 /** Регион из карточки/каста = акт использования зоны/испытания (§3.B-4, §3.C-3), независимо от kind источника. */
 export async function runRegion(region, message) {
   const first = useOf(message);
-  if (first?.state?.yielded) return;
+  if (first?.state?.yielded || first?.state?.awaitingActions) return;   // ждёт числа действий: продолжит onUpdateMessage -> resumeRegion
   let rule = first?.rule;
   if (!first) {
     const r = rules.resolveRule({ origin: region.flags?.pf2e?.origin });
@@ -417,7 +431,7 @@ export async function resumePending({ maxAgeMinutes } = {}) {
   for (const m of list) await tolerate("resume", () => execUse(m.id, true));
   for (const m of recent) {
     const u = useOf(m);
-    if (u?.kind === "use" && !u.state?.awaitingRegion && now - (u.createdAt ?? 0) <= age * 60000) await tolerate("resumeRegion", () => resumeRegion(m.id));
+    if (u?.kind === "use" && !u.state?.awaitingRegion && !u.state?.awaitingActions && now - (u.createdAt ?? 0) <= age * 60000) await tolerate("resumeRegion", () => resumeRegion(m.id));
   }
   return list.length;
 }

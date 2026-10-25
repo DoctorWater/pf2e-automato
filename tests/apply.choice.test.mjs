@@ -25,3 +25,14 @@ test("presetChoiceSets: по UUID источника; уровень; чужой
   assert.equal(presetChoiceSets(r, {}), 0);
   assert.equal(presetChoiceSets(undefined, {}), 0);
 });
+
+test("picksFromOps: выбор восстанавливается из сохранённых chose (общий для self-шагов и шагов цели)", async () => {
+  const { picksFromOps } = await import("../scripts/apply.mjs");
+  globalThis.fromUuid = async (u) => ({ uuid: u, actor: { uuid: u, name: "ally" } });
+  const p = await picksFromOps([{ op: "damaged", key: "x" }, { op: "chose", key: "m:self:0", value: "a" }, { op: "chose", key: "m:self:1", value: "Actor.z", actor: "Actor.z" }]);
+  assert.deepEqual([...p.opts], ["choice:a"]);
+  assert.equal(p.actor.uuid, "Actor.z");
+  const empty = await picksFromOps();
+  assert.equal(empty.opts.size, 0); assert.equal(empty.actor, null);
+  delete globalThis.fromUuid;
+});

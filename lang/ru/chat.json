@@ -8,6 +8,7 @@
       "resume": "Дозапустить",
       "outOfRange": "«{name}» вне дальности ({d} фт > {r} фт): не применено.",
       "awaitingRegion": "Ожидает размещения области",
+      "awaitingActions": "Ожидает числа действий",
       "challengeOff": "Испытания выполняет Toolbelt",
       "dc": "СЛ {dc}",
       "dcUnknown": "СЛ неизвестен",

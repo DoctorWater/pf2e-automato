@@ -456,6 +456,16 @@ export function chooserOf(message, originActor) {
 
 const actorOf = (doc) => doc?.actor ?? doc ?? null;   // TokenDocument -> синтетический актёр
 
+/** Выборы автора из сохранённых операций `chose` (value без actor — вариант `choice:<value>`, с actor — существо). */
+export async function picksFromOps(ops = []) {
+  const picks = { opts: new Set(), actor: null };
+  for (const o of ops) {
+    if (o.op !== "chose") continue;
+    if (o.actor) picks.actor = actorOf(await fromUuid(o.actor)); else picks.opts.add(`choice:${o.value}`);
+  }
+  return picks;
+}
+
 /**
  * Применить шаги Apply[] к цели/автору и записать state.*.applied.
  * ctx: { scope: "challenge"|"apply"|"derived", degree?, total?, stepKey?, target?: TokenDocument, originActor?, originToken?, originItem?, rollOptions?, region? }
@@ -485,7 +495,8 @@ export async function applyOps(message, tokenKey, steps, ctx = {}) {
   const jobs = steps.flatMap((step, i) => (step.to === "self" || step.choose ? [selfActor] : step.to === "party" ? partyOf(selfActor) : step.to === "allies" ? alliesIn(selfActor, originToken, step.range) : step.to === "chosen" ? [null] : [actorOf(targetDoc)]).map((actor) => ({ i, step, actor })));
   let wopts = null;   // roll options для `when`: считаем один раз и только если есть такой шаг
   // выбор автора (шаг choose): вариант -> опция `choice:<value>` для when следующих шагов, существо -> получатель шагов to:"chosen". Общий на запись события (ctx.picks)
-  const picks = ctx.picks ?? { opts: new Set(), actor: null };
+  // ctx.picks — общий на запись события; иначе восстанавливаем из сохранённых chose (self-шаги и шаги цели/степеней идут разными вызовами)
+  const picks = ctx.picks ?? await picksFromOps(message.flags?.[MOD]?.use?.state?.apply?.self?.ops);
   const statePath = scope === "challenge" ? flagPath("use", "state", "challenge", "applied", tokenKey) : flagPath("use", "state", "apply", tokenKey);
   const doneOps = foundry.utils.getProperty(message, statePath)?.ops ?? [];   // ops уже исполненного: повтор шага без предмета (урон, снижение, выбор) по ключу пропускается
 

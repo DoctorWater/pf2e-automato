@@ -44,3 +44,12 @@ test("подпись цели: context.target = uuid актёра и токен�
   assert.deepEqual(tb["flags.pf2e-toolbelt.targetHelper.targets"], ["B"]);
   assert.ok(!("flags.pf2e.context.target" in v.targetPatch({ flags: {} }, { name: "x", uuid: "u", actor: { uuid: "a" } }, 1)));
 });
+
+test("asksActions: только сотворение переменного заклинания", () => {
+  const CAST = "origin:action:slug:cast-a-spell";
+  assert.equal(v.asksActions({ type: "spell", rollOptions: [CAST] }, "1 to 3"), true);
+  assert.equal(v.asksActions({ type: "spell", rollOptions: [CAST] }, "2"), false);
+  assert.equal(v.asksActions({ type: "spell", rollOptions: [] }, "1 to 3"), false);
+  assert.equal(v.asksActions({ type: "feat", rollOptions: [CAST] }, "1 to 3"), false);
+  assert.equal(v.asksActions(undefined, "1 to 3"), false);
+});

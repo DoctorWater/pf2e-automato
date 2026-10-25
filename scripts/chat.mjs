@@ -184,7 +184,8 @@ export function buildViewModel(message, user, env = null) {
   const isUse = use.kind === "use", isRoll = use.kind === "roll";   // roll — бросок действия из листа: результат уже есть
   const hasState = ["zone", "area", "challenge", "apply", "derived", "macros"].some((k) => !isEmpty(state[k]));
   // awaitingRegion — до проверки done: runUse ставит done и у расходника, ждущего область
-  if (isUse && !hasState && state.awaitingRegion) vm.awaitingRegion = t("chat.awaitingRegion");
+  if (isUse && !hasState && state.awaitingActions) vm.awaitingRegion = t("chat.awaitingActions");   // та же строка-ожидание в блоке
+  else if (isUse && !hasState && state.awaitingRegion) vm.awaitingRegion = t("chat.awaitingRegion");
   else if (isUse && !hasState && !state.done) {   // done ставит runUse (use.mjs)
     const waitsArea = on.targets === "area" && !state.area && !state.zone;
     if (waitsArea) vm.awaitingRegion = t("chat.awaitingRegion");

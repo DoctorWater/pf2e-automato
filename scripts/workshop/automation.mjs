@@ -351,8 +351,10 @@ export function evLine(e, env) {
 export function castLine(c, env) {
   const { t } = env, dc = String(c.dc ?? "").trim(), pv = num(c.perValue);
   return {
-    head: String(c.label ?? "").trim() || env.uuidName(c.spell) || String(c.spell ?? "").trim() || "?",
-    body: [num(c.rank) !== null && t("cast.rank", { rank: num(c.rank) }), c.dcType === "high" ? t("workshop.au.cast.dcHigh") : c.dcType === "value" ? t("chat.dc", { dc: dc || "?" }) : t("workshop.au.cast.dcAuto"),
+    head: String(c.label ?? "").trim() || env.uuidName(c.spell) || String(c.spell ?? "").trim() || String(c.id ?? "").trim() || "?",
+    body: [c.kind && c.kind !== "spell" && (c.kind === "choice" ? t("workshop.au.cast.choiceCount", { n: (c.choices ?? []).length }) : t(`workshop.au.cast.kind.${c.kind}`)),
+      c.kind !== "choice" && c.kind !== "steps" && (c.rankMode?.startsWith("half-") ? t(`workshop.au.cast.rankMode.${c.rankMode}`) : num(c.rank) !== null && c.rankMode !== "base" && t("cast.rank", { rank: num(c.rank) })),
+      c.dcType === "high" ? t("workshop.au.cast.dcHigh") : c.dcType === "class" ? t("workshop.au.cast.dc.class") : c.dcType === "value" ? t("chat.dc", { dc: dc || "?" }) : t("workshop.au.cast.dcAuto"),
       pv !== null && perText({ value: pv, unit: c.perUnit, uses: num(c.perUses) ?? 1 }, t), c.requires !== "auto" && t(`workshop.au.cast.req.${c.requires}`)].filter(Boolean).join(" · ")
   };
 }

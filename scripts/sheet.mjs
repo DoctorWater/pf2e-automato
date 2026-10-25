@@ -185,15 +185,36 @@ export const blankTrigger = () => ({ on: "turn-end", per: "", apply: [], ch: chF
 const trgForm = (t) => ({ on: t.on, per: t.per ?? "", apply: (t.apply ?? []).map(rowOf), ch: { ...chForm(t.challenge), on: !!t.challenge } });
 const trgRule = (t) => ({ on: t.on, ...(t.per && { per: t.per }), ...((t.apply ?? []).length && { apply: t.apply.map(applyOf).filter(Boolean) }), ...(t.ch?.on && { challenge: chRule(t.ch) }) });
 
-// cast (plan-cast-activation.md): активации «You cast X» <-> форма; поля строками, пустое — «не задано»
-export const blankCast = () => ({ id: "", spell: "", rank: "", dcType: "auto", dc: "", attack: "", counteract: "", perValue: "", perUses: "", perUnit: "days", requires: "auto", label: "", note: "" });
-// keep: поля, которых у формы вкладки нет (onUse, choices, rank {half}, dc {against}) — едут как были до редактора в Мастерской
-const castForm = (c) => ({ id: c.id, spell: c.spell ?? "", keep: { ...(c.onUse && { onUse: c.onUse }), ...(c.choices && { choices: c.choices }), ...(typeof c.rank === "object" && { rank: c.rank }), ...(c.dc?.against && { dc: c.dc }) }, rank: typeof c.rank === "number" ? c.rank : "", dcType: c.dc?.level ? "high" : typeof c.dc === "number" ? "value" : "auto", dc: typeof c.dc === "number" ? c.dc : "", attack: c.attack ?? "", counteract: c.counteract ?? "", perValue: c.per?.value ?? "", perUses: c.per?.uses ?? "", perUnit: c.per?.unit ?? "days", requires: c.requires ?? "auto", label: c.label ?? "", note: c.note ?? "" });
-function castRule(c) {
-  const rank = num(c.rank), dc = num(c.dc), attack = num(c.attack), counteract = num(c.counteract), pv = num(c.perValue), pu = num(c.perUses);
+// cast (plan-cast-activation.md, plan-activate.md §8): активации <-> форма; поля строками, пустое — «не задано».
+// kind: spell | steps | both (заклинание + шаги) | choice; onUse — JSON-строка (v1), choices — варианты той же формы без частоты/требования.
+const J = (v) => (v == null ? "" : JSON.stringify(v, (_k, x) => x ?? undefined));   // валидатор достраивает null-ключи — в строку их не несём
+const unJ = (s) => { const x = String(s ?? "").trim(); if (!x) return undefined; try { return JSON.parse(x); } catch { return x; } };   // битый JSON уходит в валидатор строкой
+const kindOf = (c) => (c.choices ? "choice" : c.spell != null && c.onUse ? "both" : c.onUse ? "steps" : "spell");
+// ранг и СЛ — общие у записи и варианта
+const rkForm = (c) => ({
+  rankMode: typeof c.rank === "object" ? `half-${c.rank.half}` : c.rank != null ? "value" : "base", rank: typeof c.rank === "number" ? c.rank : "", rankMin: c.rank?.min ?? 1,
+  dcType: c.dc?.level ? "high" : c.dc?.against ? "class" : typeof c.dc === "number" ? "value" : "auto", dc: typeof c.dc === "number" ? c.dc : ""
+});
+function rkRule(c, withSpell) {
+  const m = c.rankMode ?? (num(c.rank) !== undefined ? "value" : "base"), rank = num(c.rank), dc = num(c.dc);
   return {
-    ...c.keep, ...(c.id?.trim() && { id: c.id.trim() }), ...(String(c.spell ?? "").trim() && { spell: String(c.spell).trim() }), ...(rank !== undefined && { rank }),
-    ...(c.dcType === "high" ? { dc: { level: "high" } } : c.dcType === "value" && dc !== undefined && { dc }), ...(attack !== undefined && { attack }), ...(counteract !== undefined && { counteract }),
+    ...(withSpell && (m === "value" ? rank !== undefined && { rank } : m.startsWith("half-") && { rank: { half: m.slice(5), min: num(c.rankMin) ?? 1 } })),
+    ...(c.dcType === "high" ? { dc: { level: "high" } } : c.dcType === "class" ? { dc: { against: "class-spell" } } : c.dcType === "value" && dc !== undefined && { dc })
+  };
+}
+const usesSpell = (c) => c.kind === "spell" || c.kind === "both";
+const usesSteps = (c) => c.kind === "steps" || c.kind === "both";
+export const blankChoice = () => ({ id: "", label: "", kind: "spell", spell: "", onUse: "", ...rkForm({}) });
+export const blankCast = () => ({ id: "", kind: "spell", spell: "", onUse: "", choices: [], ...rkForm({}), attack: "", counteract: "", perValue: "", perUses: "", perUnit: "days", requires: "auto", label: "", note: "" });
+const choiceForm = (v) => ({ id: v.id, label: v.label ?? "", kind: kindOf(v), spell: v.spell ?? "", onUse: J(v.onUse), ...rkForm(v) });
+const choiceRule = (v) => ({ ...(v.id?.trim() && { id: v.id.trim() }), ...(v.label?.trim() && { label: v.label.trim() }), ...(usesSpell(v) && String(v.spell ?? "").trim() && { spell: String(v.spell).trim() }), ...(usesSteps(v) && unJ(v.onUse) !== undefined && { onUse: unJ(v.onUse) }), ...rkRule(v, usesSpell(v)) });
+const castForm = (c) => ({ id: c.id, kind: kindOf(c), spell: c.spell ?? "", onUse: J(c.onUse), choices: (c.choices ?? []).map(choiceForm), ...rkForm(c), attack: c.attack ?? "", counteract: c.counteract ?? "", perValue: c.per?.value ?? "", perUses: c.per?.uses ?? "", perUnit: c.per?.unit ?? "days", requires: c.requires ?? "auto", label: c.label ?? "", note: c.note ?? "" });
+function castRule(c) {
+  const attack = num(c.attack), counteract = num(c.counteract), pv = num(c.perValue), pu = num(c.perUses), kind = c.kind ?? "spell";
+  return {
+    ...(c.id?.trim() && { id: c.id.trim() }), ...(usesSpell(c) && String(c.spell ?? "").trim() && { spell: String(c.spell).trim() }), ...(usesSteps(c) && unJ(c.onUse) !== undefined && { onUse: unJ(c.onUse) }),
+    ...(kind === "choice" && { choices: (c.choices ?? []).map(choiceRule) }), ...rkRule(c, usesSpell(c)),
+    ...(usesSpell(c) && attack !== undefined && { attack }), ...(usesSpell(c) && counteract !== undefined && { counteract }),
     ...(pv !== undefined && { per: { value: pv, unit: c.perUnit, ...(pu !== undefined && { uses: pu }) } }),
     ...(c.requires && c.requires !== "auto" && { requires: c.requires }), ...(c.label?.trim() && { label: c.label.trim() }), ...(c.note?.trim() && { note: c.note.trim() })
   };
@@ -361,7 +382,7 @@ export function buildReport(rule, tokens, env) {
     }
     return { name, lines, problems: tp };
   });
-  const cast = (rule.activate ?? []).map((c, i) => t("sheet.test.cast", { name: c.spell ? env.uuidName(c.spell) ?? c.spell : c.label ?? c.id, rank: typeof c.rank === "object" ? `½ (${c.rank.half === "item" ? "предмет" : "актёр"}, ≥${c.rank.min})` : c.rank ?? "—", dc: env.cast?.[i]?.dc ?? "?" }));   // активации без сотворения: что и с какой СЛ получится
+  const cast = (rule.activate ?? []).map((c, i) => t("sheet.test.cast", { name: c.spell ? env.uuidName(c.spell) ?? c.spell : c.label ?? c.id, rank: typeof c.rank === "object" ? t(`workshop.au.cast.rankHalf.${c.rank.half}`, { min: c.rank.min }) : c.rank ?? "—", dc: env.cast?.[i]?.dc ?? "?" }));   // активации без сотворения: что и с какой СЛ получится
   return { problems: [...problems], apply: (u?.apply ?? []).map(step), cast, tokens: out };
 }
 

@@ -317,6 +317,7 @@
 .pf2e-automato-workshop .ws-ev { width: 100%; box-sizing: border-box; padding: 10px 12px; display: flex; flex-direction: column; gap: 10px; background: #fff; border: 1px solid #ddd2c0; border-radius: 3px; }
 .pf2e-automato-workshop .ws-ev-h { display: flex; align-items: center; gap: 8px; }
 .pf2e-automato-workshop .ws-ev-h .ws-lbl { flex: 1; }
+.pf2e-automato-workshop .ws-choice { background: #f8f4f1; margin-top: 2px; }
 
 /* «Дополнительно»: плашки-переключатели; включённая — #443730, недоступная — пунктир; карточка параметров — «карточка поверх» */
 .pf2e-automato-workshop .ws-pills { display: flex; flex-wrap: wrap; gap: 6px; }

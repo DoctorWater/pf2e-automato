@@ -3,8 +3,8 @@
 // Части окна у обоих режимов одни и те же (id), шаблоны подставляются по режиму в _configureRenderParts.
 import { MOD, L, errText, DEGREES, callGM, forcedReplace, forcedDelete, flagPath, damageLabel } from "../util.mjs";
 import { modeOf } from "../settings.mjs";
-import { DENY, divergedHint, dropSpec, ruleToForm, formToRule, blankRow, blankEvent, blankTrigger, blankCast, reportEnv, pickedTokens, ruleUuids, buildReport } from "../sheet.mjs";
-import { validateRule, resolveRule, divergedOf, slugOf, sourceOf, DAMAGE_TYPES, EVENT_ON, EVENT_SIDES, EVENT_TARGETED, EVENT_AFTER_USE, NEAR_ON, TRIGGER_ON, TRIGGER_PER, ESCAPE_STATS, REPEAT_ON } from "../rules.mjs";
+import { DENY, divergedHint, dropSpec, ruleToForm, formToRule, blankRow, blankEvent, blankTrigger, blankCast, blankChoice, reportEnv, pickedTokens, ruleUuids, buildReport } from "../sheet.mjs";
+import { validateRule, resolveRule, divergedOf, slugOf, sourceOf, DAMAGE_TYPES, EVENT_ON, EVENT_SIDES, EVENT_TARGETED, EVENT_AFTER_USE, NEAR_ON, TRIGGER_ON, TRIGGER_PER, ESCAPE_STATS, REPEAT_ON, CHOICES_MIN, CHOICES_MAX } from "../rules.mjs";
 import { automationsGroups } from "../compat.mjs";
 import { safeUuid } from "../saves.mjs";
 import * as fx from "./effect.mjs";
@@ -322,6 +322,8 @@ export class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
       addMacro() { this.#au.f.macros.push({ uuid: "", phase: "onUse", degree: "" }); this.#au.open.macros = true; this.#redraw(); },
       addEvent() { this.#au.f.ev.push(blankEvent()); this.#au.open.events = true; this.#au.sel = null; this.#redraw(); },
       addCast() { this.#au.f.cast.push(blankCast()); this.#au.open.cast = true; this.#redraw(); },
+      addChoice(_e, el) { this.#au.f.cast[Number(el.dataset.i)].choices.push(blankChoice()); this.#redraw(); },
+      removeChoice(_e, el) { this.#au.f.cast[Number(el.dataset.i)].choices.splice(Number(el.dataset.j), 1); this.#redraw(); },
       removeCast(_e, el) { this.#au.f.cast.splice(Number(el.dataset.i), 1); this.#redraw(); },
       removeEvent(_e, el) { this.#au.f.ev.splice(Number(el.dataset.i), 1); this.#au.sel = null; this.#redraw(); },
       addTrigger() { this.#au.f.zone.trig.push(blankTrigger()); this.#au.sel = null; this.#redraw(); },
@@ -427,6 +429,8 @@ export class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
     // поля, которых нет в строке формы как есть: «Дополнительно» (row.keep), свойства эффекта и варианты выбора (JSON в row.text), источник эффекта, вид макроса
     const sub = [[/^(.*?)\.affl\.(.+)$/, (r, n, x) => af.afflSet(f, r, n, x, { valued: condValued })], [/^(.*)\.keep\.(.+)$/, au.keepEdit], [/^(.*)\.mods\.(\d+\.\w+)$/, (r, n, x) => { const [i, field] = n.split("."); au.modSet(r, Number(i), field, x); }], [/^(.*)\.choose\.(.+)$/, au.chooseSet], [/^(.*)\.src$/, (r, _n, x) => au.setEffectSource(r, x)]];   // недуг: правка определения уходит во все шаги его группы (сессионной)
     for (const [re, fn] of sub) { const hit = re.exec(path); if (hit) return fn(foundry.utils.getProperty(a, hit[1]), hit[2], v); }
+    const ck = /^(f\.cast\.\d+)\.kind$/.exec(path);   // «Выбор» стартует с минимума вариантов
+    if (ck) { const c = foundry.utils.getProperty(a, ck[1]); c.kind = v; while (v === "choice" && c.choices.length < CHOICES_MIN) c.choices.push(blankChoice()); return; }
     const mac = /^f\.macros\.(\d+)\.form$/.exec(path);
     if (mac) return au.macroSetForm(f.macros[Number(mac[1])], v);
     const m = /^(.*)\.(kind|text)$/.exec(path);
@@ -711,25 +715,42 @@ export class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
       };
     });
 
-    // активации cast: заклинание (бросок из компендиума), ранг, СЛ, частота, требование к предмету
+    // активации: вид (заклинание / свои шаги / выбор / заклинание + шаги), ранг, СЛ, частота, требование к предмету
+    const spellF = (p, o) => F.text(`${p}.spell`, t("workshop.au.cast.spell"), o.spell, { drop: "spell", cls: "ws-spell", hint: this.#names.get(o.spell) ?? "", placeholder: "Compendium.pf2e.spells-srd.Item.…" });
+    const stepsF = (p, o) => F.text(`${p}.onUse`, t("workshop.au.cast.onUse"), o.onUse, { cls: "ws-full", area: true, inpCls: "ws-mono", hint: t("workshop.au.cast.onUseHint"), placeholder: '{"targets":"selected","apply":[…]}' });
+    const rkFields = (p, o, spell) => [
+      ...(spell ? [F.sel(`${p}.rankMode`, t("workshop.au.cast.rank"), o.rankMode, choices(["base", "value", "half-actor", "half-item"], "au.cast.rankMode")),
+        ...(o.rankMode === "value" ? [F.num(`${p}.rank`, t("workshop.au.cast.rankValue"), o.rank, { min: 1, max: 10 })] : []),
+        ...(o.rankMode?.startsWith("half-") ? [F.num(`${p}.rankMin`, t("workshop.au.cast.rankMin"), o.rankMin, { min: 1, max: 10 })] : [])] : []),
+      F.sel(`${p}.dcType`, t(o.kind === "choice" ? "workshop.au.cast.dcDefault" : "sheet.dcLabel"), o.dcType, choices(["auto", "value", "high", "class"], "au.cast.dc")),
+      ...(o.dcType === "value" ? [F.num(`${p}.dc`, t("workshop.au.dcValue"), o.dc, { min: 1 })] : [])
+    ];
+    const kindF = (p, o, kinds) => F.sel(`${p}.kind`, t("workshop.au.cast.kindLabel"), o.kind, choices(kinds, "au.cast.kind"));
     const casts = f.cast.map((c, i) => {
-      const p = `f.cast.${i}`;
+      const p = `f.cast.${i}`, sp = c.kind === "spell" || c.kind === "both", st = c.kind === "steps" || c.kind === "both";
       return {
-        i, title: `${i + 1}. ${c.label?.trim() || this.#names.get(c.spell) || t("workshop.au.cast.untitled")}`,
+        i, title: `${i + 1}. ${c.label?.trim() || (sp && this.#names.get(c.spell)) || c.id?.trim() || t("workshop.au.cast.untitled")}`,
         fields: [
-          F.text(`${p}.spell`, t("workshop.au.cast.spell"), c.spell, { drop: "spell", cls: "ws-spell", hint: this.#names.get(c.spell) ?? "", placeholder: "Compendium.pf2e.spells-srd.Item.…" }),
-          F.num(`${p}.rank`, t("workshop.au.cast.rank"), c.rank, { min: 1, placeholder: t("workshop.au.cast.rankBase") }),
-          F.sel(`${p}.dcType`, t("sheet.dcLabel"), c.dcType, choices(["auto", "value", "high"], "au.cast.dc")),
-          ...(c.dcType === "value" ? [F.num(`${p}.dc`, t("workshop.au.dcValue"), c.dc, { min: 1 })] : []),
-          F.num(`${p}.attack`, t("workshop.au.cast.attack"), c.attack, { placeholder: t("workshop.au.cast.attackAuto") }),
-          F.num(`${p}.counteract`, t("workshop.au.cast.counteract"), c.counteract, { placeholder: t("workshop.au.cast.counteractAuto") }),
+          kindF(p, c, ["spell", "steps", "choice", "both"]),
+          F.text(`${p}.label`, t("sheet.label"), c.label), F.text(`${p}.id`, t("workshop.au.cast.id"), c.id, { placeholder: "electric-arc", tip: t("workshop.au.cast.idTip") }),
+          ...(sp ? [spellF(p, c)] : []), ...(st ? [stepsF(p, c)] : []),
+          ...rkFields(p, c, sp),
+          ...(sp ? [F.num(`${p}.attack`, t("workshop.au.cast.attack"), c.attack, { placeholder: t("workshop.au.cast.attackAuto") }), F.num(`${p}.counteract`, t("workshop.au.cast.counteract"), c.counteract, { placeholder: t("workshop.au.cast.counteractAuto") })] : []),
           F.num(`${p}.perValue`, t("workshop.au.cast.perValue"), c.perValue, { min: 1 }),
           F.sel(`${p}.perUnit`, t("workshop.au.unit"), c.perUnit, sheetChoices("unit", ["rounds", "minutes", "hours", "days"])),
           F.num(`${p}.perUses`, t("workshop.au.cast.perUses"), c.perUses, { min: 1, placeholder: "1" }),
           F.sel(`${p}.requires`, t("workshop.au.cast.requires"), c.requires, choices(["auto", "invested", "equipped", "held", "none"], "au.cast.req")),
-          F.text(`${p}.id`, t("workshop.au.cast.id"), c.id, { placeholder: "electric-arc" }), F.text(`${p}.label`, t("sheet.label"), c.label),
           F.text(`${p}.note`, t("workshop.au.cast.note"), c.note, { cls: "ws-grow" })
-        ]
+        ],
+        ...(c.kind === "choice" && {
+          choices: c.choices.map((v, j) => {
+            const q = `${p}.choices.${j}`, vs = v.kind === "spell" || v.kind === "both";
+            return { j, title: `${j + 1}. ${v.label?.trim() || (vs && this.#names.get(v.spell)) || v.id?.trim() || t("workshop.au.cast.untitled")}`, off: c.choices.length <= CHOICES_MIN,
+              fields: [kindF(q, v, ["spell", "steps", "both"]), F.text(`${q}.label`, t("sheet.label"), v.label), F.text(`${q}.id`, t("workshop.au.cast.id"), v.id, { placeholder: "cut-fear", tip: t("workshop.au.cast.idTip") }),
+                ...(vs ? [spellF(q, v)] : []), ...(v.kind !== "spell" ? [stepsF(q, v)] : []), ...rkFields(q, v, vs)] };
+          }),
+          addOff: c.choices.length >= CHOICES_MAX
+        })
       };
     });
 

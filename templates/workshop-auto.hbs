@@ -103,7 +103,7 @@
 {{else if options}}
 <label class="ws-fld" {{#if tip}}title="{{tip}}"{{/if}}><span class="ws-lbl {{#if bare}}ws-sr{{/if}}">{{label}}</span><select class="ws-inp" data-a="{{path}}" name="{{path}}" {{#if drop}}data-drop="{{drop}}"{{/if}}>{{selectOptions options selected=value valueAttr="value" labelAttr="label"}}</select></label>
 {{else}}
-<label class="ws-fld {{cls}}" {{#if tip}}title="{{tip}}"{{/if}}><span class="ws-lbl {{#if bare}}ws-sr{{/if}}">{{label}}{{#if req}} <span class="ws-req" aria-hidden="true">*</span>{{/if}}</span><input class="ws-inp {{inpCls}}" type="{{type}}" data-a="{{path}}" name="{{path}}" value="{{value}}" {{#if drop}}data-drop="{{drop}}"{{/if}} {{#if list}}list="{{list}}"{{/if}} {{#if min}}min="{{min}}"{{/if}} {{#if step}}step="{{step}}"{{/if}} placeholder="{{placeholder}}" {{#if req}}aria-required="true"{{/if}}>{{#if hint}}<span class="ws-note">{{hint}}</span>{{/if}}</label>
+<label class="ws-fld {{cls}}" {{#if tip}}title="{{tip}}"{{/if}}><span class="ws-lbl {{#if bare}}ws-sr{{/if}}">{{label}}{{#if req}} <span class="ws-req" aria-hidden="true">*</span>{{/if}}</span>{{#if area}}<textarea class="ws-inp ws-area {{inpCls}}" spellcheck="false" data-a="{{path}}" name="{{path}}" placeholder="{{placeholder}}">{{value}}</textarea>{{else}}<input class="ws-inp {{inpCls}}" type="{{type}}" data-a="{{path}}" name="{{path}}" value="{{value}}" {{#if drop}}data-drop="{{drop}}"{{/if}} {{#if list}}list="{{list}}"{{/if}} {{#if min}}min="{{min}}"{{/if}} {{#if max}}max="{{max}}"{{/if}} {{#if step}}step="{{step}}"{{/if}} placeholder="{{placeholder}}" {{#if req}}aria-required="true"{{/if}}>{{/if}}{{#if hint}}<span class="ws-note">{{hint}}</span>{{/if}}</label>
 {{/if}}
 {{/inline}}
 {{#*inline "plate"}}
@@ -218,6 +218,17 @@
               <button type="button" class="ws-x" data-action="removeCast" data-i="{{i}}" name="rmCast-{{i}}" aria-label="{{localize "PF2E_AUTOMATO.workshop.au.cast.remove"}}"><i class="fa-solid fa-xmark" inert></i></button>
             </div>
             <div class="ws-pfields">{{#each fields}}{{> fld}}{{/each}}</div>
+            {{#if choices}}
+            {{#each choices}}
+            <div class="ws-ev ws-choice">
+              <div class="ws-ev-h"><span class="ws-lbl">{{title}}</span>
+                <button type="button" class="ws-x" data-action="removeChoice" data-i="{{../i}}" data-j="{{j}}" name="rmChoice-{{../i}}-{{j}}" {{#if off}}disabled{{/if}} aria-label="{{localize "PF2E_AUTOMATO.workshop.au.cast.removeChoice"}}"><i class="fa-solid fa-xmark" inert></i></button>
+              </div>
+              <div class="ws-pfields">{{#each fields}}{{> fld}}{{/each}}</div>
+            </div>
+            {{/each}}
+            <button type="button" class="ws-add" data-action="addChoice" data-i="{{i}}" name="addChoice-{{i}}" {{#if addOff}}disabled{{/if}}><i class="fa-solid fa-plus" inert></i> {{localize "PF2E_AUTOMATO.workshop.au.cast.addChoice"}}</button>
+            {{/if}}
           </div>
           {{/each}}
           <button type="button" class="ws-add" data-action="addCast" name="addCast"><i class="fa-solid fa-plus" inert></i> {{localize "PF2E_AUTOMATO.workshop.au.cast.add"}}</button>

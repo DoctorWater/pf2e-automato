@@ -9,6 +9,7 @@ import { automationsGroups } from "../compat.mjs";
 import { safeUuid } from "../saves.mjs";
 import * as fx from "./effect.mjs";
 import * as au from "./automation.mjs";
+import * as af from "./affliction-edit.mjs";
 import * as im from "./item.mjs";
 import { BUILTIN } from "../builtin/index.mjs";
 import { hintsView, hintList } from "../hints.mjs";
@@ -75,11 +76,11 @@ const immFields = (p, m) => [
 ];
 
 /** Поля раскрытого шага (строка apply / степени). row — строка модели формы, p — её путь. */
-function stepFields(row, p, names, card) {
+function stepFields(row, p, names, card, ctx) {
   const out = [
-    F.seg(`${p}.to`, t("workshop.au.stepTo"), row.to, ["target", "self", "party", "allies", "chosen"].map((k) => [k, t(`sheet.to.${k}`)])),
-    ...(row.to === "allies" ? [F.num(`${p}.range`, t("sheet.row.range"), row.range, { min: 5, placeholder: "30" })] : []),
-    F.sel(`${p}.kind`, t("workshop.au.stepKind"), row.kind, Object.assign(sheetChoices("row", row.kind === "affliction" ? ["affliction"] : ["condition", "effect", "note", "visibility", "persistent", "remove", "removeEffect", "extendEffect", "rollOption", "damage", "choose", "move"]), { choose: t("workshop.au.chooseKind") })   // недуг — только чтение: свой единственный вид, новых строк не создаём
+    ...(row.kind === "affliction" ? [] : [F.seg(`${p}.to`, t("workshop.au.stepTo"), row.to, ["target", "self", "party", "allies", "chosen"].map((k) => [k, t(`sheet.to.${k}`)]))]),   // недуг — только к цели
+    ...(row.to === "allies" && row.kind !== "affliction" ? [F.num(`${p}.range`, t("sheet.row.range"), row.range, { min: 5, placeholder: "30" })] : []),
+    F.sel(`${p}.kind`, t("workshop.au.stepKind"), row.kind, Object.assign(sheetChoices("row", ["condition", "effect", "note", "visibility", "persistent", "remove", "removeEffect", "extendEffect", "rollOption", "damage", "choose", "move"]), { choose: t("workshop.au.chooseKind"), affliction: t("workshop.au.kindAffliction") }))
   ];
   const rank = [F.num(`${p}.rankMin`, t("sheet.row.rankMin"), row.rankMin, { min: 1 }), F.num(`${p}.rankMax`, t("sheet.row.rankMax"), row.rankMax, { min: 1 })];
   if (row.kind === "remove") out.push(F.sel(`${p}.text`, t("workshop.au.condition"), row.text, { "": "—", ...Object.fromEntries(grantable().map((c) => [c.slug, c.label])) }));
@@ -114,6 +115,7 @@ function stepFields(row, p, names, card) {
   );
   else if (row.kind === "move") out.push(F.num(`${p}.text`, t("workshop.au.moveDist"), row.text, { min: 5, placeholder: "10" }), F.sel(`${p}.moveMode`, t("workshop.au.moveMode"), row.moveMode, sheetChoices("moveMode", ["push", "pull"])), F.sel(`${p}.moveFrom`, t("workshop.au.moveFrom"), row.moveFrom ?? "origin", sheetChoices("moveFrom", ["origin", "point"])));
   else if (row.kind === "choose") out.push(...chooseFields(row, p));
+  else if (row.kind === "affliction") out.push(afflFields(row, p, ctx));
   else if (row.kind === "removeEffect") out.push(F.text(`${p}.text`, t("workshop.au.effectRef"), row.text, { drop: "effect", cls: "ws-grow", hint: names.get(row.text) ?? "" }), F.chk(`${p}.ofOrigin`, t("workshop.au.ofOrigin"), row.ofOrigin));
   else if (row.kind === "extendEffect") out.push(F.text(`${p}.text`, t("workshop.au.effectSlug"), row.text, { cls: "ws-grow" }), F.num(`${p}.value`, t("workshop.au.extendRounds"), row.value, { min: 1 }));
   else if (row.kind === "rollOption") out.push(F.text(`${p}.domain`, t("sheet.row.domain"), row.domain, { placeholder: "all" }), F.text(`${p}.text`, t("workshop.au.optionName"), row.text, { cls: "ws-grow" }), F.chk(`${p}.optOff`, t("workshop.au.optOff"), row.optOff));
@@ -130,22 +132,62 @@ function stepFields(row, p, names, card) {
   );
   if (row.kind !== "note" && row.kind !== "visibility") out.push(...rank);   // круг сотворения: шаг только в этом диапазоне
   if (row.kind !== "note") out.push(F.text(`${p}.when`, t("workshop.au.stepWhen"), row.when, { cls: "ws-full", placeholder: "feat:x, target:trait:undead", hint: t("workshop.au.stepWhenHint") }));   // условие шага (предикат pf2e)
-  if (row.kind !== "choose" && row.kind !== "affliction") out.push(refineField(row, p, names, card));
+  if (row.kind !== "choose") out.push(refineField(row, p, names, card));
   return out;
 }
 
 /** Свойства своего эффекта (effect.mods): строки по видам, кнопки добавления. */
-function modsField(row, p) {
+function modsField(row, p, btn = (verb, arg) => ({ path: p, op: `${verb}:${arg}` }), note = t("workshop.au.mod.slugNote"), empty = t("workshop.au.mod.none")) {
   const bare = { bare: true };
   const list = au.modsView(row).map((m) => {
     const q = `${p}.mods.${m.i}`, val = F.text(`${q}.value`, t("workshop.value"), m.value, { ...bare, inpCls: "ws-num" });
     const type = F.sel(`${q}.type`, t("workshop.type"), m.type, choices(fx.BONUS_TYPES, "btype"), bare), dmg = F.sel(`${q}.dmg`, t("workshop.damage"), m.dmg, choices(fx.RESIST_TYPES, "dtype"), bare);
     const fields = { bonus: [val, type, { note: t("workshop.au.mod.to") }, F.sel(`${q}.target`, t("workshop.target"), m.target, choices(fx.STEP_TARGETS, "targets"), { ...bare, cls: "ws-grow" })],
       speed: [val, { note: t("workshop.au.mod.ft") }, type], resist: [dmg, val, F.text(`${q}.except`, t("workshop.except"), m.except, { ...bare, placeholder: t("workshop.exceptHint") })], weak: [dmg, val], forbid: [{ note: t("workshop.text.forbid") }] }[m.kind] ?? [];
-    return { i: m.i, kind: t(m.kind === "weak" ? "workshop.au.mod.weak" : m.kind === "forbid" ? "workshop.au.mod.forbid" : `workshop.kind.${m.kind}`), fields, rm: { path: p, op: `modRm:${m.i}` } };
+    return { i: m.i, kind: t(m.kind === "weak" ? "workshop.au.mod.weak" : m.kind === "forbid" ? "workshop.au.mod.forbid" : `workshop.kind.${m.kind}`), fields, rm: btn("modRm", m.i) };
   });
-  const adds = au.MOD_ADD.map((kind) => ({ path: p, op: `modAdd:${kind}`, label: t(kind === "weak" ? "workshop.au.mod.weak" : kind === "forbid" ? "workshop.au.mod.forbid" : `workshop.kind.${kind}`), off: !au.modCanAdd(row, kind) }));
-  return { mods: { list, adds, hint: t("workshop.au.mod.max", { n: au.MODS_MAX }), note: t("workshop.au.mod.slugNote"), empty: !list.length && t("workshop.au.mod.none") }, label: "" };
+  const adds = au.MOD_ADD.map((kind) => ({ ...btn("modAdd", kind), label: t(kind === "weak" ? "workshop.au.mod.weak" : kind === "forbid" ? "workshop.au.mod.forbid" : `workshop.kind.${kind}`), off: !au.modCanAdd(row, kind) }));
+  return { mods: { list, adds, hint: t("workshop.au.mod.max", { n: au.MODS_MAX }), note, empty: !list.length && empty }, label: "" };
+}
+
+/**
+ * Шаг «недуг»: шапка определения, стадии (раскрыта одна), общее для шагов правила. Правка идёт через ядро (affliction-edit.mjs), пути `<строка>.affl.<имя>`.
+ * ctx: {a: состояние окна, env: {t, damageLabel, conditionLabel}, plates: живые подписи для #paint}.
+ */
+function afflFields(row, p, { a, env, plates }) {
+  const v = af.afflView(a.f, row, env, a.stage), A = `${p}.affl`, bare = { bare: true };
+  if (!v) return { affl: { bad: t("workshop.au.affl.bad") }, label: "" };
+  const units = sheetChoices("unit", af.APPLY_UNITS), btn = (op) => ({ path: p, op: `affl:${op}` });
+  const dur = (name, d, label) => ({ pair: { label, fields: [F.num(`${A}.${name}.value`, label, d.value, { ...bare, min: 1, placeholder: "—" }), F.sel(`${A}.${name}.unit`, t("workshop.au.unit"), d.unit, units, bare)] }, label: "" });
+  const head = [
+    F.text(`${A}.name`, t("workshop.au.affl.name"), v.name, { cls: "ws-grow", req: true }),
+    F.sel(`${A}.kind`, t("workshop.au.affl.kindLabel"), v.kind, choices(af.AFFLICTION_KINDS, "au.affl.k")),
+    F.sel(`${A}.save.statistic`, t("workshop.au.affl.save"), v.statistic, sheetChoices("stat", af.AFFLICTION_SAVES)),
+    F.num(`${A}.save.dc`, t("workshop.au.affl.dc"), v.dc, { min: 1, tip: t("workshop.au.affl.dcTip") }),
+    dur("maxDuration", v.maxDuration, t("workshop.au.affl.max")), dur("onset", v.onset, t("workshop.au.affl.onset")),
+    F.chk(`${A}.virulent`, t("workshop.au.affl.virulent"), v.virulent, { tip: t("workshop.au.affl.virulentTip") }),
+    F.sel(`${A}.stage`, t("workshop.au.affl.stage"), v.stage, Object.fromEntries(Array.from({ length: v.n }, (_, i) => [i + 1, String(i + 1)])), { tip: t("workshop.au.affl.stageTip") })
+  ];
+  const stages = v.stages.map((st) => {
+    const S = `${A}.s.${st.i}`, s = st.s, base = { path: p, i: st.i, no: st.i + 1, open: st.open, line: st.line, linePath: `${S}.line` };
+    plates[base.linePath] = { text: st.line, value: "" };
+    const rm = { ...btn(`stageRm:${st.i}`), off: !v.canRm }, open = { path: p, op: `stageOpen:${st.i}` };
+    if (!st.open) return { ...base, rm, openOp: open };
+    const dmg = { lines: { label: t("workshop.au.affl.damage"), add: { ...btn(`dmgAdd:${st.i}`), label: t("workshop.au.affl.add"), off: s.damage.length >= af.DMG_MAX },
+      list: s.damage.map((g, j) => ({ fields: [F.text(`${S}.damage.${j}.formula`, t("workshop.au.persFormula"), g.formula, { ...bare, inpCls: "ws-formula", placeholder: "2d6" }), F.sel(`${S}.damage.${j}.damageType`, t("workshop.au.persType"), g.damageType, DAMAGE_TYPES.map((x) => [x, damageLabel(x)]), bare)], rm: btn(`dmgRm:${st.i}:${j}`) })) }, label: "" };
+    const pr = s.persistent, pers = { lines: { label: t("workshop.au.affl.persistent"), add: { ...btn(`persOn:${st.i}`), label: t("workshop.au.affl.add"), off: !!pr },
+      list: pr ? [{ fields: [F.text(`${S}.persistent.formula`, t("workshop.au.persFormula"), pr.formula, { ...bare, inpCls: "ws-formula", placeholder: "1d6" }), F.sel(`${S}.persistent.damageType`, t("workshop.au.persType"), pr.damageType, DAMAGE_TYPES.map((x) => [x, damageLabel(x)]), bare),
+        F.num(`${S}.persistent.dc`, t("workshop.au.persDc"), pr.dc ?? "", { ...bare, min: 1, placeholder: t("workshop.au.affl.dcShort") })], rm: btn(`persOff:${st.i}`) }] : [] }, label: "" };
+    const full = s.conditions.length >= af.COND_MAX;
+    const conds = { chips: { label: t("workshop.au.affl.conditions"), list: s.conditions.map((c, j) => ({ name: condLabel(c.slug), value: c.value ?? "", stepper: c.value != null || condValued(c.slug), dec: btn(`condStep:${st.i}:${j}:-1`), inc: btn(`condStep:${st.i}:${j}:1`), rm: btn(`condRm:${st.i}:${j}`) })),
+      add: full ? null : F.sel(`${S}.cond.add`, t("workshop.au.affl.addCond"), "", { "": t("workshop.au.affl.addCond"), ...Object.fromEntries(grantable().filter((c) => !s.conditions.some((x) => x.slug === c.slug)).map((c) => [c.slug, c.label])) }, bare) }, label: "" };
+    const pseudo = s.modsRow, mods = modsField(pseudo, `${S}`, (verb, arg) => btn(`${verb}:${st.i}:${arg}`), "", t("workshop.au.affl.noMods"));
+    const body = [{ pair: { label: t("workshop.au.affl.stageDur"), fields: [F.num(`${S}.duration.value`, t("workshop.au.affl.stageDur"), s.duration.value, { ...bare, min: 1, placeholder: "—" }), F.sel(`${S}.duration.unit`, t("workshop.au.unit"), s.duration.unit, units, bare)] }, label: "" },
+      dmg, pers, conds, { ...mods, mods: { ...mods.mods, label: t("workshop.au.affl.mods") } }, F.text(`${S}.text`, t("workshop.au.affl.text"), s.text, { cls: "ws-full", tip: t("workshop.au.affl.textTip") })];
+    return { ...base, rm, openOp: open, body };
+  });
+  const labels = v.shared.length > 1 ? v.shared.map((q) => af.stepLabel(q, t)) : [];
+  return { affl: { head, stages, add: { ...btn("stageAdd"), off: !v.canAdd, label: t("workshop.au.affl.addStage") }, stagesLabel: t("workshop.au.affl.stages"), shared: labels.length ? t("workshop.au.affl.shared", { steps: labels.join(", ") }) : "", split: labels.length ? { ...btn("split"), label: t("workshop.au.affl.split"), tip: t("workshop.au.affl.splitTip") } : null }, label: "" };
 }
 
 /** Шаг «Игрок выбирает»: источник, вопрос; для существ — дальность и «от кого», для вариантов — строки {value, label?, when?}. */
@@ -226,11 +268,13 @@ export class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
       async openDone() { (await safeUuid(this.#wiz.done?.uuid))?.sheet.render(true); },
       newItem() { this.#wiz = { m: im.blankItem(), step: 0, q: "", found: [], seq: 0, picked: null, picker: false, done: null }; this.render(); },
       toggleRow(_e, el) { const o = this.#au.open; o[el.dataset.row] = !o[el.dataset.row]; this.#redraw(); },
-      toggleStep(_e, el) { const a = this.#au; a.sel = a.sel === el.dataset.path ? null : el.dataset.path; a.card = null; this.#redraw(); },
+      toggleStep(_e, el) { const a = this.#au; a.sel = a.sel === el.dataset.path ? null : el.dataset.path; a.card = null; a.stage = null; this.#redraw(); },
       // правка раскрытого шага кнопками: свойства своего эффекта, варианты выбора, плашки «Дополнительно» (op — "вид:аргумент")
       rowOp(_e, el) {
-        const a = this.#au, row = foundry.utils.getProperty(a, el.dataset.path), [op, arg] = el.dataset.op.split(":");
-        if (op === "modAdd") au.modAdd(row, arg);
+        const a = this.#au, row = foundry.utils.getProperty(a, el.dataset.path), [op, ...rest] = el.dataset.op.split(":"), arg = rest.join(":");
+        if (op === "affl") { const open = af.afflOp(a.f, row, arg); if (open !== undefined) a.stage = open; }
+        else if (op === "stageOpen") a.stage = Number(arg);
+        else if (op === "modAdd") au.modAdd(row, arg);
         else if (op === "modRm") au.modRemove(row, Number(arg));
         else if (op === "opt") au.chooseSet(row, arg);
         else if (op === "pill") { const id = `${el.dataset.path}|${arg}`; a.card = au.refineClick(row, arg, a.card === id) ? id : null; }
@@ -357,14 +401,14 @@ export class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
       return;
     }
     // поля, которых нет в строке формы как есть: «Дополнительно» (row.keep), свойства эффекта и варианты выбора (JSON в row.text), источник эффекта, вид макроса
-    const sub = [[/^(.*)\.keep\.(.+)$/, au.keepEdit], [/^(.*)\.mods\.(\d+\.\w+)$/, (r, n, x) => { const [i, field] = n.split("."); au.modSet(r, Number(i), field, x); }], [/^(.*)\.choose\.(.+)$/, au.chooseSet], [/^(.*)\.src$/, (r, _n, x) => au.setEffectSource(r, x)]];
+    const sub = [[/^(.*?)\.affl\.(.+)$/, (r, n, x) => af.afflSet(f, r, n, x, { valued: condValued })], [/^(.*)\.keep\.(.+)$/, au.keepEdit], [/^(.*)\.mods\.(\d+\.\w+)$/, (r, n, x) => { const [i, field] = n.split("."); au.modSet(r, Number(i), field, x); }], [/^(.*)\.choose\.(.+)$/, au.chooseSet], [/^(.*)\.src$/, (r, _n, x) => au.setEffectSource(r, x)]];   // недуг: правка определения уходит во все шаги его группы (сессионной)
     for (const [re, fn] of sub) { const hit = re.exec(path); if (hit) return fn(foundry.utils.getProperty(a, hit[1]), hit[2], v); }
     const mac = /^f\.macros\.(\d+)\.form$/.exec(path);
     if (mac) return au.macroSetForm(f.macros[Number(mac[1])], v);
     const m = /^(.*)\.(kind|text)$/.exec(path);
     const row = m && m[1] !== "f" && m[1] !== "f.zone" ? foundry.utils.getProperty(a, m[1]) : null;
     if (row && "durOf" in row) {   // строка шага: смена вида и текста — в ядре
-      if (m[2] === "kind") au.setStepKind(row, v);
+      if (m[2] === "kind") { au.setStepKind(row, v); if (v === "affliction") af.afflInit(row, f); }
       else au.setStepText(row, v, row.kind === "condition" && condValued(v));
     } else foundry.utils.setProperty(a, path, v);
     if (path === "f.targets" && v === "self") a.sel = null;
@@ -384,6 +428,7 @@ export class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
     if (kind === "persistent" || kind === "damage") row.text = "1d6";
     if (kind === "move") Object.assign(row, { text: "10", to: "target" });
     if (kind === "choose") Object.assign(row, { text: "{\"from\":\"allies\"}", to: "self" });
+    if (kind === "affliction") { row.text = ""; af.afflInit(row, a.f); a.stage = null; }
     rows.push(row);
     a.sel = `${list}.${rows.length - 1}`;
     a.picker = null;
@@ -521,7 +566,7 @@ export class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
     let edit = null;
     if (a.sel) {
       const row = foundry.utils.getProperty(a, a.sel);
-      if (row) edit = { path: a.sel, title: au.plateText(au.plate(row, env)), fields: stepFields(row, a.sel, this.#names, a.card) };
+      if (row) edit = { path: a.sel, title: au.plateText(au.plate(row, env)), fields: stepFields(row, a.sel, this.#names, a.card, { a, env: { t, damageLabel, conditionLabel: condLabel }, plates }) };
       else a.sel = null;
     }
 

@@ -17,7 +17,7 @@ const isNum = (x) => typeof x === "number" && Number.isFinite(x);
 
 const VIS_LEVELS = ["concealed", "hidden", "undetected", "unnoticed"];
 const VIS_UNTIL = ["turn-end", "next-turn-end", "attack"];
-const APPLY_UNITS = ["rounds", "minutes", "hours", "days"];
+export const APPLY_UNITS = ["rounds", "minutes", "hours", "days"];
 // типы урона pf2e (CONFIG.PF2E.damageTypes); apply.mjs перед созданием сверяет с живым CONFIG
 export const DAMAGE_TYPES = ["acid", "bleed", "bludgeoning", "cold", "electricity", "fire", "force", "mental", "piercing", "poison", "slashing", "sonic", "spirit", "untyped", "vitality", "void"];
 // формула продолжительного урона: кости и числа через +/-, как «1d6», «2d6+3» (глубже проверяет pf2e при создании)
@@ -244,8 +244,8 @@ function vApply(a, path, defTo, err, basicOk = false) {
 }
 
 export const AFFLICTION_KINDS = ["poison", "disease", "curse"];
-const AFFLICTION_SAVES = ["fortitude", "reflex", "will"];
-const MAX_STAGES = 12;
+export const AFFLICTION_SAVES = ["fortitude", "reflex", "will"];
+export const MAX_STAGES = 12;
 function vAfflDur(d, path, err) {
   if (!isObj(d) || !(isInt(d.value) && d.value >= 1) || !APPLY_UNITS.includes(d.unit)) { err.push(E("afflict.dur", path)); return null; }
   return { value: d.value, unit: d.unit };

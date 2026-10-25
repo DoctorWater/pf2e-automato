@@ -350,3 +350,20 @@
 .pf2e-automato-workshop .ws-opt { display: grid; grid-template-columns: 110px minmax(0, 1fr) 150px 28px; gap: 8px; align-items: center; }
 .pf2e-automato-workshop .ws-opt .ws-inp { width: 100%; box-sizing: border-box; }
 .pf2e-automato-workshop .ws-req { color: #8c1c1c; font-weight: 700; }
+
+/* Недуг: шапка определения и стадии-аккордеон (раскрыта одна) */
+.pf2e-automato-workshop .ws-affl { gap: 12px; }
+.pf2e-automato-workshop .ws-arow { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px 16px; }
+.pf2e-automato-workshop .ws-arow > .ws-grow { flex: 1 1 180px; }
+.pf2e-automato-workshop .ws-stg { display: flex; flex-direction: column; border: 1px solid #ddd2c0; border-radius: 3px; overflow: hidden; }
+.pf2e-automato-workshop .ws-stg > :last-child { border-bottom: 0; }
+.pf2e-automato-workshop .ws-st { display: grid; grid-template-columns: minmax(0, 1fr) 28px; align-items: center; padding-right: 4px; background: #fffdf9; border-bottom: 1px solid #ddd2c0; }
+.pf2e-automato-workshop .ws-st.is-open { background: #f8f4f1; border-bottom: 0; }
+.pf2e-automato-workshop .ws-st-t { width: 100%; min-width: 0; min-height: 32px; margin: 0; padding: 4px 0 4px 8px; display: grid; grid-template-columns: 20px minmax(0, 1fr); justify-items: start; align-items: center; gap: 8px; text-align: left; font-size: 12.5px; background: transparent; border: 0; box-shadow: none; cursor: pointer; }
+.pf2e-automato-workshop .ws-st.is-open .ws-st-l { font-weight: 500; }
+.pf2e-automato-workshop .ws-no { flex: none; width: 20px; text-align: center; font: 600 15px Eczar, Georgia, serif; color: #5e0000; }
+.pf2e-automato-workshop .ws-stb { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 10px 16px; padding: 6px 12px 12px 36px; background: #f8f4f1; border-bottom: 1px solid #ddd2c0; }
+.pf2e-automato-workshop .ws-st .ws-x:disabled { opacity: .4; cursor: not-allowed; }
+.pf2e-automato-workshop .ws-formula { width: 76px; }
+.pf2e-automato-workshop .ws-chip { flex-wrap: nowrap; width: auto; }
+.pf2e-automato-workshop .ws-plate-t.ws-static { flex: none; cursor: default; }

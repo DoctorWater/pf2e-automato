@@ -3,7 +3,6 @@
 import { DEGREES, degreeFromTotal } from "../util.mjs";
 import { stepText } from "../chat.mjs";
 import { textOfMods } from "../inline-effect.mjs";
-import { stagesText } from "../affliction.mjs";
 import { modOf, keepGet, keepSet } from "../sheet.mjs";
 import { ESCAPE_STATS, REPEAT_END } from "../rules.mjs";
 import { STEP_TARGETS } from "./effect.mjs";
@@ -295,10 +294,10 @@ export function plate(row, env) {
   if (row.kind === "rollOption") return { ...base, name: t(row.optOff ? "workshop.au.optionOffPlate" : "workshop.au.optionPlate", { option: row.text || "?" }) };
   if (row.kind === "effect") return { ...base, name: row.text?.startsWith("[") ? (() => { try { return textOfMods(JSON.parse(row.text), { t }); } catch { return "?"; } })() : row.text ? env.uuidName(row.text) ?? row.text : "?", dur: String(row.durValue ?? "").trim() ? t("workshop.au.dur", { value: String(row.durValue).trim(), unit: t(`workshop.unitShort.${row.durUnit}`) }) : "" };
   if (row.kind === "damage") return { ...base, name: `${String(row.text ?? "").trim() || "?"} · ${row.pType === "healing" ? t("workshop.au.healing") : env.damageLabel?.(row.pType) ?? row.pType}` };
-  if (row.kind === "affliction") {   // стадии недуга — только чтение: строка и сводка
+  if (row.kind === "affliction") {   // недуг: плашка и сводка стадий
     let x = null;
     try { x = JSON.parse(row.text); } catch { /* битый JSON: строка «?» */ }
-    return { ...base, name: x?.def ? t("workshop.au.afflPlate", { name: x.def.name, stage: x.stage ?? 1, of: x.def.stages?.length ?? "?" }) : "?", note: [note, x?.def?.stages && t("workshop.au.afflKeep", { stages: stagesText(x.def) })].filter(Boolean).join(" · ") };
+    return { ...base, name: x?.def ? t("workshop.au.afflPlate", { name: x.def.name || "?", stage: x.stage ?? 1, of: x.def.stages?.length ?? "?" }) : "?", note };
   }
   if (row.kind === "move") return { ...base, name: t(`workshop.au.movePlate.${row.moveMode === "pull" ? "pull" : "push"}${row.moveFrom === "point" ? "Point" : ""}`, { distance: String(row.text ?? "").trim() || "?" }) };
   if (row.kind === "choose") return { ...base, name: t("workshop.au.choosePlate") };

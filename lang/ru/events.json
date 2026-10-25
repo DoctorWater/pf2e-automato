@@ -60,7 +60,7 @@
         "cast": "{name}: круг {rank}, СЛ {dc}"
       },
       "row": {
-        "affliction": "недуг (стадии — только чтение)"
+        "affliction": "недуг (JSON; удобнее в Мастерской)"
       }
     },
     "workshop": {
@@ -175,8 +175,7 @@
           "id": "Ключ",
           "note": "Заметка ведущему"
         },
-        "afflPlate": "Недуг «{name}»: стадия {stage} из {of}",
-        "afflKeep": "стадии: {stages}"
+        "afflPlate": "Недуг «{name}»: стадия {stage} из {of}"
       }
     },
     "cast": {

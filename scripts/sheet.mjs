@@ -60,7 +60,7 @@ function rowCore(a) {
   // damage: формула — text, тип (или «healing») — pType; choose — JSON {from, options?, prompt?, range?} в text
   if (a.damage) return { to: a.to, kind: "damage", text: a.damage.formula, value: "", policy: "max", keep, ...DUR_BLANK, ...VIS_BLANK, pType: a.damage.damageType };
   if (a.move) return { to: a.to, kind: "move", text: String(a.move.distance), value: "", policy: "max", keep, ...DUR_BLANK, ...VIS_BLANK, ...PERS_BLANK, moveMode: a.move.mode, moveFrom: a.move.from === "point" ? "point" : "origin" };
-  if (a.affliction) return { to: a.to, kind: "affliction", text: JSON.stringify(a.affliction), value: "", policy: "max", keep, ...DUR_BLANK, ...VIS_BLANK, ...PERS_BLANK };   // стадии недуга: только чтение, едут JSON-ом
+  if (a.affliction) return { to: a.to, kind: "affliction", text: JSON.stringify(a.affliction), value: "", policy: "max", keep, ...DUR_BLANK, ...VIS_BLANK, ...PERS_BLANK };   // недуг едет JSON-ом `{stage, def}`; Мастерская правит его редактором (workshop/affliction-edit.mjs), вкладка листа — строкой
   if (a.choose) return { to: "self", kind: "choose", text: JSON.stringify(a.choose), value: "", policy: "max", keep, ...DUR_BLANK, ...VIS_BLANK, ...PERS_BLANK };
   if (a.removeCondition) return { to: a.to, kind: "remove", text: a.removeCondition.slug, value: "", policy: "max", keep, ...DUR_BLANK, ...VIS_BLANK, ...PERS_BLANK };
   const plain = (kind, text, value = "") => ({ to: a.to, kind, text, value, policy: "max", keep, ...DUR_BLANK, ...VIS_BLANK, ...PERS_BLANK });

@@ -60,7 +60,7 @@
         "cast": "{name}: rank {rank}, DC {dc}"
       },
       "row": {
-        "affliction": "affliction (stages are read-only)"
+        "affliction": "affliction (JSON; easier in the Workshop)"
       }
     },
     "workshop": {
@@ -175,8 +175,7 @@
           "id": "Key",
           "note": "Note for the GM"
         },
-        "afflPlate": "Affliction \"{name}\": stage {stage} of {of}",
-        "afflKeep": "stages: {stages}"
+        "afflPlate": "Affliction \"{name}\": stage {stage} of {of}"
       }
     },
     "cast": {

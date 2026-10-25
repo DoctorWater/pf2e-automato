@@ -711,3 +711,39 @@ test("checkAffliction: срок null при Maximum Duration, потерянны
   assert.ok(checkAffliction(rule, html.replace(SV, SV.replace("</p>", " @Check[will|dc:21]</p>")), item, refs).includes("second save check in head"));
   assert.ok(checkAffliction(rule, html + `<p>Any drained value is reduced by 1 every hour.</p>`, item, refs).some((x) => /^text outside stages/.test(x)));
 });
+
+test("coatEntry: чистый недуг injury -> coat-запись каталога; не-недуг и gate/coatArm не проходят", async () => {
+  const { coatEntry } = await import("../tools/affliction-batch.mjs");
+  const st = stage(1, `@Damage[1d6[poison]] damage (1 round)`) + stage(2, `@Damage[2d6[poison]] damage (1 round)`);
+  const html = SV + st, refs = { conditions: {}, effects: {} };
+  const rule = afflictionRule(html, { name: "X", traits: ["poison", "injury"], condSlug }).rule;
+  const { rule: c, why } = coatEntry(rule, html, refs);
+  assert.equal(why, undefined);
+  assert.equal(c.onUse.challenge, null);
+  assert.equal(c.onUse.apply[0].coat.weapon, "choose");
+  assert.ok(c.onUse.apply[0].coat.challenge.byDegree.failure[0].affliction);
+  assert.equal(rules.validateRule(c).ok, true);
+  assert.match(coatEntry({ v: 1, onUse: { targets: "self", apply: [] } }, html, refs).why, /^coat:/);
+});
+
+test("coatEntry: semanticErrors (gate/coatArm в каталоге) -> отказ coat:, черты испытания poison+injury", async () => {
+  const { coatEntry } = await import("../tools/affliction-batch.mjs");
+  const st = stage(1, `@Damage[1d6[poison]] damage (1 round)`) + stage(2, `@Damage[2d6[poison]] damage (1 round)`);
+  const html = SV + st, refs = { conditions: {}, effects: {} };
+  const rule = afflictionRule(html, { name: "X", traits: ["poison", "injury"], condSlug }).rule;
+  const ok = coatEntry(rule, html, refs).rule;
+  assert.deepEqual(ok.onUse.apply[0].coat.challenge.traits, ["poison", "injury"]);
+  const bad = structuredClone(ok);
+  bad.onUse.apply[0].coat.coatArm = true;
+  bad.onEvent = [{ when: "x", gate: ["target"], apply: [] }];
+  const { semanticErrors } = await import("../tools/validate.mjs");
+  assert.ok((semanticErrors(bad, refs, html) ?? []).length, "gate/coatArm запрещены каталогу");
+  assert.match(coatEntry({ ...rule, onEvent: [{ when: "x", gate: ["target"], apply: [] }] }, html, refs).why, /^coat:/);
+});
+
+test("parseStage: «@Damage … or @Damage» и абзац заражения — неразобранный остаток", () => {
+  const alt = stage(1, `@Damage[1d6[poison]] or @Damage[1d6[vitality]]{vitality} damage (1 round)`) + stage(2, `@Damage[2d6[poison]] damage (1 round)`);
+  assert.match(P(SV + alt).unsure[0], /^stage 1/);
+  const st = stage(1, `@Damage[1d6[poison]] damage (1 round)`) + stage(2, `@Damage[2d6[poison]] damage (1 round)`);
+  assert.match(P(`<p>While poisoned, the first time per round the victim succeeds at an unarmed attack, the target is exposed.</p>` + SV + st).unsure[0], /^text outside stages/);
+});

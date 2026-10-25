@@ -5,7 +5,7 @@ import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { readOut, readJson, writeText, serializeDrafts, stripHtml, ACCEPTED, arg, cmp, isMain } from "./lib.mjs";
 import { afflictionStages, validateRule, AFFLICTION_KINDS } from "../scripts/rules.mjs";
-import { afflictionRule, outsideText } from "./affliction.mjs";
+import { afflictionRule, outsideText, coatOf } from "./affliction.mjs";
 import { roundTrip, semanticErrors, mergeAccepted } from "./validate.mjs";
 import { readModelAccepted } from "./drafts.mjs";
 import { pick } from "./sample.mjs";
@@ -44,6 +44,12 @@ export function checkAffliction(rule, html, item, refs) {
   return bad;
 }
 
+/** Недуг расходника-яда injury -> правило `coat` для каталога: {rule} либо {why}. */
+export function coatEntry(rule, html, refs) {
+  const c = coatOf(rule), bad = c ? semanticErrors(c, refs, html) ?? [] : ["coatOf: not convertible"];
+  return bad.length ? { why: `coat: ${String(bad[0]).slice(0, 80)}` } : { rule: c };
+}
+
 const short = (u) => /^dc$/.test(u) ? "dc not in text" : /^stage \d+: /.test(u) ? `stage text: ${u.replace(/^stage \d+: /, "").slice(0, 70)}` : u;
 
 export function buildBatch() {
@@ -60,14 +66,19 @@ export function buildBatch() {
     const d = { uuid: it.uuid, slug: it.slug, type: it.type, name: it.name, nameRu: it.nameRu, layer: t.layer, batch: t.batchName, dupCount: it.dupCount };
     const r = afflictionRule(h, { name: it.name, traits: it.traits ?? [], condSlug, save: it.defense ? { statistic: it.defense.save } : null });
     let why = null, diffs = [];
-    if (it.type === "weapon" || (it.traits ?? []).includes("injury") || /@Check\[[^\]]*traits:[^\]|]*\binjury\b/.test(h)) why = "injury poison on weapon";   // примитива нанесения яда на оружие пока нет
+    const injury = it.type === "weapon" || (it.traits ?? []).includes("injury") || /@Check\[[^\]]*traits:[^\]|]*\binjury\b/.test(h);
+    if (injury && it.type !== "consumable") why = it.type === "weapon" ? "weapon activation" : /^(envenom|vishkanyan venom)$/i.test(it.name) ? "envenom" : "npc injury action, not coat";   // в `coat` идут только расходники
     else if (!r) why = "no save/kind or stage marks";
     else if (!r.rule) why = `invalid rule: ${r.unsure.at(-1)?.slice(0, 80)}`;
     else if (r.unsure.length) why = r.unsure.map(short)[0];
     else if ((diffs = checkAffliction(r.rule, h, it, refs)).length) why = `check: ${diffs[0]}`;
+    let rule = r?.rule;
+    if (!why && injury) {   // расходник-яд injury: недуг переносится в нанесение на оружие
+      ({ rule, why } = coatEntry(r.rule, h, refs));
+    }
     if (why && oldDebt) continue;
     if (why) debt.push({ ...d, status: "manual", confidence: "needs-primitive", reason: `needs-primitive: missing: affliction: ${why}`, rule: null });
-    else ok.push({ ...d, status: "manual", confidence: "model", reason: CONV, rule: r.rule });
+    else ok.push({ ...d, status: "manual", confidence: "model", reason: CONV, rule });
   }
   return { ok, debt, html, items };
 }
@@ -75,7 +86,7 @@ export function buildBatch() {
 function main() {
   const { ok, debt, html, items } = buildBatch();
   const cat = {};
-  for (const d of debt) { const k = d.reason.replace(/^needs-primitive: missing: affliction: /, "").replace(/^(stage text|check|invalid rule|duration|text outside stages|onset): .*/, "$1"); cat[k] = (cat[k] ?? 0) + 1; }
+  for (const d of debt) { const k = d.reason.replace(/^needs-primitive: missing: affliction: /, "").replace(/^(stage text|check|coat|invalid rule|duration|text outside stages|onset): .*/, "$1"); cat[k] = (cat[k] ?? 0) + 1; }
   const weight = (l) => l.reduce((s, d) => s + d.dupCount, 0);
   console.log(`catalog ${ok.length} (copies ${weight(ok)}); debt ${debt.length} (copies ${weight(debt)}); by reason`, cat);
   const strip = ({ batch, dupCount, ...d }) => d;

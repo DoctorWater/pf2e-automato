@@ -24,6 +24,7 @@ function parseStage(html, { condSlug, known }) {
   const whole = t;
   const d = DUR_END.exec(t);
   if (d) { out.duration = dur(d[1], d[2]); t = t.replace(DUR_END, ""); }
+  if (/\bor\s+@Damage\[/i.test(t)) bad = true;   // «@Damage … or @Damage» — альтернатива, не сумма
   const asStage = /\bas\s+stage\s+(\d+)\b/i.exec(t);
   if (asStage) { ref = +asStage[1]; t = t.replace(asStage[0], ""); }
   // @Damage[1d10[poison]], @Damage[1d6[persistent,bleed]]
@@ -66,7 +67,7 @@ function parseStage(html, { condSlug, known }) {
 }
 
 // признаки механики в тексте вне стадий: такое правило не собираем, а в долг
-const MECH = /n't\b|cannot|immune|persist|reduc|instead|remain|\bonly\b|\bnote\b|cumulative|\blasts\b|whenever|each round|\btrigger\b|critical|doubl|halve|regain|\bGM\b|@UUID|@Check|@Damage|\bDC\b|saving throw|\d+ (?:round|minute|hour|day)|\bcondition\b|\bmust\b/i;
+const MECH = /n't\b|cannot|immune|persist|reduc|instead|remain|\bonly\b|\bnote\b|cumulative|\blasts\b|whenever|each round|\bper round\b|first time|\battack\b|\btrigger\b|critical|doubl|halve|regain|\bGM\b|@UUID|@Check|@Damage|\bDC\b|saving throw|\d+ (?:round|minute|hour|day)|\bcondition\b|\bmust\b/i;
 const LABELS = /^(saving throw|onset|maximum duration|activate|craft requirements|price|frequency|requirements)$/i;
 
 /**
@@ -177,7 +178,7 @@ export function afflictionRule(html, opts = {}) {
 export function coatOf(rule, { duration = null } = {}) {
   const u = rule?.onUse;
   if (!u?.challenge || u.check || u.zone) return null;
-  const coat = { v: 1, ...(rule.label && { label: rule.label }), onUse: { ...u, targets: "self", excludeSelf: null, challenge: null, apply: [{ to: "self", coat: { weapon: "choose", ...(duration && { duration }), challenge: u.challenge } }, ...(u.apply ?? [])] } };
+  const coat = { v: 1, ...(rule.label && { label: rule.label }), onUse: { ...u, targets: "self", excludeSelf: null, challenge: null, apply: [{ to: "self", coat: { weapon: "choose", ...(duration && { duration }), challenge: { ...u.challenge, traits: u.challenge.traits ?? [...new Set([u.challenge.byDegree?.failure?.[0]?.affliction?.def?.kind, "injury"].filter(Boolean))] } } }, ...(u.apply ?? [])] } };
   const v = validateRule({ ...rule, ...coat });
   return v.ok ? v.rule : null;
 }

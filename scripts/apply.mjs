@@ -313,7 +313,7 @@ function alliesIn(actor, token, range, rel = "isAllyOf", withSelf = false) {   /
 
 /** Набор roll options для `when` (как getRollOptions у pf2e-automations): опции броска и origin сообщения + outcome + цель (target:*) + опции автора и предмета. */
 async function whenOptions({ use, message, selfActor, targetDoc, originItem, degree, rollOptions }) {
-  const set = new Set([...(rollOptions ?? []), ...(message.flags?.pf2e?.origin?.rollOptions ?? [])]);
+  const set = new Set([...(rollOptions ?? []), ...(use.rollOptions ?? []), ...(message.flags?.pf2e?.origin?.rollOptions ?? [])]);   // use.rollOptions — сообщение активации (без origin)
   if (degree != null) set.add(`outcome:${DEGREES[degree]}`);
   const first = inRange(use.targets)[0]?.uuid;
   const t = actorOf(targetDoc ?? (first ? await fromUuid(first) : null));
@@ -466,6 +466,9 @@ export async function picksFromOps(ops = []) {
   return picks;
 }
 
+/** Ранг сотворения для шагов: origin.castRank, у сообщения активации (без origin) — activation.rank из метки, затем ранг/уровень предмета. */
+export const useRank = (message, originItem) => message.flags?.pf2e?.origin?.castRank ?? message.flags?.["pf2e-automato"]?.activation?.rank ?? originItem?.rank ?? originItem?.level ?? 1;
+
 /**
  * Применить шаги Apply[] к цели/автору и записать state.*.applied.
  * ctx: { scope: "challenge"|"apply"|"derived", degree?, total?, stepKey?, target?: TokenDocument, originActor?, originToken?, originItem?, rollOptions?, region? }
@@ -479,14 +482,14 @@ export async function applyOps(message, tokenKey, steps, ctx = {}) {
   const originToken = ctx.originToken ?? (use.token ? await fromUuid(use.token) : null);
   // актёр токена: у несвязанного токена это синтетический актёр, и pf2e сверяет автора срока с combatant.actor именно с ним
   const selfActor = ctx.originActor ?? originToken?.actor ?? actorOf(await fromUuid(use.actor));
-  const originItem = ctx.originItem ?? (use.item?.uuid ? await fromUuid(use.item.uuid) : null) ?? (message.flags?.[MOD]?.cast ? message.item : null);   // эфемерное заклинание активации по uuid не найти
+  const originItem = ctx.originItem ?? (use.item?.uuid ? await fromUuid(use.item.uuid) : null) ?? ((message.flags?.[MOD]?.activation ?? message.flags?.[MOD]?.cast) ? message.item : null);   // эфемерное заклинание активации по uuid не найти
   const ectx = { originActor: selfActor, originToken, originItem, rollOptions: ctx.rollOptions,
     roll: ctx.degree != null && Number.isFinite(ctx.total) ? { total: ctx.total, degreeOfSuccess: ctx.degree } : null,
     castRank: originItem?.type === "spell" ? (message.flags?.pf2e?.origin?.castRank ?? originItem.rank ?? null) : null,
     chooser: chooserOf(message, selfActor) ?? (message.author ? null : ownerPlayer(selfActor)) };
   const traits = originItem?.system?.traits?.value ?? [];
   // переменные формул: круг (при сотворении — поднятый), уровень предмета (у заклинания это круг), уровень автора
-  const rank = message.flags?.pf2e?.origin?.castRank ?? originItem?.rank ?? originItem?.level ?? 1;
+  const rank = useRank(message, originItem);
   const persVars = { rank, level: originItem?.type === "spell" ? rank : originItem?.level ?? rank, actorLevel: selfActor?.level ?? 1 };
   const myDisp = originToken?.disposition ?? 1;
   const ops = [];

@@ -38,6 +38,47 @@ const windowOpen = (e, per, now) => !!e?.at && (per.unit === "rounds" ? !!e.at.c
 export const usesLeft = (e, per, now) => (per ? (windowOpen(e, per, now) ? Math.max(0, (per.uses ?? 1) - e.log.length) : per.uses ?? 1) : null);
 /** Запись счётчика после использования: окно закрылось — начинается новое. */
 export const withUse = (e, per, now, id) => (windowOpen(e, per, now) ? { at: e.at, log: [...e.log, id] } : { at: now, log: [id] });
+/** Ранг записи: число | {half:"actor"|"item", min} — половина уровня владельца (вниз, не ниже min) или предмета. Нет ранга — undefined. */
+export function rankOf(rank, { actorLevel, itemLevel }) {
+  if (rank == null || typeof rank === "number") return rank ?? undefined;
+  const level = Number(rank.half === "item" ? itemLevel : actorLevel) || 0;
+  return Math.min(10, Math.max(rank.min ?? 1, Math.floor(level / 2)));
+}
+
+/** Запись после выбора варианта: поля варианта поверх записи (per/requires/id — записи), choice = id варианта; нет такого варианта — null. */
+export function entryOf(c, choiceId) {
+  if (!c.choices) return c;
+  const v = c.choices.find((x) => x.id === choiceId);
+  if (!v) return null;
+  const { choices, ...base } = c;
+  return { ...base, ...v, id: c.id, choice: v.id, label: v.label ?? base.label };
+}
+/** Ключ записи заклинателя у варианта выбора — «активация.вариант» (в slug точки нет); счётчик частоты — по id записи. */
+export const locId = (c) => (c.choice ? `${c.id}.${c.choice}` : c.id);
+
+/** СЛ шагов активации (onUse.challenge.dc): число в шаге -> СЛ записи (info.dc) -> СЛ по уровню предмета. */
+export const activationDc = (onUse, info, itemLevel) => onUse?.challenge?.dc?.value ?? info?.dc ?? levelDc(itemLevel);
+
+/**
+ * Текст Effect активации с @Template для сообщения активации (Horn of Blasting): блок от «Activate» до следующего «Activate» с шаблоном, хвост обрезан по заголовкам разделов.
+ * Блок выбирается по метке записи в его заголовке (первый абзац с «Activate»), иначе по порядку (nth) среди блоков с шаблоном. Шаблона нет — пустая строка.
+ */
+export function effectText(html, label, nth = 0) {
+  const tail = /<h[1-6][\s>]|<p>\s*<strong>\s*(?:Craft Requirements|Destruction|Автоматизация|Требования к созданию|Уничтожение)/i;
+  const hit = String(html ?? "").split(/(?=<p>\s*<strong>\s*(?:Activate|Активаци|Активиров))/i).filter((b) => /^<p>\s*<strong>\s*(?:Activate|Активаци|Активиров)/i.test(b) && /@Template\[/.test(b.split(tail)[0]));
+  const l = String(label ?? "").trim().toLowerCase(), head = (b) => b.slice(0, b.indexOf("</p>")).toLowerCase();
+  const pick = (l && hit.find((b) => head(b).includes(l))) || hit[nth] || hit[0];
+  return pick ? pick.split(tail)[0] : "";
+}
+
+/** Что делать со счётчиком при удалении сообщения: {item, id, next} или null. Метка activation (useId общий у карточки заклинания и сообщения активации), старая — cast. */
+export function giveBackPlan(flags, messageId, entry) {
+  const a = flags?.activation ?? flags?.cast;
+  if (!a?.item) return null;   // cast у variable-cast — только {actions}
+  const next = withoutUse(entry, a.useId ?? messageId);
+  return next === entry ? null : { item: a.item, id: a.id, next };
+}
+
 /** Запись после удаления карточки: без её использования; пусто -> null (флаг снимается). Неизвестная карточка — запись как была. */
 export function withoutUse(e, id) {
   if (!e?.log?.includes(id)) return e;
@@ -68,18 +109,24 @@ const bestEntry = (actor) => actor.spellcasting?.filter((e) => !!e.statistic).re
  * Порядок СЛ активации: текст правила -> СЛ по уровню предмета (запись владельца СЛ предмета не заменяет: у мага низкого уровня она была бы ниже, у воина записи нет).
  * Исключение — кантрип спеллхарта: своя запись владельца, если её СЛ выше (правило спеллхартов). -> {kind: "high" | "owner" | "level" | "text", dc?}
  */
-export function pickDc(c, { itemLevel, heartCantrip = false, bestDc = null }) {
+export function pickDc(c, { itemLevel, heartCantrip = false, bestDc = null, classDc = null }) {
   if (c.dc?.level) return { kind: "high" };
+  if (c.dc?.against) {   // {against:"class-spell"}: лучшая из классовой СЛ и СЛ заклинаний владельца; обеих нет — СЛ предмета
+    const dc = Math.max(bestDc ?? 0, classDc ?? 0);
+    return dc ? { kind: "class", dc } : { kind: "level", dc: levelDc(itemLevel) };
+  }
   const dc = c.dc ?? levelDc(itemLevel);
   return heartCantrip && bestDc != null && bestDc > dc ? { kind: "owner" } : { kind: c.dc == null ? "level" : "text", dc };
 }
 
+// «class-spell» pf2e: лучшая из классовых СЛ и СЛ заклинаний персонажа; нет — null
+const classDcOf = (actor) => { try { return actor.getStatistic?.("class-spell")?.dc?.value ?? null; } catch { return null; } };
 // кантрип ли заклинание: по индексу пака (поле traits запрашивает ready()); индекса нет — не кантрип (СЛ предмета, не завышаем)
 const isCantrip = (uuid) => { try { return !!fromUuidSync(uuid)?.system?.traits?.value?.includes("cantrip"); } catch { return false; } };
 
 function buildEntry(actor, id, c, item) {
   const best = bestEntry(actor), high = !!c.dc?.level;
-  const pick = pickDc(c, { itemLevel: item?.level, heartCantrip: !!item?.system?.traits?.value?.includes("spellheart") && isCantrip(c.spell), bestDc: best?.statistic.dc.value });
+  const pick = pickDc(c, { itemLevel: item?.level, heartCantrip: !!item?.system?.traits?.value?.includes("spellheart") && isCantrip(c.spell), bestDc: best?.statistic.dc.value, classDc: classDcOf(actor) });
   const byLevel = pick.kind === "level", dc = high ? highDc(actor.level) : pick.dc ?? null;
   const common = { id, byLevel, name: L("cast.entry"), actor, category: "items", sort: 0, spells: null, isEphemeral: true, isFlexible: false, isFocusPool: false, canCast: () => true };
   if (pick.kind === "owner") return { ...common, original: best, statistic: best.statistic, tradition: best.tradition, attribute: best.attribute, get counteraction() { return best.counteraction; } };
@@ -99,7 +146,7 @@ function buildEntry(actor, id, c, item) {
 // Запись живёт, пока жив подготовленный актёр: Statistic держит синтетики на момент создания (actor.synthetics пересоздаётся при prepareData)
 const cache = new WeakMap();
 function entryFor(actor, item, c) {
-  const id = entryId(item, c.id);
+  const id = entryId(item, locId(c));
   let rec = cache.get(actor);
   if (rec?.sig !== actor.synthetics) cache.set(actor, rec = { sig: actor.synthetics, map: new Map() });
   if (!rec.map.has(id)) rec.map.set(id, buildEntry(actor, id, c, item));
@@ -123,7 +170,8 @@ function install() {
     if (!m) return orig.call(this, id);
     const rec = cache.get(this.actor);
     if (rec?.sig === this.actor?.synthetics && rec.map.get(id)) return rec.map.get(id);   // запись уже есть — правило не разбираем заново
-    const item = itemOf(this.actor, m[1]), c = item && rules.activateOf(rules.resolveRule(item)?.rule)?.find((x) => x.id === m[2]);
+    const [aid, cid] = m[2].split("."), item = itemOf(this.actor, m[1]), act = item && rules.activateOf(rules.resolveRule(item)?.rule)?.find((x) => x.id === aid);
+    const c = act && cid ? entryOf(act, cid) : act;
     return (c && entryFor(this.actor, item, c)) || orig.call(this, id);
   };
   installed = true;
@@ -143,36 +191,99 @@ function missingSpell(uuid) {
 /** Состояние одной активации: {why: noSpell | не выполненное требование | null, left, dc (число|null), byLevel}. */
 export function castInfo(item, c) {
   const actor = item?.actor;
+  const own = !c.spell && actor ? plainDc(c, item, actor) : null;   // активация без заклинания: СЛ записи без записи заклинателя
   return {
-    why: (missingSpell(c.spell) ? "noSpell" : null) ?? requirementOf(item, c.requires),
+    why: (c.spell && missingSpell(c.spell) ? "noSpell" : null) ?? requirementOf(item, c.requires),
     left: tracksUses(item, c.per) ? usesLeft(usesOf(item, c.id), c.per, clock()) : null,
-    dc: (actor && entryFor(actor, item, c)?.statistic.dc.value) ?? null,
-    byLevel: !!(actor && entryFor(actor, item, c)?.byLevel)
+    dc: own ? own.dc : (c.spell && actor && entryFor(actor, item, c)?.statistic.dc.value) ?? null,
+    byLevel: own ? own.byLevel : !!(c.spell && actor && entryFor(actor, item, c)?.byLevel),
+    rank: rankOf(c.rank, { actorLevel: actor?.level, itemLevel: item?.level })
   };
 }
 
-/** Нажатие кнопки: эфемерное заклинание -> карточка с флагом cast -> счётчик частоты (после сотворения). {ok, reason?} */
-export async function castItem(item, id) {
-  const actor = item?.actor, c = item && rules.activateOf(rules.resolveRule(item)?.rule)?.find((x) => x.id === id);
-  // вывод из разметки (low) исполняет только ведущий: честность вывода не проверена
-  if (!actor?.isOwner || !c || (rules.resolveRule(item).confidence === "low" && !game.user.isGM)) return { ok: false, reason: "forbidden" };
-  const warn = (key) => { ui.notifications.warn(L(key)); return { ok: false, reason: key }; };
-  const info = castInfo(item, c), spell = await fromUuid(c.spell);
-  if (info.why) return warn(`cast.why.${info.why}`);
-  if (spell?.type !== "spell") return warn("cast.why.noSpell");
-  if (info.dc == null) return warn("cast.noCaster");
-  if (info.left === 0 && !await foundry.applications.api.DialogV2.confirm({ window: { title: L("cast.againTitle") }, classes: ["paf-dialog"], content: `<p>${foundry.utils.escapeHTML(L("cast.again", { name: spell.name }))}</p>`, rejectClose: false })) return { ok: true, skipped: true };
+// СЛ записи без заклинания: число | NPC high | class-spell | СЛ по уровню предмета
+function plainDc(c, item, actor) {
+  const pick = pickDc(c, { itemLevel: item?.level, bestDc: bestEntry(actor)?.statistic.dc.value, classDc: classDcOf(actor) });
+  return { dc: pick.kind === "high" ? highDc(actor.level) : pick.dc, byLevel: pick.kind === "level" };
+}
 
-  const src = rankSource(spell.toObject(), item.level, c.rank, entryId(item, id));
-  const eph = new CONFIG.PF2E.Item.documentClasses.spell(src, { parent: actor, parentItem: item });   // как ConsumablePF2e#embeddedSpell (pf2e:50994)
-  const msg = await eph.toMessage(null, { actualCast: true, create: false });
-  if (!msg) return { ok: false, reason: "no-message" };
-  msg.updateSource({
-    "flags.pf2e.origin.rollOptions": [...(msg.flags.pf2e?.origin?.rollOptions ?? []), "origin:item:cast-by-activation"],
-    [flagPath("cast")]: { item: item.uuid, id, dc: info.dc, rank: eph.rank, ...(info.byLevel && { byLevel: true }) }
-  });
-  const created = await ChatMessage.create(msg.toObject());
-  if (tracksUses(item, c.per) && created) await item.update({ [flagPath("uses", id)]: withUse(usesOf(item, id), c.per, clock(), created.id) });
+const spellName = (uuid) => { try { return uuid ? fromUuidSync(uuid)?.name ?? null : null; } catch { return null; } };
+
+/**
+ * Нажатие кнопки активации (plan-activate §5.2). Порядок: требование и частота -> выбор варианта (диалог ДО любых сообщений, отмена ничего не списывает) ->
+ * число действий переменного заклинания -> карточка заклинания pf2e (если есть spell) -> сообщение использования с шагами onUse (если есть onUse;
+ * шаги исполняет активный ГМ) -> счётчик частоты. У всех сообщений один useId: удаление любого возвращает счётчик ровно раз. {ok, reason?, skipped?}
+ */
+export async function castItem(item, id) {
+  const actor = item?.actor, rec = item && rules.activateOf(rules.resolveRule(item)?.rule)?.find((x) => x.id === id);
+  // вывод из разметки (low) исполняет только ведущий: честность вывода не проверена
+  if (!actor?.isOwner || !rec || (rules.resolveRule(item).confidence === "low" && !game.user.isGM)) return { ok: false, reason: "forbidden" };
+  const warn = (key) => { ui.notifications.warn(L(key)); return { ok: false, reason: key }; };
+  const esc = foundry.utils.escapeHTML, skipped = { ok: true, skipped: true };
+  const base = castInfo(item, rec), title = rec.label ?? spellName(rec.spell) ?? rec.id;
+  if (base.why) return warn(`cast.why.${base.why}`);
+  if (base.left === 0 && !await foundry.applications.api.DialogV2.confirm({ window: { title: L("cast.againTitle") }, classes: ["paf-dialog"], content: `<p>${esc(L("cast.again", { name: title }))}</p>`, rejectClose: false })) return skipped;
+
+  let c = rec;
+  if (rec.choices) {
+    const { askHere } = await import("./builtin/lib.mjs");
+    const res = await askHere(title, `<p>${esc(L("cast.choose", { name: title }))}</p>`, rec.choices.map((v) => ({ id: v.id, label: v.label ?? spellName(v.spell) ?? v.id })));
+    c = res && entryOf(rec, res.action);
+    if (!c) return skipped;   // диалог закрыт — ничего не создано и не списано
+  }
+  const info = c === rec ? base : castInfo(item, c);
+  if (info.why) return warn(`cast.why.${info.why}`);
+  const useId = foundry.utils.randomID(), flag = { item: item.uuid, id: rec.id, ...(c.choice && { choice: c.choice }), useId };
+  const rank = rankOf(c.rank, { actorLevel: actor.level, itemLevel: item.level });
+  const options = [];
+  let card = null, missiles = null;
+
+  if (c.spell) {
+    const spell = await fromUuid(c.spell);
+    if (spell?.type !== "spell") return warn("cast.why.noSpell");
+    if (info.dc == null) return warn("cast.noCaster");
+    // число действий «1 to 3»: спрашиваем здесь, до ChatMessage.create (variable-cast увидит cast.actions и не спросит; флаг awaitingActions не ставится)
+    const { actionChoices, askActions, MISSILE_SLUGS } = await import("./builtin/variable-cast.mjs"), { modeOf } = await import("./settings.mjs");
+    const choices = modeOf("macro") === "off" ? null : actionChoices(spell.system?.time?.value);
+    let actions = 0;
+    if (choices) {
+      actions = Number((await askActions(spell.name, choices).catch(() => null))?.action);
+      if (!choices.includes(actions)) return skipped;
+      options.push(`origin:item:cast:actions:${actions}`);
+    }
+    const src = rankSource(spell.toObject(), item.level, rank, entryId(item, locId(c)));
+    const eph = new CONFIG.PF2E.Item.documentClasses.spell(src, { parent: actor, parentItem: item });   // как ConsumablePF2e#embeddedSpell (pf2e:50994)
+    const msg = await eph.toMessage(null, { actualCast: true, create: false });
+    if (!msg) return { ok: false, reason: "no-message" };
+    flag.rank = eph.rank;   // ранг сотворения: сообщение активации не несёт origin.castRank, applyOps берёт ранг отсюда
+    msg.updateSource({
+      "flags.pf2e.origin.rollOptions": [...(msg.flags.pf2e?.origin?.rollOptions ?? []), "origin:item:cast-by-activation", ...options],
+      [flagPath("activation")]: { ...flag, dc: info.dc, rank: eph.rank, ...(info.byLevel && { byLevel: true }) },
+      ...(actions && { [flagPath("cast")]: { actions } })
+    });
+    card = await ChatMessage.create(msg.toObject());
+    if (!card) return { ok: false, reason: "no-message" };   // preCreateChatMessage отменил: добавку не создаём, частоту не списываем
+    missiles = actions && MISSILE_SLUGS.has(spell.slug) ? { spell: eph, actions } : null;   // eph: у заклинания из компендиума нет владельца — rollDamage молча не бросит
+    options.unshift("origin:item:cast-by-activation");
+  }
+
+  if (c.onUse) {
+    const use = await import("./use.mjs"), resolved = rules.resolveRule(item);
+    const areas = rules.activateOf(resolved.rule).filter((x) => (x.id === rec.id ? c : x).onUse?.targets === "area");
+    const text = c.onUse.targets === "area" ? effectText(item.system?.description?.value, c.label, areas.findIndex((x) => x.id === rec.id)) : "";   // шаблон области бросают из этого сообщения
+    const speaker = ChatMessage.getSpeaker({ actor });
+    // сбой здесь оставляет карточку заклинания без добавки, счётчик не списан (повторное нажатие повторит каст)
+    await ChatMessage.create({
+      speaker,
+      ...use.activationUse({
+        item, resolved, onUse: c.onUse, dc: activationDc(c.onUse, info, item.level), activation: flag, rollOptions: options,
+        targets: use.liveTargets(c.onUse, speaker, item), actor: actor.uuid, token: use.speakerToken(speaker)?.uuid ?? null,
+        content: `<p><strong>${esc(item.name)}</strong>: ${esc(c.label ?? title)}</p>${text}`
+      })
+    });
+  }
+  if (tracksUses(item, rec.per)) await item.update({ [flagPath("uses", rec.id)]: withUse(usesOf(item, rec.id), rec.per, clock(), useId) });
+  if (missiles && card) { const { rollMissiles } = await import("./builtin/variable-cast.mjs"); await rollMissiles(card, missiles.spell, missiles.actions); }   // cast.actions записан заранее — variable-cast сам снаряды не бросит
   return { ok: true };
 }
 
@@ -188,11 +299,11 @@ async function resetUses(actor) {
 
 /** Карточка активации удалена — использование возвращается (у того клиента, что её удалил). */
 async function giveBack(message, options, userId) {
-  const c = message.flags?.[MOD]?.cast;
-  if (!c || userId !== game.user.id || options?.deleteAll) return;   // очистка лога — не отмена сотворения
-  const item = await fromUuid(c.item), e = usesOf(item, c.id), next = withoutUse(e, message.id);
-  if (!item || next === e) return;
-  await item.update(next ? { [flagPath("uses", c.id)]: next } : unset(item, flagPath("uses", c.id)));
+  const f = message.flags?.[MOD], a = f?.activation ?? f?.cast;
+  if (!a?.item || userId !== game.user.id || options?.deleteAll) return;   // очистка лога — не отмена сотворения
+  const item = await fromUuid(a.item), plan = item && giveBackPlan(f, message.id, usesOf(item, a.id));
+  if (!plan) return;
+  await item.update(plan.next ? { [flagPath("uses", a.id)]: plan.next } : unset(item, flagPath("uses", a.id)));
 }
 
 export function init() {

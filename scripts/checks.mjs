@@ -170,7 +170,7 @@ export async function applyImmunity(message, tokenKey, token, imm, degree) {
   const key = `${message.id}:${tokenKey}:imm`;
   let item;
   if (imm.uuid) {
-    const originItem = (use.item?.uuid ? await safeUuid(use.item.uuid) : null) ?? (message.flags?.[MOD]?.cast ? message.item : null);
+    const originItem = (use.item?.uuid ? await safeUuid(use.item.uuid) : null) ?? ((message.flags?.[MOD]?.activation ?? message.flags?.[MOD]?.cast) ? message.item : null);
     const r = await applyEffect(tActor, { uuid: imm.uuid }, { key, source: "challenge", message: message.id, origin: use.item?.uuid ?? null, by: author.uuid },
       { originActor: author, originToken: use.token ? await safeUuid(use.token) : null, originItem, target: token });
     item = r.item;

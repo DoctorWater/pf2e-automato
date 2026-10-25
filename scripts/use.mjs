@@ -54,7 +54,7 @@ export function buildSnapshot(i) {
   const state = {};
   if (i.yielded) state.yielded = i.yielded;
   // расходник с областью: актом использования станет регион из карточки (§3.A-6)
-  if (i.kind === "use" && i.consume && rule.onUse?.targets === "area") state.awaitingRegion = true;
+  if (i.kind === "use" && (i.consume || i.activation) && rule.onUse?.targets === "area") state.awaitingRegion = true;   // активация: шаблон — из текста Effect в сообщении активации
   // переменное заклинание: исполнение ждёт число действий, его пишет и флаг снимает variable-cast (state.awaitingActions), продолжает updateChatMessage
   if (i.kind === "use" && i.awaitingActions && !i.yielded) state.awaitingActions = true;
   return {
@@ -62,7 +62,8 @@ export function buildSnapshot(i) {
     ...(((i.resolved.hints?.possible?.length ?? 0) + (i.resolved.hints?.excluded?.length ?? 0)) && { hints: { possible: i.resolved.hints.possible ?? [], excluded: i.resolved.hints.excluded ?? [] } }),   // подсказки разметки (только ГМу в чате)
     slug: i.resolved.slug ?? null, sourceUuid: i.resolved.sourceUuid ?? null,
     item: i.item, actor: i.actor ?? null, token: i.token ?? null,
-    dc: i.dc ?? null, createdAt: i.now, targets: i.targets ?? [], state
+    dc: i.dc ?? null, createdAt: i.now, targets: i.targets ?? [], state,
+    ...(i.rollOptions?.length && { rollOptions: i.rollOptions })
   };
 }
 
@@ -110,19 +111,11 @@ function onPreCreateMessage(message, data, options, userId) {
   if (!resolved || !wantsSnapshot(kind, resolved.rule)) return;
 
   const sp = message.speaker ?? {};
-  const tokenDoc = sp.scene && sp.token ? game.scenes.get(sp.scene)?.tokens.get(sp.token) : null;
+  const tokenDoc = speakerToken(sp);
   const actor = origin.actor ?? tokenDoc?.actor?.uuid ?? (sp.actor ? game.actors.get(sp.actor)?.uuid : null);
-  const targets = [...(game.user.targets ?? [])].map((t) => t.document ?? t).map((d) => ({
-    key: d.id, uuid: d.uuid, name: d.name, pc: !!d.actor?.hasPlayerOwner
-  }));
-  const onUse = resolved.rule.onUse;
-  if (onUse?.targets !== "area" && targets.length && (onUse?.challenge || onUse?.check || onUse?.apply?.some((a) => a.to === "target"))) {
-    const far = markFar(targets, tokenDoc?.object, itemRange(item, [...(origin.rollOptions ?? []), ...casterOptions(item?.actor ?? tokenDoc?.actor)])).filter((t) => t.far);
-    for (const t of far) targets.find((x) => x.key === t.key).far = t.far;
-    if (far.length) ui.notifications?.warn(far.map((t) => L("chat.outOfRange", { name: t.name, d: t.far.d, r: t.far.r })).join(" "));
-  }
+  const targets = liveTargets(resolved.rule.onUse, sp, item, origin.rollOptions);
   const chDc = resolved.rule.onUse?.challenge?.dc;
-  let dc = message.flags?.[MOD]?.cast?.dc ?? chDc?.value ?? null;   // СЛ активации (cast.mjs) приоритетнее СЛ правила заклинания
+  let dc = (message.flags?.[MOD]?.activation ?? message.flags?.[MOD]?.cast)?.dc ?? chDc?.value ?? null;   // СЛ активации (cast.mjs) приоритетнее СЛ правила заклинания
   if (dc == null && !resolved.rule.onUse?.check && (!chDc || chDc.source === "spell")) {   // СЛ заклинателя — только если правило её и просит (K7 п.7)
     try { dc = item?.spellcasting?.statistic?.withRollOptions?.({ item })?.dc?.value ?? null; } catch { dc = null; }
   }
@@ -134,6 +127,37 @@ function onPreCreateMessage(message, data, options, userId) {
     actor, token: tokenDoc?.uuid ?? null
   });
   message.updateSource({ [flagPath("use")]: snapshot });
+}
+
+/** Токен автора сообщения по speaker. */
+export const speakerToken = (sp) => (sp?.scene && sp.token ? game.scenes.get(sp.scene)?.tokens.get(sp.token) : null);
+
+/** Цели нажавшего в снимок; для шагов по цели вне дальности — пометка far и предупреждение (область цели не берёт). */
+export function liveTargets(onUse, sp, item, rollOptions = []) {
+  const tokenDoc = speakerToken(sp);
+  const targets = [...(game.user.targets ?? [])].map((t) => t.document ?? t).map((d) => ({
+    key: d.id, uuid: d.uuid, name: d.name, pc: !!d.actor?.hasPlayerOwner
+  }));
+  if (onUse?.targets !== "area" && targets.length && (onUse?.challenge || onUse?.check || onUse?.apply?.some((a) => a.to === "target"))) {
+    const far = markFar(targets, tokenDoc?.object, itemRange(item, [...(rollOptions ?? []), ...casterOptions(item?.actor ?? tokenDoc?.actor)])).filter((t) => t.far);
+    for (const t of far) targets.find((x) => x.key === t.key).far = t.far;
+    if (far.length) ui.notifications?.warn(far.map((t) => L("chat.outOfRange", { name: t.name, d: t.far.d, r: t.far.r })).join(" "));
+  }
+  return targets;
+}
+
+/**
+ * Сообщение использования активации: снимок kind "use" с производным правилом {v, onUse}; flags.pf2e.origin нет (его приняли бы за сотворение заклинания),
+ * вместо него метка activation = {item, id, choice?, useId}. rollOptions снимка идут в `when` шагов. СЛ уже посчитана (onPreCreateMessage для него пропускается: hasSnapshot).
+ * -> данные ChatMessage без speaker.
+ */
+export function activationUse({ item, resolved, onUse, dc, targets, rollOptions = [], activation, actor, token, content, now = Date.now() }) {
+  const snapshot = buildSnapshot({
+    kind: "use", activation: true, dc, targets, now, rollOptions, actor, token,
+    resolved: { rule: { v: resolved?.rule?.v ?? 1, onUse }, source: resolved?.source, confidence: resolved?.confidence, slug: resolved?.slug, sourceUuid: resolved?.sourceUuid },
+    item: { uuid: item.uuid, name: item.name, type: item.type, sourceId: resolved?.sourceUuid ?? null }
+  });
+  return { content, flags: { [MOD]: { use: snapshot, activation } } };
 }
 
 /** Опции актёра для дальности: метамагия (`spellshape:*`, не feat:reach-spell — это наличие черты) без потраченной на прошлое сотворение,

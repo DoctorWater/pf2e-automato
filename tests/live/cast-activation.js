@@ -171,7 +171,7 @@ async () => {
       const t0 = e.since(), b = e.btn(m, castId);
       if (!b) throw new Error(`нет кнопки ${castId ?? ""} на карточке`);
       b.click();
-      return waitFor(() => e.msgs(t0).find((x) => x.flags?.[MOD]?.cast && x.flags?.[MOD]?.cast?.id === (castId ?? x.flags[MOD].cast.id)), ms);
+      return waitFor(() => e.msgs(t0).find((x) => x.flags?.[MOD]?.activation && x.flags?.[MOD]?.activation?.id === (castId ?? x.flags[MOD].activation.id)), ms);
     };
     e.dispose = async () => {
       e.dead = true; e.stop = true;
@@ -192,7 +192,7 @@ async () => {
   const sc = (id, title, run) => S.push({ id, title, run });
   const openChat = () => { try { ui.sidebar?.changeTab?.("chat", "primary"); } catch { /* ok */ } };
   const needMode = (k, ...bad) => { if (bad.includes(setting(k))) throw new Skip(`настройка ${k} = ${setting(k)}`); };
-  const flagOf = (m) => game.messages.get(m?.id)?.flags?.[MOD]?.cast;
+  const flagOf = (m) => game.messages.get(m?.id)?.flags?.[MOD]?.activation;
   /** PC (500,500) и NPC-цель (600,500); предмет с правилом cast у PC; карточка предмета. */
   const stage = async (e, slug, cast, { pcItems = [], patch } = {}) => {
     openChat(); needMode("mode.challenge", "off"); needMode("mode.apply", "off", "button");

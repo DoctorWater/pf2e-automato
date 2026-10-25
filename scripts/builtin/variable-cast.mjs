@@ -36,7 +36,7 @@ export function scaleFormula(formula, n) {
   return Array(n).fill(f).join(" + ");
 }
 
-const askActions = (name, choices) => askHere(name, `<p>${L("builtin.cast.prompt", { name: esc(name) })}</p>`, choices.map((n) => ({ id: String(n), label: L(`builtin.cast.act.${n}`) })));
+export const askActions = (name, choices) => askHere(name, `<p>${L("builtin.cast.prompt", { name: esc(name) })}</p>`, choices.map((n) => ({ id: String(n), label: L(`builtin.cast.act.${n}`) })));
 
 async function askSplit(name, targets, total) {
   let counts = evenSplit(total, targets.length);
@@ -110,7 +110,7 @@ async function missileTargets(message) {
   return docs.filter((d) => d?.actor);
 }
 
-async function rollMissiles(message, spell, actions) {
+export async function rollMissiles(message, spell, actions) {
   const castRank = message.flags?.pf2e?.origin?.castRank ?? spell.rank;
   const total = missileCount(actions, castRank, spell.baseRank ?? 1);
   const all = await missileTargets(message);

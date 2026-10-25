@@ -2,7 +2,7 @@
 // Модель мастера -> source мирового Item pf2e (расходник/снаряжение/оружие/действие/черта) + правило автоматизации во флаге.
 // Поля сверены с pf2e 8.6.1: template.json (consumable/equipment/weapon), AbilitySystemData и FeatSystemData (action/feat).
 import { MOD, errText, sluggify } from "../util.mjs";
-import { validateRule } from "../rules.mjs";
+import { validateRule, dupActivate } from "../rules.mjs";
 import * as fx from "./effect.mjs";
 
 export const TYPES = ["consumable", "equipment", "weapon", "action", "feat"];
@@ -174,7 +174,7 @@ export function validate(m, ctx) {
     });
   }
   const raw = ruleOf(m);
-  if (raw) { const v = validateRule(raw); if (!v.ok) err("rule", { error: errText(v.errors[0]) }); }
+  if (raw) { const v = validateRule(raw), dup = dupActivate(raw); if (dup || !v.ok) err("rule", { error: errText(dup ?? v.errors[0]) }); }
   return out;
 }
 

@@ -204,8 +204,8 @@ export function ruleToForm(rule) {
   const dc = c?.dc ?? {};
   return {
     label: rule?.label ?? "", yield: tri(rule?.yield),
-    kind: u ? "onUse" : r ? "onAttacked" : rule?.onEvent?.length ? "onEvent" : rule?.cast?.length ? "cast" : "none",
-    ev: (rule?.onEvent ?? []).map(evForm), cast: (rule?.cast ?? []).map(castForm),
+    kind: u ? "onUse" : r ? "onAttacked" : rule?.onEvent?.length ? "onEvent" : rule?.activate?.length ? "cast" : "none",
+    ev: (rule?.onEvent ?? []).map(evForm), cast: (rule?.activate ?? []).map(castForm),
     targets: u?.targets ?? "self", excludeSelf: tri(u?.excludeSelf),
     zone: { on: !!z, cond: z?.condition?.slug ?? "", condValue: z?.condition?.value ?? "", effect: z?.effect?.uuid ?? "", seconds: z?.duration?.seconds ?? "", rounds: z?.duration?.rounds ?? "", noFollow: z?.follow === false, enterBy: z?.enterBy ?? "end", gone: z?.onCarrierGone ?? "close", trig: (z?.triggers ?? []).map(trgForm) },
     ch: {
@@ -280,7 +280,7 @@ export function formToRule(f) {
     };
   }
   if (f.ev?.length) rule.onEvent = f.ev.map(evRule);   // события живут рядом с любым видом правила
-  if (f.cast?.length) rule.cast = f.cast.map(castRule);   // и активации тоже
+  if (f.cast?.length) rule.activate = f.cast.map(castRule);   // и активации тоже
   rule.macros = (f.macros ?? []).filter((m) => String(m.uuid ?? "").trim())
     .map((m) => ({ ...(m.form === "builtin" && m.uuid.trim().startsWith("builtin:") ? { builtin: m.uuid.trim().slice(8) } : { uuid: m.uuid.trim() }), phase: m.phase, ...(m.phase === "onDegree" && m.degree && { degree: m.degree }) }));
   return rule;
@@ -309,7 +309,7 @@ export function ruleUuids(rule) {
   const evs = (rule.onEvent ?? []).flatMap((e) => [...(e.apply ?? []), ...DEGREES.flatMap((d) => e.challenge?.byDegree?.[d] ?? [])]);
   const trgs = (z?.triggers ?? []).flatMap((t) => [...(t.apply ?? []), ...DEGREES.flatMap((d) => t.challenge?.byDegree?.[d] ?? [])]);
   const steps = [...(u?.apply ?? []), ...DEGREES.flatMap((d) => [...(ch?.byDegree?.[d] ?? []), ...(ck?.byDegree?.[d] ?? [])]), ...evs, ...trgs];
-  return [...new Set([...steps.flatMap((a) => [a.effect?.uuid, a.removeEffect?.uuid]), ...(rule.cast ?? []).map((c) => c.spell), z?.effect?.uuid, ch?.immunity?.uuid, ck?.immunity?.uuid, ...(z?.triggers ?? []).map((t) => t.challenge?.immunity?.uuid), ...(rule.onEvent ?? []).map((e) => e.challenge?.immunity?.uuid), ...(rule.macros ?? []).map((m) => m.uuid)].filter((u) => u && !u.startsWith("builtin:")))];
+  return [...new Set([...steps.flatMap((a) => [a.effect?.uuid, a.removeEffect?.uuid]), ...(rule.activate ?? []).map((c) => c.spell), z?.effect?.uuid, ch?.immunity?.uuid, ck?.immunity?.uuid, ...(z?.triggers ?? []).map((t) => t.challenge?.immunity?.uuid), ...(rule.onEvent ?? []).map((e) => e.challenge?.immunity?.uuid), ...(rule.macros ?? []).map((m) => m.uuid)].filter((u) => u && !u.startsWith("builtin:")))];
 }
 
 const signed = (n) => (n >= 0 ? `+${n}` : String(n));
@@ -335,7 +335,7 @@ export function buildReport(rule, tokens, env) {
   if (ch?.immunity?.uuid) uuidCheck(ch.immunity.uuid);
   if (ck?.immunity?.uuid) uuidCheck(ck.immunity.uuid);
   for (const m of rule.macros ?? []) if (m.uuid && !m.uuid.startsWith("builtin:")) uuidCheck(m.uuid);   // builtin:<id> — встроенный обработчик, не UUID
-  for (const c of rule.cast ?? []) uuidCheck(c.spell);
+  for (const c of rule.activate ?? []) uuidCheck(c.spell);
 
   const authorStat = ck && env.author ? pickStatistic(env.author, ck.statistic) : null;
   if (ck && !env.author) problems.add(t("sheet.test.noOwner"));
@@ -360,7 +360,7 @@ export function buildReport(rule, tokens, env) {
     }
     return { name, lines, problems: tp };
   });
-  const cast = (rule.cast ?? []).map((c, i) => t("sheet.test.cast", { name: env.uuidName(c.spell) ?? c.spell, rank: c.rank ?? "—", dc: env.cast?.[i]?.dc ?? "?" }));   // активации без сотворения: что и с какой СЛ получится
+  const cast = (rule.activate ?? []).map((c, i) => t("sheet.test.cast", { name: env.uuidName(c.spell) ?? c.spell, rank: c.rank ?? "—", dc: env.cast?.[i]?.dc ?? "?" }));   // активации без сотворения: что и с какой СЛ получится
   return { problems: [...problems], apply: (u?.apply ?? []).map(step), cast, tokens: out };
 }
 
@@ -406,7 +406,7 @@ export async function reportEnv(item, rule, names = null) {
   const author = item.actor ?? null;
   const dc = rule.onUse?.challenge ? await resolveDC({ rule }, { item, actor: author }).catch(() => null) : null;
   const known = (slug) => !!CONFIG.PF2E.conditionTypes?.[slug];
-  const cast = (rule.cast ?? []).map((c) => { const info = castInfo(item, c); return { dc: info.dc ?? (typeof c.dc === "number" ? c.dc : null) }; });
+  const cast = (rule.activate ?? []).map((c) => { const info = castInfo(item, c); return { dc: info.dc ?? (typeof c.dc === "number" ? c.dc : null) }; });
   // fromUuidSync бросает на вложенных UUID компендиев — разрешаем заранее асинхронно
   names ??= Object.fromEntries(await Promise.all(ruleUuids(rule).map(async (u) => [u, (await safeUuid(u))?.name ?? null])));
   return {
@@ -420,7 +420,7 @@ export async function reportEnv(item, rule, names = null) {
 /** Пробный запуск формы на целях/выделенных токенах: только чтение, диалог с отчётом. */
 async function testRun(item, rule) {
   const tokens = pickedTokens();
-  if (!tokens.length && !rule.cast?.length) return ui.notifications.warn(L("sheet.test.noTokens"));
+  if (!tokens.length && !rule.activate?.length) return ui.notifications.warn(L("sheet.test.noTokens"));
   const rep = buildReport(rule, tokens, await reportEnv(item, rule));
   const esc = foundry.utils.escapeHTML, ul = (a) => `<ul>${a.map((x) => `<li>${esc(x)}</li>`).join("")}</ul>`;
   const content = [

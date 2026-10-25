@@ -21,17 +21,17 @@ const errs = (cast) => validateRule(rule(cast)).errors.map((e) => e.toString());
 test("cast: правило из одних активаций валидно, id по умолчанию — slug метки или заклинания (стабилен при правке списка), пустой список — поля нет", () => {
   const v = validateRule(rule([{ spell: ARC }, { spell: ARC, id: "again" }]));
   assert.ok(v.ok);
-  assert.deepEqual(v.rule.cast.map((c) => c.id), ["kbhapuzlusws6vvf", "again"]);
+  assert.deepEqual(v.rule.activate.map((c) => c.id), ["kbhapuzlusws6vvf", "again"]);
   // п.10: id не сдвигается при вставке перед ним; повтор того же заклинания получает номер; метка важнее хвоста UUID
-  assert.deepEqual(validateRule(rule([{ spell: ARC, label: "Electric Arc" }, { spell: ARC }, { spell: ARC }])).rule.cast.map((c) => c.id), ["electric-arc", "kbhapuzlusws6vvf", "kbhapuzlusws6vvf-3"]);
-  assert.equal(validateRule(rule([{ spell: "Compendium.x.Item.zzz" }, { spell: ARC }])).rule.cast[1].id, "kbhapuzlusws6vvf");
-  assert.equal(validateRule(rule([{ spell: ARC, label: "Дуга" }])).rule.cast[0].id, "kbhapuzlusws6vvf");   // кириллическая метка — хвост UUID
-  assert.equal(validateRule({ v: 1, onUse: { targets: "self", apply: [{ condition: { slug: "prone" } }] }, cast: [] }).rule.cast, undefined);
+  assert.deepEqual(validateRule(rule([{ spell: ARC, label: "Electric Arc" }, { spell: ARC }, { spell: ARC }])).rule.activate.map((c) => c.id), ["electric-arc", "kbhapuzlusws6vvf", "kbhapuzlusws6vvf-3"]);
+  assert.equal(validateRule(rule([{ spell: "Compendium.x.Item.zzz" }, { spell: ARC }])).rule.activate[1].id, "kbhapuzlusws6vvf");
+  assert.equal(validateRule(rule([{ spell: ARC, label: "Дуга" }])).rule.activate[0].id, "kbhapuzlusws6vvf");   // кириллическая метка — хвост UUID
+  assert.equal(validateRule({ v: 1, onUse: { targets: "self", apply: [{ condition: { slug: "prone" } }] }, cast: [] }).rule.activate, undefined);
   assert.equal(validateRule({ v: 1, cast: [] }).errors[0].key, "rule.empty");
 });
 
 test("cast: spell обязателен, rank 1–10, dc — число или {level:high}, attack — целое, per.unit из единиц Apply, requires из списка, id уникален", () => {
-  assert.match(errs([{}])[0], /cast\.bad \(cast\[0\]\.spell\)/);
+  assert.match(errs([{}])[0], /cast\.bad \(activate\[0\]\.spell\)/);
   assert.match(errs([{ spell: ARC, rank: 0 }])[0], /\.rank/);
   assert.match(errs([{ spell: ARC, rank: 11 }])[0], /\.rank/);
   assert.match(errs([{ spell: ARC, dc: 0 }])[0], /\.dc/);
@@ -41,11 +41,11 @@ test("cast: spell обязателен, rank 1–10, dc — число или {l
   assert.match(errs([{ spell: ARC, per: { value: 1, unit: "weeks" } }])[0], /\.per/);
   assert.match(errs([{ spell: ARC, per: { value: 0, unit: "days" } }])[0], /\.per/);
   assert.match(errs([{ spell: ARC, requires: "worn" }])[0], /\.requires/);
-  assert.match(errs([{ spell: ARC, id: "a" }, { spell: ARC, id: "a" }])[0], /cast\[1\]\.id/);
+  assert.match(errs([{ spell: ARC, id: "a" }, { spell: ARC, id: "a" }])[0], /activate\[1\]\.id/);
   assert.match(errs([{ spell: ARC, id: "Not Slug" }])[0], /\.id/);
   assert.match(errs([{ spell: ARC, note: "" }])[0], /\.note/);
   assert.ok(validateRule(rule([{ spell: ARC, rank: 10, dc: { level: "high" }, attack: -2, per: { value: 10, unit: "minutes", uses: 2 }, requires: "none", label: "x", note: "y" }])).ok);
-  assert.deepEqual(validateRule(rule([{ spell: ARC, per: { value: 1, unit: "days", uses: 1 } }])).rule.cast[0].per, { value: 1, unit: "days" });   // один раз — uses не пишется
+  assert.deepEqual(validateRule(rule([{ spell: ARC, per: { value: 1, unit: "days", uses: 1 } }])).rule.activate[0].per, { value: 1, unit: "days" });   // один раз — uses не пишется
 });
 
 test("cast: форма Мастерской туда-обратно без потерь", () => {
@@ -61,7 +61,7 @@ test("cast: форма Мастерской туда-обратно без по�
   assert.deepEqual(blankCast().dcType, "auto");
   const f = ruleToForm(null);
   f.cast.push({ ...blankCast(), spell: ARC });
-  assert.deepEqual(validateRule(formToRule(f)).rule.cast, [{ id: "kbhapuzlusws6vvf", spell: ARC }]);
+  assert.deepEqual(validateRule(formToRule(f)).rule.activate, [{ id: "kbhapuzlusws6vvf", spell: ARC }]);
 });
 
 test("cast: dropSpec распознаёт заклинание (по источнику у вложенного), ruleUuids и отчёт видят активации", () => {
@@ -159,12 +159,12 @@ test("frequencyOf: раз/дважды/N раз за окно, неделя — 
 test("deriveFromMarkup: активация даёт cast, а @Check блока не превращается во второе испытание onUse", () => {
   const item = (html, traits = []) => ({ type: "armor", slug: "x", name: "Electric Eelskin", system: { description: { value: html }, traits: { value: traits } } });
   const d = deriveFromMarkup(item(EEL), { en: {} }, () => null);
-  assert.equal(d.rule.cast.length, 1);
+  assert.equal(d.rule.activate.length, 1);
   assert.equal(d.rule.onUse, null);
   assert.equal(d.confidence, "high");
   const m = deriveFromMarkup(item(`${JOLT}<hr />${STAFF.slice(STAFF.indexOf("<p><strong>Activate—Sunder"))}`, ["spellheart"]), { en: {} }, () => null);
-  assert.deepEqual([m.rule.cast.length, m.confidence, m.hints.lowWhy], [1, "low", ["cast-partial"]]);
-  assert.equal(deriveFromMarkup(item(STAFF), { en: {} }, () => null)?.rule.cast, undefined);   // нет ни одной выводимой активации — прежний разбор
+  assert.deepEqual([m.rule.activate.length, m.confidence, m.hints.lowWhy], [1, "low", ["cast-partial"]]);
+  assert.equal(deriveFromMarkup(item(STAFF), { en: {} }, () => null)?.rule.activate, undefined);   // нет ни одной выводимой активации — прежний разбор
 });
 
 /* ---------- чистые части рантайма ---------- */
@@ -235,8 +235,8 @@ test("tracksUses: счётчик не ведём у способности со 
 test("deriveFromMarkup: расходник (палочка) в живом выводе без cast — заряды ведёт pf2e", () => {
   const html = EEL;
   const mk = (type) => ({ type, slug: "x", name: "Wand", system: { description: { value: html }, traits: { value: [] } } });
-  assert.equal(deriveFromMarkup(mk("armor"), { en: {} }, () => null).rule.cast.length, 1);
-  assert.equal(deriveFromMarkup(mk("consumable"), { en: {} }, () => null)?.rule.cast, undefined);
+  assert.equal(deriveFromMarkup(mk("armor"), { en: {} }, () => null).rule.activate.length, 1);
+  assert.equal(deriveFromMarkup(mk("consumable"), { en: {} }, () => null)?.rule.activate, undefined);
 });
 
 test("wantsSnapshot: правило только с cast — снимок нужен и карточке предмета; stepCount считает активации", () => {
@@ -300,13 +300,13 @@ test("Мастерская: строка активации — заклинан
 /* ---------- инструменты ---------- */
 
 test("tools: ответ агента с cast проходит валидатор и круг формы; чужой UUID заклинания — ошибка по тексту", () => {
-  const ans = { uuid: "u", rule: { v: 1, label: "Jolt Coil", cast: [{ id: "electric-arc", spell: ARC, dc: 17, per: { value: 1, unit: "days" } }] } };
+  const ans = { uuid: "u", rule: { v: 1, label: "Jolt Coil", activate: [{ id: "electric-arc", spell: ARC, dc: 17, per: { value: 1, unit: "days" } }] } };
   const any = new Proxy({}, { get: () => true });
   assert.equal(checkAnswer(ans, { conditions: any, effects: any }, JOLT).kind, "accepted");
-  const bad = checkAnswer({ ...ans, rule: { ...ans.rule, cast: [{ ...ans.rule.cast[0], spell: "Compendium.pf2e.spells-srd.Item.zzz" }] } }, { conditions: any, effects: any }, JOLT);
+  const bad = checkAnswer({ ...ans, rule: { ...ans.rule, activate: [{ ...ans.rule.activate[0], spell: "Compendium.pf2e.spells-srd.Item.zzz" }] } }, { conditions: any, effects: any }, JOLT);
   assert.equal(bad.kind, "error");
   assert.match(bad.errors[0], /not mentioned/);
-  assert.equal(checkAnswer({ uuid: "u", rule: { v: 1, cast: [{ spell: "" }] } }, { conditions: any, effects: any }).errors[0].includes("Activation (cast)"), true);
+  assert.equal(checkAnswer({ uuid: "u", rule: { v: 1, activate: [{ spell: "" }] } }, { conditions: any, effects: any }).errors[0].includes("Activation (activate)"), true);
   assert.deepEqual(semanticErrors(validateRule(ans.rule).rule, { conditions: {}, effects: {} }, null), []);
 });
 
@@ -329,7 +329,7 @@ test("deriveCast: СЛ, атака и противодействие прозо�
   // Handkerchief: СЛ 16 — испытание самого владельца, не заклинания
   const h = deriveCast(act(`The scarf casts ${L1} on you. You and your allies must succeed at a @Check[will|dc:16] save or perceive the illusion as intended.`), { spellDefs: { [ARC]: { slug: "x", save: false, attack: false } } });
   assert.deepEqual([h.cast[0].dc, h.confidence, h.partial], [undefined, "high", false]);
-  assert.equal(validateRule({ v: 1, cast: [{ spell: ARC, counteract: 15 }] }).rule.cast[0].counteract, 15);
+  assert.equal(validateRule({ v: 1, cast: [{ spell: ARC, counteract: 15 }] }).rule.activate[0].counteract, 15);
   assert.ok(validateRule({ v: 1, cast: [{ spell: ARC, counteract: "x" }] }).errors.length);
 });
 

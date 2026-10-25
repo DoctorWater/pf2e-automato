@@ -105,7 +105,7 @@ test("route: хвост после ссылки — low с полным текс
   const low = go(act(`You cast ${L1}, but you can target only yourself. It then fizzles.`));
   assert.equal(low.kind, "low");
   assert.equal(low.entry.confidence, "low");
-  assert.equal(low.entry.rule.cast[0].note, "You cast Electric Arc, but you can target only yourself. It then fizzles.");
+  assert.equal(low.entry.rule.activate[0].note, "You cast Electric Arc, but you can target only yourself. It then fizzles.");
   assert.equal(go(act(`You cast ${L1}, but all damage is spirit damage.`)).kind, "debt");
   assert.equal(go(act(`You cast ${L1} (heightened to 5th level).`)).kind, "debt");
   assert.equal(go(act(`You cast ${L1}. It lasts 24 hours.`)).kind, "debt");
@@ -114,7 +114,7 @@ test("route: хвост после ссылки — low с полным текс
 test("route: note — по границе предложения, разметка читаема", () => {
   assert.equal(readable("@Check[reflex|dc:43|basic] and @Damage[2d8[healing]|options:x] in a @Template[type:cone|distance:30]"), "DC 43 reflex (basic) and 2d8 healing in a 30-foot cone");
   const long = `You cast ${L1}. ` + Array.from({ length: 40 }, (_, i) => `Sentence number ${i} adds nothing.`).join(" ");
-  const note = go(act(long)).entry.rule.cast[0].note;
+  const note = go(act(long)).entry.rule.activate[0].note;
   assert.ok(note.length <= 700 && note.endsWith("."));
 });
 
@@ -134,7 +134,7 @@ test("route: NPC-действие — остаток с иммунитетом =
   assert.match(route(npc, tr, undefined, imm, c2).entry.reason, /extra effect after the cast/);
   const aux = route(npc, tr, undefined, "<p>The vampire can cast Dominate at will. Casting it requires staring into the target's eyes.</p>", c2);
   assert.equal(aux.kind, "low");
-  assert.equal(aux.entry.rule.cast[0].note, "Casting it requires staring into the target's eyes.");
+  assert.equal(aux.entry.rule.activate[0].note, "Casting it requires staring into the target's eyes.");
   const old = route(it, tr, { confidence: "needs-primitive", reason: "needs-primitive: missing: cast a spell activation", rule: null }, "<p><strong>Activate</strong> Cast a Spell</p><p><strong>Effect</strong> You expend charges from the staff to cast a spell.</p>", ctx);
   assert.equal(old.entry.reason, "needs-primitive: missing: cast: spell list with charges (staff)");
 });

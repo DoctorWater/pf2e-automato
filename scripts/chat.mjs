@@ -8,7 +8,7 @@ import * as cast from "./cast.mjs";
 import { visionActive, zoneCells } from "./vision.mjs";
 import { hintsView, hintList } from "./hints.mjs";
 import { whenHuman } from "./predicate.mjs";
-import { isActiveStep } from "./rules.mjs";
+import { isActiveStep, activateOf } from "./rules.mjs";
 import { textOfMods } from "./inline-effect.mjs";
 
 const TEMPLATE = "modules/pf2e-automato/templates/chat-block.hbs";
@@ -285,8 +285,8 @@ export function buildViewModel(message, user, env = null) {
 
   // активации cast: кнопка на каждую — владельцу актёра (ведущему всегда); исполняет нажавший клиент, ведущий применит результат из сообщения (cast.mjs)
   // low (вывод из разметки в рантайме) — кнопка только ведущему
-  if (rule.cast?.length && use.actor && (use.confidence === "low" ? isGM : env.isActorOwner(use.actor, user))) {
-    vm.cast = rule.cast.map((c) => {
+  if (activateOf(rule)?.length && use.actor && (use.confidence === "low" ? isGM : env.isActorOwner(use.actor, user))) {
+    vm.cast = activateOf(rule).map((c) => {
       const info = env.castInfo(use, c);
       const meta = [info.dc != null && t("chat.dc", { dc: info.dc }), info.byLevel && t("cast.byLevel"), c.rank != null && t("cast.rank", { rank: c.rank }), c.per && cast.perText(c.per, t), info.left === 0 && t("cast.spent")].filter(Boolean);
       return { id: c.id, text: t("cast.btn", { name: c.label ?? env.uuidName(c.spell) ?? c.id }), meta: meta.join(" · "), note: c.note ?? null, why: info.why && t(`cast.why.${info.why}`) };

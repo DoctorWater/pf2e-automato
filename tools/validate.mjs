@@ -5,7 +5,7 @@ import { readFileSync, readdirSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { isDeepStrictEqual } from "node:util";
 import { ROOT, ACCEPTED, serializeDrafts, readJson, readOut, writeJson, writeText, outPath, arg, cmp, isMain } from "./lib.mjs";
-import { validateRule, enemiesOnly, strikeGate, setWho, afflictionStages } from "../scripts/rules.mjs";
+import { validateRule, activateOf, dupActivate, enemiesOnly, strikeGate, setWho, afflictionStages } from "../scripts/rules.mjs";
 import { ruleToForm, formToRule } from "../scripts/sheet.mjs";
 import { BUILTIN } from "../scripts/builtin/index.mjs";
 import { stepCount } from "./triage.mjs";
@@ -55,7 +55,7 @@ const stepsOf = (rule) => [...(rule.onUse?.apply ?? []), ...(rule.onUse?.apply ?
 /** Одни заметки ведущему (без иммунитета, зоны, событий): либо сюжет (автоматизировать нечего), либо механика без примитива (толчок, штраф без эффекта). Не skip: очередь «нужен примитив», в рантайм не идёт (решение пользователя 2026-10-24). */
 export const notesOnly = (rule) => {
   const u = rule.onUse, s = stepsOf(rule);
-  return s.length > 0 && s.every((x) => x.note) && !rule.cast?.length && !u?.challenge?.immunity && !u?.check?.immunity && !u?.zone && !(rule.onEvent ?? []).some((e) => e.challenge?.immunity) && !rule.onAttacked && !rule.macros?.length;
+  return s.length > 0 && s.every((x) => x.note) && !activateOf(rule)?.length && !u?.challenge?.immunity && !u?.check?.immunity && !u?.zone && !(rule.onEvent ?? []).some((e) => e.challenge?.immunity) && !rule.onAttacked && !rule.macros?.length;
 };
 
 /** Содержательные проверки: ссылки существуют (и есть в тексте предмета), статистики из известных списков, builtin есть в реестре. html === null — не проверять текст. */
@@ -71,7 +71,7 @@ export function semanticErrors(rule, refs, html = null) {
     for (const x of [s.effect?.uuid, s.unlessEffect]) if (x && !refs.effects[x]) bad.push(`effect ${x} not found: copy the UUID exactly from the item text`);
     for (const x of [s.effect?.uuid, s.unlessEffect]) if (x && html !== null && !html.includes(x)) bad.push(`effect ${x} is not mentioned in this item's text: use only effects linked in the text`);
   }
-  for (const c of rule.cast ?? []) if (html !== null && !html.includes(c.spell)) bad.push(`cast spell ${c.spell} is not mentioned in this item's text: copy the spell UUID from the \`You cast\` link`);
+  for (const c of rule.activate ?? []) if (html !== null && !html.includes(c.spell)) bad.push(`cast spell ${c.spell} is not mentioned in this item's text: copy the spell UUID from the \`You cast\` link`);
   // «Stage 1 … Stage 2 …» без шага affliction: стадии остались бы текстом (яд/болезнь не вели бы счёт)
   if (html && afflictionStages(html) && !stepsOf(rule).some((s) => s.affliction)) bad.push("the text has affliction stages (Stage 1, Stage 2 …): the rule needs an `affliction` step on failure / critical failure (see the affliction example); do not recreate stages with plain condition steps");
   for (const e of rule.onEvent ?? []) if (e.aura && !/^[a-z0-9-]+$/.test(e.aura)) bad.push(`onEvent aura "${e.aura}" must be the slug of a pf2e Aura rule element (lowercase, dashes); if you do not know it use "range" in feet`);
@@ -124,6 +124,8 @@ export function checkAnswer(ans, refs, html = null, kind = null) {
   if (ans.unsure === true) return { kind: "unsure", guess: ans.rule ?? null };
   if (ans.rule === null && html && afflictionStages(html)) return { kind: "error", errors: ["the text has affliction stages (Stage 1, Stage 2 …): never answer null, write the `affliction` step (or unsure: true with \"missing: affliction\")"] };
   if (ans.rule === null) return { kind: "null", note: ans.note ?? "" };
+  const dup = dupActivate(ans.rule);
+  if (dup) return { kind: "error", errors: [fmtErr(dup)] };
   const v = validateRule(ans.rule);
   if (!v.ok) return { kind: "error", errors: v.errors.map(fmtErr) };
   const extra = extraKeys(ans.rule, v.rule);

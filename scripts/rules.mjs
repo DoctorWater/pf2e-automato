@@ -605,15 +605,20 @@ function vEvents(list, err) {
   return list.map((e, i) => vEvent(e, i, err)).filter(Boolean);
 }
 
-// cast: активация снаряжения «вы сотворяете X» (plan-cast-activation.md). Один элемент — одна активация; id по умолчанию — slug метки или заклинания.
+/** Список активаций правила или снимка в сообщении: ключ activate, у старых данных и снимков — cast. */
+export const activateOf = (rule) => rule?.activate ?? rule?.cast;
+/** Оба ключа в сыром правиле — ошибка для tools/validate и Мастерской (рантайм берёт activate с предупреждением). */
+export const dupActivate = (raw) => (raw?.activate != null && raw?.cast != null ? E("activate.dup", "activate") : null);
+
+// activate (прежде cast): активация снаряжения «вы сотворяете X» (plan-cast-activation.md). Один элемент — одна активация; id по умолчанию — slug метки или заклинания.
 // per — раз в value единиц (uses раз; по умолчанию один); dc — число | {level:"high"} (СЛ по уровню владельца, NPC) | нет (СЛ лучшей записи владельца); requires нет — по предмету
 export const CAST_REQUIRES = ["invested", "equipped", "held", "none"];
 function vCast(list, err) {
   if (list == null) return [];
-  if (!Array.isArray(list)) { err.push(E("notArr", "cast")); return []; }
+  if (!Array.isArray(list)) { err.push(E("notArr", "activate")); return []; }
   const ids = new Set();
   return list.flatMap((c, i) => {
-    const bad = (k) => { err.push(E("cast.bad", `cast[${i}].${k}`)); return []; };
+    const bad = (k) => { err.push(E("cast.bad", `activate[${i}].${k}`)); return []; };
     if (!isObj(c) || !isStr(c.spell)) return bad("spell");
     // id по умолчанию — slug метки (если латиницей), иначе хвост UUID заклинания (стабилен при правках списка); повтор получает номер
     const base = [sluggify(c.label ?? ""), sluggify(c.spell.split(".").pop().toLowerCase())].find((s) => SLUG.test(s)) ?? `cast-${i + 1}`, id = c.id ?? (ids.has(base) ? `${base}-${i + 1}` : base);
@@ -670,8 +675,9 @@ export function validateRule(raw) {
   };
   const events = vEvents(raw.onEvent, err);
   if (events.length) rule.onEvent = events;   // нет событий — поля нет (правила без него не меняются)
-  const cast = vCast(raw.cast, err);
-  if (cast.length) rule.cast = cast;
+  if (raw.activate != null && raw.cast != null) warn("правило несёт activate и cast: берём activate");
+  const cast = vCast(activateOf(raw), err);
+  if (cast.length) rule.activate = cast;
   const cp = coatPlaces({ ...rule, onEvent: events });
   if (cp.top > 1 || cp.other) err.push(E("coat.place", "onUse.apply"));
   if (!rule.onUse && !rule.onAttacked && !rule.macros.length && !events.length && !cast.length && !err.length) err.push(E("rule.empty", ""));
@@ -1286,7 +1292,7 @@ export function deriveFromMarkup(itemLike, labels, conditionSlugByUuid, condName
 
   // активация «You cast X»: @Check блока уходит в cast.dc, испытания onUse не будет (иначе оно бросилось бы дважды); ослабленный вывод — low
   const dcast = type === "consumable" ? null : deriveCast(html);   // расходники (палочки, свитки): заряды ведёт pf2e, кнопки мимо них не нужны
-  const vcast = dcast && validateRule({ v: RULE_VERSION, ...(itemLike.name && { label: itemLike.name }), cast: dcast.cast });
+  const vcast = dcast && validateRule({ v: RULE_VERSION, ...(itemLike.name && { label: itemLike.name }), activate: dcast.cast });
   if (vcast?.ok) {
     if (dcast.partial) hints.lowWhy.push("cast-partial");
     return { rule: vcast.rule, confidence: dcast.confidence, hints };
@@ -1597,7 +1603,7 @@ function markupHead(c, d, html) {
 }
 
 /** Есть ли у правила шаги, которые что-то применяют (apply, степени испытания/проверки, зона). */
-const hasSteps = (r) => !!(r.cast?.length || r.onUse?.apply?.length || r.onUse?.zone || [r.onUse?.challenge, r.onUse?.check].some((c) => Object.values(c?.byDegree ?? {}).some((l) => l.length)));
+const hasSteps = (r) => !!(activateOf(r)?.length || r.onUse?.apply?.length || r.onUse?.zone || [r.onUse?.challenge, r.onUse?.check].some((c) => Object.values(c?.byDegree ?? {}).some((l) => l.length)));
 
 /* ---------- Ограждение копий NPC (plan-copy-guard.md) ---------- */
 

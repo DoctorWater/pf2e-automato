@@ -123,7 +123,7 @@ function install() {
     if (!m) return orig.call(this, id);
     const rec = cache.get(this.actor);
     if (rec?.sig === this.actor?.synthetics && rec.map.get(id)) return rec.map.get(id);   // запись уже есть — правило не разбираем заново
-    const item = itemOf(this.actor, m[1]), c = item && rules.resolveRule(item)?.rule.cast?.find((x) => x.id === m[2]);
+    const item = itemOf(this.actor, m[1]), c = item && rules.activateOf(rules.resolveRule(item)?.rule)?.find((x) => x.id === m[2]);
     return (c && entryFor(this.actor, item, c)) || orig.call(this, id);
   };
   installed = true;
@@ -153,7 +153,7 @@ export function castInfo(item, c) {
 
 /** Нажатие кнопки: эфемерное заклинание -> карточка с флагом cast -> счётчик частоты (после сотворения). {ok, reason?} */
 export async function castItem(item, id) {
-  const actor = item?.actor, c = item && rules.resolveRule(item)?.rule.cast?.find((x) => x.id === id);
+  const actor = item?.actor, c = item && rules.activateOf(rules.resolveRule(item)?.rule)?.find((x) => x.id === id);
   // вывод из разметки (low) исполняет только ведущий: честность вывода не проверена
   if (!actor?.isOwner || !c || (rules.resolveRule(item).confidence === "low" && !game.user.isGM)) return { ok: false, reason: "forbidden" };
   const warn = (key) => { ui.notifications.warn(L(key)); return { ok: false, reason: key }; };

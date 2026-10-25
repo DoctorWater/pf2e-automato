@@ -4,7 +4,7 @@
 import { writeFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { readOut, readJson, writeText, serializeDrafts, stripHtml, ACCEPTED, arg, cmp, isMain } from "./lib.mjs";
-import { deriveCast, frequencyOf, castProse, validateRule, RULE_VERSION } from "../scripts/rules.mjs";
+import { deriveCast, activateOf, frequencyOf, castProse, validateRule, RULE_VERSION } from "../scripts/rules.mjs";
 import { roundTrip, semanticErrors, mergeAccepted } from "./validate.mjs";
 import { readModelAccepted } from "./drafts.mjs";
 import { pick } from "./sample.mjs";
@@ -89,7 +89,7 @@ export function checkCast(rule, html, refs, spellDefs = {}, { partial = false } 
   const all = castProse(html), own = (s) => /\b(?:you|those)\b[^.]*\bmust\b/i.test(s);   // «You … must succeed at a …» — испытание самого владельца, не СЛ заклинания
   const sents = (t) => t.split(/(?<=[.!?])\s+/).filter((s) => !own(s));
   const nums = (re, t) => new Set(sents(t).flatMap((s) => [...s.matchAll(re)].map((m) => +(m[1] ?? m[2]))));
-  const all_ = activations(html), els = rule.cast ?? [], acts = partial ? castActs(all_) : all_;   // partial: остальные активации — ручные, правило их не касается
+  const all_ = activations(html), els = activateOf(rule) ?? [], acts = partial ? castActs(all_) : all_;   // partial: остальные активации — ручные, правило их не касается
   if (acts.length !== els.length) return [...bad, `activations ${partial ? acts.length : all_.length} != cast ${els.length}`];
   // «ручной» — только текст без заклинания; активация с другим заклинанием — вторая кастовая или долг
   if (partial) all_.filter((a) => !acts.includes(a) && a.links.length).forEach((a) => bad.push(`activation ${all_.indexOf(a) + 1}: another activation names ${a.links.length} spell(s), cast not derived`));
@@ -151,7 +151,7 @@ export function checkAction(rule, refs, html, aux) {
   const v = validateRule(rule);
   if (!v.ok) return [`validateRule: ${v.errors.map(String).join("; ").slice(0, 100)}`];
   if (!roundTrip(v.rule)) return ["roundTrip"];
-  const c = rule.cast[0], linked = html.replace(/\b(casts?|effects? of)\b/, `$& @UUID[${c.spell}]{x} `);   // semanticErrors: uuid заклинания должен быть в тексте
+  const c = activateOf(rule)[0], linked = html.replace(/\b(casts?|effects? of)\b/, `$& @UUID[${c.spell}]{x} `);   // semanticErrors: uuid заклинания должен быть в тексте
   const bad = semanticErrors(rule, refs, linked).map((e) => `semantic: ${String(e).slice(0, 80)}`);
   const text = castProse(html), dcs = [...text.matchAll(/@Check\[[^\]]*\bdc:(\d+)/g)].map((m) => +m[1]);
   if (c.dc != null && typeof c.dc === "number" && dcs.some((x) => x !== c.dc)) bad.push(`dc ${c.dc} != text ${dcs}`);
@@ -194,7 +194,7 @@ export function route(it, tr, a, h0, { spellDefs, byName, refs }) {
     if (a?.reason?.startsWith(CONV)) return { kind: "stale", entry: d };
     return oldDebt || a?.reason?.includes("missing: cast:") ? manual(whyNoCast(h)) : null;   // устаревшая метка «cast a spell activation» и причина прежней версии вывода -> честная причина
   }
-  const rule = { v: RULE_VERSION, ...(it.name && { label: it.name }), cast: dc.cast };
+  const rule = { v: RULE_VERSION, ...(it.name && { label: it.name }), activate: dc.cast };
   const acts = act ? [] : activations(h), cs = castActs(acts), outside = act ? [] : outsideOf(h0, acts);
   const bad = act ? checkAction(rule, refs, h0, dc.aux) : checkCast(rule, h, refs, spellDefs, { partial: true });
   if (outside.some((s) => SHARED_FREQ.test(s))) bad.unshift("frequency is shared with other items (text outside the activations)");
@@ -206,7 +206,7 @@ export function route(it, tr, a, h0, { spellDefs, byName, refs }) {
     ...outside.filter((s) => PASSIVE.test(s)).map((s) => `text outside the activations: ${readable(s).slice(0, 80)}`)];
   const part = gaps.length ? { partial: gaps } : {};
   if (bad.length) {   // вспомогательный текст/хвост: note у записи, правило ждёт выборки Критика
-    const withNote = { ...rule, cast: rule.cast.map((c, i) => {
+    const withNote = { ...rule, activate: rule.activate.map((c, i) => {
       if (act) return dc.aux ? { ...c, note: capNote([readable(dc.aux)]) } : c;
       const { full, trivial } = tailOf(cs[i]), soft = sentencesOf(readable(cs[i].eff)).filter((x) => SOFT.test(x) && !full.includes(x));
       const note = capNote([...soft, ...(trivial && !SOFT.test(full) ? [] : [full])]);

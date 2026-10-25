@@ -315,7 +315,7 @@ async () => {
     await wait(500);
     card = await e.card(item);
     t.ok(e.btn(card) && !e.btn(card).disabled, "настроен и надет: кнопка активна");
-    await item.update({ "system.equipped": { carryType: "worn", inSlot: false, invested: false }, [`flags.${MOD}.rule`]: { v: 1, cast: [{ id: "thunderstrike", spell: await spellUuid("thunderstrike"), dc: 29, requires: "none" }] } });
+    await item.update({ "system.equipped": { carryType: "worn", inSlot: false, invested: false }, [`flags.${MOD}.rule`]: { v: 1, activate: [{ id: "thunderstrike", spell: await spellUuid("thunderstrike"), dc: 29, requires: "none" }] } });
     await wait(500);
     card = await e.card(item);
     t.ok(e.btn(card) && !e.btn(card).disabled, "requires none: активна без настройки");
@@ -409,7 +409,7 @@ async () => {
     d.system.description.value = `<p>The spell DC of any spell cast by activating this item is 17.</p><p><strong>Activate</strong> Cast a Spell</p><p><strong>Effect</strong> You cast @UUID[${ARC}]{Electric Arc}.</p>`;
     const [item] = await e.give(e.A(tP), d);
     const res = (await imp("rules.mjs")).resolveRule(item);
-    t.ok(res?.rule?.cast?.length === 1 && res.rule.cast[0].per === undefined && res.rule.cast[0].dc === 17, `вывод: ${JSON.stringify(res?.rule?.cast)}`);
+    t.ok(res?.rule?.activate?.length === 1 && res?.rule?.activate[0].per === undefined && res?.rule?.activate[0].dc === 17, `вывод: ${JSON.stringify(res?.rule?.activate)}`);
     const card = await e.card(item);
     t.ok(!!(await e.click(card)), "первое сотворение");
     t.ok(!!(await e.click(card)), "второе сотворение");
@@ -421,7 +421,7 @@ async () => {
     const pc = await e.pc("владелец"), vic = await e.foe("цель");
     const tP = await e.tok(pc, 500, 500, 1), tV = await e.tok(vic, 600, 500, -1);
     await wait(700);
-    const actor = e.A(tP), rule = { v: 1, cast: [{ id: "electric-arc", spell: ARC, dc: 17, per: { value: 1, unit: "days" } }] };
+    const actor = e.A(tP), rule = { v: 1, activate: [{ id: "electric-arc", spell: ARC, dc: 17, per: { value: 1, unit: "days" } }] };
     const coil = await equip("jolt-coil"); coil.flags = { ...coil.flags, [MOD]: { rule } };
     const [weapon, loose] = await e.give(actor, await equip("longsword"), coil);
     t.ok(await weapon.attach(loose), "спеллхарт прикреплён");
@@ -454,15 +454,15 @@ async () => {
     d.system.description.value = html;
     const [item] = await e.give(e.A(tP), d);
     const res = (await imp("rules.mjs")).resolveRule(item);
-    t.ok(res?.confidence === "low" && res.rule.cast?.length === 1, `вывод low: ${res?.confidence} cast ${res?.rule?.cast?.length}`);
+    t.ok(res?.confidence === "low" && res.rule.activate?.length === 1, `вывод low: ${res?.confidence} cast ${res?.rule?.activate?.length}`);
     const card = await e.card(item), { buildViewModel } = await imp("chat.mjs"), msg = game.messages.get(card.id);
     t.ok(buildViewModel(msg, game.user)?.cast?.length === 1, "ведущий: кнопка");
     const own = game.users.find((u) => !u.isGM);
     if (own) { await pc.update({ ownership: { default: 0, [own.id]: 3 } }); t.ok(!buildViewModel(msg, own)?.cast, "владелец-игрок: кнопки нет (low)"); }
     const wand = new Item.implementation({ name: PFX + "палочка", type: "consumable", system: { slug: "af-wand-test", description: { value: html.replace("<p>@Check[reflex|dc:30]</p>", "") }, traits: { value: ["wand", "magical"] } } });
     const wr = (await imp("rules.mjs")).resolveRule(wand);
-    t.ok(!wr?.rule?.cast, `расходник: cast из разметки нет (${wr?.source})`);
-    t.ok(!!(await imp("rules.mjs")).resolveRule(new Item.implementation({ name: PFX + "доспех", type: "armor", system: { slug: "af-armor-test", description: { value: html.replace("<p>@Check[reflex|dc:30]</p>", "") } } }))?.rule?.cast, "контроль: тот же текст у снаряжения даёт cast");
+    t.ok(!wr?.rule?.activate, `расходник: cast из разметки нет (${wr?.source})`);
+    t.ok(!!(await imp("rules.mjs")).resolveRule(new Item.implementation({ name: PFX + "доспех", type: "armor", system: { slug: "af-armor-test", description: { value: html.replace("<p>@Check[reflex|dc:30]</p>", "") } } }))?.rule?.activate, "контроль: тот же текст у снаряжения даёт cast");
   });
 
   sc("clear-log", "Очистка лога (deleteAll) не возвращает использование; обычное удаление — возвращает", async (e, t) => {

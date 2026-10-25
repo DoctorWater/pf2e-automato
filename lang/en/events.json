@@ -27,8 +27,11 @@
           "nearOnly": "Aura, range and \"at most\" exist only for the \"in the owner's aura\" side ({path})",
           "gate": "Internal entry condition (gate): target - damage to the armed target, removed - the save only after the carrier was removed, idle - out of combat only ({path})"
         },
+        "activate": {
+          "dup": "The rule has both activate and cast: keep only activate ({path})"
+        },
         "cast": {
-          "bad": "Activation (cast): needs a spell (UUID), rank 1-10, DC as a number or level: high, attack as a number, frequency as once per N rounds/minutes/hours/days, requirement invested, equipped, held or none; the key (id) is unique ({path})"
+          "bad": "Activation (activate): needs a spell (UUID), rank 1-10, DC as a number or level: high, attack as a number, frequency as once per N rounds/minutes/hours/days, requirement invested, equipped, held or none; the key (id) is unique ({path})"
         },
         "afflict": {
           "bad": "Step \"affliction\": an object with the definition def and an optional stage number is required ({path})",

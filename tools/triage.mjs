@@ -2,7 +2,7 @@
 import { stripHtml, readJson, readOut, writeJson, outPath, ROOT, AUTOMATIONS_CONFIG, isMain } from "./lib.mjs";
 import { join } from "node:path";
 import { existsSync } from "node:fs";
-import { deriveFromMarkup, buildCatalog } from "../scripts/rules.mjs";
+import { deriveFromMarkup, buildCatalog, activateOf } from "../scripts/rules.mjs";
 import { buildAutomationsIndex, groupsCovering } from "../scripts/compat.mjs";
 
 export const BATCHES = {
@@ -121,9 +121,9 @@ const asLike = (it, html) => ({
 /** Шагов в правиле: apply + степени challenge/check + зона. 0 = правило ничего не делает (промах вывода). */
 export const stepCount = (r) => {
   const u = r?.onUse;
-  if (!u) return r?.onAttacked || r?.macros?.length || r?.onEvent?.length || r?.cast?.length ? 1 : 0;
+  if (!u) return r?.onAttacked || r?.macros?.length || r?.onEvent?.length || activateOf(r)?.length ? 1 : 0;
   const deg = (c) => Object.values(c?.byDegree ?? {}).reduce((n, l) => n + l.length, 0);
-  return (u.apply?.length ?? 0) + deg(u.challenge) + deg(u.check) + (u.zone ? 1 : 0) + (r.cast?.length ?? 0);
+  return (u.apply?.length ?? 0) + deg(u.challenge) + deg(u.check) + (u.zone ? 1 : 0) + (activateOf(r)?.length ?? 0);
 };
 
 const ruleKind = (r) => (r.onUse?.challenge ? "challenge" : r.onUse?.zone ? "zone" : r.onUse?.apply?.length ? `apply:${r.onUse.targets}` : r.onAttacked ? "react" : "other");

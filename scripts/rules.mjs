@@ -308,13 +308,16 @@ function vAfflStage(s, path, err) {
   if (s.text != null) { if (typeof s.text !== "string" || s.text.length > 600) return bad("afflict.text"); out.text = s.text.trim(); }
   return out;
 }
-/** Шаг affliction {stage?, def}: def — снимок определения недуга (name, kind, save, maxDuration?, onset?, virulent?, traits?, stages[]); save.dc нет — СЛ берётся из испытания/использования при наложении. */
+export const NOTE_MAX = 1200;
+const clipNote = (s) => (s.length > NOTE_MAX ? `${s.slice(0, NOTE_MAX - 1)}…` : s);
+/** Шаг affliction {stage?, def}: def — снимок определения недуга (name, kind, save, maxDuration?, onset?, virulent?, traits?, note? (≤ 1200, обрезка с «…»), stages[]); save.dc нет — СЛ берётся из испытания/использования при наложении. */
 function vAffliction(x, path, err) {
   const d = x?.def, bad = (k, p = path) => { err.push(E(k, p)); return null; };
   if (!isObj(x) || !isObj(d) || Object.keys(x).some((k) => !["stage", "def"].includes(k))) return bad("afflict.bad");
   if (!isStr(d.name) || !AFFLICTION_KINDS.includes(d.kind) || typeof (d.virulent ?? false) !== "boolean") return bad("afflict.def", `${path}.def`);
   if (!isObj(d.save) || !AFFLICTION_SAVES.includes(d.save.statistic) || (d.save.dc != null && !(isInt(d.save.dc) && d.save.dc >= 1))) return bad("afflict.save", `${path}.def.save`);
   if (d.traits != null && !(Array.isArray(d.traits) && d.traits.every((t) => isStr(t) && SLUG.test(t)))) return bad("afflict.def", `${path}.def.traits`);
+  if (d.note != null && typeof d.note !== "string") return bad("afflict.def", `${path}.def.note`);   // пустая/пробельная — отбрасывается ниже, правило не роняет
   const durs = {};
   for (const k of ["maxDuration", "onset"]) if (d[k] != null && !(durs[k] = vAfflDur(d[k], `${path}.def.${k}`, err))) return null;
   if (!Array.isArray(d.stages) || !d.stages.length || d.stages.length > MAX_STAGES) return bad("afflict.stages", `${path}.def.stages`);
@@ -324,7 +327,7 @@ function vAffliction(x, path, err) {
   if (!(isInt(stage) && stage >= 1 && stage <= stages.length)) return bad("afflict.stage", `${path}.stage`);
   return {
     stage,
-    def: { name: d.name.trim(), kind: d.kind, save: { statistic: d.save.statistic, ...(d.save.dc != null && { dc: d.save.dc }) }, maxDuration: durs.maxDuration ?? null, onset: durs.onset ?? null, virulent: !!d.virulent, ...(d.traits?.length && { traits: [...d.traits] }), stages }
+    def: { name: d.name.trim(), kind: d.kind, save: { statistic: d.save.statistic, ...(d.save.dc != null && { dc: d.save.dc }) }, maxDuration: durs.maxDuration ?? null, onset: durs.onset ?? null, virulent: !!d.virulent, ...(d.traits?.length && { traits: [...d.traits] }), ...(d.note?.trim() && { note: clipNote(d.note.trim()) }), stages }
   };
 }
 

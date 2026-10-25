@@ -405,7 +405,7 @@
           "max": "Max duration", "onset": "Onset", "virulent": "virulent", "virulentTip": "A success lowers the stage only after two successes in a row; a critical success lowers it by 1.",
           "stage": "Step stage", "stageTip": "The stage this step starts the affliction at. The definition is shared by all steps, the stage is the step's own.",
           "stages": "Stages", "stageDur": "Duration", "damage": "Damage", "persistent": "Persistent dmg", "add": "add", "conditions": "Conditions", "addCond": "+ condition",
-          "mods": "Penalties", "noMods": "No penalties.", "text": "Stage text", "textTip": "What is not automated: shown on the affliction card.",
+          "mods": "Penalties", "noMods": "No penalties.", "note": "Note", "noteTip": "What the module does not automate (cannot be removed, death, transformation). Shown on the effect and the first stage card; who sees it is a world setting.", "text": "Stage text", "textTip": "What is not automated: shown on the affliction card.",
           "addStage": "Stage", "removeStage": "Remove stage {n}", "remove": "Remove", "removeCond": "Remove condition {name}", "split": "Detach", "splitTip": "Give this step its own independent copy of the definition: edits stop going to the other steps.",
           "persShort": "persistent", "modsShort": "penalties ×{n}", "inEvent": "event {n}", "inTrigger": "trigger {n}",
           "shared": "The definition is shared by the steps: {steps}. Editing it here changes all of them; only the starting stage is per step."

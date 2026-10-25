@@ -27,8 +27,12 @@ const fired = new Set();   // ponytail: ключи броска в памяти 
 
 /* ---------- применение стадии ---------- */
 
-function say(def, actor, text, extra = "") {
-  return ChatMessage.create({ content: card(`${text}${extra ? `<br>${extra}` : ""}`, "", { title: esc(def.name), icon: "fa-biohazard" }), speaker: { alias: def.name } });
+/** Заметка недуга видна всем (по умолчанию) или только ГМу: настройка читается в момент показа, не при сборке. */
+const noteGM = () => game.settings.get(MOD, "affliction.noteMode") === "gm";
+const gmIds = () => ChatMessage.getWhisperRecipients("GM").map((u) => u.id);
+
+function say(def, actor, text, extra = "", whisper = null) {
+  return ChatMessage.create({ ...(whisper && { whisper }), content: card(`${text}${extra ? `<br>${extra}` : ""}`, "", { title: esc(def.name), icon: "fa-biohazard" }), speaker: { alias: def.name } });
 }
 
 /**
@@ -54,7 +58,11 @@ export async function applyStage(item, n, { damage = true, from = null, quiet = 
     if (st.persistent) note(await applyPersistent(actor, st.persistent, meta(stageKey(m.slug, n, "P")), {}));
     await queue(`actor:${actor.uuid}`, () => item.update({ "system.rules": rulesOfMods(st.mods ?? []), [flagPath("meta", "affliction", "applied")]: n }, DIRECT));
     if (damage) for (const d of st.damage) { await dealDamage(actor, d, {}, null); res.dealt = true; }
-    if (!quiet) await say(m.def, actor, (onset ? `<span class="paf-onset">${L("affliction.onset")}</span> ` : "") + L("affliction.stage", { item: esc(m.def.name), target: esc(actor.name), n, of: m.def.stages.length }), st.text ? esc(st.text) : "");
+    if (!quiet) {
+      const nt = old == null && m.def.note ? esc(m.def.note) : "", priv = noteGM();   // заметка — на первой карточке стадии
+      await say(m.def, actor, (onset ? `<span class="paf-onset">${L("affliction.onset")}</span> ` : "") + L("affliction.stage", { item: esc(m.def.name), target: esc(actor.name), n, of: m.def.stages.length }), [st.text ? esc(st.text) : "", nt && !priv ? nt : ""].filter(Boolean).join("<br>"));
+      if (nt && priv) await say(m.def, actor, L("affliction.stage", { item: esc(m.def.name), target: esc(actor.name), n, of: m.def.stages.length }), nt, gmIds());   // с целью: при нескольких целях шёпоты различимы
+    }
   } catch (e) { console.error(`${MOD} | affliction stage ${m.def.name}:${n}`, e); }
   return res;
 }
@@ -84,7 +92,7 @@ function carrierSource(actor, def, stage, m, c) {
   const token = actor.getActiveTokens?.(true, true)?.[0];
   const data = effectSource({
     name: def.name, img: c.originItem?.img ?? undefined, rules: [],
-    description: `<p>${esc(stagesText(def))}</p>${c.originItem?.uuid ? `<p>@UUID[${c.originItem.uuid}]</p>` : ""}`,
+    description: `<p>${esc(stagesText(def))}</p>${def.note && !noteGM() ? `<p>${esc(def.note)}</p>` : ""}${c.originItem?.uuid ? `<p>@UUID[${c.originItem.uuid}]</p>` : ""}`,
     duration: { value: -1, unit: "unlimited", expiry: null },
     origin: { actor: c.selfActor?.uuid, token: c.originToken?.uuid, item: c.originItem?.uuid }, target: { actor: actor.uuid, token: token?.uuid }
   });

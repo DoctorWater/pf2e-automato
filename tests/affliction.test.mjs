@@ -784,3 +784,51 @@ test("parseStage: «@Damage … or @Damage» и абзац заражения �
   const st = stage(1, `@Damage[1d6[poison]] damage (1 round)`) + stage(2, `@Damage[2d6[poison]] damage (1 round)`);
   assert.match(P(`<p>While poisoned, the first time per round the victim succeeds at an unarmed attack, the target is exposed.</p>` + SV + st).unsure[0], /^text outside stages/);
 });
+
+/* def.note: схема, показ по настройке, конечная стадия */
+
+test("def.note: обрезается до 1200 с «…», пробелы по краям снимаются, пустая и нестрока — ошибка/пропуск", () => {
+  const note = (n) => validate(chRule(DEF({ note: n }))).rule?.onUse.challenge.byDegree.failure[0].affliction.def.note;
+  assert.equal(note("  Cannot be removed.  "), "Cannot be removed.");
+  assert.equal(note("x".repeat(1500)).length, 1200);
+  assert.equal(note("x".repeat(1500)).endsWith("…"), true);
+  assert.equal(note("   "), undefined);
+  assert.equal(validate(chRule(DEF({ note: "" }))).ok, true);   // пустая строка не роняет правило
+  assert.deepEqual(validate(chRule(DEF({ note: 5 }))).errors.map((e) => e.key), ["afflict.def"]);
+});
+
+test("заметка: публично — в описании носителя и первой карточке стадии (один раз); шёпотом — не в описании, отдельная карточка ГМу", async () => {
+  const mk = async (mode) => {
+    const v = setup(); settings["affliction.noteMode"] = mode;
+    await expose(v, startStep(DEF({ note: "Mark death <b>here</b>." })));
+    return v;
+  };
+  let v = await mk("public");
+  const desc = carrierOf(v).system.description.value, stageCards = created.filter((m) => /paf-card/.test(m.content ?? ""));
+  assert.match(desc, /Mark death &lt;b&gt;here&lt;\/b&gt;\./);
+  assert.equal(stageCards.length, 1);
+  assert.match(stageCards[0].content, /Mark death/);
+  assert.equal(stageCards[0].whisper, undefined);
+  await run.applyStage(carrierOf(v), 2);   // вторая стадия — без заметки
+  assert.equal(created.filter((m) => /Mark death/.test(m.content ?? "")).length, 1);
+
+  created.length = 0; v = await mk("gm");
+  assert.doesNotMatch(carrierOf(v).system.description.value, /Mark death/);
+  const w = created.filter((m) => /Mark death/.test(m.content ?? ""));
+  assert.equal(w.length, 1);
+  assert.ok(Array.isArray(w[0].whisper));
+  delete settings["affliction.noteMode"];
+});
+
+test("конечная стадия (смерть): без срока и без maxDuration бросков нет, носитель не удаляется даже через сутки", async () => {
+  const v = setup();
+  await expose(v, startStep(DEF({ maxDuration: null }), 3));
+  const m = carrierOf(v).flags[MOD].meta.affliction;
+  assert.deepEqual([m.nextAt, m.endsAt], [null, null]);
+  const before = created.length;
+  now = 1000 + 24 * 3600;
+  await run.tick(v, "f1");
+  assert.equal(cards().length, 0);
+  assert.equal(created.length, before);
+  assert.equal(carriers(v).length, 1);
+});

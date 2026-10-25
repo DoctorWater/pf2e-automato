@@ -147,6 +147,7 @@ export function afflSet(f, row, name, v, opts = {}) {
     if (a === "name") def.name = String(v ?? "");
     else if (a === "kind") def.kind = v;
     else if (a === "virulent") def.virulent = !!v;
+    else if (a === "note") { const s = String(v ?? "").trim(); if (s) def.note = s; else delete def.note; }
     else if (a === "save") { def.save = { ...def.save }; if (b === "dc") opt(def.save, "dc", v); else def.save[b] = v; }
     else if (a === "maxDuration" || a === "onset") durSet(def, a, b, v, units);
     else if (a === "s" && def.stages[Number(b)]) {
@@ -221,7 +222,7 @@ export function afflView(f, row, env, open = null) {
     modsRow: stageModsRow(s)
   });
   return {
-    name: def.name ?? "", kind: def.kind, statistic: def.save?.statistic, dc: def.save?.dc ?? "", maxDuration: durView(def.maxDuration, u.maxDuration), onset: durView(def.onset, u.onset), virulent: !!def.virulent,
+    name: def.name ?? "", kind: def.kind, statistic: def.save?.statistic, dc: def.save?.dc ?? "", maxDuration: durView(def.maxDuration, u.maxDuration), onset: durView(def.onset, u.onset), virulent: !!def.virulent, note: def.note ?? "",
     stage, n, shared: sharedPaths(f, row),
     stages: def.stages.map((s, i) => ({ i, line: stageLine(s, env), open: i === o, ...(i === o && { s: view(s, i) }) })),
     canAdd: n < MAX_STAGES, canRm: n > 1

@@ -34,6 +34,10 @@ export function init() {
     type: String, default: "gm",
     choices: { public: "PF2E_AUTOMATO.messageMode.public", gm: "PF2E_AUTOMATO.messageMode.gm" }
   });
+  reg("affliction.noteMode", {
+    type: String, default: "public",
+    choices: { public: "PF2E_AUTOMATO.messageMode.public", gm: "PF2E_AUTOMATO.messageMode.gm" }
+  });
   reg("reaction.showWindow", { type: Boolean, default: true, scope: "client" });
   reg("vision.marks", { type: Boolean, default: true, onChange: (on) => Hooks.callAll("pf2e-automato.visionMarks", on) });
   reg("resumeMinutes", { type: Number, default: 30, range: { min: 1, max: 1440, step: 1 } });

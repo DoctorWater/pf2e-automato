@@ -48,6 +48,7 @@ async () => {
   const prevScene = game.scenes.viewed, prevCombat = game.combats.viewed;
   const pfSet = game.user.flags.pf2e?.settings ?? {};
   const origFlags = { showCheckDialogs: pfSet.showCheckDialogs, showDamageDialogs: pfSet.showDamageDialogs };
+  const nmPrev = game.settings.get(MOD, "affliction.noteMode");
   const tbPrev = game.settings.get(MOD, "useToolbeltTargetHelper");
   const notes = [];
   const N = ui.notifications, nOrig = { warn: N.warn, error: N.error };
@@ -368,6 +369,71 @@ async () => {
     t.ok(await waitFor(() => badge(a) === 1, 6000), `второй успех подряд: стадия ${badge(a)}`);
   });
 
+  // ---------- заметка недуга (def.note, настройка affliction.noteMode) и конечная стадия: шаг В plan-affliction-text.md ----------
+  const NOTE = "AF-заметка-Zq7 держите ухо востро";
+  const noteMode = (v) => game.settings.set(MOD, "affliction.noteMode", v);
+  const withNote = (o = {}) => DEF({ note: NOTE, ...o });
+  const noteMsgs = (e, t0) => e.msgs(t0).filter((m) => m.speaker?.alias === "AF яд" && String(m.content).includes(NOTE));
+  const isGmOnly = (m) => { const g = ChatMessage.getWhisperRecipients("GM").map((u) => u.id).sort(); return g.length > 0 && [...m.whisper].sort().join() === g.join(); };
+  const descOf = (a) => carrier(a)?.system?.description?.value ?? "";
+
+  sc("note-public", "noteMode=public: заметка в описании носителя и в первой карточке стадии; на стадии 2 её нет", async (e, t) => {
+    await noteMode("public");
+    const t0 = e.since();
+    const x = await cast(e, { rule: RULE(withNote()), combat: false });
+    const a = e.A(x.tV);
+    t.ok(descOf(a).includes(NOTE), "заметка в описании носителя");
+    const first = await waitFor(() => noteMsgs(e, t0)[0], 6000);
+    t.ok(!!first && first.whisper.length === 0, `первая карточка стадии с заметкой, публичная (${noteMsgs(e, t0).length} шт.)`);
+    t.ok(noteMsgs(e, t0).length === 1, `заметка ровно в одной карточке (${noteMsgs(e, t0).length})`);
+    const t1 = e.since();
+    await e.fix(8);   // провал, не крит. провал (тот дал бы +2 стадии)
+    await game.time.advance(7); await wait(3000);
+    t.ok(await waitFor(() => badge(a) === 2, 8000), `стадия выросла до 2 (${badge(a)})`);
+    t.ok(noteMsgs(e, t1).length === 0, `на стадии 2 заметки нет (${noteMsgs(e, t1).length})`);
+  });
+
+  sc("note-gm", "noteMode=gm: в описании носителя заметки нет; ГМу отдельная карточка шёпотом", async (e, t) => {
+    await noteMode("gm");
+    const t0 = e.since();
+    const x = await cast(e, { rule: RULE(withNote()), combat: false });
+    const a = e.A(x.tV);
+    t.ok(!descOf(a).includes(NOTE), "в описании носителя заметки нет");
+    const w = await waitFor(() => noteMsgs(e, t0).find((m) => m.whisper.length), 6000);
+    t.ok(!!w && isGmOnly(w), `шёпот ГМам с заметкой (whisper: [${w?.whisper}])`);
+    t.ok(noteMsgs(e, t0).every((m) => m.whisper.length && isGmOnly(m)), "публичных карточек с заметкой нет");
+    t.ok(noteMsgs(e, t0).length === 1, `карточка одна (${noteMsgs(e, t0).length})`);
+  });
+
+  sc("note-onset", "Onset: заметки в карточках при наложении нет; появляется на onset-тике", async (e, t) => {
+    await noteMode("public");
+    const t0 = e.since();
+    const x = await cast(e, { rule: RULE(withNote({ onset: { value: 1, unit: "hours" }, maxDuration: { value: 1, unit: "days" } })), combat: false });
+    const a = e.A(x.tV);
+    await wait(1500);
+    t.ok(badge(a) === 1 && !e.cond(a, "sickened"), `в onset: бейдж ${badge(a)}, эффектов нет`);
+    t.ok(noteMsgs(e, t0).length === 0, `при наложении карточки с заметкой нет (${noteMsgs(e, t0).length})`);
+    await game.time.advance(3601);
+    t.ok(!!(await waitFor(() => noteMsgs(e, t0)[0], 8000)), "на onset-тике карточка с заметкой появилась");
+    t.ok(!!(await waitFor(() => e.cond(a, "sickened"), 6000)), "стадия применена");
+  });
+
+  sc("final-stage", "Конечная последняя стадия (duration: null), без maxDuration: после выхода на неё карточек спасброска нет, носитель остаётся", async (e, t) => {
+    const def = DEF({ name: "AF чума", kind: "disease", maxDuration: null, stages: [st(), st({ duration: null, conditions: [{ slug: "sickened", value: 3 }] })] });
+    const x = await cast(e, { rule: RULE(def), combat: false });
+    const a = e.A(x.tV), t0 = e.since();
+    t.ok(badge(a) === 1 && aff(a)?.endsAt == null, `старт со стадии 1, срока нет (${badge(a)}, ${aff(a)?.endsAt})`);
+    await e.fix(1);
+    await game.time.advance(7); await wait(3000);
+    t.ok(await waitFor(() => badge(a) === 2, 8000), `провал на тике: вышли на конечную стадию (${badge(a)})`);
+    t.ok(aff(a)?.nextAt == null, `nextAt пуст (${aff(a)?.nextAt})`);
+    const n = cards(e, t0).length;
+    await game.time.advance(3600); await wait(3000);
+    await game.time.advance(86400); await wait(3000);
+    t.ok(cards(e, t0).length === n, `новых карточек спасброска нет (${n} -> ${cards(e, t0).length})`);
+    t.ok(!!carrier(a) && badge(a) === 2, `носитель на месте, стадия ${badge(a)}`);
+  });
+
   // ---------- прогон ----------
   const rows = [];
   const pick = S.filter((s) => (!opts.only || opts.only.includes(s.id)) && !opts.skip.includes(s.id));
@@ -398,6 +464,7 @@ async () => {
   } finally {
     Object.assign(N, nOrig);
     try { await game.settings.set(MOD, "useToolbeltTargetHelper", tbPrev); } catch { /* ok */ }
+    try { await game.settings.set(MOD, "affliction.noteMode", nmPrev); } catch { /* ok */ }
     try { await setFlags(origFlags); } catch { /* ok */ }
     await sweep();
     await prevScene?.view();

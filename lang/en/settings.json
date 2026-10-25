@@ -18,6 +18,9 @@
       "challenge": {
         "messageMode": { "name": "NPC roll visibility", "hint": "Public or GM only." }
       },
+      "affliction": {
+        "noteMode": { "name": "Affliction note", "hint": "What the module does not automate in an affliction (cannot be removed, death, transformation). Public: in the effect description and on the stage card; GM only: whispered to the GM. Changing it does not affect descriptions of afflictions already applied." }
+      },
       "reaction": {
         "showWindow": { "name": "Show reaction window", "hint": "A small window with Use / Skip buttons when a reaction hint is whispered to you (this client only)." }
       },

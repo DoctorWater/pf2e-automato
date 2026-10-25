@@ -280,3 +280,16 @@ test("каталог и черновики: форма -> правило без 
   }
   assert.deepEqual(bad.slice(0, 5), []);
 });
+
+test("заметка недуга: поле правки, общая для шагов группы, переживает round-trip; пустая убирается", () => {
+  const f = form(def({ note: "Cannot be removed." })), [a, b] = rows(f);
+  assert.equal(af.afflView(f, a, env).note, "Cannot be removed.");
+  af.afflSet(f, a, "note", "  Mark death.  ");
+  assert.equal(defOf(b).note, "Mark death.");
+  const back = rt(f);
+  assert.equal(back.ok, true);
+  assert.equal(back.rule.onUse.challenge.byDegree.failure[0].affliction.def.note, "Mark death.");
+  af.afflSet(f, a, "note", "");
+  assert.equal("note" in defOf(a), false);
+  assert.equal(af.afflView(f, a, env).note, "");
+});

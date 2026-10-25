@@ -169,6 +169,7 @@ function afflFields(row, p, { a, env, plates }) {
     F.sel(`${A}.save.statistic`, t("workshop.au.affl.save"), v.statistic, sheetChoices("stat", af.AFFLICTION_SAVES)),
     F.num(`${A}.save.dc`, t("workshop.au.affl.dc"), v.dc, { min: 1, tip: t("workshop.au.affl.dcTip") }),
     dur("maxDuration", v.maxDuration, t("workshop.au.affl.max")), dur("onset", v.onset, t("workshop.au.affl.onset")),
+    F.text(`${A}.note`, t("workshop.au.affl.note"), v.note, { cls: "ws-full", tip: t("workshop.au.affl.noteTip") }),
     F.chk(`${A}.virulent`, t("workshop.au.affl.virulent"), v.virulent, { tip: t("workshop.au.affl.virulentTip") }),
     F.sel(`${A}.stage`, t("workshop.au.affl.stage"), v.stage, Object.fromEntries(Array.from({ length: v.n }, (_, i) => [i + 1, String(i + 1)])), { tip: t("workshop.au.affl.stageTip") })
   ];

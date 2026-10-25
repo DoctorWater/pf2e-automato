@@ -30,7 +30,7 @@ export function withAccepted(tri, accepted) {
     const d = ["manual", "markup-head", "markup-high", "markup-low"].includes(t.status) ? by.get(t.uuid) : null;
     if (!d) return t;
     // проверка модели отвергла черновик разметки (нужен примитив, одни заметки): это долг, а не черновик
-    // partial — правило закрывает часть активаций предмета (остальные ручные): в каталоге, но «готовым» не считается
+    // partial — правило закрывает только часть предмета (часть активаций или стадии недуга при остатке текста), остальное ручное: в каталоге, но «готовым» не считается
     return d.rule && d.confidence === "model" ? { ...t, status: d.partial ? "partial" : "model" } : d.reason?.startsWith("model-null") ? { ...t, status: "skip", reason: "model-null" } : t.status.startsWith("markup") ? { ...t, status: "manual" } : t;
   });
 }
@@ -74,9 +74,9 @@ export function renderMd(d) {
   return `${START}
 ## Конвейер: сводка по снимку pf2e ${d.pf2eVersion} (${d.generatedAt.slice(0, 10)})
 
-Генерируется \`node tools/coverage.mjs\` (шаг \`node tools/run.mjs\`); методика ниже (§0) осталась как была, этот раздел считает по **документам** после \`tools/triage.mjs\`. Статусы: \`pf2e\` — закрыто системой (selfEffect, Aura RE); \`catalog\` — уже в каталоге модуля; \`model\` — принятый ответ Haiku/Sonnet (\`rules/catalog.model.json\`); \`partial\` — принятое правило закрывает только часть активаций предмета (кастовые), остальные ручные: в каталоге, но в «готово» не входит; \`markup-high/low\` — черновик \`deriveFromMarkup\` (в рантайме — только кнопкой ведущего; ждёт проверки моделью: \`haiku-input.mjs --review\`); \`pa-port\` — закрывалось pf2e-automations, очередь переноса; \`manual\` — нужен черновик; \`skip\` — пассивное, без следа, только урон или дубль компендия в актёре. \`pa\` — закрыто переносом pf2e-automations (\`rules/catalog.pa.json\`, ручной каталог/обработчик или сам pf2e; долг и ложное покрытие PA остаются \`pa-port\`). «Готово %» = (pf2e + catalog + pa + model) / требует.
+Генерируется \`node tools/coverage.mjs\` (шаг \`node tools/run.mjs\`); методика ниже (§0) осталась как была, этот раздел считает по **документам** после \`tools/triage.mjs\`. Статусы: \`pf2e\` — закрыто системой (selfEffect, Aura RE); \`catalog\` — уже в каталоге модуля; \`model\` — принятый ответ Haiku/Sonnet (\`rules/catalog.model.json\`); \`partial\` — принятое правило закрывает только часть предмета (часть активаций; стадии недуга при остатке текста — он виден заметкой), остальное ручное: в каталоге, но в «готово» не входит; \`markup-high/low\` — черновик \`deriveFromMarkup\` (в рантайме — только кнопкой ведущего; ждёт проверки моделью: \`haiku-input.mjs --review\`); \`pa-port\` — закрывалось pf2e-automations, очередь переноса; \`manual\` — нужен черновик; \`skip\` — пассивное, без следа, только урон или дубль компендия в актёре. \`pa\` — закрыто переносом pf2e-automations (\`rules/catalog.pa.json\`, ручной каталог/обработчик или сам pf2e; долг и ложное покрытие PA остаются \`pa-port\`). «Готово %» = (pf2e + catalog + pa + model) / требует.
 
-Всего документов ${d.total}; требуют автоматизации ${o.need}; готово ${ready(o)} (${pct(ready(o), o.need)}); частично ${o.partial} (правило закрывает часть активаций, в «готово» не входит); skip ${o.skip} (${Object.entries(d.skipReasons).map(([k, v]) => `${k} ${v}`).join(", ")}).
+Всего документов ${d.total}; требуют автоматизации ${o.need}; готово ${ready(o)} (${pct(ready(o), o.need)}); частично ${o.partial} (правило закрывает только часть предмета, в «готово» не входит); skip ${o.skip} (${Object.entries(d.skipReasons).map(([k, v]) => `${k} ${v}`).join(", ")}).
 
 ### PA (pf2e-automations ${pa?.paVersion ?? "?"})
 

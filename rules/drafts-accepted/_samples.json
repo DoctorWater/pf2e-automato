@@ -132,5 +132,10 @@
   "seed": 26,
   "n": 50,
   "pool": "62 model + 41 null"
+ },
+ "activate:model:seed1": {
+  "seed": 1,
+  "n": 18,
+  "pool": 18
  }
 }

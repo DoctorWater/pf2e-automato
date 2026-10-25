@@ -26,6 +26,8 @@ export const readOut = (name) => {
 /** Запущен ли модуль как скрипт (а не импортирован тестом). */
 export const isMain = (url) => !!process.argv[1] && pathToFileURL(process.argv[1]).href === url;
 export const arg = (name, def = null) => {
+  const eq = process.argv.find((a) => a.startsWith(`--${name}=`));
+  if (eq) return eq.slice(name.length + 3);
   const i = process.argv.indexOf(`--${name}`);
   return i < 0 ? def : process.argv[i + 1] ?? true;
 };

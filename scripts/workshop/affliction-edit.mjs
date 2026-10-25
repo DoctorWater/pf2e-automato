@@ -31,7 +31,7 @@ const put = (row, x) => { row.text = JSON.stringify(x); };
  * (apply/испытание/проверка/зона — у onUse; испытание и проверка по своим флажкам; события всегда, их испытание по флажку; триггеры — у зоны области).
  */
 export function stepRows(f) {
-  const out = [], add = (path, rows) => (rows ?? []).forEach((r, i) => out.push([`${path}.${i}`, r]));
+  const out = [], add = (path, rows) => (rows ?? []).forEach((r, i) => { out.push([`${path}.${i}`, r]); if (r.kind === "coat" && r.coat) degs(`${path}.${i}.coat.ch`, r.coat.ch); });   // шаг coat несёт своё испытание: его степени — тоже шаги правила
   const degs = (path, o) => { for (const d of COLS) add(`${path}.deg.${d}`, o?.deg?.[d]); };
   if (f.kind === "onUse") {
     add("apply", f.apply);
@@ -72,7 +72,7 @@ export function sharedPaths(f, row) {
 export function stepLabel(path, t) {
   const deg = /(?:^|\.)(?:ch|ck)\.deg\.(\w+)\.\d+$/.exec(path)?.[1];
   const ev = /^ev\.(\d+)\./.exec(path)?.[1], trg = /^zone\.trig\.(\d+)\./.exec(path)?.[1];
-  const where = ev !== undefined ? t("workshop.au.affl.inEvent", { n: Number(ev) + 1 }) : trg !== undefined ? t("workshop.au.affl.inTrigger", { n: Number(trg) + 1 }) : "";
+  const where = /\.coat\./.test(path) ? t("workshop.au.coat.inCoat") : ev !== undefined ? t("workshop.au.affl.inEvent", { n: Number(ev) + 1 }) : trg !== undefined ? t("workshop.au.affl.inTrigger", { n: Number(trg) + 1 }) : "";
   const what = deg ? t(`sheet.degree.${deg}`) : t("workshop.au.immediate");
   return where ? `${what} (${where})` : what;
 }

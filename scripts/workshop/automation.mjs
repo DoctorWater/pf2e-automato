@@ -3,7 +3,7 @@
 import { DEGREES, degreeFromTotal } from "../util.mjs";
 import { stepText } from "../chat.mjs";
 import { textOfMods } from "../inline-effect.mjs";
-import { modOf, keepGet, keepSet } from "../sheet.mjs";
+import { modOf, keepGet, keepSet, blankCoat } from "../sheet.mjs";
 import { ESCAPE_STATS, REPEAT_END } from "../rules.mjs";
 import { STEP_TARGETS } from "./effect.mjs";
 import { parseWhen, whenText } from "../predicate.mjs";
@@ -216,9 +216,12 @@ export function setEffectSource(row, src) {
 /** Смена вида шага: текст и значение сбрасываются (у choose — заготовка JSON), спрятанное и недопустимое для нового вида уходит из keep. */
 export function setStepKind(row, kind) {
   Object.assign(row, { kind, text: kind === "persistent" ? "1d6" : kind === "choose" ? JSON.stringify({ from: "allies" }) : "", value: "" });
+  if (kind === "coat") coatInit(row); else delete row.coat;
   keepSet(row, "hold", null);
   keepFit(row);
 }
+/** Шаг «яд на оружие»: пустая модель (row.coat), владелец — сам. */
+export const coatInit = (row) => Object.assign(row, { to: "self", text: "", coat: blankCoat() });
 /** Правка основного текста шага: состояние подставляет значение (valued — значимое ли), у эффекта «[…]» набрать нельзя (это свойства своего эффекта). */
 export function setStepText(row, v, valued = false) {
   row.text = v;
@@ -299,10 +302,9 @@ export function plate(row, env) {
     try { x = JSON.parse(row.text); } catch { /* битый JSON: строка «?» */ }
     return { ...base, name: x?.def ? t("workshop.au.afflPlate", { name: x.def.name || "?", stage: x.stage ?? 1, of: x.def.stages?.length ?? "?" }) : "?", note };
   }
-  if (row.kind === "coat") {   // яд на оружие: JSON до отдельного редактора
-    let x = null;
-    try { x = JSON.parse(row.text); } catch { /* битый JSON: «?» */ }
-    return { ...base, name: t("workshop.au.coatPlate", { name: x?.challenge?.byDegree ? Object.values(x.challenge.byDegree).flat().map((s) => s.affliction?.def?.name).find(Boolean) ?? "?" : "?" }), note };
+  if (row.kind === "coat") {   // яд на оружие: название — по первому недугу в степенях его испытания
+    const names = Object.values(row.coat?.ch?.deg ?? {}).flat().filter((r) => r.kind === "affliction").map((r) => { try { return JSON.parse(r.text)?.def?.name; } catch { return null; } });
+    return { ...base, name: t("workshop.au.coatPlate", { name: names.find(Boolean) ?? "?" }), note };
   }
   if (row.kind === "move") return { ...base, name: t(`workshop.au.movePlate.${row.moveMode === "pull" ? "pull" : "push"}${row.moveFrom === "point" ? "Point" : ""}`, { distance: String(row.text ?? "").trim() || "?" }) };
   if (row.kind === "choose") return { ...base, name: t("workshop.au.choosePlate") };

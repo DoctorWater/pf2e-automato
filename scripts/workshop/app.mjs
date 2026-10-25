@@ -75,12 +75,15 @@ const immFields = (p, m) => [
   ] : [])
 ];
 
-/** Поля раскрытого шага (строка apply / степени). row — строка модели формы, p — её путь. */
+/** Вид «яд на оружие» — только шаг onUse.apply верхнего уровня и один на правило (иначе coat.place); уже выбранный остаётся. */
+const coatOk = (row, p, f) => row.kind === "coat" || (p.startsWith("f.apply.") && !p.slice(8).includes(".") && !f.apply.some((r) => r.kind === "coat"));
+
+/** Поля раскрытого шага строки apply / степени). row — строка модели формы, p — её путь. */
 function stepFields(row, p, names, card, ctx) {
   const out = [
     ...(row.kind === "affliction" || row.kind === "coat" ? [] : [F.seg(`${p}.to`, t("workshop.au.stepTo"), row.to, ["target", "self", "party", "allies", "chosen"].map((k) => [k, t(`sheet.to.${k}`)]))]),   // недуг — только к цели
     ...(row.to === "allies" && row.kind !== "affliction" && row.kind !== "coat" ? [F.num(`${p}.range`, t("sheet.row.range"), row.range, { min: 5, placeholder: "30" })] : []),
-    F.sel(`${p}.kind`, t("workshop.au.stepKind"), row.kind, Object.assign(sheetChoices("row", ["condition", "effect", "note", "visibility", "persistent", "remove", "removeEffect", "extendEffect", "rollOption", "damage", "choose", "move"]), { choose: t("workshop.au.chooseKind"), affliction: t("workshop.au.kindAffliction"), coat: t("workshop.au.kindCoat") }))
+    F.sel(`${p}.kind`, t("workshop.au.stepKind"), row.kind, Object.assign(sheetChoices("row", ["condition", "effect", "note", "visibility", "persistent", "remove", "removeEffect", "extendEffect", "rollOption", "damage", "choose", "move"]), { choose: t("workshop.au.chooseKind"), affliction: t("workshop.au.kindAffliction"), ...(coatOk(row, p, ctx.a.f) && { coat: t("workshop.au.kindCoat") }) }))
   ];
   const rank = [F.num(`${p}.rankMin`, t("sheet.row.rankMin"), row.rankMin, { min: 1 }), F.num(`${p}.rankMax`, t("sheet.row.rankMax"), row.rankMax, { min: 1 })];
   if (row.kind === "remove") out.push(F.sel(`${p}.text`, t("workshop.au.condition"), row.text, { "": "—", ...Object.fromEntries(grantable().map((c) => [c.slug, c.label])) }));
@@ -116,7 +119,7 @@ function stepFields(row, p, names, card, ctx) {
   else if (row.kind === "move") out.push(F.num(`${p}.text`, t("workshop.au.moveDist"), row.text, { min: 5, placeholder: "10" }), F.sel(`${p}.moveMode`, t("workshop.au.moveMode"), row.moveMode, sheetChoices("moveMode", ["push", "pull"])), F.sel(`${p}.moveFrom`, t("workshop.au.moveFrom"), row.moveFrom ?? "origin", sheetChoices("moveFrom", ["origin", "point"])));
   else if (row.kind === "choose") out.push(...chooseFields(row, p));
   else if (row.kind === "affliction") out.push(afflFields(row, p, ctx));
-  else if (row.kind === "coat") out.push(F.text(`${p}.text`, t("workshop.au.coatJson"), row.text, { cls: "ws-grow" }));
+  else if (row.kind === "coat") out.push(...coatFields(row, p, ctx));
   else if (row.kind === "removeEffect") out.push(F.text(`${p}.text`, t("workshop.au.effectRef"), row.text, { drop: "effect", cls: "ws-grow", hint: names.get(row.text) ?? "" }), F.chk(`${p}.ofOrigin`, t("workshop.au.ofOrigin"), row.ofOrigin));
   else if (row.kind === "extendEffect") out.push(F.text(`${p}.text`, t("workshop.au.effectSlug"), row.text, { cls: "ws-grow" }), F.num(`${p}.value`, t("workshop.au.extendRounds"), row.value, { min: 1 }));
   else if (row.kind === "rollOption") out.push(F.text(`${p}.domain`, t("sheet.row.domain"), row.domain, { placeholder: "all" }), F.text(`${p}.text`, t("workshop.au.optionName"), row.text, { cls: "ws-grow" }), F.chk(`${p}.optOff`, t("workshop.au.optOff"), row.optOff));
@@ -131,9 +134,9 @@ function stepFields(row, p, names, card, ctx) {
     F.sel(`${p}.visOf`, t("workshop.au.visOf"), row.visOf, sheetChoices("vis.of", ["self", "target"])),
     F.text(`${p}.visUntil`, t("workshop.au.visUntil"), row.visUntil, { placeholder: t("sheet.row.until") })
   );
-  if (row.kind !== "note" && row.kind !== "visibility") out.push(...rank);   // круг сотворения: шаг только в этом диапазоне
+  if (row.kind !== "note" && row.kind !== "visibility" && row.kind !== "coat") out.push(...rank);   // круг сотворения: шаг только в этом диапазоне
   if (row.kind !== "note") out.push(F.text(`${p}.when`, t("workshop.au.stepWhen"), row.when, { cls: "ws-full", placeholder: "feat:x, target:trait:undead", hint: t("workshop.au.stepWhenHint") }));   // условие шага (предикат pf2e)
-  if (row.kind !== "choose") out.push(refineField(row, p, names, card));
+  if (row.kind !== "choose" && row.kind !== "coat") out.push(refineField(row, p, names, card));
   return out;
 }
 
@@ -191,6 +194,23 @@ function afflFields(row, p, { a, env, plates }) {
   return { affl: { head, stages, add: { ...btn("stageAdd"), off: !v.canAdd, label: t("workshop.au.affl.addStage") }, stagesLabel: t("workshop.au.affl.stages"), shared: labels.length ? t("workshop.au.affl.shared", { steps: labels.join(", ") }) : "", split: labels.length ? { ...btn("split"), label: t("workshop.au.affl.split"), tip: t("workshop.au.affl.splitTip") } : null }, label: "" };
 }
 
+/**
+ * Шаг «яд на оружие»: срок, испытание цели (те же поля, что у события) и шаги по степеням — списками прямо в карточке шага.
+ * Недуг внутри — обычный шаг-недуг (afflFields): шаги с равным определением делят его, «Отделить» разводит.
+ */
+function coatFields(row, p, { lst }) {
+  const c = row.coat, q = `${p}.coat`, ch = c.ch, unit = (path, v) => F.sel(path, t("workshop.au.unit"), v, sheetChoices("unit", ["rounds", "minutes", "hours", "days"]));
+  return [
+    F.num(`${q}.durValue`, t("sheet.duration"), c.durValue, { min: 0, placeholder: "—", tip: t("workshop.au.coat.durTip") }), unit(`${q}.durUnit`, c.durUnit),
+    F.sel(`${q}.durExpiry`, t("workshop.expires"), c.durExpiry, { "": t("sheet.expiry.none"), "turn-start": t("sheet.expiry.start"), "turn-end": t("sheet.expiry.end") }),
+    F.text(`${q}.ch.statistic`, t("sheet.statistic"), ch.statistic, { list: "ws-skills" }), F.sel(`${q}.ch.dcType`, t("sheet.dcLabel"), ch.dcType, sheetChoices("dc", ["value", "expr", "markup", "source", "against"])),
+    ...(["value", "expr", "against"].includes(ch.dcType) ? [F.text(`${q}.ch.dcText`, t("workshop.au.dcValue"), ch.dcText, { inpCls: "ws-num" })] : []),
+    F.chk(`${q}.ch.basic`, t("sheet.basic"), ch.basic), F.text(`${q}.ch.traits`, t("sheet.traits"), ch.traits), F.text(`${q}.ch.options`, t("sheet.options"), ch.options), chWhen(`${q}.ch`, ch),
+    ...immFields(`${q}.ch.imm`, ch.imm),
+    { degs: { label: t("workshop.au.coat.degrees"), cols: au.COLS.map((d) => lst(`${q}.ch.deg.${d}`, t(`sheet.degree.${d}`), d, false)) }, label: "" }
+  ];
+}
+
 /** Шаг «Игрок выбирает»: источник, вопрос; для существ — дальность и «от кого», для вариантов — строки {value, label?, when?}. */
 function chooseFields(row, p) {
   const c = au.chooseView(row), q = `${p}.choose`;
@@ -220,6 +240,9 @@ function refineField(row, p, names, card) {
   };
   return { refine: { path: p, list, card: open && cards[open] ? { key: open, path: p, title: t(`workshop.au.ref.card.${open}`), off: t("workshop.au.ref.off"), ...cards[open] } : null }, label: t("workshop.au.ref.label") };
 }
+
+/** Шаг внутри испытания яда: вернуться к шагу «яд на оружие» (путь до `.coat`). */
+const coatBack = (sel) => { const m = /^(.*)\.coat\.ch\.deg\./.exec(sel); return m ? { path: m[1], label: t("workshop.au.coat.back") } : null; };
 
 export class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
   static #instance = null;
@@ -287,8 +310,7 @@ export class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
       removeStep(_e, el) {
         const [list, i] = this.#split(el.dataset.path);
         foundry.utils.getProperty(this.#au, list).splice(i, 1);
-        this.#au.sel = null;
-        this.#au.card = null;
+        if (!el.dataset.path.startsWith(`${this.#au.sel}.`)) { this.#au.sel = null; this.#au.card = null; }   // удалён шаг внутри открытой карточки яда — карточка остаётся
         this.#redraw();
       },
       stepVal(_e, el) {
@@ -424,12 +446,13 @@ export class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
 
   #addStep(list, { kind, text }) {
     // шаг записи события — по умолчанию владельцу; шаги по степеням её испытания — тому, кто бросает
-    const a = this.#au, rows = foundry.utils.getProperty(a, list), row = { ...blankRow(), kind, text, to: /^f\.ev\.\d+\.apply$/.test(list) || a.f.targets === "self" ? "self" : "target" };
+    const a = this.#au, rows = foundry.utils.getProperty(a, list), row = { ...blankRow(), kind, text, to: /^f\.ev\.\d+\.apply$/.test(list) || (a.f.targets === "self" && !/\.coat\.ch\.deg\./.test(list)) ? "self" : "target" };   // степени испытания яда — цели, даже когда у предмета targets: self
     if (kind === "condition" && condValued(text)) row.value = "1";
     if (kind === "persistent" || kind === "damage") row.text = "1d6";
     if (kind === "move") Object.assign(row, { text: "10", to: "target" });
     if (kind === "choose") Object.assign(row, { text: "{\"from\":\"allies\"}", to: "self" });
     if (kind === "affliction") { row.text = ""; af.afflInit(row, a.f); a.stage = null; }
+    if (kind === "coat") au.coatInit(row);
     rows.push(row);
     a.sel = `${list}.${rows.length - 1}`;
     a.picker = null;
@@ -559,15 +582,15 @@ export class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
       return { path: p, ...pl, text, open: a.sel === p, stepper: pl.kind === "condition" && pl.valued };
     });
     const okGhost = new Set(grantable().map((c) => c.slug));
-    const lst = (path, label, deg = "") => {
+    const lst = (path, label, deg = "", hints = true) => {   // hints: false — без призрачных подсказок основного испытания (колонки яда)
       const steps = stepsOf(path), have = new Set((foundry.utils.getProperty(a, path) ?? []).filter((r) => r.kind === "condition").map((r) => r.text));
-      const ghosts = deg && a.hints ? a.hints.possible.filter((h) => h.deg === deg && okGhost.has(h.slug) && !have.has(h.slug)).map((h) => ({ slug: h.slug, timed: h.timed, text: t("workshop.au.hintPossible", { name: h.label }), tip: t(h.timed ? "workshop.au.hintTimedTip" : "workshop.au.hintPossibleTip", { name: h.label }) })) : [];
-      return { list: path, label, deg, steps, ghosts, picker: a.picker === path };
+      const ghosts = hints && deg && a.hints ? a.hints.possible.filter((h) => h.deg === deg && okGhost.has(h.slug) && !have.has(h.slug)).map((h) => ({ slug: h.slug, timed: h.timed, text: t("workshop.au.hintPossible", { name: h.label }), tip: t(h.timed ? "workshop.au.hintTimedTip" : "workshop.au.hintPossibleTip", { name: h.label }) })) : [];
+      return { list: path, label, deg, steps, ghosts, picker: a.picker === path, coat: path === "f.apply" && !a.f.apply.some((r) => r.kind === "coat") };   // coat — только в onUse.apply
     };
     let edit = null;
     if (a.sel) {
       const row = foundry.utils.getProperty(a, a.sel);
-      if (row) edit = { path: a.sel, title: au.plateText(au.plate(row, env)), fields: stepFields(row, a.sel, this.#names, a.card, { a, env: { t, damageLabel, conditionLabel: condLabel }, plates }) };
+      if (row) edit = { path: a.sel, title: au.plateText(au.plate(row, env)), fields: stepFields(row, a.sel, this.#names, a.card, { a, env: { t, damageLabel, conditionLabel: condLabel }, plates, lst }), back: coatBack(a.sel) };
       else a.sel = null;
     }
 

@@ -187,7 +187,6 @@
         },
         "afflPlate": "Недуг «{name}»: стадия {stage} из {of}",
         "kindCoat": "Яд на оружие",
-        "coatJson": "Нанесение яда (JSON)",
         "coatPlate": "Яд на оружие: {name}"
       }
     },

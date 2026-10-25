@@ -54,6 +54,10 @@
   </div>
   {{/if}}
 </div>
+{{else if degs}}
+<div class="ws-fld ws-full"><span class="ws-lbl">{{degs.label}}</span>
+  <div class="ws-dgrid">{{#each degs.cols}}<div class="ws-dcol"><div class="ws-lbl ws-dhead ws-d-{{deg}}">{{label}}</div>{{> lst}}</div>{{/each}}</div>
+</div>
 {{else if pair}}
 <div class="ws-fld"><span class="ws-lbl">{{pair.label}}</span><div class="ws-row">{{#each pair.fields}}{{> fld}}{{/each}}</div></div>
 {{else if lines}}
@@ -138,6 +142,7 @@
         <button type="button" data-action="addStep" data-list="{{list}}" data-kind="move" name="addk-move-{{list}}" data-q="">{{localize "PF2E_AUTOMATO.workshop.au.kindMove"}}</button>
         <button type="button" data-action="addStep" data-list="{{list}}" data-kind="choose" name="addk-choose-{{list}}" data-q="">{{localize "PF2E_AUTOMATO.workshop.au.kindChoose"}}</button>
         <button type="button" data-action="addStep" data-list="{{list}}" data-kind="affliction" name="addk-affliction-{{list}}" data-q="">{{localize "PF2E_AUTOMATO.workshop.au.kindAffliction"}}</button>
+        {{#if coat}}<button type="button" data-action="addStep" data-list="{{list}}" data-kind="coat" name="addk-coat-{{list}}" data-q="">{{localize "PF2E_AUTOMATO.workshop.au.kindCoat"}}</button>{{/if}}
         <button type="button" data-action="addStep" data-list="{{list}}" data-kind="note" name="addk-note-{{list}}" data-q="">{{localize "PF2E_AUTOMATO.workshop.au.kindNote"}}</button>
         <div class="ws-pick-h" data-q="">{{localize "PF2E_AUTOMATO.workshop.au.pickConds"}}</div>
         {{#each @root.conds}}<button type="button" data-action="addStep" data-list="{{../list}}" data-slug="{{slug}}" name="addc-{{slug}}-{{../list}}" data-q="{{q}}">{{label}}</button>{{/each}}
@@ -176,6 +181,7 @@
         {{#if r.edit}}
         <div class="ws-sted ws-full">
           <div class="ws-lbl ws-accent">{{r.edit.title}}</div>
+          {{#if r.edit.back}}<button type="button" class="ws-btn ws-btn-g" data-action="toggleStep" data-path="{{r.edit.back.path}}" name="coatBack"><i class="fa-solid fa-chevron-left" inert></i> {{r.edit.back.label}}</button>{{/if}}
           <div class="ws-sted-f">{{#each r.edit.fields}}{{> fld}}{{/each}}</div>
         </div>
         {{/if}}

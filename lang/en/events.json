@@ -187,7 +187,6 @@
         },
         "afflPlate": "Affliction \"{name}\": stage {stage} of {of}",
         "kindCoat": "Weapon poison",
-        "coatJson": "Coat a poison (JSON)",
         "coatPlate": "Weapon poison: {name}"
       }
     },

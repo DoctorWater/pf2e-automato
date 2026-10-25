@@ -61,7 +61,7 @@ function rowCore(a) {
   if (a.damage) return { to: a.to, kind: "damage", text: a.damage.formula, value: "", policy: "max", keep, ...DUR_BLANK, ...VIS_BLANK, pType: a.damage.damageType };
   if (a.move) return { to: a.to, kind: "move", text: String(a.move.distance), value: "", policy: "max", keep, ...DUR_BLANK, ...VIS_BLANK, ...PERS_BLANK, moveMode: a.move.mode, moveFrom: a.move.from === "point" ? "point" : "origin" };
   if (a.affliction) return { to: a.to, kind: "affliction", text: JSON.stringify(a.affliction), value: "", policy: "max", keep, ...DUR_BLANK, ...VIS_BLANK, ...PERS_BLANK };   // недуг едет JSON-ом `{stage, def}`; Мастерская правит его редактором (workshop/affliction-edit.mjs), вкладка листа — строкой
-  if (a.coat) return { to: "self", kind: "coat", text: JSON.stringify(a.coat), value: "", policy: "max", keep, ...DUR_BLANK, ...VIS_BLANK, ...PERS_BLANK };   // яд на оружие едет JSON-ом (как недуг); Мастерская пока показывает его строкой
+  if (a.coat) return { to: "self", kind: "coat", text: JSON.stringify(a.coat), coat: coatForm(a.coat), value: "", policy: "max", keep, ...DUR_BLANK, ...VIS_BLANK, ...PERS_BLANK };   // яд на оружие: Мастерская правит row.coat (модель формы), вкладка листа и записи без row.coat — JSON в text
   if (a.choose) return { to: "self", kind: "choose", text: JSON.stringify(a.choose), value: "", policy: "max", keep, ...DUR_BLANK, ...VIS_BLANK, ...PERS_BLANK };
   if (a.removeCondition) return { to: a.to, kind: "remove", text: a.removeCondition.slug, value: "", policy: "max", keep, ...DUR_BLANK, ...VIS_BLANK, ...PERS_BLANK };
   const plain = (kind, text, value = "") => ({ to: a.to, kind, text, value, policy: "max", keep, ...DUR_BLANK, ...VIS_BLANK, ...PERS_BLANK });
@@ -102,6 +102,7 @@ function applyCore(r) {
     const until = csv(r.visUntil);
     return { to, visibility: { level: r.visLevel, of: r.visOf === "target" ? "target" : "self", ...(until.length && { until }) } };
   }
+  if (r.kind === "coat" && r.coat) return { to: "self", coat: coatRule(r.coat) };   // модель Мастерской; без неё (вкладка листа) — JSON из text
   if (!text) return null;
   if (r.kind === "coat") {
     let coat = null;
@@ -161,6 +162,14 @@ const degSteps = (deg) => {
 // onEvent (0.5g3): запись события <-> форма. Испытание записи переиспользует форму ch правила onUse (через временное правило), шаги — те же строки.
 const chForm = (c) => ruleToForm(c ? { v: 1, onUse: { targets: "selected", challenge: c, apply: [] } } : null).ch;
 const chRule = (ch) => formToRule({ kind: "onUse", targets: "selected", ch: { ...ch, on: true }, apply: [], macros: [] }).onUse.challenge;
+// шаг coat <-> модель формы: срок (пустое значение — срока нет), испытание — та же форма ch, что у onUse; rest — прочие поля шага (валидатор о них скажет, а не промолчит)
+const coatForm = (c) => {
+  const { duration: d, challenge, ...rest } = c;
+  return { durValue: d?.value ?? "", durUnit: d?.unit ?? "rounds", durExpiry: d?.expiry ?? "", ch: { ...chForm(challenge), on: true }, rest };
+};
+const coatRule = (c) => ({ weapon: "choose", ...c.rest, ...(num(c.durValue) !== undefined && { duration: { value: num(c.durValue), unit: c.durUnit, expiry: c.durExpiry || null } }), challenge: chRule(c.ch) });
+/** Пустой шаг coat для Мастерской: испытание Стойкости с чертами «яд, ранение», СЛ вписывает ГМ. */
+export const blankCoat = () => ({ durValue: "", durUnit: "rounds", durExpiry: "", rest: {}, ch: { ...chForm(null), on: true, statistic: "fortitude", traits: "poison, injury" } });
 /** Пустая запись для кнопки «добавить событие». */
 export const blankEvent = () => ({ on: "attack-roll", side: "self", when: "", once: false, afterUse: false, aura: "", range: "", per: "", apply: [], ch: chForm(null) });
 // side:"near" (T3): aura / range / per живут в форме всегда, в правило идут только у near

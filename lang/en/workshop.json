@@ -410,6 +410,10 @@
           "persShort": "persistent", "modsShort": "penalties ×{n}", "inEvent": "event {n}", "inTrigger": "trigger {n}",
           "shared": "The definition is shared by the steps: {steps}. Editing it here changes all of them; only the starting stage is per step."
         },
+        "coat": {
+          "durTip": "Without a duration the poison stays on the weapon until spent. Needed e.g. for Envenom (until the end of the next turn).",
+          "degrees": "What the poison does to the target", "back": "Back to the weapon poison step", "inCoat": "weapon poison"
+        },
         "noteText": "Note text",
         "unit": "Unit",
         "durOf": "Turn of",

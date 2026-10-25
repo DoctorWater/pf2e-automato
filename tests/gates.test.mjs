@@ -116,13 +116,14 @@ test("normalizeRule: без текста правило как есть", () => 
   assert.equal(normalizeRule(challengeRule, "").rule, challengeRule);
 });
 
-test("checkAnswer/processAnswers: strike-gate -> needs-primitive, правило сохранено, в каталог и «готово» не идёт", () => {
+test("checkAnswer/processAnswers: strike-gate -> unsure (ключ strike-gate), на последней ступени needs-primitive, правило сохранено, в каталог и «готово» не идёт", () => {
   const html = p("Make a Strike. If it hits, the target must attempt a Will save or become Frightened 1.");
   const c = checkAnswer({ uuid: "u", rule: challengeRule }, refs, html);
-  assert.equal(c.kind, "needs-primitive");
-  assert.ok(c.rule);
+  assert.deepEqual([c.kind, c.key], ["unsure", "strike-gate"]);
+  assert.ok(c.guess);
+  assert.equal(processAnswers([{ uuid: "u", rule: challengeRule, unsure: false }], [{ uuid: "u", slug: "x", name: "X", status: "manual" }], refs, emptyState(), { htmlOf: () => html }).sonnet.length, 1);
   const d = { uuid: "u", slug: "x", name: "X", status: "manual" };
-  const res = processAnswers([{ uuid: "u", rule: challengeRule, unsure: false, note: "хит" }], [d], refs, emptyState(), { htmlOf: () => html });
+  const res = processAnswers([{ uuid: "u", rule: challengeRule, unsure: false, note: "хит" }], [d], refs, emptyState(), { htmlOf: () => html, final: true });
   const [a] = res.accepted;
   assert.equal(a.confidence, "needs-primitive");
   assert.equal(a.status, "manual");

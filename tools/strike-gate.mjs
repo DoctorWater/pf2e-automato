@@ -19,8 +19,10 @@ export function strikeWhen(html) {
 
 const TYPES = new Set(["feat", "action"]);   // боеприпасы и бомбы («when damaged by») — отдельная подпачка, здесь не переводим
 // несколько Ударов за использование («все пять попали», both/all Strikes, Flurry): одной связью «карточка -> первый Удар» не выразить — долг multi-strike
-const MULTI = /\b(?:all|both|every|each)\b[^.]{0,30}\bStrikes\b|\b(?:two|three|four|five|six)\b[^.]{0,20}\bStrikes\b|\bStrike\b[^.]{0,80}\bthen\b[^.]{0,80}\bStrike\b|\bStrike\s+twice\b|\bFlurry\b/i;
-export const multiStrike = (html) => MULTI.test(plain(html));
+const MULTI = /\b(?:all|both|every|each)\b[^.]{0,30}\bStrikes\b|\b(?:two|three|four|five|six)\b[^.]{0,20}\b(?:Strikes|attacks)\b|\bStrike\b[^.]{0,80}\bthen\b[^.]{0,80}\bStrike\b|\bStrike\s+twice\b|\bFlurry\b/i;
+// «counts as two attacks for your multiple attack penalty» — один Удар, а не два
+const ONE_STRIKE = /\bcounts?\s+as\s+(?:two|three|four|five|six)\s+attacks?\b[^.]{0,60}\battack\s+penalty/gi;
+export const multiStrike = (html) => MULTI.test(plain(html).replace(ONE_STRIKE, " "));
 const ACTIVE = { condition: 1, effect: 1, damage: 1, removeCondition: 1, removeEffect: 1, extendEffect: 1, rollOption: 1, persistent: 1, visibility: 1, choose: 1 };
 const isNote = (s) => !!s.note && !Object.keys(ACTIVE).some((k) => s[k]);
 

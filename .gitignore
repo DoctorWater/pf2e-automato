@@ -5,3 +5,5 @@ packs/.effects.hash
 packs/equipment/
 packs/.equipment.hash
 .claude/worktrees/
+
+__pycache__/

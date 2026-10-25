@@ -73,7 +73,7 @@ test("словарь механизмов: регэкспы компилирую
 
 test("статус механизма: порог, примитив, промпт", () => {
   assert.equal(statusOf("push", 1), "к проходу");
-  assert.equal(statusOf("passive-hit-trigger", 99), "к промпту");
+  assert.equal(statusOf("passive-hit-trigger", 99), "к проходу");
   assert.equal(statusOf("ammo-bomb", THRESHOLD), "к плану");
   assert.equal(statusOf("ammo-bomb", THRESHOLD - 1), "ждёт");
 });
@@ -98,7 +98,7 @@ test("poolable: примитив у всех ключей, промпт знае
   assert.equal(poolable({ keys: ["push", "mods"], free: false }), true);
   assert.equal(poolable({ keys: ["push", "ammo-bomb"], free: false }), false);
   assert.equal(poolable({ keys: ["push"], free: true }), false);
-  assert.equal(poolable({ keys: ["passive-hit-trigger"], free: false }), false);
+  assert.equal(poolable({ keys: ["passive-hit-trigger"], free: false }), true);
   assert.equal(poolable({ keys: ["cast-activation"], free: false }), false);
   assert.equal(poolable({ keys: [], free: false }), false);
 });
@@ -114,6 +114,13 @@ test("debtPool: только записи, готовые по всем ключ
   const without = debtPool("all", new Set([pool[0].uuid]));
   assert.equal(without.length, pool.length - 1);
   assert.ok(!without.some((p) => p.uuid === pool[0].uuid));
+});
+
+test("debtPool: unsure-ответ по переоткрытому ключу возвращается в пул, принятый — нет", () => {
+  const p = debtPool("all", new Set()).find((x) => x.group.split("+").some((k) => ["triggered-save", "passive-hit-trigger"].includes(k)));
+  assert.ok(p);
+  assert.ok(debtPool("all", new Map([[p.uuid, true]])).some((x) => x.uuid === p.uuid));
+  assert.ok(!debtPool("all", new Map([[p.uuid, false]])).some((x) => x.uuid === p.uuid));
 });
 
 test("разбор: запись под каждым ключом, blocked при чужом ключе без примитива", () => {

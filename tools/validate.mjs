@@ -77,6 +77,8 @@ export function semanticErrors(rule, refs, html = null) {
   // «Stage 1 … Stage 2 …» без шага affliction: стадии остались бы текстом (яд/болезнь не вели бы счёт)
   if (html && afflictionStages(html) && !stepsOf(rule).some((s) => s.affliction)) bad.push("the text has affliction stages (Stage 1, Stage 2 …): the rule needs an `affliction` step on failure / critical failure (see the affliction example); do not recreate stages with plain condition steps");
   for (const e of rule.onEvent ?? []) if (e.aura && !/^[a-z0-9-]+$/.test(e.aura)) bad.push(`onEvent aura "${e.aura}" must be the slug of a pf2e Aura rule element (lowercase, dashes); if you do not know it use "range" in feet`);
+  // верхний уровень `when` — И: два исхода сразу никогда не выполнятся («попадание» = {"or": [success, criticalSuccess]})
+  for (const e of rule.onEvent ?? []) if ((Array.isArray(e.when) ? e.when : []).filter((p) => typeof p === "string" && p.startsWith("outcome:")).length > 1) bad.push(`onEvent.when lists several outcome:* at the top level: that is AND and is never true; write {"or": ["outcome:success", "outcome:criticalSuccess"]}`);
   const z = u?.zone;
   if (z?.condition && !refs.conditions[z.condition.slug]) bad.push(`zone condition "${z.condition.slug}" does not exist in pf2e`);
   if (z?.effect && !refs.effects[z.effect.uuid]) bad.push(`zone effect ${z.effect.uuid} not found`);
@@ -88,6 +90,10 @@ export function semanticErrors(rule, refs, html = null) {
     if (!c) continue;
     if (!SAVES.includes(c.statistic)) bad.push(`challenge.statistic must be fortitude, reflex or will (got "${c.statistic}")`);
     if (c.dc?.against && !DC_AGAINST.has(c.dc.against)) bad.push(`dc.against "${c.dc.against}" is unknown: use spell, class, class-spell, a class slug (kineticist…), perception or a skill`);
+    // СЛ берётся из @Check[...|against:X] текста: «higher of class/spell DC» = class-spell, а не class
+    // только проверки спасброска (навык против защиты цели — не СЛ автора); occult/arcane/divine/primal = СЛ заклинания
+    const want = html ? [...String(html).matchAll(/@Check\[(?:type:)?(?:fortitude|reflex|will)\b[^\]]*?\bagainst:([\w-]+)/g)].map((m) => (/^(?:occult|arcane|divine|primal)$/.test(m[1]) ? "spell" : m[1])) : [];
+    if (c.dc?.against && want.length && !want.includes(c.dc.against) && !(c.dc.against === "class" && want.some((x) => CLASSES.includes(x)))) bad.push(`dc.against "${c.dc.against}" differs from the text: @Check says against:${want.join(", against:")}; use {"against": "${want[0]}"}`);
   }
   const k = u?.check;
   if (k) {
@@ -141,7 +147,7 @@ function withAffliction(rule, html, refs, kind) {
   return { rule: r?.rule ?? rule };
 }
 
-/** Один ответ агента -> { kind: "accepted"|"notes-only"|"needs-primitive"|"null"|"unsure"|"error", rule?, errors? }. */
+/** Один ответ агента -> { kind: "accepted"|"notes-only"|"null"|"unsure"|"error", rule?, errors? }. */
 export function checkAnswer(ans, refs, html = null, kind = null) {
   if (!ans || typeof ans.uuid !== "string" || !("rule" in ans)) return { kind: "error", errors: ["answer must be {uuid, rule|null, unsure:bool, note}"] };
   if (ans.unsure === true) return { kind: "unsure", guess: ans.rule ?? null };
@@ -161,12 +167,16 @@ export function checkAnswer(ans, refs, html = null, kind = null) {
   v.rule = w.rule;
   const sem = semanticErrors(v.rule, refs, html);
   if (sem.length) return { kind: "error", errors: sem };
+  // область берётся из шапки предмета или @Template (use.mjs: регион карточки, cast.mjs: @Template блока Activate); иначе целей-области нет
+  if (html && kind?.area === null && !/@Template\[/.test(html) && [v.rule.onUse, ...activateUses(v.rule)].some((o) => o?.targets === "area")) return { kind: "error", errors: [`targets "area" needs an area: the item has no "area" in its header and no @Template in the text; ${[v.rule.onUse, ...activateUses(v.rule)].some((o) => o?.zone) ? "a zone needs a real area: for an aura of the owner write onEvent side:\"near\" with range (forms 1a/1c)" : "use \"selected\" (a push then has no \"from\": it goes away from the user)"}`] };
   if (!roundTrip(v.rule)) return { kind: "error", errors: ["rule does not survive the form round-trip: remove fields that are not in the schema"] };
   // событие «бросок атаки» на тексте «Make a Strike. If it hits…» без afterUse сработало бы на каждом попадании владельца
   if (html && hasCard(kind) && strikeGate(html) && !multiStrike(html) && v.rule.onEvent?.some((e) => ["attack-roll", "damage-roll"].includes(e.on) && !e.afterUse)) return { kind: "error", errors: ["the text is \"Make a Strike, then …\": an onEvent entry on attack-roll/damage-roll needs afterUse:true (or write a plain onUse.challenge and the tool will convert it)"] };
   const { rule, gate } = normalizeRule(v.rule, html, kind);
   if (notesOnly(rule)) return { kind: "notes-only", rule };
-  return { kind: gate ? "needs-primitive" : "accepted", rule };
+  // испытание остаётся при использовании, а текст — «Удар, затем испытание»: оно бросилось бы и при промахе
+  if (gate) return { kind: "unsure", guess: rule, key: multiStrike(html) ? "multi-strike" : "strike-gate" };
+  return { kind: "accepted", rule };
 }
 
 export const emptyState = () => ({ attempts: {}, retry: {}, sonnet: {} });
@@ -176,8 +186,8 @@ export const emptyState = () => ({ attempts: {}, retry: {}, sonnet: {} });
  * opts: { htmlOf(uuid), expected: [uuid], final } — ожидаемые ответы (из файла-запроса) для поиска пропущенных; final — последняя ступень (unsure -> needs-primitive).
  * -> { accepted: [черновик с правилом], errors, sonnet, unknown, missing }
  */
-export function processAnswers(answers, draftItems, refs, state = emptyState(), { htmlOf = () => null, expected = [], final = false, actionTypeOf = () => null, traitsOf = () => [] } = {}) {
-  const kindOf = (uuid, d) => ({ type: d.type, actionType: actionTypeOf(uuid), traits: traitsOf(uuid) });
+export function processAnswers(answers, draftItems, refs, state = emptyState(), { htmlOf = () => null, expected = [], final = false, actionTypeOf = () => null, traitsOf = () => [], areaOf = () => undefined } = {}) {
+  const kindOf = (uuid, d) => ({ type: d.type, actionType: actionTypeOf(uuid), traits: traitsOf(uuid), area: areaOf(uuid) });
   const byUuid = new Map(draftItems.map((d) => [d.uuid, d]));
   const res = { accepted: [], errors: [], sonnet: [], unknown: [], missing: [] };
   const seen = new Set();
@@ -194,14 +204,16 @@ export function processAnswers(answers, draftItems, refs, state = emptyState(), 
     const c = checkAnswer(a, refs, htmlOf(a.uuid), kindOf(a.uuid, d));
     if (c.kind === "accepted") res.accepted.push({ ...d, status: "manual", confidence: "model", reason: `model: ${a.note ?? ""}`.trim(), rule: c.rule });
     else if (c.kind === "notes-only") res.accepted.push({ ...d, status: "manual", confidence: "notes-only", reason: `notes-only: ${a.note ?? ""}`.trim(), rule: c.rule });
-    else if (c.kind === "needs-primitive") res.accepted.push({ ...d, status: "manual", confidence: "needs-primitive", reason: `needs-primitive: strike-gate; ${a.note ?? ""}`.trim(), rule: c.rule });
     else if (c.kind === "null") res.accepted.push({ ...d, status: "skip", confidence: null, reason: `model-null: ${c.note}`, rule: null });
     else if (c.kind === "unsure" && final) {
       // догадка проходит те же проверки, что и обычный ответ; негодная -> rule:null (правило по ней писать нечем)
       const g = checkAnswer({ uuid: a.uuid, rule: c.guess, unsure: false }, refs, htmlOf(a.uuid), kindOf(a.uuid, d));
-      res.accepted.push({ ...d, status: "manual", confidence: "needs-primitive", reason: `needs-primitive: ${a.note ?? ""}`.trim(), rule: ["accepted", "needs-primitive", "notes-only"].includes(g.kind) ? g.rule : null });
+      // механизм назван кодом (c.key — unsure с ключом; g.key — догадка сама оказалась strike-gate/multi-strike): правило-догадка остаётся как есть
+      const key = c.key ?? (g.kind === "unsure" ? g.key : null);
+      const keep = c.key ? c.guess : g.kind === "unsure" && g.key ? g.guess : ["accepted", "notes-only"].includes(g.kind) ? g.rule : null;
+      res.accepted.push({ ...d, status: "manual", confidence: "needs-primitive", reason: `needs-primitive: ${key ? `${key}; ` : ""}${a.note ?? ""}`.replace(/;\s*$/, "").trim(), rule: keep });
     }
-    else if (c.kind === "unsure") { state.sonnet[a.uuid] = { uuid: a.uuid, why: "unsure", note: a.note ?? "", guess: c.guess }; res.sonnet.push(a.uuid); }
+    else if (c.kind === "unsure") { state.sonnet[a.uuid] = { uuid: a.uuid, why: "unsure", note: c.key ?? a.note ?? "", guess: c.guess }; res.sonnet.push(a.uuid); }
     else fail(a.uuid, c.errors, a.rule ?? null);
   }
   for (const u of expected) if (!seen.has(u) && byUuid.has(u)) { res.missing.push(u); fail(u, ["no answer was returned for this item: answer it (rule or null)"]); }
@@ -235,7 +247,7 @@ function main() {
   const refs = readOut("refs.json"), html = readOut("html.json"), { meta, items: itemList } = readOut("items.json"), items = new Map(itemList.map((i) => [i.uuid, i]));
   const dPath = join(ROOT, "rules/drafts", `${batch}.json`), aPath = join(ACCEPTED, `${batch}.json`);
   // mdebt: пул долга по механизмам (tools/debt-pool.mjs) и прежний пул debt-pool.json; ответ — правило или новая причина needs-primitive с ключами словаря
-  const poolFiles = batch === "activate" ? ["activate-pool.json"] : batch === "mdebt" ? ["debt-pool.json", "mdebt-pool.json"].filter((f) => existsSync(outPath(f))) : null;
+  const poolFiles = batch === "activate" ? ["activate-pool.json"] : /^mdebt\d*$/.test(batch) ? ["debt-pool.json", "mdebt-pool.json", ...(batch === "mdebt" ? [] : [`${batch}-pool.json`])].filter((f) => existsSync(outPath(f))) : null;
   const poolBatch = poolFiles ? new Map(poolFiles.flatMap((f) => readJson(outPath(f)).map((p) => [p.uuid, p.batch ?? "b01-save-conditions"]))) : null;
   const drafts = poolBatch ? readdirSync(DRAFTS).flatMap((f) => readJson(join(DRAFTS, f)).items).filter((d) => poolBatch.has(d.uuid)) : readJson(dPath).items;
   const stPath = outPath("validate", `${batch}.state.json`);
@@ -243,7 +255,7 @@ function main() {
   const inFile = arg("input");
   const expected = inFile ? [...readFileSync(inFile, "utf8").matchAll(/^### \d+ (\S+)/gm)].map((m) => m[1]) : [];
   const raw = readFileSync(file, "utf8").trim().replace(/^```(?:json)?\s*|\s*```$/g, "");
-  const res = processAnswers(JSON.parse(raw), drafts, refs, state, { htmlOf: (u) => html[u] ?? "", actionTypeOf: (u) => items.get(u)?.actionType ?? null, traitsOf: (u) => items.get(u)?.traits ?? [], expected, final: process.argv.includes("--final") });
+  const res = processAnswers(JSON.parse(raw), drafts, refs, state, { htmlOf: (u) => html[u] ?? "", actionTypeOf: (u) => items.get(u)?.actionType ?? null, traitsOf: (u) => items.get(u)?.traits ?? [], areaOf: (u) => items.get(u)?.area ?? null, expected, final: process.argv.includes("--final") });
   for (const [b, acc] of Object.entries(Object.groupBy(res.accepted, (d) => poolBatch?.get(d.uuid) ?? batch))) {
     const p = poolBatch ? join(ACCEPTED, `${b}.json`) : aPath;
     writeText(p, serializeDrafts({ batch: b, pf2eVersion: meta.pf2eVersion }, mergeAccepted(existsSync(p) ? readJson(p) : null, acc, { batch: b, pf2eVersion: meta.pf2eVersion }).items));

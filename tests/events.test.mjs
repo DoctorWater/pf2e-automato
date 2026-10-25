@@ -660,7 +660,7 @@ test("gateToEvent: Headshot — только критическое попада
 test("checkAnswer: onUse.challenge на strike-gate (feat) переводится и принимается; боеприпас — долг; onEvent attack-roll без afterUse — отказ", () => {
   const refs = { conditions: { stunned: true }, effects: {} };
   assert.equal(checkAnswer({ uuid: "u", rule: dazingUse() }, refs, DAZING, "feat").kind, "accepted");
-  assert.equal(checkAnswer({ uuid: "u", rule: dazingUse() }, refs, DAZING, "consumable").kind, "needs-primitive");
+  assert.equal(checkAnswer({ uuid: "u", rule: dazingUse() }, refs, DAZING, "consumable").key, "strike-gate");   // боеприпас: unsure с ключом, не принят
   const bare = { v: 1, onEvent: [{ on: "attack-roll", side: "self", challenge: dazingUse().onUse.challenge }] };
   const c = checkAnswer({ uuid: "u", rule: bare }, refs, DAZING, "feat");
   assert.equal(c.kind, "error");

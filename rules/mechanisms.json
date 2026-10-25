@@ -54,7 +54,6 @@
     "passive-hit-trigger": {
       "title": "Пассивный триггер при попадании/уроне/крите (не активность с Ударом)",
       "primitive": "onEvent attack-roll/damage-roll/damage-taken + when (0.5g3)",
-      "prompt": false,
       "aliases": ["^strike-gate.* @\\w+/passive/", "trigger on (hit|damage|critical|each strike|successful)", "^triggered \\w+ on critical hit","crit-strike trigger", "strike trigger", "weapon-hit trigger"]
     },
     "weapon-next-strike": {
@@ -66,6 +65,16 @@
       "title": "Активность с Ударом, испытание по исходу Удара",
       "primitive": "onEvent.afterUse (plan-strike-gate.md)",
       "aliases": ["^strike-gate"]
+    },
+    "multi-strike": {
+      "title": "Несколько Ударов за использование, испытание по их общему исходу («if both hit»)",
+      "primitive": null,
+      "aliases": ["^multi-strike"]
+    },
+    "heighten-number": {
+      "title": "Числа (не урон) растут с рангом заклинания: дистанция, срок, бонус, СЛ",
+      "primitive": null,
+      "aliases": ["^heighten-number"]
     },
     "next-cast": {
       "title": "«Следующее сотворение»: эффект на следующее заклинание (пачка 7)",

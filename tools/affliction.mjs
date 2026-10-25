@@ -170,6 +170,18 @@ export function afflictionRule(html, opts = {}) {
   return v.ok ? { rule: v.rule, def: v.rule.onUse.challenge.byDegree.failure[0].affliction.def, unsure: p.unsure } : { rule: null, def: p.def, unsure: [...p.unsure, ...v.errors.map(String)] };
 }
 
+/**
+ * Правило injury-яда (испытание цели при использовании) -> нанесение на оружие: onUse.challenge уходит в шаг coat, использование — на себя (plan-weapon-poison.md §5).
+ * Остальные шаги onUse.apply остаются после coat. duration — срок яда (Envenom), без него яд держится до траты. -> валидное правило | null
+ */
+export function coatOf(rule, { duration = null } = {}) {
+  const u = rule?.onUse;
+  if (!u?.challenge || u.check || u.zone) return null;
+  const coat = { v: 1, ...(rule.label && { label: rule.label }), onUse: { ...u, targets: "self", excludeSelf: null, challenge: null, apply: [{ to: "self", coat: { weapon: "choose", ...(duration && { duration }), challenge: u.challenge } }, ...(u.apply ?? [])] } };
+  const v = validateRule({ ...rule, ...coat });
+  return v.ok ? v.rule : null;
+}
+
 function main() {
   const html = readOut("html.json"), { items } = readOut("items.json"), refs = readOut("refs.json");
   const byId = new Map(Object.entries(refs.conditions).map(([slug, c]) => [c.id, slug]));

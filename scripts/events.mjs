@@ -14,6 +14,7 @@ import { parseMarker, challengeApplies } from "./saves.mjs";
 import { isImmune } from "./checks.mjs";
 import { repeatChallenge } from "./repeat.mjs";
 import { nearRadius, insideAura, pathRects, rectOf, auraOf } from "./aura.mjs";
+import { armedAt } from "./coat.mjs";
 
 /* ---------- чистые функции ---------- */
 
@@ -101,6 +102,7 @@ export function damageOptions(applied) {
   if (applied.isHealing) out.push("damage-taken:healing");
   if (applied.isReverted) out.push("damage-taken:reverted");
   if ((applied.updates ?? []).some((u) => u.path === "system.attributes.hp.value" && u.value > 0 && !applied.isHealing)) out.push("damage-taken:hp");
+  if ((applied.updates ?? []).some((u) => u.path === "system.attributes.hp.temp" && u.value > 0 && !applied.isHealing)) out.push("damage-taken:temp");   // урон ушёл во временные ОЗ
   if (applied.shield?.damage > 0) out.push("damage-taken:shield");
   return out;
 }
@@ -132,6 +134,7 @@ const ruleCache = new Map();   // uuid -> { mt, rv, rule }; ponytail: растё
 export function eventRuleOf(item) {
   const eq = item?.system?.equipped?.carryType;
   if (eq === "dropped" || eq === "stowed") return null;
+  if (item?.flags?.[MOD]?.coat && item.isExpired) return null;   // носитель яда с истёкшим сроком (Envenom) при выключенном автоистечении pf2e не работает
   const mt = item?._stats?.modifiedTime ?? 0, rv = rev.n, hit = ruleCache.get(item.uuid);
   if (hit && hit.mt === mt && hit.rv === rv && !item.flags?.[MOD]?.rule) return hit.rule;
   let rule = null;
@@ -179,6 +182,9 @@ export async function runEntry(ev, owner, { item, rule }, { i, entry }, sink = n
   const key = ev.key ?? entryKey(ev.id, item.uuid, i);   // ev.key — ключ окна per (side:"near"), общий у записей «вход» и «конец хода»
   const base = entry.once ? `once:${item.uuid}:${i}` : key;   // once — ключ без события: эффект/состояние получателя ставится и продлевается один раз
   if (fired.has(key) || ev.message?.flags?.[MOD]?.events?.some((r) => r.key === key)) return null;
+  // носитель яда (coat.mjs): запись о уроне — только по цели, на которую яд взведён; другая цель (область) носителя не трогает
+  if (entry.gate?.includes("target") && !armedAt(item, ev.otherToken ?? tokenOf(ev.other), ev.other)) return null;
+  if (entry.gate?.includes("idle") && combatOf(game.combats, owner)?.started) return null;   // вне боя конца хода нет: яд тратит следующий Удар, в бою — конец хода
   remember(key);
   const res = { key, recs: [] };
   sink?.push(res);   // журнал уже применённого остаётся, даже если ниже что-то упадёт
@@ -211,7 +217,9 @@ export async function runEntry(ev, owner, { item, rule }, { i, entry }, sink = n
     if (other && theirs.length) await run(tk, theirs, mine.length);
   }
 
-  if (entry.challenge && other && modeOf("challenge") !== "off") {
+  // gate removed: испытание только если шаг снятия реально снял носитель — второй из двух быстрых Ударов его уже не найдёт (ops пуст), испытания нет
+  const removed = !entry.gate?.includes("removed") || res.recs.some((r) => r.ops.some((o) => o.op === "effRemoved"));
+  if (entry.challenge && other && removed && modeOf("challenge") !== "off") {
     const id = await hostChallenge({ owner, other, otherToken, challenge: entry.challenge, key, name: item.name, build: (r) => snap(r, "use") });
     if (id) res.host = id;
   }
@@ -582,7 +590,7 @@ async function actorEvent(on, evId, actor, { extra = [], effect = null } = {}) {
   });
 }
 
-const onTurn = (on) => (combatant, encounter) => actorEvent(on, `turn:${encounter?.id}:${encounter?.round}:${encounter?.turn}:${combatant?.id}:${on}`, combatant?.actor).catch((e) => console.error(`${MOD} | events ${on}`, e));
+export const onTurn = (on) => (combatant, encounter) => actorEvent(on, `turn:${encounter?.id}:${encounter?.round}:${encounter?.turn}:${combatant?.id}:${on}`, combatant?.actor).catch((e) => console.error(`${MOD} | events ${on}`, e));
 const onItem = (on) => (item, options) => {
   if (item?.type !== "effect" || !item.parent?.items || isOwnEffect(item) || options?.[MOD]?.undo || !guardActiveGM()) return;
   actorEvent(on, `item:${item.id}:${on}`, item.parent, { extra: [...(item.getRollOptions?.("item") ?? []), ...effectOptions(item)], effect: item }).catch((e) => console.error(`${MOD} | events ${on}`, e));

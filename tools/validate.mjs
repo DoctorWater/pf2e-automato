@@ -48,7 +48,7 @@ export function extraKeys(raw, norm, path = "") {
   return out;
 }
 
-const stepsOf = (rule) => [...(rule.onUse?.apply ?? []), ...Object.values(rule.onUse?.challenge?.byDegree ?? {}).flat(), ...Object.values(rule.onUse?.check?.byDegree ?? {}).flat(),
+const stepsOf = (rule) => [...(rule.onUse?.apply ?? []), ...(rule.onUse?.apply ?? []).flatMap((a) => Object.values(a.coat?.challenge?.byDegree ?? {}).flat()), ...Object.values(rule.onUse?.challenge?.byDegree ?? {}).flat(), ...Object.values(rule.onUse?.check?.byDegree ?? {}).flat(),
   ...(rule.onEvent ?? []).flatMap((e) => [...(e.apply ?? []), ...Object.values(e.challenge?.byDegree ?? {}).flat()]),
   ...(rule.onUse?.zone?.triggers ?? []).flatMap((e) => [...(e.apply ?? []), ...Object.values(e.challenge?.byDegree ?? {}).flat()])];
 
@@ -79,7 +79,10 @@ export function semanticErrors(rule, refs, html = null) {
   if (z?.condition && !refs.conditions[z.condition.slug]) bad.push(`zone condition "${z.condition.slug}" does not exist in pf2e`);
   if (z?.effect && !refs.effects[z.effect.uuid]) bad.push(`zone effect ${z.effect.uuid} not found`);
   if (z?.effect && html !== null && !html.includes(z.effect.uuid)) bad.push(`zone effect ${z.effect.uuid} is not mentioned in this item's text`);
-  for (const c of [u?.challenge, ...(rule.onEvent ?? []).map((e) => e.challenge), ...(u?.zone?.triggers ?? []).map((t) => t.challenge)]) {
+  // coat: яд на оружии без недуга/состояния ни на что не действует; внутренние поля носителя (gate, coatArm) в каталог не идут
+  for (const s of (u?.apply ?? []).filter((a) => a.coat)) if (!Object.values(s.coat.challenge.byDegree).flat().some((x) => x.affliction || x.condition)) bad.push("coat.challenge must put an `affliction` or a condition on the target (failure / criticalFailure): a poison that does nothing is not a rule");
+  if ((rule.onEvent ?? []).some((e) => e.gate) || stepsOf(rule).some((s) => s.coatArm)) bad.push("`gate` and `coatArm` are internal fields of the weapon-poison carrier: do not use them");
+  for (const c of [u?.challenge, ...(u?.apply ?? []).map((a) => a.coat?.challenge), ...(rule.onEvent ?? []).map((e) => e.challenge), ...(u?.zone?.triggers ?? []).map((t) => t.challenge)]) {
     if (!c) continue;
     if (!SAVES.includes(c.statistic)) bad.push(`challenge.statistic must be fortitude, reflex or will (got "${c.statistic}")`);
     if (c.dc.against && !DC_AGAINST.has(c.dc.against)) bad.push(`dc.against "${c.dc.against}" is unknown: use spell, class, class-spell, a class slug (kineticist…), perception or a skill`);

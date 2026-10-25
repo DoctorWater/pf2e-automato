@@ -61,6 +61,7 @@ function rowCore(a) {
   if (a.damage) return { to: a.to, kind: "damage", text: a.damage.formula, value: "", policy: "max", keep, ...DUR_BLANK, ...VIS_BLANK, pType: a.damage.damageType };
   if (a.move) return { to: a.to, kind: "move", text: String(a.move.distance), value: "", policy: "max", keep, ...DUR_BLANK, ...VIS_BLANK, ...PERS_BLANK, moveMode: a.move.mode, moveFrom: a.move.from === "point" ? "point" : "origin" };
   if (a.affliction) return { to: a.to, kind: "affliction", text: JSON.stringify(a.affliction), value: "", policy: "max", keep, ...DUR_BLANK, ...VIS_BLANK, ...PERS_BLANK };   // недуг едет JSON-ом `{stage, def}`; Мастерская правит его редактором (workshop/affliction-edit.mjs), вкладка листа — строкой
+  if (a.coat) return { to: "self", kind: "coat", text: JSON.stringify(a.coat), value: "", policy: "max", keep, ...DUR_BLANK, ...VIS_BLANK, ...PERS_BLANK };   // яд на оружие едет JSON-ом (как недуг); Мастерская пока показывает его строкой
   if (a.choose) return { to: "self", kind: "choose", text: JSON.stringify(a.choose), value: "", policy: "max", keep, ...DUR_BLANK, ...VIS_BLANK, ...PERS_BLANK };
   if (a.removeCondition) return { to: a.to, kind: "remove", text: a.removeCondition.slug, value: "", policy: "max", keep, ...DUR_BLANK, ...VIS_BLANK, ...PERS_BLANK };
   const plain = (kind, text, value = "") => ({ to: a.to, kind, text, value, policy: "max", keep, ...DUR_BLANK, ...VIS_BLANK, ...PERS_BLANK });
@@ -102,6 +103,11 @@ function applyCore(r) {
     return { to, visibility: { level: r.visLevel, of: r.visOf === "target" ? "target" : "self", ...(until.length && { until }) } };
   }
   if (!text) return null;
+  if (r.kind === "coat") {
+    let coat = null;
+    try { coat = JSON.parse(text); } catch { /* битый JSON уйдёт в валидатор */ }
+    return { to: "self", coat: coat ?? {} };
+  }
   if (r.kind === "affliction") {
     let affliction = null;
     try { affliction = JSON.parse(text); } catch { /* битый JSON уйдёт в валидатор */ }
@@ -461,7 +467,7 @@ function buildContext(item, draft) {
       map: ["", "0", "1", "2"].map((v) => ({ value: v, label: v || "-" })),
       stat: choices(keys("stat", ["reflex", "fortitude", "will", "perception", "flat"])),
       to: choices(keys("to", ["self", "target", "party", "allies", "chosen"])),
-      rowKind: choices(keys("row", ["condition", "effect", "note", "visibility", "persistent", "remove", "removeEffect", "extendEffect", "rollOption", "damage", "choose", "move", "affliction"])),
+      rowKind: choices(keys("row", ["condition", "effect", "note", "visibility", "persistent", "remove", "removeEffect", "extendEffect", "rollOption", "damage", "choose", "move", "affliction", "coat"])),
       moveMode: choices(keys("moveMode", ["push", "pull"])),
       moveFrom: choices(keys("moveFrom", ["origin", "point"])),
       dmgType: [{ value: "healing", label: L("workshop.au.healing") }, ...DAMAGE_TYPES.map((v) => ({ value: v, label: damageLabel(v) }))],   // «лечение» — только у шага damage

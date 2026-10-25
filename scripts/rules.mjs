@@ -85,8 +85,8 @@ export const REPEAT_ON = ["turn-start", "turn-end"];
 export const REPEAT_END = ["success", "criticalSuccess"];
 
 /** Шаг apply делает что-то с получателем (есть вид шага); note — только текст в блоке. */
-export const STEP_KINDS = ["condition", "effect", "visibility", "persistent", "removeCondition", "removeEffect", "extendEffect", "rollOption", "damage", "choose", "move", "affliction"];
-export const isActiveStep = (a) => STEP_KINDS.some((k) => a?.[k]) || !!a?.removeKey || !!a?.stageDelta;   // removeKey — внутренний шаг карточки повтора (repeat.mjs), stageDelta — карточки недуга (affliction.mjs); в схему не входят
+export const STEP_KINDS = ["condition", "effect", "visibility", "persistent", "removeCondition", "removeEffect", "extendEffect", "rollOption", "damage", "choose", "move", "affliction", "coat"];
+export const isActiveStep = (a) => STEP_KINDS.some((k) => a?.[k]) || !!a?.removeKey || !!a?.stageDelta || !!a?.coatArm;   // removeKey — внутренний шаг карточки повтора (repeat.mjs), stageDelta — карточки недуга (affliction.mjs), coatArm — носитель яда (coat.mjs); в схему не входят
 // получатели шага: self — автор, target — цель, party — участники партий автора, allies — союзники автора в радиусе range футов от его токена,
 // chosen — существо, которое автор выбрал предыдущим шагом choose (from: allies | enemies)
 export const APPLY_TO = ["self", "target", "party", "allies", "chosen"];
@@ -107,7 +107,7 @@ function vApply(a, path, defTo, err, basicOk = false) {
       || (c.of != null && !(c.from !== "options" && c.of === "target")) || (c.withSelf != null && !(c.withSelf === true && c.from === "allies"))) err.push(E("choose.bad", `${path}.choose`));
     // option.when — вариант виден, только если у автора выполнено условие (черта даёт вариант); of:"target" — радиус считается от цели события/карточки, а не от автора
     else out.choose = { from: c.from, ...(opts && { options: opts.map((o) => ({ value: o.value, ...(o.label && { label: o.label }), ...(o.when && { when: o.when }) })) }), ...(c.prompt && { prompt: c.prompt }), ...(c.range != null && { range: c.range }), ...(c.of && { of: c.of }), ...(c.withSelf && { withSelf: true }) };
-  }  const kinds = [...STEP_KINDS, "note"].filter((k) => a[k] != null);
+  }  const kinds = [...STEP_KINDS, "note", "coatArm"].filter((k) => a[k] != null);
   if (kinds.length !== 1) err.push(E("apply.kind", path));
   // range — радиус в футах, только у союзников (Живые щиты, Сеятель)
   if (a.range != null) { if (out.to !== "allies" || !(isInt(a.range) && a.range >= 5)) err.push(E("apply.range", `${path}.range`)); else out.range = a.range; }
@@ -240,7 +240,37 @@ function vApply(a, path, defTo, err, basicOk = false) {
     if (x && out.to !== "target") err.push(E("afflict.to", `${path}.to`));
     else if (x) out.affliction = x;
   }
+  // coat — нанесение injury-яда на оружие (scripts/coat.mjs): только владелец (to: self), только в onUse.apply (место и «не больше одного» — coatPlaces)
+  if (a.coat != null) {
+    const x = vCoat(a.coat, `${path}.coat`, err);
+    if (out.to !== "self") err.push(E("coat.to", `${path}.to`));
+    else if (x) out.coat = x;
+  }
+  if (a.coatArm != null) { if (a.coatArm !== true) err.push(E("coat.arm", `${path}.coatArm`)); else out.coatArm = true; }   // внутренний шаг носителя яда: пишет coatEvents, в каталоги не идёт
   return out;
+}
+
+/** Шаг coat {weapon:"choose", duration?, challenge}: challenge — как у onUse (СЛ в любой форме: against/markup превращаются в число при нанесении, coatDc); без duration яд держится до траты. */
+function vCoat(c, path, err) {
+  if (!isObj(c) || Object.keys(c).some((k) => !["weapon", "duration", "challenge"].includes(k)) || c.weapon !== "choose") { err.push(E("coat.bad", path)); return null; }
+  const out = { weapon: "choose" };
+  if (c.duration != null) {
+    const d = c.duration;
+    if (!isObj(d) || !(isInt(d.value) && (d.value >= 1 || (d.value === 0 && d.expiry === "turn-end"))) || !APPLY_UNITS.includes(d.unit) || (d.expiry != null && !["turn-start", "turn-end"].includes(d.expiry))) err.push(E("coat.dur", `${path}.duration`));
+    else out.duration = { value: d.value, unit: d.unit, expiry: d.expiry ?? null };
+  }
+  if (c.challenge == null) { err.push(E("coat.challenge", `${path}.challenge`)); return null; }
+  out.challenge = vChallenge(c.challenge, `${path}.challenge`, err);
+  return out;
+}
+
+/** Шаги coat правила по местам: top — в onUse.apply (разрешено, один), other — везде ещё (события, степени, триггеры зоны, внутри самого coat). */
+export function coatPlaces(rule) {
+  const deg = (c) => Object.values(c?.byDegree ?? {}).flat();
+  const top = (rule.onUse?.apply ?? []).filter((a) => a.coat);
+  const rest = [...deg(rule.onUse?.challenge), ...deg(rule.onUse?.check), ...top.flatMap((a) => deg(a.coat.challenge)),
+    ...[...(rule.onEvent ?? []), ...(rule.onUse?.zone?.triggers ?? [])].flatMap((e) => [...(e.apply ?? []), ...deg(e.challenge)])];
+  return { top: top.length, other: rest.filter((a) => a?.coat).length };
 }
 
 export const AFFLICTION_KINDS = ["poison", "disease", "curse"];
@@ -537,6 +567,7 @@ export const NEAR_ON = ["turn-start", "turn-end", "enter"];
 export const EVENT_TARGETED = new Set(["attack-roll", "skill-check", "damage-roll", "spell-cast"]);   // у остальных событий цели нет: side:"target" бессмысленна
 
 // afterUse: бросок владельца сразу после карточки этого предмета (strike-gate: «Make a Strike. If it hits…»). Сотворение (spell-cast) — отдельной пачкой.
+export const EVENT_GATES = ["target", "removed", "idle"];
 export const EVENT_AFTER_USE = new Set(["attack-roll", "skill-check", "saving-throw", "damage-roll"]);
 
 function vEvent(e, i, err) {
@@ -557,6 +588,8 @@ function vEvent(e, i, err) {
   } else if (e.aura != null || e.range != null || e.per != null) err.push(E("ev.nearOnly", `${path}.aura`));
   if (e.once != null) { if (typeof e.once !== "boolean") err.push(E("ev.once", `${path}.once`)); else if (e.once) out.once = true; }   // once — один раз на эффект/состояние получателя, а не на каждое событие
   if (e.afterUse != null) { if (typeof e.afterUse !== "boolean" || (e.afterUse && !(EVENT_AFTER_USE.has(e.on) && out.side === "self"))) err.push(E("ev.afterUse", `${path}.afterUse`)); else if (e.afterUse) out.afterUse = true; }
+  // gate — внутреннее условие записи носителя яда (coat.mjs, runEntry): target — урон нанесён взведённой цели; removed — испытание только если шаг снятия реально снял носитель (гонка двух Ударов)
+  if (e.gate != null) { if (!Array.isArray(e.gate) || !e.gate.length || !e.gate.every((g) => EVENT_GATES.includes(g))) err.push(E("ev.gate", `${path}.gate`)); else out.gate = EVENT_GATES.filter((g) => e.gate.includes(g)); }
   const apply = vApplyList(e.apply, `${path}.apply`, "self", err);
   if (apply.length) out.apply = apply;
   if (e.challenge != null) { const c = vChallenge(e.challenge, `${path}.challenge`, err); if (c) out.challenge = c; }
@@ -639,6 +672,8 @@ export function validateRule(raw) {
   if (events.length) rule.onEvent = events;   // нет событий — поля нет (правила без него не меняются)
   const cast = vCast(raw.cast, err);
   if (cast.length) rule.cast = cast;
+  const cp = coatPlaces({ ...rule, onEvent: events });
+  if (cp.top > 1 || cp.other) err.push(E("coat.place", "onUse.apply"));
   if (!rule.onUse && !rule.onAttacked && !rule.macros.length && !events.length && !cast.length && !err.length) err.push(E("rule.empty", ""));
   return err.length ? { ok: false, rule: null, errors: err } : { ok: true, rule, errors: [] };
 }

@@ -13,6 +13,7 @@ import { repeatMeta, sameCarrier } from "./repeat.mjs";
 import { forcedMove, undoMove, areaPoint } from "./move.mjs";
 import { rulesOfMods, textOfMods, inlineSlug } from "./inline-effect.mjs";
 import { afflictionStep, afflictionUndo, afflictionUnmake, afflictionRestore } from "./affliction-run.mjs";
+import { coatStep, coatArm, coatUnarm, coatUnmake } from "./coat.mjs";
 
 const esc = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
@@ -597,6 +598,15 @@ export async function applyOps(message, tokenKey, steps, ctx = {}) {
       if (r.op !== "skipped") ops.push({ op: r.op, ...(r.item && { item: r.item.uuid }), ...(r.data && { actor: actor.uuid, data: r.data }), ...(r.prev != null && { prev: r.prev }), ...(r.made?.length && { made: r.made }) });
       continue;
     }
+    if (step.coat) {   // яд на оружие (coat.mjs): ops пишет сам шаг (замена: effRemoved + coatMade)
+      ops.push(...(await coatStep(actor, step, { meta, use, originItem, selfActor, originToken, chooser: ectx.chooser, done: doneOps.some((o) => o.op === "coatMade" && o.key === meta.key) })).ops);
+      continue;
+    }
+    if (step.coatArm) {   // взвод носителя: Удар попал по цели события (ctx.target); носитель — предмет, чьё правило исполняется
+      const r = ctx.originItem?.actor ? await coatArm(ctx.originItem, ctx.target?.uuid) : { op: "skipped" };
+      if (r.op === "coatArm") ops.push({ op: "coatArm", item: r.item.uuid, actor: actor.uuid, key: metaOf(r.item)?.key });
+      continue;
+    }
     const tgt = step.to === "target" ? targetDoc : null;
     if (step.condition?.policy === "reduce" && doneOps.some((o) => o.key === meta.key)) continue;
     let dur = step.duration;
@@ -678,6 +688,16 @@ export async function undoOps(message, tokenKey) {
         if (!a) continue;
         await queue(`actor:${a.uuid}`, () => (o.op === "option" ? a.toggleRollOption(o.domain, o.option, null, o.prev) : a.createEmbeddedDocuments("Item", foundry.utils.deepClone(o.data))));
         undone++;
+        continue;
+      }
+      if (o.op === "coatMade") {   // нанесённый яд: носитель по ключу шага (id мог смениться при откате траты)
+        const a = actorOf(await fromUuid(o.actor));
+        if (a && await coatUnmake(a, o.key)) undone++;
+        continue;
+      }
+      if (o.op === "coatArm") {   // взвод назад; носитель мог быть снят и восстановлен откатом — тогда по ключу
+        const it = (await fromUuid(o.item)) ?? findByKey(actorOf(await fromUuid(o.actor)) ?? { items: [] }, o.key);
+        if (it?.actor) { await coatUnarm(it); undone++; }
         continue;
       }
       if (o.op === "afflCleared") {   // снятый недуг: носитель создаётся заново, стадия применяется без урона

@@ -100,6 +100,7 @@ export function stepText(a, env, defTo) {
     return def.save.dc ? t("chat.stepAfflictionDC", v) : t("chat.stepAffliction", v);
   }
   if (a.stageDelta) return t("chat.stepStageDelta");
+  if (a.coat) return t("chat.stepCoat");
   if (a.removeKey) return t("chat.stepRemoveKey");
   const p = a.persistent;
   if (a.choose) return t(`chat.stepChoose.${a.choose.from}`, { options: (a.choose.options ?? []).map((o) => o.label ?? o.value).join(" / ") });

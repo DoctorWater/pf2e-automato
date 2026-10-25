@@ -299,6 +299,11 @@ export function plate(row, env) {
     try { x = JSON.parse(row.text); } catch { /* битый JSON: строка «?» */ }
     return { ...base, name: x?.def ? t("workshop.au.afflPlate", { name: x.def.name || "?", stage: x.stage ?? 1, of: x.def.stages?.length ?? "?" }) : "?", note };
   }
+  if (row.kind === "coat") {   // яд на оружие: JSON до отдельного редактора
+    let x = null;
+    try { x = JSON.parse(row.text); } catch { /* битый JSON: «?» */ }
+    return { ...base, name: t("workshop.au.coatPlate", { name: x?.challenge?.byDegree ? Object.values(x.challenge.byDegree).flat().map((s) => s.affliction?.def?.name).find(Boolean) ?? "?" : "?" }), note };
+  }
   if (row.kind === "move") return { ...base, name: t(`workshop.au.movePlate.${row.moveMode === "pull" ? "pull" : "push"}${row.moveFrom === "point" ? "Point" : ""}`, { distance: String(row.text ?? "").trim() || "?" }) };
   if (row.kind === "choose") return { ...base, name: t("workshop.au.choosePlate") };
   if (row.kind === "persistent") return { ...base, name: `${String(row.text ?? "").trim() || "?"} · ${env.damageLabel?.(row.pType) ?? row.pType}` };

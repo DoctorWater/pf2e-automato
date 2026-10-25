@@ -24,7 +24,8 @@
           "nearOn": "The \"in aura\" side exists only for start of turn, end of turn and enter ({path})",
           "enter": "Entering an aura is only for the \"in the owner's aura\" side ({path})",
           "nearZone": "An \"in aura\" entry needs exactly one of: aura slug (aura) or range in feet (range > 0) ({path})",
-          "nearOnly": "Aura, range and \"at most\" exist only for the \"in the owner's aura\" side ({path})"
+          "nearOnly": "Aura, range and \"at most\" exist only for the \"in the owner's aura\" side ({path})",
+          "gate": "Internal entry condition (gate): target - damage to the armed target, removed - the save only after the carrier was removed, idle - out of combat only ({path})"
         },
         "cast": {
           "bad": "Activation (cast): needs a spell (UUID), rank 1-10, DC as a number or level: high, attack as a number, frequency as once per N rounds/minutes/hours/days, requirement invested, equipped, held or none; the key (id) is unique ({path})"
@@ -42,6 +43,14 @@
           "mods": "Stage penalties: the same properties as a step effect (up to four) ({path})",
           "text": "Stage text is a string of up to 600 characters ({path})",
           "to": "An affliction is applied to the target only (to: target) ({path})"
+        },
+        "coat": {
+          "bad": "Coat step: needs an object with weapon: \"choose\", a challenge and optionally a duration ({path})",
+          "dur": "Poison duration on the weapon: an integer from 1 (or 0 until turn end), a unit and the turn start or end ({path})",
+          "challenge": "Coat step: a challenge is required - what the poison does to the target ({path})",
+          "to": "A poison is applied to the owner's weapon (to: self) ({path})",
+          "arm": "Internal poison carrier step: true only ({path})",
+          "place": "The coat step is single and only in onUse.apply: not in events, challenge degrees or triggers ({path})"
         }
       }
     },
@@ -60,7 +69,8 @@
         "cast": "{name}: rank {rank}, DC {dc}"
       },
       "row": {
-        "affliction": "affliction (JSON; easier in the Workshop)"
+        "affliction": "affliction (JSON; easier in the Workshop)",
+        "coat": "weapon poison (JSON)"
       }
     },
     "workshop": {
@@ -175,7 +185,10 @@
           "id": "Key",
           "note": "Note for the GM"
         },
-        "afflPlate": "Affliction \"{name}\": stage {stage} of {of}"
+        "afflPlate": "Affliction \"{name}\": stage {stage} of {of}",
+        "kindCoat": "Weapon poison",
+        "coatJson": "Coat a poison (JSON)",
+        "coatPlate": "Weapon poison: {name}"
       }
     },
     "cast": {
@@ -195,6 +208,17 @@
       "againTitle": "Activation already used",
       "again": "The activation limit is spent (\"{name}\"). Cast anyway?"
     },
+    "coat": {
+      "name": "{poison} → {weapon}",
+      "desc": "The poison is on \"{weapon}\": it works on the target of the first Strike with this weapon that hits, once piercing or slashing damage is applied to it.",
+      "prompt": "Which weapon gets the poison?",
+      "noSP": "not piercing or slashing: the poison will not work on it",
+      "noSPNote": "\"{name}\": \"{weapon}\" is not piercing or slashing - the poison on it is spent without effect.",
+      "needsAuto": "\"{name}\": weapon poison works only with the effects mode set to Automatic - the poison was not applied.",
+      "noWeapon": "\"{name}\": no weapon to apply the poison to.",
+      "noDC": "\"{name}\": the poison DC is unknown - the poison was not applied.",
+      "replaced": "\"{name}\": the poison \"{old}\" on \"{weapon}\" was replaced by \"{poison}\"."
+    },
     "affliction": {
       "stage": "\"{item}\": {target} is at stage {n} of {of}.",
       "onset": "Onset",
@@ -209,7 +233,8 @@
       "stepAffliction": "affliction \"{name}\": stage {stage} of {of}",
       "stepAfflictionDC": "affliction \"{name}\": stage {stage} of {of} (DC {dc})",
       "stepStageDelta": "shift the affliction stage by the degree (success down, failure up)",
-      "stepRemoveKey": "remove the effect that called for the save"
+      "stepRemoveKey": "remove the effect that called for the save",
+      "stepCoat": "coat a poison on a weapon (choose the weapon)"
     }
   }
 }

@@ -175,6 +175,7 @@
           "dcDefault": "Default DC for options",
           "rankValue": "Rank (number)",
           "rankMin": "At least",
+          "durTip": "The entry's own duration instead of the spell's (number or a 1d4 die). Empty keeps the spell rule's duration.",
           "kind": { "spell": "Spell", "steps": "Custom steps", "choice": "Choice", "both": "Spell + steps" },
           "kindLabel": "Kind",
           "onUse": "Steps (onUse JSON)",

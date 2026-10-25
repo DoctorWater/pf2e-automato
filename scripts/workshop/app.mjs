@@ -721,7 +721,11 @@ export class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
     const rkFields = (p, o, spell) => [
       ...(spell ? [F.sel(`${p}.rankMode`, t("workshop.au.cast.rank"), o.rankMode, choices(["base", "value", "half-actor", "half-item"], "au.cast.rankMode")),
         ...(o.rankMode === "value" ? [F.num(`${p}.rank`, t("workshop.au.cast.rankValue"), o.rank, { min: 1, max: 10 })] : []),
-        ...(o.rankMode?.startsWith("half-") ? [F.num(`${p}.rankMin`, t("workshop.au.cast.rankMin"), o.rankMin, { min: 1, max: 10 })] : [])] : []),
+        ...(o.rankMode?.startsWith("half-") ? [F.num(`${p}.rankMin`, t("workshop.au.cast.rankMin"), o.rankMin, { min: 1, max: 10 })] : []),
+        F.text(`${p}.durValue`, t("sheet.duration"), o.durValue, { inpCls: "ws-num", placeholder: "—", tip: t("workshop.au.cast.durTip") }),
+        F.sel(`${p}.durUnit`, t("workshop.au.unit"), o.durUnit, sheetChoices("unit", ["rounds", "minutes", "hours", "days"])),
+        F.sel(`${p}.durExpiry`, t("workshop.expires"), o.durExpiry, { "": t("sheet.expiry.none"), "turn-start": t("sheet.expiry.start"), "turn-end": t("sheet.expiry.end") }),
+        ...immFields(`${p}.imm`, o.imm)] : []),
       F.sel(`${p}.dcType`, t(o.kind === "choice" ? "workshop.au.cast.dcDefault" : "sheet.dcLabel"), o.dcType, choices(["auto", "value", "high", "class"], "au.cast.dc")),
       ...(o.dcType === "value" ? [F.num(`${p}.dc`, t("workshop.au.dcValue"), o.dc, { min: 1 })] : [])
     ];

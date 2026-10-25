@@ -209,7 +209,44 @@ test("конвертер: простой текст урона и условие
   assert.deepEqual(p.def.traits, ["alchemical", "injury"]);
 });
 
-test("конвертер: Ghoul Fever — «as stage N», конечная «dead», СЛ без числа -> unsure; сюжет остаётся текстом", () => {
+test("разбор стадии: число после ссылки — значение только valued-состоянию; несколько кубиков в @Damage; bonus, связки, carrier", async () => {
+  const { parseStage } = await import("../tools/affliction.mjs");
+  const ps = (h, known = []) => parseStage(h, { condSlug, known });
+  const L = (s) => `@UUID[Compendium.pf2e.conditionitems.Item.${s}]{${s}}`;
+  let r = ps(`${L("frightened")} 1 and ${L("dazzled")} 1 (1 round)`);
+  assert.deepEqual(r.stage.conditions, [{ slug: "frightened", value: 1 }, { slug: "dazzled" }]);
+  assert.equal(r.unsure, true);   // «1» у dazzled — неразобранный остаток, не значение
+  r = ps(`${L("paralyzed")} (1 round)`);
+  assert.deepEqual([r.stage.conditions, r.unsure], [[{ slug: "paralyzed" }], false]);
+  r = ps(`${L("sickened")} 2 for 1 round`);
+  assert.deepEqual(r.stage.conditions, [{ slug: "sickened", value: 2 }]);
+  r = ps(`slowed 1 and blinded`);   // без ссылки
+  assert.deepEqual([r.stage.conditions, r.unsure], [[{ slug: "slowed", value: 1 }, { slug: "blinded" }], false]);
+  r = ps(`confused 1`);
+  assert.equal(r.unsure, true);
+  r = ps(`@Damage[2d6[poison],1d6[persistent,fire]] plus ${L("sickened")} 1`);
+  assert.deepEqual([r.stage.damage, r.stage.persistent, r.unsure], [[{ formula: "2d6", damageType: "poison" }], { formula: "1d6", damageType: "fire" }, false]);
+  r = ps(`+1 status bonus to Will saves but ${L("clumsy")} 1`);
+  assert.deepEqual([r.stage.mods, r.stage.conditions, r.unsure], [[{ bonus: { target: "will", type: "status", value: 1 } }], [{ slug: "clumsy", value: 1 }], false]);
+  r = ps(`carrier with no ill effect`);
+  assert.deepEqual([r.stage.conditions, r.unsure], [[], false]);
+  r = ps(`dazzled 1`, ["dazzled"]);   // названо ссылкой в документе — значение всё равно не valued
+  assert.deepEqual([r.stage.conditions, r.unsure], [[{ slug: "dazzled" }], true]);
+  assert.equal(ps(`clumsy 1 or enfeebled 1`).unsure, true);
+  assert.equal(ps(`stunned 1, then unconscious`).unsure, true);
+  r = ps(`+1 status bonus to Perception rolls`);   // «Perception rolls» — известная цель
+  assert.deepEqual([r.stage.mods?.length, r.unsure], [1, false]);
+  r = ps(`+1 status bonus to Smell rolls`);   // неизвестная цель не теряется молча
+  assert.deepEqual([r.stage.mods, r.unsure], [null, true]);
+  r = ps(`@Damage[1d6[persistent,fire]] and @Damage[1d6[persistent,bleed]]`);
+  assert.equal(r.unsure, true);
+  r = ps(`@UUID[Compendium.pf2e.conditionitems.Item.clumsy]{Clumsy 1} 2`);
+  assert.deepEqual([r.stage.conditions, r.unsure], [[{ slug: "clumsy", value: 1 }], true]);
+  r = ps(`@Damage[2d6[poison],ghost] and @Damage[1d4[fire]]`);   // чужой хвост — не сумма, остаётся в unsure
+  assert.equal(r.unsure, true);
+});
+
+test("конвертер: Ghoul Fever — «as stage N», конечная «dead», carrier — чистая стадия, СЛ без числа -> unsure; сюжет остаётся текстом", () => {
   const g = parseAffliction(GHOUL, { name: "Ghoul Fever", traits: ["disease"], condSlug });
   assert.equal(g.def.stages.length, 6);
   assert.deepEqual(g.def.stages[2].damage, [{ formula: "2d6", damageType: "void" }]);   // as stage 2
@@ -217,7 +254,7 @@ test("конвертер: Ghoul Fever — «as stage N», конечная «dea
   assert.equal(g.def.stages[5].duration, null);
   assert.match(g.def.stages[5].text, /dead/);
   assert.equal(g.def.save.dc, undefined);
-  assert.ok(g.unsure.includes("dc") && g.unsure.some((x) => x.startsWith("stage 1:")));
+  assert.ok(g.unsure.includes("dc") && !g.unsure.some((x) => x.startsWith("stage 1:")) && g.unsure.some((x) => x.startsWith("stage 6:")));   // «carrier with no ill effect» — чистая стадия
 });
 
 test("конвертер: заклинание Goblin Pox — защита документа, база модели сохраняет остальные степени; onset и штраф к Скорости", () => {

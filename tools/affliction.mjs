@@ -2,7 +2,7 @@
 // Модель пишет обычное правило; здесь определение собирается кодом: провал -> стадия 1, крит. провал -> стадия 2, одинаковый def в обоих шагах.
 // Нераспознанное остаётся текстом стадии (stages[].text) и попадает в unsure. Отчёт по документам: node tools/affliction.mjs
 import { readOut, stripHtml, isMain } from "./lib.mjs";
-import { afflictionStages, parseCheck, validateRule, DAMAGE_TYPES, AFFLICTION_KINDS } from "../scripts/rules.mjs";
+import { VALUED, afflictionStages, parseCheck, validateRule, DAMAGE_TYPES, AFFLICTION_KINDS } from "../scripts/rules.mjs";
 import { STEP_TARGETS, BONUS_TYPES } from "../scripts/workshop/effect.mjs";
 import { normalizeMods } from "../scripts/inline-effect.mjs";
 
@@ -15,13 +15,19 @@ const DASH = "[–−-]";
 // «–10-foot status penalty to Speeds», «–2 status penalty to Fortitude saves»
 const SPEED_MOD = new RegExp(`(${DASH})\\s?(\\d+)[- ]foot\\s+(status|circumstance|item)\\s+penalty\\s+to\\s+(?:all\\s+)?(?:its\\s+|your\\s+)?Speeds?`, "i");
 const ROLL_MOD = new RegExp(`(${DASH})\\s?(\\d+)\\s+(status|circumstance|item)\\s+penalty\\s+to\\s+(AC|attack rolls|saving throws|Fortitude saves|Reflex saves|Will saves|Perception(?: checks)?|skill checks)`, "i");
-const TARGET_OF = { ac: "ac", "attack rolls": "attack-roll", "saving throws": "saving-throw", "fortitude saves": "fortitude", "reflex saves": "reflex", "will saves": "will", perception: "perception", "perception checks": "perception", "skill checks": "skill-check" };
+const TARGET_OF = { ac: "ac", "attack rolls": "attack-roll", "saving throws": "saving-throw", "fortitude saves": "fortitude", "reflex saves": "reflex", "will saves": "will", perception: "perception", "perception checks": "perception", "perception rolls": "perception", "skill checks": "skill-check" };
+
+// число после названия — значение только у valued-состояний (у dazzled/confused/paralyzed «1» — не значение)
+// состояния, которые в тексте стадии бывают названы без ссылки
+const BARE = ["clumsy", "drained", "enfeebled", "frightened", "sickened", "stupefied", "slowed", "stunned", "doomed", "blinded", "dazzled", "deafened", "fatigued", "paralyzed", "unconscious", "prone", "confused", "fascinated", "petrified", "restrained", "immobilized", "quickened", "off-guard", "fleeing", "grabbed", "invisible"];
+const SKILLS = "acrobatics|arcana|athletics|crafting|deception|diplomacy|intimidation|medicine|nature|occultism|performance|religion|society|stealth|survival|thievery";
 
 /** Один блок «Stage N …» (HTML без метки) -> стадия схемы + признак «часть текста не разобрана». known — slug-и состояний, названных ссылками в документе (для «and fatigued» без ссылки). */
-function parseStage(html, { condSlug, known }) {
+export function parseStage(html, { condSlug, known }) {
   const out = { duration: null, damage: [], persistent: null, conditions: [], mods: null, text: "" };
   let t = stripHtml(html), ref = null, bad = false;
   const whole = t;
+  const setPers = (p) => { if (out.persistent) bad = true; else out.persistent = p; };   // второй продолжительный урон — не теряем молча
   const d = DUR_END.exec(t);
   if (d) { out.duration = dur(d[1], d[2]); t = t.replace(DUR_END, ""); }
   if (/\bor\s+@Damage\[/i.test(t)) bad = true;   // «@Damage … or @Damage» — альтернатива, не сумма
@@ -30,28 +36,51 @@ function parseStage(html, { condSlug, known }) {
   // @Damage[1d10[poison]], @Damage[1d6[persistent,bleed]]
   t = t.replace(/@Damage\[((?:[^[\]]|\[[^\]]*\])*)\](?:\{[^}]*\})?(?:\s+damage)?/gi, (_m, inner) => {
     const m = /^\(?\s*(\d+d\d+(?:\s*[+-]\s*\d+)?)\s*\)?\[([a-z,\s-]+)\]$/i.exec(inner.split("|")[0].trim());
-    if (!m) { bad = true; return " "; }
+    if (!m) {
+      // несколько кубиков в одном @Damage: «2d6[fire],1d6[persistent,fire]»
+      const g = [...inner.split("|")[0].matchAll(/(\d+d\d+(?:\s*[+-]\s*\d+)?)\[([a-z,\s-]+)\]/gi)];
+      if (g.length < 2 || g.map((x) => x[0]).join(",") !== inner.split("|")[0].trim()) { bad = true; return " "; }
+      for (const [, fo, ty] of g) {
+        const tt = ty.toLowerCase().split(/[,\s]+/), t1 = tt.find((x) => DAMAGE_TYPES.includes(x)), f1 = fo.replace(/\s+/g, "");
+        if (!t1) bad = true;
+        else if (tt.includes("persistent")) setPers({ formula: f1, damageType: t1 });
+        else out.damage.push({ formula: f1, damageType: t1 });
+      }
+      return " ";
+    }
     const formula = m[1].replace(/\s+/g, ""), types = m[2].toLowerCase().split(/[,\s]+/);
     const type = types.find((x) => DAMAGE_TYPES.includes(x));
     if (!type) bad = true;
-    else if (types.includes("persistent")) out.persistent ??= { formula, damageType: type };
+    else if (types.includes("persistent")) setPers({ formula, damageType: type });
     else out.damage.push({ formula, damageType: type });
     return " ";
   });
-  t = t.replace(/(\d+d\d+(?:\s*[+-]\s*\d+)?)\s+persistent\s+([a-z]+)(?:\s+damage)?/gi, (m, f, ty) => (DAMAGE_TYPES.includes(ty.toLowerCase()) ? (out.persistent ??= { formula: f.replace(/\s+/g, ""), damageType: ty.toLowerCase() }, " ") : m));
+  t = t.replace(/(\d+d\d+(?:\s*[+-]\s*\d+)?)\s+persistent\s+([a-z]+)(?:\s+damage)?/gi, (m, f, ty) => (DAMAGE_TYPES.includes(ty.toLowerCase()) ? (setPers({ formula: f.replace(/\s+/g, ""), damageType: ty.toLowerCase() }), " ") : m));
   t = t.replace(/(\d+d\d+(?:\s*[+-]\s*\d+)?)\s+([a-z]+)(?:\s+damage)?/gi, (m, f, ty) => (DAMAGE_TYPES.includes(ty.toLowerCase()) ? (out.damage.push({ formula: f.replace(/\s+/g, ""), damageType: ty.toLowerCase() }), " ") : m));
   const add = (slug, value) => { if (!out.conditions.some((c) => c.slug === slug)) out.conditions.push({ slug, ...(value != null && { value }) }); };
-  t = t.replace(/@UUID\[([^\]]+)\](?:\{([^}]*)\})?/g, (m, uuid, label = "") => {
+  t = t.replace(/@UUID\[([^\]]+)\](?:\{([^}]*)\})?(?:\s+(\d+)\b(?!\s*(?:round|minute|hour|day)))?/g, (m, uuid, label = "", after) => {
     const slug = condSlug(uuid);
     if (!slug) return m;
-    add(slug, /(\d+)\s*$/.exec(label)?.[1] ? +/(\d+)\s*$/.exec(label)[1] : null);
-    return " ";
+    const inLabel = /(\d+)\s*$/.exec(label)?.[1];
+    // «@UUID[…]{Frightened} 1»: число после ссылки — значение, но только valued-состоянию; иначе число остаётся в тексте
+    const useAfter = !inLabel && after && VALUED.has(slug);
+    add(slug, inLabel ? +inLabel : useAfter ? +after : null);
+    return after && !useAfter ? ` ${after} ` : " ";
   });
-  for (const slug of known) {
+  for (const slug of [...new Set([...known, ...BARE])]) {
     const re = new RegExp(`\\b${slug.replace(/-/g, "[ -]")}\\b(?:\\s+(\\d+))?`, "i");
-    t = t.replace(re, (_m, v) => (add(slug, v ? +v : null), " "));
+    // состояние без ссылки (не из known) берёт число только если valued; иначе число останется в остатке -> unsure
+    t = t.replace(re, (_m, v) => { const use = v && (VALUED.has(slug)); add(slug, use ? +v : null); return use || !v ? " " : ` ${v}`; });
   }
   const mods = [];
+  t = t.replace(new RegExp(`\\+(\\d+)\\s+(status|circumstance|item)\\s+bonus\\s+to\\s+(AC|attack rolls|saving throws|Fortitude saves|Reflex saves|Will saves|Perception(?: checks| rolls)?|${SKILLS})(?:\\s+(?:checks|rolls))?`, "gi"), (_m, n, ty, tg) => {
+    const target = TARGET_OF[tg.toLowerCase()] ?? tg.toLowerCase();
+    if (!STEP_TARGETS.includes(target)) return _m;   // неизвестная цель — остаётся в тексте, стадия непонятая
+    mods.push({ bonus: { target, type: ty.toLowerCase(), value: +n } });
+    return " ";
+  });
+  t = t.replace(/\bweakness\s+(\d+)\s+to\s+([a-z]+)/gi, (_m, n, ty) => (mods.push({ weak: { dmg: ty.toLowerCase(), value: +n } }), " "));
+  t = t.replace(/\b(?:can'?t|cannot)\s+(?:use|take)\s+reactions\b/gi, () => (mods.push({ forbid: "reactions" }), " "));
   t = t.replace(SPEED_MOD, (_m, _s, n, type) => (mods.push({ speed: { type: type.toLowerCase(), value: -+n } }), " "));
   t = t.replace(ROLL_MOD, (_m, _s, n, type, tg) => {
     const target = TARGET_OF[tg.toLowerCase()];
@@ -61,7 +90,8 @@ function parseStage(html, { condSlug, known }) {
   if (mods.length && !normalizeMods(mods).error) out.mods = normalizeMods(mods).mods;
   else if (mods.length) bad = true;
   // остаток: связки и знаки не в счёт, любое слово — непонятая часть (сюжетное, «carrier with no ill effect», «dead»)
-  const rest = t.replace(/\b(?:and|or|the|a|an|of)\b|damage|[\s,.;:()—–-]/gi, "");
+  t = t.replace(/\bcarrier(?:\s+with\s+no\s+(?:ill\s+)?effects?)?\b|\bno\s+(?:ill\s+)?effects?\b/gi, " ");
+  const rest = t.replace(/\b(?:and|the|a|an|of|plus|but|also|with)\b|damage|[\s,.;:()—–-]/gi, "");
   if (rest || bad) { out.text = whole.replace(DUR_END, "").trim(); bad = true; }
   return { stage: out, ref, unsure: bad };
 }

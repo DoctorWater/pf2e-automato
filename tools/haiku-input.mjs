@@ -56,7 +56,7 @@ function main() {
   for (const [batch, list] of Object.entries(by)) {
     list.sort((a, b) => a.pr - b.pr || (a.it.level ?? 0) - (b.it.level ?? 0) || cmp(a.it.uuid, b.it.uuid));
     const ap = join(ACCEPTED, `${batch}.json`);
-    const answered = new Set(existsSync(ap) ? readJson(ap).items.map((d) => d.uuid) : []);
+    const answered = new Set(existsSync(ap) ? readJson(ap).items.filter((d) => !d.partial?.length).map((d) => d.uuid) : []);   // partial (правило закрывает не всё) остаётся в очереди: ручные активации ждут модели
     if (p) for (const x of list) if (x.pr !== p) answered.add(x.it.uuid);   // фильтр приоритета не должен менять нумерацию кусков
     for (const f of chunk(batch, list.map((x) => x.it), condById, size, answered, draftOf)) { writeText(outPath(dir, f.name), f.text); files++; }
   }

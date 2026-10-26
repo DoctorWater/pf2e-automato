@@ -775,6 +775,21 @@ test("gateToEvent: заметки-предпосылки onUse.apply перее�
   assert.equal(r2.rule.onEvent[0].apply.length, 1);
 });
 
+test("gateToEvent: шаги к цели из onUse.apply (2d8 кровотечения) переезжают в apply записи — на промахе не ложатся", () => {
+  const raw = { v: 1, onUse: { targets: "selected", challenge: { statistic: "fortitude", dc: { against: "class" }, basic: false, rollerRole: "target", byDegree: { failure: [{ to: "target", note: "слеп" }] } }, apply: [{ to: "target", persistent: { formula: "2d8", damageType: "bleed" } }, { to: "self", condition: { slug: "hidden" } }] } };
+  const r = gateToEvent(validate(raw).rule, DEATHBLOW, "feat");
+  assert.equal(r.changed, true);
+  assert.deepEqual(r.rule.onUse.apply.map((s) => s.to), ["self"]);
+  assert.deepEqual(r.rule.onEvent[0].apply.map((s) => s.persistent?.formula), ["2d8"]);
+  assert.equal(roundTrip(r.rule), true);
+});
+
+test("активация: per.unit вне единиц рантайма (years, day) — ошибка ответа; days — принимается", () => {
+  const ans = (unit) => ({ uuid: "u", unsure: false, rule: { v: 1, activate: [{ id: "x", label: "X", per: { value: 20, unit }, onUse: { targets: "self", apply: [{ to: "self", note: "n" }] } }] } });
+  for (const unit of ["years", "day", "turns"]) assert.equal(checkAnswer(ans(unit), { conditions: {} }).kind, "error", unit);
+  assert.notEqual(checkAnswer(ans("days"), { conditions: {} }).kind, "error");
+});
+
 test("gateToEvent: пассив, оружие — не переводятся; несколько Ударов (Five Breaths) — долг multi-strike", () => {
   const d = dazingUse();
   assert.equal(gateToEvent(d, DAZING, { type: "feat", actionType: "passive" }).changed, false);

@@ -37,6 +37,9 @@ export function mechanismsOf(reason, item) {
   return { keys: [...keys], free };
 }
 
+/** Пачка-владелец долга: owner первого (в порядке причины) ключа, у которого он есть, иначе null. */
+export const ownerOf = (keys) => keys.map((k) => MECHANISMS[k].owner).find(Boolean) ?? null;
+
 /** Первый ключ или null (для простых вызовов и тестов). */
 export const mechanismOf = (reason, item) => mechanismsOf(reason, item).keys[0] ?? null;
 

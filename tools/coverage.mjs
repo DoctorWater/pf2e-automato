@@ -3,7 +3,7 @@ import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { ROOT, readJson, readOut, writeJson, outPath, isMain } from "./lib.mjs";
 import { readModelAccepted } from "./drafts.mjs";
-import { debtByMechanism, renderDebtMd } from "./mechanisms.mjs";
+import { debtByMechanism, renderDebtMd, isDebt, ownerOf } from "./mechanisms.mjs";
 
 export const STATUSES = ["pf2e", "catalog", "pa", "model", "partial", "markup-high", "markup-head", "markup-low", "pa-port", "manual", "skip"];
 const NEED = STATUSES.filter((s) => s !== "skip");
@@ -49,9 +49,11 @@ function table(title, t, sortKeys) {
   return head + keys.map((k) => { const o = t[k]; return `| ${k} | ${o.total} | ${o.need} | ${STATUSES.slice(0, -1).map((s) => o[s]).join(" | ")} | ${o.skip} | ${pct(ready(o), o.need)} |`; }).join("\n") + "\n";
 }
 
-export function buildReport({ meta, items, tri, pa }) {
+/** owners: Map uuid -> пачка-владелец долга; в таблицах пачек запись долга считается там (триаж и файл записи не меняются). */
+export function buildReport({ meta, items, tri, pa, owners = new Map() }) {
   const triBy = new Map(tri.map((t) => [t.uuid, t]));
   const rows = items.map((it) => { const t = triBy.get(it.uuid); return { it, t, status: t.status }; });
+  const batchOf = (r) => owners.get(r.it.uuid) ?? r.t.batchName ?? "(нет пачки)";
   const by = (f) => tally(rows.map((r) => ({ key: f(r), status: r.status })));
   const skipReasons = {};
   for (const r of rows) if (r.status === "skip") { const k = r.t.reason.replace(/:.*/, ""); skipReasons[k] = (skipReasons[k] ?? 0) + 1; }
@@ -61,9 +63,9 @@ export function buildReport({ meta, items, tri, pa }) {
     overall: tally(rows.map((r) => ({ key: "all", status: r.status }))).all,
     byType: by((r) => `${r.it.embedded ? "npc:" : ""}${r.it.type}`),
     byLayer: by((r) => `слой ${r.t.layer ?? "—"}`),
-    byBatch: by((r) => r.t.batchName ?? "(нет пачки)"),
+    byBatch: by(batchOf),
     byPriority: by((r) => `P${r.t.priority}`),
-    priority1ByBatch: tally(p1.map((r) => ({ key: r.t.batchName ?? "(нет пачки)", status: r.status }))),
+    priority1ByBatch: tally(p1.map((r) => ({ key: batchOf(r), status: r.status }))),
     skipReasons, pa
   };
   return data;
@@ -97,11 +99,15 @@ ${table("тип", d.byType)}
 ${table("слой", d.byLayer)}
 ### По пачкам (ROADMAP §5)
 
+Долг (\`needs-primitive\`) учтён по владельцу ключа (\`owner\` в \`rules/mechanisms.json\`), а не по пачке файла.
+
 ${table("пачка", d.byBatch)}
 ### По приоритету (ROADMAP §4: P1 частое, P2 остальное, P3 NPC, P4 кампании)
 
 ${table("приоритет", d.byPriority)}
 ### Приоритет 1 по пачкам
+
+Долг учтён по владельцу ключа, как выше.
 
 ${table("пачка", d.priority1ByBatch)}
 ${d.mechanisms ? renderDebtMd(d.mechanisms) : ""}${END}
@@ -122,8 +128,10 @@ function main() {
   const accepted = readModelAccepted();
   const tri = withPa(withAccepted(readOut("triage.json").items, accepted), existsSync(pd) ? readJson(pd).items : []);
   const pa = existsSync(outPath("pa-port.json")) ? readOut("pa-port.json") : null;
-  const d = buildReport({ meta, items, tri, pa });
   const { byUuid, ...mech } = debtByMechanism(accepted, items);
+  const owners = new Map();
+  for (const a of accepted) { const o = isDebt(a) && ownerOf(byUuid.get(a.uuid)?.keys ?? []); if (o) owners.set(a.uuid, o); }
+  const d = buildReport({ meta, items, tri, pa, owners });
   d.mechanisms = mech;
   writeJson(outPath("coverage.json"), d, 1);
   const p = join(ROOT, "coverage.md");

@@ -24,7 +24,21 @@ const FIXTURE = [
   [N + "triggered save at turn start; forced action", null, "triggered-save"],
   [N + "triggered aura", null, "triggered-save"],
   [N + "ongoing save, slowed escalation", null, "repeat-save"],
-  [N + "cast spell from list", null, "cast-activation"],
+  [N + "cast spell from list", null, "staff-charges"],
+  [N + "cast: heal", null, "cast-activation"],
+  [N + "-2 circumstance penalty (hearing only)", null, "mods-conditional"],
+  [N + "+1 bonus vs. target", null, "mods-conditional"],
+  [N + "bonus on disbelief saves", null, "mods-conditional"],
+  [N + "-10 ft speed penalty on success", null, "mods"],
+  [N + "strike-gate", it("spell", "action"), "spell-strike-gate"],
+  [N + "actions change targets", null, "root-mode-choice"],
+  [N + "random color choice", null, "root-mode-choice"],
+  [N + "backlash choice", null, "root-mode-choice"],
+  [N + "mode choice", it("spell", "action"), "root-mode-choice"],
+  [N + "several modes", it("feat", "action"), "root-mode-choice"],
+  [N + "mode choice", it("equipment", "action"), "mode-choice"],
+  [N + "pushed into line", null, "forced-movement-other"],
+  [N + "charges (staff)", null, "staff-charges"],
   [N + "next-cast (catalyst for Heal)", null, "next-cast"],
   [N + "affliction: linger: permanently", null, "affliction-linger"],
   [N + "affliction: duration: no stage has one", null, "affliction-duration"],
@@ -130,4 +144,21 @@ test("разбор: запись под каждым ключом, blocked пр�
   assert.equal(push.n, 2);
   assert.equal(push.blocked, 1);
   assert.equal(r.rows.find((x) => x.key === "ammo-bomb").n, 1);
+});
+
+test("owner: долг ammo-bomb/event-trigger считается в пачке-владельце, по первому ключу причины", async () => {
+  const { buildReport, tally } = await import("../tools/coverage.mjs");
+  const { ownerOf } = await import("../tools/mechanisms.mjs");
+  assert.equal(ownerOf(["ammo-bomb"]), "b08-consumables");
+  assert.equal(ownerOf(["push", "event-trigger"]), "b04-reactions");
+  assert.equal(ownerOf(["event-trigger", "ammo-bomb"]), "b04-reactions");
+  assert.equal(ownerOf(["ammo-bomb", "event-trigger"]), "b08-consumables");
+  assert.equal(ownerOf(["push"]), null);
+  const items = [{ uuid: "a", type: "feat" }, { uuid: "b", type: "feat" }];
+  const tri = [{ uuid: "a", status: "manual", batchName: "b01-save-conditions", priority: 1 }, { uuid: "b", status: "manual", batchName: "b01-save-conditions", priority: 1 }];
+  const d = buildReport({ meta: {}, items, tri, pa: null, owners: new Map([["a", "b08-consumables"]]) });
+  assert.equal(d.byBatch["b08-consumables"].manual, 1);
+  assert.equal(d.byBatch["b01-save-conditions"].manual, 1);
+  assert.equal(d.priority1ByBatch["b08-consumables"].manual, 1);
+  assert.ok(tally);
 });

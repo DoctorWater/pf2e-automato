@@ -17,6 +17,10 @@ test("immuneToTraits: иммунитет pf2e по типу совпал с че
   assert.equal(immuneToTraits([{ type: "mental" }], ["mental", "illusion"]), true);
   assert.equal(immuneToTraits([{ type: "fire" }], ["mental"]), false);
   assert.equal(immuneToTraits(undefined, ["mental"]), false);
+  // иммунитет к чистому типу урона не отменяет состояние, только урон; poison — и черта эффекта
+  assert.equal(immuneToTraits([{ type: "sonic" }], ["sonic"]), false);
+  assert.equal(immuneToTraits([{ type: "sonic" }], ["sonic"], true), true);
+  assert.equal(immuneToTraits([{ type: "poison" }], ["poison"]), true);
 });
 
 test("validateRule: who/mark/unlessEffect в шаге apply", () => {

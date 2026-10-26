@@ -4,6 +4,7 @@
     "ammo-bomb": {
       "title": "Боеприпасы и бомбы: эффект при попадании/уроне/всплеске",
       "primitive": null,
+      "owner": "b08-consumables",
       "aliases": ["ammo/bomb", "ammunition", "^strike-gate.* @ammo/", "^strike-gate.* @\\S*\\bbomb\\b"]
     },
     "affliction-injury": {
@@ -61,6 +62,11 @@
       "primitive": null,
       "aliases": ["^strike-gate.* @weapon/", "next strike", "weapon activation", "curse on weapon"]
     },
+    "spell-strike-gate": {
+      "title": "Заклинание: испытание по исходу его же Удара/атаки (перенос strike-gate работает только для feat/action)",
+      "primitive": null,
+      "aliases": ["^strike-gate.* @spell/"]
+    },
     "strike-gate": {
       "title": "Активность с Ударом, испытание по исходу Удара",
       "primitive": "onEvent.afterUse (plan-strike-gate.md)",
@@ -89,7 +95,7 @@
     "forced-movement-other": {
       "title": "Принудительное перемещение не «толчок/притяжение на дистанцию»: падение, подъём, к образу, из строя, к ближайшему месту",
       "primitive": null,
-      "aliases": ["forced (movement|fall|jump|landing|prone)", "lift/", "toward image", "out of line", "nearest space", "random push"]
+      "aliases": ["forced (movement|fall|jump|landing|prone)", "lift/", "toward image", "out of line", "into (the )?line", "nearest space", "random push"]
     },
     "push": {
       "title": "Толчок/притяжение с фиксированной дистанцией (по степеням)",
@@ -109,12 +115,18 @@
     "event-trigger": {
       "title": "Срабатывание по прочему событию: смерть цели, взгляд, сотворение, прыжок, предмет и т.п.",
       "primitive": null,
+      "owner": "b04-reactions",
       "aliases": ["\\btriggers?\\b", "triggered", "on (sight|cast|jump)"]
     },
     "repeat-save": {
       "title": "Повторный спасбросок на границе хода цели",
       "primitive": "repeat (plan-triggered-save.md)",
       "aliases": ["repeated save", "repeat save", "ongoing save", "save each turn"]
+    },
+    "staff-charges": {
+      "title": "Посох: список заклинаний и заряды",
+      "primitive": null,
+      "aliases": ["spell from list", "charges \\(staff\\)"]
     },
     "cast-activation": {
       "title": "Активация снаряжения «вы сотворяете X»",
@@ -132,11 +144,21 @@
       "primitive": null,
       "aliases": ["hostile actions"]
     },
+    "root-mode-choice": {
+      "title": "Выбор режима или числа действий у самого заклинания/умения (не снаряжения)",
+      "primitive": null,
+      "aliases": ["actions change targets", "random color choice", "backlash choice", "(mode choice|several modes).* @(spell|feat)/"]
+    },
     "mode-choice": {
       "title": "Выбор режима/грани/нескольких активаций",
       "primitive": "activate choices (plan-activate.md)",
       "via": "tools/activate-pool.mjs",
       "aliases": ["mode choice", "several modes", "\\bmodes\\b", "choice", "cube face", "face choice", "activations"]
+    },
+    "mods-conditional": {
+      "title": "Бонус/штраф только против одного существа или источника, для одного чувства или вида проверки, или без конечного срока",
+      "primitive": null,
+      "aliases": ["\\((hearing|sight)", "\\bvs\\.? target\\b", "disbelie", "mods-conditional"]
     },
     "mods": {
       "title": "Числовой штраф/бонус без связанного эффекта, запрет реакций",

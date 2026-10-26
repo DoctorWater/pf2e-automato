@@ -1,10 +1,10 @@
 // Пул модельного прохода по долгу: записи со статусом «к проходу» по словарю механизмов (rules/mechanisms.json).
-// Запуск: node tools/debt-pool.mjs [batch=all] [size=40] [prefix=mdebt] -> tools/out/mdebt-pool.json + tools/out/haiku/mdebt-NN.md (старый пул debt-* не перезаписывается: по нему идут ответы) (шапка — draft-rule.md).
+// Запуск: node tools/debt-pool.mjs [--batch all] [--size 40] [--prefix mdebt] [--uuids <файл>] -> tools/out/mdebt-pool.json + tools/out/haiku/mdebt-NN.md (старый пул debt-* не перезаписывается: по нему идут ответы) (шапка — draft-rule.md).
 import { readOut, readJson, writeText, writeJson, outPath, ACCEPTED, arg, isMain } from "./lib.mjs";
 import { join } from "node:path";
 import { itemBlock } from "./haiku-input.mjs";
 import { stripHtml, cut } from "./lib.mjs";
-import { readdirSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { debtByMechanism, isDebt, plainReason, poolable } from "./mechanisms.mjs";
 
 export const TAGS = { repeat: /repeat(ed)?\b|ongoing save|save each turn/, mods: /penalty|bonus|clumsy|slowed|floor/ };
@@ -37,7 +37,12 @@ export function debtPool(batch = "all", answered = answeredMap()) {
 }
 
 function main() {
-  const batch = arg("batch", "all"), size = +arg("size", 40), prefix = arg("prefix", "mdebt"), pool = debtPool(batch);
+  // --uuids <файл со списком uuid> — переспросить выбранные записи (вердикт Критика), даже отвеченные
+  const batch = arg("batch", "all"), size = +arg("size", 40), prefix = arg("prefix", "mdebt"), list = arg("uuids");
+  if (list && (list === true || prefix === "mdebt")) throw new Error("--uuids <файл> и свой --prefix mdebtN: mdebt-pool.json — пул основного прохода");
+  const only = list && new Set(readFileSync(list, "utf8").split(/\s+/).filter(Boolean));
+  const pool = only ? debtPool(batch, new Set()).filter((p) => only.has(p.uuid)) : debtPool(batch);
+  if (only) for (const u of only) if (!pool.some((p) => p.uuid === u)) console.log("не в пуле (не долг или нет примитива):", u);
   const refs = readOut("refs.json"), html = readOut("html.json");
   const condById = Object.fromEntries(Object.entries(refs.conditions).map(([s, c]) => [c.id, s]));
   const files = [];

@@ -31,7 +31,7 @@ export const hasCard = (kind) => { const k = typeof kind === "string" ? { type: 
 
 /**
  * Правило с onUse.challenge на тексте strike-gate -> то же правило, но испытание — запись onEvent {attack-roll, afterUse}.
- * Заметки onUse.apply (предпосылки: «урон этим оружием за минуту», «вы спрятаны») переезжают в apply записи — ГМ видит их вместе с испытанием.
+ * Заметки onUse.apply (предпосылки: «урон этим оружием за минуту», «вы спрятаны») и шаги к цели переезжают в apply записи: заметки ГМ видит вместе с испытанием, шаги ложатся только при попадании.
  * -> { rule, changed }. Нет карточки (пассив, оружие, боеприпас), нет испытания, текст не strike-gate или несколько Ударов — правило как есть.
  */
 export function gateToEvent(rule, html, kind) {
@@ -39,8 +39,10 @@ export function gateToEvent(rule, html, kind) {
   if (!c || !hasCard(kind) || !strikeGate(html) || multiStrike(html)) return { rule, changed: false };
   const out = structuredClone(rule), u = out.onUse;
   u.challenge = null;
-  const notes = (u.apply ?? []).filter(isNote);
-  u.apply = (u.apply ?? []).filter((s) => !isNote(s));
+  // шаги к цели («2d8 кровотечения») при использовании легли бы и на промахе: они переезжают вместе с испытанием (events.mjs: splitSteps.theirs)
+  const moved = (s) => isNote(s) || s.to === "target";
+  const notes = (u.apply ?? []).filter(moved);
+  u.apply = (u.apply ?? []).filter((s) => !moved(s));
   if (!(u.check || u.zone || u.apply.length)) out.onUse = null;
   out.onEvent = [...(out.onEvent ?? []), { on: "attack-roll", side: "self", afterUse: true, when: strikeWhen(html), ...(notes.length && { apply: notes }), challenge: c }];
   const v = validateRule(out);

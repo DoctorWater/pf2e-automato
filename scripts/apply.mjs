@@ -5,7 +5,7 @@ import { MOD, L, DEGREES, flagPath, sluggify, queue, forcedDelete, socket, ENDS_
 import { runMacros } from "./macros.mjs";
 import { effectSource } from "./builtin/lib.mjs";
 import { inRange } from "./range.mjs";
-import { resolveFormula, isZeroFormula, isActiveStep } from "./rules.mjs";
+import { resolveFormula, isZeroFormula, isActiveStep, DAMAGE_TYPES } from "./rules.mjs";
 import { testPredicate } from "./predicate.mjs";
 import { setSource, dropSource, visionActive } from "./vision.mjs";
 import { escapeDC, offerEscape } from "./escape.mjs";
@@ -445,8 +445,10 @@ export async function pickChoice({ title, prompt, choices }) {
 /** Чистая: враждебны ли две стороны по disposition токенов (дружественный против прочих). */
 export const opposed = (a, b) => (a > 0) !== (b > 0);
 
-/** Чистая: невосприимчив ли получатель к чертам источника (иммунитеты pf2e — по типу, напр. "mental"). */
-export const immuneToTraits = (immunities = [], traits = []) => immunities.some((i) => traits.includes(i.type ?? i));
+// иммунитет к типу урона (fire, sonic, void…) отменяет только урон, не состояние из того же эффекта; poison и mental — ещё и черты эффектов
+const DAMAGE_ONLY = new Set(DAMAGE_TYPES.filter((t) => t !== "poison" && t !== "mental"));
+/** Чистая: невосприимчив ли получатель к чертам источника (иммунитеты pf2e — по типу, напр. "mental"); damage — шаг урона (persistent), иначе иммунитет к чистому типу урона не в счёт. */
+export const immuneToTraits = (immunities = [], traits = [], damage = false) => immunities.some((i) => traits.includes(i.type ?? i) && (damage || !DAMAGE_ONLY.has(i.type ?? i)));
 
 /** Выбор в окнах ChoiceSet делает автор сообщения, если это игрок онлайн и владелец актёра-источника; иначе — ГМ (окно pf2e). */
 export function chooserOf(message, originActor) {
@@ -487,7 +489,8 @@ export async function applyOps(message, tokenKey, steps, ctx = {}) {
     roll: ctx.degree != null && Number.isFinite(ctx.total) ? { total: ctx.total, degreeOfSuccess: ctx.degree } : null,
     castRank: originItem?.type === "spell" ? (message.flags?.pf2e?.origin?.castRank ?? originItem.rank ?? null) : null,
     chooser: chooserOf(message, selfActor) ?? (message.author ? null : ownerPlayer(selfActor)) };
-  const traits = originItem?.system?.traits?.value ?? [];
+  // черты для иммунитета цели: предмет + черты самого испытания (облако яда: у носителя может не быть poison); все пути испытаний (onUse, зона, событие) несут его в use.rule.onUse.challenge
+  const traits = [...(originItem?.system?.traits?.value ?? []), ...(scope === "challenge" ? use.rule?.onUse?.challenge?.traits ?? [] : [])];
   // переменные формул: круг (при сотворении — поднятый), уровень предмета (у заклинания это круг), уровень автора
   const rank = useRank(message, originItem);
   const persVars = { rank, level: originItem?.type === "spell" ? rank : originItem?.level ?? rank, actorLevel: selfActor?.level ?? 1 };
@@ -513,7 +516,7 @@ export async function applyOps(message, tokenKey, steps, ctx = {}) {
     if (step.to !== "self") {
       const hostile = opposed(myDisp, targetDoc?.disposition ?? 0);
       if (step.to === "target" && step.who && (step.who === "enemy") !== hostile) continue;
-      if ((step.condition || step.effect || step.persistent) && immuneToTraits(actor.attributes?.immunities, traits)) { notify("apply.immune", { name: actor.name }); continue; }
+      if ((step.condition || step.effect || step.persistent) && immuneToTraits(actor.attributes?.immunities, traits, !!step.persistent && !step.condition && !step.effect)) { notify("apply.immune", { name: actor.name }); continue; }
     }
     if (step.unlessEffect && actor.items.some((it) => it.type === "effect" && it._stats?.compendiumSource === step.unlessEffect)) {
       notify("apply.alreadyImmune", { name: actor.name }); continue;

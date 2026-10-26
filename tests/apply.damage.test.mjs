@@ -93,3 +93,13 @@ test("applyByDegree + шаг damage в степени: не виснет на qu
   assert.equal(ops[0].op, "damaged");
   assert.equal(m.flags[MOD].use.state.damaged.length, 1);
 });
+
+test("иммунитет цели: черты испытания (poison) отсекают шаг, даже если у предмета такой черты нет", async () => {
+  mkActor("Actor.hero");
+  const u = () => ({ ...use(), rule: { onUse: { challenge: { traits: ["poison"] } } } });
+  const step = [{ to: "target", condition: { slug: "sickened", value: 1 } }];
+  const tok = (imm) => ({ id: "t", actor: mkActor("Actor.foe" + imm, { attributes: { immunities: [{ type: imm }] } }), parent: {} });
+  assert.deepEqual(await applyOps(mkMsg(u(), "M1"), "t", step, { scope: "challenge", degree: 1, target: tok("poison") }), []);
+  // контроль: без подходящего иммунитета шаг доходит до наложения (в моке нет getCondition — падает именно там)
+  await assert.rejects(applyOps(mkMsg(u(), "M2"), "t", step, { scope: "challenge", degree: 1, target: tok("fire") }));
+});

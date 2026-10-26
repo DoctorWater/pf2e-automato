@@ -1,9 +1,12 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { coverToggle, needsReload, isUnloaded, strikeItemId, strikeUsage, reloadGlyph } from "../scripts/hud.mjs";
+import { COVER, coverToggle, needsReload, isUnloaded, strikeItemId, strikeUsage, reloadGlyph } from "../scripts/hud.mjs";
 
 test("укрытие: поставить, снять, взаимоисключение", () => {
   assert.deepEqual(coverToggle([], "standard"), { remove: [], add: "standard" });
+  assert.deepEqual(coverToggle([{ id: "a", level: "standard" }], "lesser"), { remove: ["a"], add: "lesser" });
+  assert.deepEqual(Object.keys(COVER), ["lesser", "standard", "greater"]);   // порядок кнопок в HUD
+  assert.deepEqual(COVER.lesser, { bonus: 1, level: "lesser" });             // = choices ChoiceSet эффекта pf2e «Укрытие»
   assert.deepEqual(coverToggle([{ id: "a", level: "standard" }], "standard"), { remove: ["a"], add: null });
   assert.deepEqual(coverToggle([{ id: "a", level: "standard" }], "greater"), { remove: ["a"], add: "greater" });
   assert.deepEqual(coverToggle([{ id: "a", level: "greater" }, { id: "b", level: null }], "standard"), { remove: ["a", "b"], add: "standard" });

@@ -535,8 +535,12 @@ async () => {
     Hooks.callAll("forceUpdateTokenActionHud");
     const btn = await waitFor(() => document.querySelector("button[value^=pafCover]"), 10000);
     t.ok(!!btn, "кнопка укрытия в HUD");
-    btn?.click();
+    const levels = [...document.querySelectorAll("button[value^=pafCover]")].map((b) => b.value.split("|")[1]);
+    t.ok(["lesser", "standard", "greater"].every((l) => levels.includes(l)), `три уровня укрытия в HUD: ${levels}`);
+    const ac0 = pc.armorClass.value;
+    document.querySelector('button[value="pafCover|lesser"]')?.click();
     t.ok(await waitFor(() => pc.itemTypes.effect.some((x) => /cover/.test(x.slug ?? "")), 8000), `эффект укрытия на актёре (${e.states(pc)})`);
+    t.ok(await waitFor(() => pc.armorClass.value === ac0 + 1, 4000), `частичное укрытие: КБ ${ac0} → ${pc.armorClass.value} (ждали +1)`);
   });
 
   // ---------- прогон ----------

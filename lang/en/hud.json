@@ -1,7 +1,7 @@
 {
   "PF2E_AUTOMATO": {
     "hud": {
-      "cover": { "standard": "Cover", "greater": "Greater Cover" },
+      "cover": { "lesser": "Lesser Cover", "standard": "Cover", "greater": "Greater Cover" },
       "reload": "Reload",
       "noAmmo": "no suitable ammo",
       "pickAmmo": "choose ammo",

@@ -4,7 +4,7 @@ import { askHere } from "./builtin/lib.mjs";
 
 export const COVER_UUID = "Compendium.pf2e.other-effects.Item.I9lfZUiCwMiGogVi";
 // Те же selection, что pf2e пишет в ChoiceSet при действии «Укрыться» (pf2e.mjs: SingleAction take-cover) — окно выбора не появляется.
-export const COVER = { standard: { bonus: 2, level: "standard" }, greater: { bonus: 4, level: "greater" } };
+export const COVER = { lesser: { bonus: 1, level: "lesser" }, standard: { bonus: 2, level: "standard" }, greater: { bonus: 4, level: "greater" } };
 
 /* ---------- Чистая часть (node-тесты) ---------- */
 
@@ -95,7 +95,7 @@ const tip = (t) => `<div class="tah-tooltip-wrapper">${esc(t)}</div>`;
 const tah = () => game.tokenActionHud?.hudManager;
 
 /** Укрытия — обычные действия категории «Эффекты» (группа effects pf2e-TAH); активный уровень подсвечен как активное состояние. */
-const COVER_ICONS = { standard: "fa-shield-halved", greater: "fa-shield" };
+const COVER_ICONS = { lesser: "fa-circle-half-stroke", standard: "fa-shield-halved", greater: "fa-shield" };
 const coverActionHandler = {
   extendActionHandler() {
     const ah = this.actionHandler, actor = ah.actor;

@@ -107,7 +107,12 @@ test("активация с Frequency: шаги в корневом onUse — о
   assert.equal(root.kind, "error");
   assert.match(root.errors[0], /activate: \[\{id, label, per, onUse\}\]/);
   assert.equal(chk({ v: 1, activate: [{ id: "tide", label: "Tide", per: { value: 1, unit: "days" }, onUse: useSave }] }, ACT).kind, "accepted");
-  assert.equal(chk({ v: 1, onUse: useSave }, "<p><strong>Activate</strong> 1 Interact</p><p><strong>Effect</strong> Foes fall prone.</p>").kind, "accepted");   // без Frequency счётчика нет
+  // без Frequency: selected/self в корне карточка не исполнит — тоже activate (без per); область — исполнит
+  const noFreq = "<p><strong>Activate</strong> 1 Interact</p><p><strong>Effect</strong> Foes fall prone.</p>";
+  assert.match(chk({ v: 1, onUse: useSave }, noFreq).errors?.[0] ?? "", /activate: \[\{id, label, onUse\}\]/);
+  assert.equal(chk({ v: 1, activate: [{ id: "tide", label: "Tide", onUse: useSave }] }, noFreq).kind, "accepted");
+  assert.equal(chk({ v: 1, onUse: { ...useSave, targets: "area" } }, noFreq).kind, "accepted");
+  assert.equal(chk({ v: 1, onUse: useSave, activate: [{ id: "tide", label: "Tide", onUse: useSave }] }, noFreq).kind, "error");   // корневой не-area не спасает и соседняя запись activate
 });
 
 test("расходник, действие и черта: корневой onUse при Frequency второй активации — не ошибка", () => {

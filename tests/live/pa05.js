@@ -35,7 +35,7 @@ async () => {
   // ---------- уборка (аварийная: window.__afPa05 = {cleanOnly: true}) ----------
   const sweep = async (extraMsgIds = []) => {
     const test = (n) => typeof n === "string" && n.startsWith(PFX);
-    for (const c of game.combats.filter((c) => test(c.scene?.name) || c.combatants.some((x) => test(x.actor?.name) || test(x.name)))) await c.delete().catch(() => {});
+    for (const c of game.combats.filter((c) => test(c.scene?.name) || c.combatants.some((x) => test(x.actor?.name) || test(x.name) || test(game.scenes.get(x.sceneId)?.name)))) await c.delete().catch(() => {});
     const scenes = game.scenes.filter((s) => test(s.name));
     const actorIds = new Set(game.actors.filter((a) => test(a.name)).map((a) => a.id));
     const sceneIds = new Set(scenes.map((s) => s.id));

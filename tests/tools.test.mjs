@@ -57,7 +57,7 @@ test("формат черновика: ровно поля контракта", 
 test("эталонные правила промпта валидны и проходят круг форма-правило", () => {
   const md = readFileSync(new URL("../tools/prompts/draft-rule.md", import.meta.url), "utf8");
   const rules = [...md.matchAll(/```json\r?\n(.*?)\r?\n```/g)].map((m) => JSON.parse(m[1]));
-  assert.ok(rules.length >= 8 && rules.length <= 27);
+  assert.ok(rules.length >= 8 && rules.length <= 31);
   const any = new Proxy({}, { get: () => true });
   for (const r of rules) {
     const a = checkAnswer({ uuid: "u", rule: r }, { conditions: any, effects: any });
@@ -348,4 +348,16 @@ test("промпты знают поля записи duration и immunity (acti
     assert.match(md, /`duration` `{/, f);
     assert.match(md, /`immunity`/, f);
   }
+});
+
+test("сторож: spell-attack без roll:system и persistent, который pf2e кладёт сам", () => {
+  const any = new Proxy({}, { get: () => true }), refs = { conditions: any, effects: any };
+  const atk = (roll) => ({ v: 1, label: "x", onUse: { targets: "selected", check: { statistic: "spell-attack", vs: { defense: "ac" }, ...(roll && { roll }), byDegree: { criticalSuccess: [{ to: "target", condition: { slug: "off-guard" } }] } } } });
+  assert.match(checkAnswer({ uuid: "u", rule: atk() }, refs).errors[0], /roll":"system/);
+  assert.equal(checkAnswer({ uuid: "u", rule: atk("system") }, refs).kind, "accepted");
+  const pers = (type) => ({ v: 1, label: "x", onUse: { targets: "selected", challenge: { statistic: "fortitude", dc: { source: "spell" }, basic: false, byDegree: { failure: [{ to: "target", condition: { slug: "sickened", value: 1 } }, { to: "target", persistent: { formula: "2", damageType: type } }] } } } });
+  const kind = { type: "spell", persistentDmg: ["bleed"] };
+  assert.match(checkAnswer({ uuid: "u", rule: pers("bleed") }, refs, null, kind).errors[0], /already has persistent bleed/);
+  assert.equal(checkAnswer({ uuid: "u", rule: pers("fire") }, refs, null, kind).kind, "accepted");
+  assert.equal(checkAnswer({ uuid: "u", rule: pers("bleed") }, refs, null, { type: "spell", persistentDmg: [] }).kind, "accepted");
 });

@@ -16,7 +16,7 @@ export const compress = (text, condById) => text.replace(COND, (m, id) => (condB
 export function itemBlock(n, it, condById, draft = null, max = draft ? REVIEW_MAX : DESC_MAX) {
   const f = (k, v) => (v ? `${k} ${v}` : null);
   const head = [it.type, it.name + (it.nameRu ? ` (${it.nameRu})` : ""), it.slug, it.rank != null ? `rank ${it.rank}` : f("lvl", it.level), f("cost", it.cost)].filter(Boolean).join(" · ");
-  const facts = [f("range", it.range), f("area", it.area), it.defense && `save ${it.defense.save}${it.defense.basic ? " (basic)" : ""}`, f("dur", it.duration), f("target", it.target), f("freq", it.frequency), it.selfEffect && "selfEffect"].filter(Boolean).join(" | ");
+  const facts = [f("range", it.range), f("area", it.area), it.defense && `save ${it.defense.save}${it.defense.basic ? " (basic)" : ""}`, f("dur", it.duration), f("target", it.target), f("freq", it.frequency), it.selfEffect && "selfEffect", it.persistentDmg?.length && `own-persistent ${it.persistentDmg.join(",")}`].filter(Boolean).join(" | ");
   const traits = it.traits.length ? `traits: ${it.traits.slice(0, 8).join(", ")}` : "";
   const desc = compress(cut(it.descEn || it.descRu || "", max), condById);
   return `### ${n} ${it.uuid}\n${head}\n${[facts, traits].filter(Boolean).join(" | ")}\n${desc}\n${draft ? `DRAFT: ${JSON.stringify(draft)}\n` : ""}`;

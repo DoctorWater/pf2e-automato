@@ -176,6 +176,11 @@ export function checkAnswer(ans, refs, html = null, kind = null) {
   if (sem.length) return { kind: "error", errors: sem };
   // область берётся из шапки предмета или @Template (use.mjs: регион карточки, cast.mjs: @Template блока Activate); иначе целей-области нет
   if (html && kind?.area === null && !/@Template\[/.test(html) && [v.rule.onUse, ...activateUses(v.rule)].some((o) => o?.targets === "area")) return { kind: "error", errors: [`targets "area" needs an area: the item has no "area" in its header and no @Template in the text; ${[v.rule.onUse, ...activateUses(v.rule)].some((o) => o?.zone) ? "a zone needs a real area: for an aura of the owner write onEvent side:\"near\" with range (forms 1a/1c)" : "use \"selected\" (a push then has no \"from\": it goes away from the user)"}`] };
+  // атаку заклинанием бросает pf2e (карточка), по ней считается урон; без roll:"system" модуль бросил бы вторую, свою
+  if ([v.rule.onUse, ...activateUses(v.rule)].some((o) => o?.check && [o.check.statistic].flat().includes("spell-attack") && o.check.roll !== "system")) return { kind: "error", errors: ['check.statistic "spell-attack" needs "roll":"system": pf2e rolls the spell attack itself (its card), the module takes the degree from it'] };
+  // постоянный урон из system.damage pf2e превращает в состояние сам: второй шаг дал бы второе состояние
+  const dupPers = stepsOf(v.rule).filter((s) => s.persistent && kind?.persistentDmg?.includes(s.persistent.damageType));
+  if (dupPers.length) return { kind: "error", errors: [`the item's own damage already has persistent ${dupPers[0].persistent.damageType}: pf2e applies that condition itself when the damage is applied, so a \`persistent\` step of that type would add a second condition: remove the step (a \`note\` if the GM must act)`] };
   if (!roundTrip(v.rule)) return { kind: "error", errors: ["rule does not survive the form round-trip: remove fields that are not in the schema"] };
   // шаги активации в корневом onUse: счётчик частоты живёт в записи activate, без неё «раз в день» не считается
   // расходник (корневой onUse — сам глоток/применение), действие и черта (своя system.frequency) — исключения
@@ -199,8 +204,8 @@ export const emptyState = () => ({ attempts: {}, retry: {}, sonnet: {} });
  * opts: { htmlOf(uuid), expected: [uuid], final } — ожидаемые ответы (из файла-запроса) для поиска пропущенных; final — последняя ступень (unsure -> needs-primitive).
  * -> { accepted: [черновик с правилом], errors, sonnet, unknown, missing }
  */
-export function processAnswers(answers, draftItems, refs, state = emptyState(), { htmlOf = () => null, expected = [], final = false, actionTypeOf = () => null, traitsOf = () => [], areaOf = () => undefined } = {}) {
-  const kindOf = (uuid, d) => ({ type: d.type, actionType: actionTypeOf(uuid), traits: traitsOf(uuid), area: areaOf(uuid) });
+export function processAnswers(answers, draftItems, refs, state = emptyState(), { htmlOf = () => null, expected = [], final = false, actionTypeOf = () => null, traitsOf = () => [], areaOf = () => undefined, persistentOf = () => [] } = {}) {
+  const kindOf = (uuid, d) => ({ type: d.type, actionType: actionTypeOf(uuid), traits: traitsOf(uuid), area: areaOf(uuid), persistentDmg: persistentOf(uuid) });
   const byUuid = new Map(draftItems.map((d) => [d.uuid, d]));
   const res = { accepted: [], errors: [], sonnet: [], unknown: [], missing: [] };
   const seen = new Set();
@@ -268,7 +273,7 @@ function main() {
   const inFile = arg("input");
   const expected = inFile ? [...readFileSync(inFile, "utf8").matchAll(/^### \d+ (\S+)/gm)].map((m) => m[1]) : [];
   const raw = readFileSync(file, "utf8").trim().replace(/^```(?:json)?\s*|\s*```$/g, "");
-  const res = processAnswers(JSON.parse(raw), drafts, refs, state, { htmlOf: (u) => html[u] ?? "", actionTypeOf: (u) => items.get(u)?.actionType ?? null, traitsOf: (u) => items.get(u)?.traits ?? [], areaOf: (u) => items.get(u)?.area ?? null, expected, final: process.argv.includes("--final") });
+  const res = processAnswers(JSON.parse(raw), drafts, refs, state, { htmlOf: (u) => html[u] ?? "", actionTypeOf: (u) => items.get(u)?.actionType ?? null, traitsOf: (u) => items.get(u)?.traits ?? [], areaOf: (u) => items.get(u)?.area ?? null, persistentOf: (u) => items.get(u)?.persistentDmg ?? [], expected, final: process.argv.includes("--final") });
   for (const [b, acc] of Object.entries(Object.groupBy(res.accepted, (d) => poolBatch?.get(d.uuid) ?? batch))) {
     const p = poolBatch ? join(ACCEPTED, `${b}.json`) : aPath;
     writeText(p, serializeDrafts({ batch: b, pf2eVersion: meta.pf2eVersion }, mergeAccepted(existsSync(p) ? readJson(p) : null, acc, { batch: b, pf2eVersion: meta.pf2eVersion }).items));

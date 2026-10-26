@@ -21,6 +21,9 @@ const cost = (sys, type) => {
 };
 const areaOf = (a) => (a ? [a.type, a.value && `${a.value}ft`].filter(Boolean).join(" ") : null);
 
+/** Типы постоянного урона в system.damage: pf2e сам кладёт по ним состояние (заклинание: записи category "persistent"; оружие/бомба: поле persistent). */
+export const persistentTypes = (dmg) => [...new Set(dmg?.persistent?.type ? [dmg.persistent.type] : Object.values(dmg ?? {}).filter((e) => e?.category === "persistent" && e.type).map((e) => e.type))];
+
 /** Документ pf2e -> нормализованная запись + сырой html. ctx = {pack, uuid, ru:{name,description}|null, embedded}. */
 export function normItem(doc, { pack, uuid, ru = null, embedded = null }) {
   const sys = doc.system ?? {};
@@ -40,6 +43,7 @@ export function normItem(doc, { pack, uuid, ru = null, embedded = null }) {
     frequency: sys.frequency ? `${sys.frequency.max ?? sys.frequency.value}/${sys.frequency.per}` : null,
     range: sys.range?.value || null, area: areaOf(sys.area), defense: save?.statistic ? { save: save.statistic, basic: !!save.basic } : null,
     duration: dur || null, target: target || null, ritual: !!sys.ritual,
+    persistentDmg: type === "spell" || traits.includes("bomb") ? persistentTypes(sys.damage) : [],   // у обычного оружия persistent — урон его Удара, не активации
     selfEffect: sys.selfEffect?.uuid ?? null, ruleKeys: [...new Set(rules.map((r) => r.key).filter(Boolean))],
     auraEffects: rules.some((r) => r.key === "Aura" && r.effects?.length > 0),   // Aura без effects — только шаблон, системой ничего не применяется
     descEn: cut(stripHtml(html), DESC_MAX), descRu: ru?.description ? cut(stripHtml(ru.description), DESC_MAX) : null,

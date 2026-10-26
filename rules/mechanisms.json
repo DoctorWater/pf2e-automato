@@ -102,6 +102,16 @@
       "primitive": "move (plan-forced-movement.md)",
       "aliases": ["\\b(push|pull)(ed)?\\b"]
     },
+    "cover-bypass-conditional": {
+      "title": "Игнорирование укрытия: от конкретного существа, пассив без карточки, Удар союзника",
+      "primitive": null,
+      "aliases": ["cover-bypass-conditional"]
+    },
+    "cover-bypass": {
+      "title": "Удар игнорирует/ослабляет укрытие цели (эффекты-проводники пака, plan-cover-bypass.md)",
+      "primitive": "эффекты cover-bypass-* в паке модуля (tools/cover-bypass.mjs)",
+      "aliases": ["ignor\\w*[^.]{0,40}\\bcover", "Strike ignoring concealment and cover", "concealment negation on target", "cover bypass", "ignores? (?:lesser |standard |greater )?cover"]
+    },
     "triggered-save": {
       "title": "Спасбросок от ауры / входа в область / начала или конца хода",
       "primitive": "onEvent side:near / zone.triggers (plan-triggered-save.md)",

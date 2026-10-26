@@ -24,6 +24,7 @@ test("пак: источники — Item/effect, _key и имя файла со
   const files = readdirSync(PACKS.effects.src);
   for (const d of docs) {
     assert.equal(d.type, "effect", d.name);
+    assert.match(d._id, /^[A-Za-z0-9]{16}$/, `${d.name}: id Foundry — ровно 16 букв/цифр`);
     assert.equal(d._key, `!items!${d._id}`);
     assert.ok(files.some((f) => f.endsWith(`_${d._id}.json`)), d.name);
     assert.doesNotMatch(JSON.stringify(d), /pf2e-automations/, d.name);

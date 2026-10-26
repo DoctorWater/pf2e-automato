@@ -1,0 +1,71 @@
+{
+  "_id": "pAfCoverFixE1001",
+  "name": "Effect: Cover Reduced to Lesser",
+  "type": "effect",
+  "img": "icons/svg/target.svg",
+  "system": {
+    "description": {
+      "value": "<p>Technical effect for the cover-bypass effects: the AC bonus from cover is at most +1 in this roll.</p>"
+    },
+    "duration": {
+      "expiry": "turn-end",
+      "sustained": false,
+      "unit": "rounds",
+      "value": 0
+    },
+    "level": {
+      "value": 1
+    },
+    "rules": [
+      {
+        "key": "AdjustModifier",
+        "selector": "ac",
+        "slug": "cover",
+        "mode": "downgrade",
+        "value": 1
+      },
+      {
+        "key": "AdjustModifier",
+        "selector": "ac",
+        "slug": "укрытие",
+        "mode": "downgrade",
+        "value": 1
+      }
+    ],
+    "source": {
+      "value": ""
+    },
+    "start": {
+      "initiative": null,
+      "value": 0
+    },
+    "target": null,
+    "tokenIcon": {
+      "show": true
+    },
+    "traits": {
+      "rarity": "common",
+      "value": []
+    },
+    "slug": "cover-bypass-fix-1"
+  },
+  "effects": [],
+  "folder": null,
+  "sort": 0,
+  "ownership": {
+    "default": 0
+  },
+  "flags": {},
+  "_stats": {
+    "coreVersion": "14.366",
+    "systemId": "pf2e",
+    "systemVersion": "8.6.1",
+    "createdTime": null,
+    "modifiedTime": null,
+    "lastModifiedBy": null,
+    "compendiumSource": null,
+    "duplicateSource": null,
+    "exportSource": null
+  },
+  "_key": "!items!pAfCoverFixE1001"
+}

@@ -7,6 +7,14 @@
    "dur": null,
    "module": true
   },
+  "pAfCoverAll00001": { "name": "Effect: Next Strike Ignores Cover", "kind": "own", "dur": null, "module": true },
+  "pAfCoverL0000001": { "name": "Effect: Next Strike Ignores Lesser Cover", "kind": "own", "dur": null, "module": true },
+  "pAfCoverLS000001": { "name": "Effect: Next Strike Ignores Lesser and Standard Cover", "kind": "own", "dur": null, "module": true },
+  "pAfCoverLSG00001": { "name": "Effect: Next Strike Ignores Lesser and Standard Cover, Greater Becomes Standard", "kind": "own", "dur": null, "module": true },
+  "pAfCoverStep0001": { "name": "Effect: Next Strike Reduces Cover One Step", "kind": "own", "dur": null, "module": true },
+  "pAfCoverFixE0001": { "name": "Effect: Cover Ignored", "kind": "own", "dur": null, "module": true },
+  "pAfCoverFixE1001": { "name": "Effect: Cover Reduced to Lesser", "kind": "own", "dur": null, "module": true },
+  "pAfCoverFixE2001": { "name": "Effect: Cover Reduced to Standard", "kind": "own", "dur": null, "module": true },
   "0v7THqjruKWI0wJ4": {
    "name": "Effect: Skunk Bomb (Critical Failure)",
    "kind": "own",

@@ -3,7 +3,7 @@
 // Виды: conditions — только GrantItem состояний (-> шаги condition, пака нет), pf2e — эквивалент в pf2e 8.6.1, own — копия в наш пак,
 // script — ни правил, ни описания: пустая метка, работает только через JS PA (обработчик 0.5e/0.5g), в паке не живёт; immunity — иммунитеты PA (0.5c, challenge.immunity), marker — иконки активностей исследования (не переносим по решению пользователя),
 // Эффекты временного снаряжения (0.5g5) — own с флагом gear, предметы лежат во втором паке (packs/_source/equipment). Всё прочее — own, целиком, чтобы связи между эффектами и обращения кода PA по slug работали.
-import { cpSync, rmSync, mkdirSync, writeFileSync } from "node:fs";
+import { cpSync, rmSync, mkdirSync, writeFileSync, readdirSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DATA, ROOT, readJson, writeJson, isMain, cmp } from "./lib.mjs";
@@ -109,6 +109,14 @@ async function readPaPack(name = "effects") {
   return docs.sort((a, b) => cmp(a._id, b._id));
 }
 
+/** Записи карты с `module: true` (документы, написанные руками, не из PA) и их файлы: полный импорт пересобирает папку и не должен их терять. */
+export function readModuleDocs() {
+  const entries = Object.fromEntries(Object.entries(readJson(MAP_FILE).effects).filter(([, e]) => e.module));
+  const files = {};
+  for (const f of readdirSync(SRC_DIR)) if (Object.keys(entries).some((id) => f.endsWith(`_${id}.json`))) files[f] = readFileSync(join(SRC_DIR, f), "utf8");
+  return { entries, files };
+}
+
 async function main() {
   const docs = await readPaPack();
   const condSlug = {}, pf2eIds = new Set(), pf2eEffects = {}, pf2eDur = {};
@@ -145,8 +153,11 @@ async function main() {
     throw new Error(`ссылка на эффект ${id} (${map[id]?.name}, ${k}): у него нет места в нашем паке`);
   };
 
+  const kept = readModuleDocs();
+  Object.assign(map, kept.entries);
   rmSync(SRC_DIR, { recursive: true, force: true });
   mkdirSync(SRC_DIR, { recursive: true });
+  for (const [f, text] of Object.entries(kept.files)) writeFileSync(join(SRC_DIR, f), text);
   const stats = { coreVersion: "14.366", systemId: "pf2e", systemVersion: "8.6.1", createdTime: null, modifiedTime: null, lastModifiedBy: null, compendiumSource: null, duplicateSource: null, exportSource: null };
   for (const e of docs.filter((x) => map[x._id].kind === "own")) {
     const text = JSON.stringify(e).replace(PA_LINK, (m, id) => NEW(id)).replace(EQ_LINK, "Compendium.pf2e-automato.equipment.Item.$1").replace(/conditionitems\.(?!Item\.)(\w{16})/g, "conditionitems.Item.$1");   // старая запись ссылки без «Item»

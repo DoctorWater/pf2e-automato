@@ -1,0 +1,80 @@
+{
+  "_id": "pAfCoverL0000001",
+  "name": "Effect: Next Strike Ignores Lesser Cover",
+  "type": "effect",
+  "img": "icons/svg/target.svg",
+  "system": {
+    "description": {
+      "value": "<p>Your next Strike ignores lesser cover of the target; standard and greater cover work as usual. The effect ends after the attack roll. (Следующий Удар игнорирует меньшее укрытие.)</p>"
+    },
+    "duration": {
+      "expiry": "turn-end",
+      "sustained": false,
+      "unit": "rounds",
+      "value": 0
+    },
+    "level": {
+      "value": 1
+    },
+    "rules": [
+      {
+        "key": "EphemeralEffect",
+        "selectors": [
+          "strike-attack-roll",
+          "spell-attack-roll"
+        ],
+        "uuid": "Compendium.pf2e-automato.effects.Item.pAfCoverFixE0001",
+        "predicate": [
+          "target:cover-level:lesser"
+        ]
+      },
+      {
+        "key": "FlatModifier",
+        "selector": [
+          "strike-attack-roll",
+          "spell-attack-roll"
+        ],
+        "type": "untyped",
+        "value": 0,
+        "slug": "af-cover-bypass-l",
+        "label": "Cover bypass",
+        "removeAfterRoll": "if-enabled"
+      }
+    ],
+    "source": {
+      "value": ""
+    },
+    "start": {
+      "initiative": null,
+      "value": 0
+    },
+    "target": null,
+    "tokenIcon": {
+      "show": true
+    },
+    "traits": {
+      "rarity": "common",
+      "value": []
+    },
+    "slug": "cover-bypass-l"
+  },
+  "effects": [],
+  "folder": null,
+  "sort": 0,
+  "ownership": {
+    "default": 0
+  },
+  "flags": {},
+  "_stats": {
+    "coreVersion": "14.366",
+    "systemId": "pf2e",
+    "systemVersion": "8.6.1",
+    "createdTime": null,
+    "modifiedTime": null,
+    "lastModifiedBy": null,
+    "compendiumSource": null,
+    "duplicateSource": null,
+    "exportSource": null
+  },
+  "_key": "!items!pAfCoverL0000001"
+}

@@ -13,6 +13,7 @@ import { BUILTIN } from "../scripts/builtin/index.mjs";
 import { stepCount } from "./triage.mjs";
 import { gateToEvent, hasCard, multiStrike } from "./strike-gate.mjs";
 import { afflictionRule } from "./affliction.mjs";
+import { isCoverBypass } from "./cover-bypass.mjs";
 
 const en = { ...readJson(join(ROOT, "lang/en/rules.json")).PF2E_AUTOMATO.rules.err, ...readJson(join(ROOT, "lang/en/events.json")).PF2E_AUTOMATO.rules.err };   // ошибки onEvent (ev.*) и cast — в events.json
 const fmtErr = (e) => {
@@ -70,8 +71,10 @@ export function semanticErrors(rule, refs, html = null) {
     if (s.removeCondition && !refs.conditions[s.removeCondition.slug]) bad.push(`condition "${s.removeCondition.slug}" does not exist in pf2e`);
     for (const c of s.affliction?.def.stages.flatMap((st) => st.conditions) ?? []) if (!refs.conditions[c.slug]) bad.push(`affliction condition "${c.slug}" does not exist in pf2e`);
     if (s.repeat?.statistic && !SAVES.includes(s.repeat.statistic)) bad.push(`repeat.statistic must be fortitude, reflex or will (got "${s.repeat.statistic}")`);
-    for (const x of [s.effect?.uuid, s.unlessEffect]) if (x && !refs.effects[x]) bad.push(`effect ${x} not found: copy the UUID exactly from the item text`);
-    for (const x of [s.effect?.uuid, s.unlessEffect]) if (x && html !== null && !html.includes(x)) bad.push(`effect ${x} is not mentioned in this item's text: use only effects linked in the text`);
+    // эффекты обхода укрытия — из пака модуля: ни в refs pf2e, ни в тексте предмета их нет
+    if (isCoverBypass(s.effect?.uuid) && s.to !== "self") bad.push(`cover-bypass effect ${s.effect.uuid} must be applied with "to": "self" (it sits on the attacker, not on the target)`);
+    for (const x of [s.effect?.uuid, s.unlessEffect]) if (x && !isCoverBypass(x) && !refs.effects[x]) bad.push(`effect ${x} not found: copy the UUID exactly from the item text`);
+    for (const x of [s.effect?.uuid, s.unlessEffect]) if (x && !isCoverBypass(x) && html !== null && !html.includes(x)) bad.push(`effect ${x} is not mentioned in this item's text: use only effects linked in the text`);
   }
   for (const s of (rule.activate ?? []).flatMap(activateSpells)) if (html !== null && !html.includes(s)) bad.push(`cast spell ${s} is not mentioned in this item's text: copy the spell UUID from the \`You cast\` link`);
   // «Stage 1 … Stage 2 …» без шага affliction: стадии остались бы текстом (яд/болезнь не вели бы счёт)

@@ -1,0 +1,107 @@
+{
+  "_id": "pAfCoverStep0001",
+  "name": "Effect: Next Strike Reduces Cover One Step",
+  "type": "effect",
+  "img": "icons/svg/target.svg",
+  "system": {
+    "description": {
+      "value": "<p>Your next Strike treats the target's cover as one step lower: greater becomes standard, standard becomes lesser, lesser is ignored. The effect ends after the attack roll. (Укрытие цели на одну ступень ниже.)</p>"
+    },
+    "duration": {
+      "expiry": "turn-end",
+      "sustained": false,
+      "unit": "rounds",
+      "value": 0
+    },
+    "level": {
+      "value": 1
+    },
+    "rules": [
+      {
+        "key": "EphemeralEffect",
+        "selectors": [
+          "strike-attack-roll",
+          "spell-attack-roll"
+        ],
+        "uuid": "Compendium.pf2e-automato.effects.Item.pAfCoverFixE0001",
+        "predicate": [
+          "target:cover-level:lesser"
+        ]
+      },
+      {
+        "key": "EphemeralEffect",
+        "selectors": [
+          "strike-attack-roll",
+          "spell-attack-roll"
+        ],
+        "uuid": "Compendium.pf2e-automato.effects.Item.pAfCoverFixE1001",
+        "predicate": [
+          "target:cover-level:standard"
+        ]
+      },
+      {
+        "key": "EphemeralEffect",
+        "selectors": [
+          "strike-attack-roll",
+          "spell-attack-roll"
+        ],
+        "uuid": "Compendium.pf2e-automato.effects.Item.pAfCoverFixE2001",
+        "predicate": [
+          {
+            "or": [
+              "target:cover-level:greater",
+              "target:cover-level:greater-prone"
+            ]
+          }
+        ]
+      },
+      {
+        "key": "FlatModifier",
+        "selector": [
+          "strike-attack-roll",
+          "spell-attack-roll"
+        ],
+        "type": "untyped",
+        "value": 0,
+        "slug": "af-cover-bypass-step",
+        "label": "Cover bypass",
+        "removeAfterRoll": "if-enabled"
+      }
+    ],
+    "source": {
+      "value": ""
+    },
+    "start": {
+      "initiative": null,
+      "value": 0
+    },
+    "target": null,
+    "tokenIcon": {
+      "show": true
+    },
+    "traits": {
+      "rarity": "common",
+      "value": []
+    },
+    "slug": "cover-bypass-step"
+  },
+  "effects": [],
+  "folder": null,
+  "sort": 0,
+  "ownership": {
+    "default": 0
+  },
+  "flags": {},
+  "_stats": {
+    "coreVersion": "14.366",
+    "systemId": "pf2e",
+    "systemVersion": "8.6.1",
+    "createdTime": null,
+    "modifiedTime": null,
+    "lastModifiedBy": null,
+    "compendiumSource": null,
+    "duplicateSource": null,
+    "exportSource": null
+  },
+  "_key": "!items!pAfCoverStep0001"
+}

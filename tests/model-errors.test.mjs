@@ -98,3 +98,26 @@ test("processAnswers --final: unsure, чья догадка — strike-gate, с�
   assert.match(res.accepted[0].reason, /^needs-primitive: strike-gate/);
   assert.ok(res.accepted[0].rule);
 });
+
+const ACT = '<p><strong>Activate—Tide</strong> <span class="action-glyph">2</span> (concentrate)</p><p><strong>Frequency</strong> once per day</p><hr /><p><strong>Effect</strong> Foes fall prone.</p>';
+const useSave = { targets: "selected", challenge: { ...save(), dc: { value: 20 } } };
+
+test("активация с Frequency: шаги в корневом onUse — ошибка, в activate — принято", () => {
+  const root = chk({ v: 1, onUse: useSave }, ACT);
+  assert.equal(root.kind, "error");
+  assert.match(root.errors[0], /activate: \[\{id, label, per, onUse\}\]/);
+  assert.equal(chk({ v: 1, activate: [{ id: "tide", label: "Tide", per: { value: 1, unit: "days" }, onUse: useSave }] }, ACT).kind, "accepted");
+  assert.equal(chk({ v: 1, onUse: useSave }, "<p><strong>Activate</strong> 1 Interact</p><p><strong>Effect</strong> Foes fall prone.</p>").kind, "accepted");   // без Frequency счётчика нет
+});
+
+test("расходник, действие и черта: корневой onUse при Frequency второй активации — не ошибка", () => {
+  for (const type of ["consumable", "action", "feat"]) assert.equal(chk({ v: 1, onUse: useSave }, ACT, { type }).kind, "accepted", type);
+  assert.equal(chk({ v: 1, onUse: useSave }, ACT, { type: "equipment" }).kind, "error");
+});
+
+test("постоянный урон от круга: формулы из ответов Критика считаются по кругу", async () => {
+  const { resolveFormula, isPersFormula } = await import("../scripts/rules.mjs");
+  for (const f of ["(1+floor((@item.rank-1)/2))", "(2+2*floor((@item.rank-1)/2))", "(1+max(0,floor((@item.rank-5)/2)))d10"]) assert.ok(isPersFormula(f), f);
+  assert.deepEqual([1, 3, 5].map((rank) => resolveFormula("(2+2*floor((@item.rank-1)/2))", { rank })), ["2", "4", "6"]);
+  assert.deepEqual([5, 7, 9].map((rank) => resolveFormula("(1+max(0,floor((@item.rank-5)/2)))d10", { rank })), ["1d10", "2d10", "3d10"]);
+});

@@ -137,5 +137,10 @@
   "seed": 1,
   "n": 18,
   "pool": 18
+ },
+ "b01-save-conditions:model:seed27": {
+  "seed": 27,
+  "n": 50,
+  "pool": 683
  }
 }

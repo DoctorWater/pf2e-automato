@@ -112,6 +112,9 @@ test("подсказка значка: части правила и источн
   assert.ok(badgeTip({ rule, source: "flag", confidence: "high" }, { t }).indexOf("confLow") < 0);
   assert.equal(badgeTip({ rule, source: "flag" }, { t, groups: ["A", "B"], yielded: true }), 'sheet.badge.yielded{"groups":"A, B"}');
   assert.deepEqual(ruleParts({ macros: [{ uuid: "Macro.x", phase: "onUse" }] }, t), ["sheet.badge.macros"]);
+  // правило только в записи activate (в т.ч. choices): части те же
+  const act = { v: 1, activate: [{ id: "a", label: "A", onUse: { targets: "selected", challenge: { statistic: "will", dc: { value: 20 }, byDegree: { failure: [{ to: "target", condition: { slug: "frightened" } }] } } } }, { id: "b", label: "B", choices: [{ id: "c", label: "C", onUse: { targets: "area", zone: { condition: { slug: "concealed" } } } }, { id: "d", label: "D", onUse: { targets: "self", check: { statistic: "athletics", vs: { dc: 15 } } } }] }] };
+  assert.deepEqual(ruleParts(act, t), ['sheet.badge.challenge{"stat":"will"}', "sheet.badge.states", "sheet.badge.zone", "sheet.badge.check"]);
 });
 
 test("значок: фильтры использования и подпись навыка", () => {

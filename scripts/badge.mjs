@@ -1,6 +1,6 @@
 // Значок «автоматизировано» у предметов в листах актёров pf2e (AppV1: renderActorSheet, строки li[data-item-id]).
 import { MOD, L } from "./util.mjs";
-import { resolveRule, divergedOf, isActiveStep } from "./rules.mjs";
+import { resolveRule, divergedOf, isActiveStep, activateUses } from "./rules.mjs";
 import { automationsGroups, shouldYield } from "./compat.mjs";
 import { DENY, divergedHint } from "./sheet.mjs";
 import { rev } from "./settings.mjs";
@@ -13,11 +13,16 @@ const byDegSteps = (c) => Object.values(c?.byDegree ?? {}).some(hasSteps);
 
 /** Короткие части описания правила: «испытание Воли», «состояния», «зона»... t(key, data) = L. */
 export function ruleParts(rule, t, statLabel = (s) => s) {
-  const u = rule?.onUse, ch = u?.challenge, ck = u?.check, out = [];
-  if (ch) out.push(t("sheet.badge.challenge", { stat: statLabel(ch.statistic) }));
-  if (ck) out.push(t("sheet.badge.check"));
-  if (hasSteps(u?.apply) || byDegSteps(ch) || byDegSteps(ck)) out.push(t("sheet.badge.states"));
-  if (u?.zone) out.push(t("sheet.badge.zone"));
+  const out = [];
+  // корневой onUse и onUse записей activate (в т.ч. choices): части без повторов, в порядке появления
+  for (const u of [rule?.onUse, ...(rule ? activateUses(rule) : [])]) {
+    const ch = u?.challenge, ck = u?.check, own = [];
+    if (ch) own.push(t("sheet.badge.challenge", { stat: statLabel(ch.statistic) }));
+    if (ck) own.push(t("sheet.badge.check"));
+    if (hasSteps(u?.apply) || byDegSteps(ch) || byDegSteps(ck)) own.push(t("sheet.badge.states"));
+    if (u?.zone) own.push(t("sheet.badge.zone"));
+    for (const x of own) if (!out.includes(x)) out.push(x);
+  }
   if (rule?.onAttacked) out.push(t("sheet.badge.reaction"));
   if (rule?.onEvent?.length) out.push(t("sheet.badge.event"));
   if (rule?.macros?.length) out.push(t("sheet.badge.macros"));

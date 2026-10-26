@@ -7,7 +7,7 @@ import { readFileSync, readdirSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { isDeepStrictEqual } from "node:util";
 import { ROOT, ACCEPTED, DRAFTS, serializeDrafts, readJson, readOut, writeJson, writeText, outPath, arg, cmp, isMain } from "./lib.mjs";
-import { validateRule, activateOf, activateSpells, activateUses, withActivation, dupActivate, enemiesOnly, strikeGate, setWho, afflictionStages } from "../scripts/rules.mjs";
+import { validateRule, activateOf, activateSpells, activateUses, withActivation, dupActivate, frequencyOf, enemiesOnly, strikeGate, setWho, afflictionStages } from "../scripts/rules.mjs";
 import { ruleToForm, formToRule } from "../scripts/sheet.mjs";
 import { BUILTIN } from "../scripts/builtin/index.mjs";
 import { stepCount } from "./triage.mjs";
@@ -147,6 +147,13 @@ function withAffliction(rule, html, refs, kind) {
   return { rule: r?.rule ?? rule };
 }
 
+/** Блоки «Activate» с «Frequency» -> [{name, per}]; per — null, если частоту не разобрать. */
+export function frequentActivations(html) {
+  return html.split(/(?=<strong>\s*Activate\b)/i).slice(1).map((b) => b.split(/<strong>\s*(?:Craft Requirements|Destruction)\b|<h2/i)[0])
+    .filter((b) => /<strong>\s*Frequency\b/i.test(b))
+    .map((b) => ({ name: /<strong>\s*Activate\s*[—–-]?\s*([^<]*?)\s*<\/strong>/i.exec(b)?.[1] || /<strong>\s*Activate\s*([^<]*?)\s*<\/strong>/i.exec(b)?.[1] || null, per: frequencyOf(/<strong>\s*Frequency\s*<\/strong>([^<]*)/i.exec(b)?.[1]) }));
+}
+
 /** Один ответ агента -> { kind: "accepted"|"notes-only"|"null"|"unsure"|"error", rule?, errors? }. */
 export function checkAnswer(ans, refs, html = null, kind = null) {
   if (!ans || typeof ans.uuid !== "string" || !("rule" in ans)) return { kind: "error", errors: ["answer must be {uuid, rule|null, unsure:bool, note}"] };
@@ -170,6 +177,9 @@ export function checkAnswer(ans, refs, html = null, kind = null) {
   // область берётся из шапки предмета или @Template (use.mjs: регион карточки, cast.mjs: @Template блока Activate); иначе целей-области нет
   if (html && kind?.area === null && !/@Template\[/.test(html) && [v.rule.onUse, ...activateUses(v.rule)].some((o) => o?.targets === "area")) return { kind: "error", errors: [`targets "area" needs an area: the item has no "area" in its header and no @Template in the text; ${[v.rule.onUse, ...activateUses(v.rule)].some((o) => o?.zone) ? "a zone needs a real area: for an aura of the owner write onEvent side:\"near\" with range (forms 1a/1c)" : "use \"selected\" (a push then has no \"from\": it goes away from the user)"}`] };
   if (!roundTrip(v.rule)) return { kind: "error", errors: ["rule does not survive the form round-trip: remove fields that are not in the schema"] };
+  // шаги активации в корневом onUse: счётчик частоты живёт в записи activate, без неё «раз в день» не считается
+  // расходник (корневой onUse — сам глоток/применение), действие и черта (своя system.frequency) — исключения
+  if (html && !["consumable", "action", "feat"].includes(kind?.type) && v.rule.onUse && !v.rule.activate?.length && frequentActivations(html).length) return { kind: "error", errors: ["the text has an `Activate … Frequency …` block, so its steps belong in `activate: [{id, label, per, onUse}]` and the root onUse stays null (the frequency counter is keyed by the activation entry); unsure: true if the rule also has passive parts"] };
   // событие «бросок атаки» на тексте «Make a Strike. If it hits…» без afterUse сработало бы на каждом попадании владельца
   if (html && hasCard(kind) && strikeGate(html) && !multiStrike(html) && v.rule.onEvent?.some((e) => ["attack-roll", "damage-roll"].includes(e.on) && !e.afterUse)) return { kind: "error", errors: ["the text is \"Make a Strike, then …\": an onEvent entry on attack-roll/damage-roll needs afterUse:true (or write a plain onUse.challenge and the tool will convert it)"] };
   const { rule, gate } = normalizeRule(v.rule, html, kind);

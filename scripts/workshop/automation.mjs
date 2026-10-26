@@ -449,3 +449,12 @@ export function tokenOdds(rule, tokens, env) {
 
 /** Полосы для отображения: слева направо крит. успех -> крит. провал, доли в процентах (грань = 5%). */
 export const bar = (counts) => COLS.map((d) => ({ deg: d, pct: counts[DEGREES.indexOf(d)] * 5 }));
+
+/** Аргумент api.openWorkshop: голый Item, UUID-строка или {item, mode}. null — аргумент непонятен. */
+export function openArgs(arg) {
+  if (arg == null) return {};
+  if (typeof arg === "string" || arg.documentName === "Item") return { item: arg };
+  if (typeof arg !== "object" || Array.isArray(arg) || !("item" in arg || "mode" in arg)) return null;
+  const { item = null } = arg;
+  return item === null || typeof item === "string" || item.documentName === "Item" ? arg : null;
+}

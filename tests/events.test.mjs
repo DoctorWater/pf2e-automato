@@ -708,15 +708,16 @@ function scene() {
 
 test("afterUse: карточка -> Удар попал — одно испытание цели Удара; повтор сообщения и второй Удар — нет", async () => {
   const { hero, ft, feat } = scene();
+  const cards = () => created.filter((m) => m.flags?.[MOD]?.use);
   card("K1", hero, feat, NOW);
   const s1 = strike("S1", hero, ft, NOW + 1000);
   await ev.onMessage(s1);
-  assert.equal(created.length, 1);
-  assert.deepEqual(created[0].flags[MOD].use.targets.map((t) => t.key), ["ft"]);
+  assert.equal(cards().length, 1);   // карточка испытания; заметка-предпосылка шёпотом — отдельно, не карточка
+  assert.deepEqual(cards()[0].flags[MOD].use.targets.map((t) => t.key), ["ft"]);
   await ev.onMessage(s1);
-  assert.equal(created.length, 1);
+  assert.equal(cards().length, 1);   // карточка испытания; заметка-предпосылка шёпотом — отдельно, не карточка
   await ev.onMessage(strike("S2", hero, ft, NOW + 2000));   // следующий Удар уже не по этому использованию
-  assert.equal(created.length, 1);
+  assert.equal(cards().length, 1);   // карточка испытания; заметка-предпосылка шёпотом — отдельно, не карточка
 });
 
 test("afterUse: промах — ничего, и следующий Удар карточку не «наследует»; Удар без карточки и после чужой карточки — ничего", async () => {

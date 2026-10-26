@@ -205,7 +205,7 @@ export async function runEntry(ev, owner, { item, rule }, { i, entry }, sink = n
   if (entry.apply?.length && modeOf("effect") === "auto") {
     const twin = makeTwin(`ev:${base}`, snap({ v: 1, label: rule.label, onEvent: [entry] }, "event"), ev.message?.flags?.pf2e ?? null);
     // picks — общий на запись выбор шагов choose: шаги идут по одному (свой applyOps), а выбор нужен следующим
-    const ctx = { scope: "apply", originActor: owner, originToken: ownerToken, originItem: item, rollOptions: [...ev.options], degree: ev.degree, total: ev.total, picks: { opts: new Set(), actor: null }, ...(other && { target: otherToken ?? other }) };
+    const ctx = { scope: "apply", originActor: owner, originToken: ownerToken, originItem: item, rollOptions: [...ev.options], notes: !entry.challenge, degree: ev.degree, total: ev.total, picks: { opts: new Set(), actor: null }, ...(other && { target: otherToken ?? other }) };
     const { mine, theirs } = splitSteps(entry);
     const run = async (tkey, steps, offset) => {
       for (const [j, step] of steps.entries()) {   // по одному шагу: у каждого свой stepKey, а значит свой meta.key
@@ -320,7 +320,7 @@ export async function fireZoneTrigger(sys, token, on, ev) {
       try {
         if (steps) {
           const twin = makeTwin(`ev:${key}`, { ...build({ v: 1, label: name, onEvent: [] }, dc), kind: "event", targets: [{ key: token.id, uuid: token.uuid, name: token.name, pc: !!actor.hasPlayerOwner }] }, sys.castRank != null ? { origin: { castRank: sys.castRank } } : null);
-          for (const [j, step] of t.apply.entries()) await apply.applyOps(twin, token.id, [step], { scope: "apply", originActor: owner, originToken: tokenOf(owner), originItem: origin, rollOptions: [], target: token, stepKey: `${i}.${j}` });
+          for (const [j, step] of t.apply.entries()) await apply.applyOps(twin, token.id, [step], { scope: "apply", originActor: owner, originToken: tokenOf(owner), originItem: origin, rollOptions: [], notes: !ch, target: token, stepKey: `${i}.${j}` });
         }
         if (card) await hostChallenge({ owner, other: actor, otherToken: token, challenge: ch, key, name, build: (r) => build(r, dc), text: "events.zone", castRank: sys.castRank });
       } catch (e) { console.error(`${MOD} | zone trigger ${name}[${i}]`, e); }

@@ -360,7 +360,10 @@ export class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
   }
 
   /** Открыть (единственное окно). Только ГМ. item — Item или его UUID: включает режим «Автоматизация». */
-  static async open({ item = null, mode } = {}) {
+  static async open(arg) {
+    const args = au.openArgs(arg);
+    if (!args) console.warn(`${MOD} | openWorkshop: ожидается Item, UUID или {item, mode}`, arg);
+    let { item = null, mode } = args ?? {};
     if (!game.user.isGM) return ui.notifications.warn(t("workshop.gmOnly"));
     if (typeof item === "string") item = await safeUuid(item);
     if (item && DENY.has(item.type)) { ui.notifications.warn(t("workshop.au.denied")); item = null; }

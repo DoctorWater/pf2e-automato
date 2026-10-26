@@ -555,3 +555,14 @@ test("replace шага «эффект»: форма <-> правило", () => {
   assert.equal(f.apply[0].replace, true);
   assert.deepEqual(validateRule(formToRule(f)).rule, v.rule);
 });
+
+test("openWorkshop: голый Item, UUID, {item, mode}; простой объект с system и мусор — null", () => {
+  const item = { documentName: "Item", type: "feat" };
+  assert.equal(au.openArgs(item).item, item);
+  assert.equal(au.openArgs({ item, mode: "automation" }).mode, "automation");
+  assert.equal(au.openArgs("Actor.x.Item.y").item, "Actor.x.Item.y");
+  assert.deepEqual(au.openArgs(), {});
+  assert.equal(au.openArgs({ item: 5 }), null);
+  assert.equal(au.openArgs({ item: { system: {} } }), null);
+  assert.equal(au.openArgs(42), null);
+});

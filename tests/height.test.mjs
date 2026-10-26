@@ -46,6 +46,25 @@ test("settleHeight: ждёт конца движения, одно обновл�
   assert.equal(same.updates.length, 0);
 });
 
+test("settleHeight: не пишет, если началось новое движение, оно не завершено или токен на лестнице смены уровня", async () => {
+  const bank = region("bank", hb(10));
+  const run = async (uuid, mutate, regions = [bank], inside = ["bank"]) => {
+    let finish;
+    const movement = { id: "m1", state: "completed", finished: new Promise((r) => { finish = r; }) };
+    const t = mkToken(regions, inside, { uuid, movement });
+    const p = settleHeight(t);
+    mutate(t);
+    finish(true);
+    await p;
+    return t.updates.length;
+  };
+  assert.equal(await run("t.a", (t) => { t.movement = { id: "m2", state: "completed" }; }), 0);   // быстрый повторный рывок
+  assert.equal(await run("t.b", (t) => { t.movement = { ...t.movement, state: "paused" }; }), 0);
+  assert.equal(await run("t.c", () => {}, [bank, region("stairs", { type: "changeLevel", disabled: false })], ["bank", "stairs"]), 0);
+  assert.equal(await run("t.d", () => {}, [bank, region("stairs", { type: "changeLevel", disabled: true })], ["bank", "stairs"]), 1);
+  assert.equal(await run("t.e", () => {}), 1);   // контроль: без помех пишет
+});
+
 test("схема и событие: поле height, обрабатывает только двигавший токен", async () => {
   assert.equal(HeightBehaviorType.defineSchema().height.o.initial, 0);
   assert.deepEqual(Object.keys(HeightBehaviorType.events), ["tokenEnter"]);
@@ -54,4 +73,16 @@ test("схема и событие: поле height, обрабатывает т
   assert.equal(t.updates.length, 0);
   await HeightBehaviorType.events.tokenEnter({ user: { isSelf: true }, data: { token: t } });
   assert.deepEqual(t.updates, [{ elevation: 10 }]);
+});
+
+test("settleHeight: цепочка движений — вход на не последнем сегменте ставит высоту, чужое движение — нет", async () => {
+  const run = async (uuid, after) => {
+    const t = mkToken([region("bank", hb(10))], ["bank"], { uuid, movement: { id: "s1", chain: ["s0"], finished: Promise.resolve(true), state: "completed" } });
+    const p = settleHeight(t);
+    t.movement = after;
+    await p;
+    return t.updates.length;
+  };
+  assert.equal(await run("t.c1", { id: "s2", chain: ["s0", "s1"], state: "completed" }), 1);   // 1-й сегмент уступил 2-му той же цепочки
+  assert.equal(await run("t.c2", { id: "n1", chain: [], state: "completed" }), 0);
 });

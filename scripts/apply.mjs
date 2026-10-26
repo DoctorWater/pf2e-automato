@@ -4,6 +4,7 @@
 import { MOD, L, DEGREES, flagPath, sluggify, queue, forcedDelete, socket, ENDS_EARLY, sharedDialog } from "./util.mjs";
 import { runMacros } from "./macros.mjs";
 import { effectSource } from "./builtin/lib.mjs";
+import { card } from "./card.mjs";
 import { inRange } from "./range.mjs";
 import { resolveFormula, isZeroFormula, isActiveStep, DAMAGE_TYPES } from "./rules.mjs";
 import { testPredicate } from "./predicate.mjs";
@@ -506,6 +507,18 @@ export async function applyOps(message, tokenKey, steps, ctx = {}) {
   const statePath = scope === "challenge" ? flagPath("use", "state", "challenge", "applied", tokenKey) : flagPath("use", "state", "apply", tokenKey);
   const doneOps = foundry.utils.getProperty(message, statePath)?.ops ?? [];   // ops уже исполненного: повтор шага без предмета (урон, снижение, выбор) по ключу пропускается
 
+  // note — текст ГМу шёпотом. С `when` — только при истинном условии (в плане чата такие не показываем); в событиях и триггерах зоны (ctx.notes) — всегда: плана там нет
+  for (const [i, step] of steps.entries()) {
+    if (!step.note || !(step.when || ctx.notes)) continue;
+    if (step.rank && (rank < (step.rank.min ?? 1) || rank > (step.rank.max ?? Infinity))) continue;
+    const key = `${message.id}:note:${tokenKey}:${ctx.stepKey ?? (scope === "challenge" ? `c${ctx.degree}.${i}` : i)}`;
+    if (doneOps.some((o) => o.key === key)) continue;
+    if (step.when && !whenPasses(step.when, new Set([...(wopts ??= await whenOptions({ use, message, selfActor, targetDoc, originItem, degree: ctx.degree, rollOptions: ctx.rollOptions })), ...picks.opts]))) continue;
+    ops.push({ op: "noted", key });
+    const who = tokenKey !== "self" && targetDoc?.name ? `<b>${esc(targetDoc.name)}</b>: ` : "";
+    await ChatMessage.create({ whisper: ChatMessage.getWhisperRecipients("GM").map((u) => u.id), speaker: { alias: "pf2e-automato" }, content: card(who + esc(step.note), "", { title: esc(use.item?.name ?? use.rule?.label ?? ""), icon: "fa-note-sticky" }) });
+  }
+
   for (const job of jobs) {
     const { i, step } = job;
     const actor = step.to === "chosen" ? picks.actor : job.actor;
@@ -680,7 +693,7 @@ export async function undoOps(message, tokenKey) {
   for (const [scope, rec] of places) {
     if (!rec) continue;
     for (const o of [...(rec.ops ?? [])].reverse()) {
-      if ((o.op === "vis" && o.skipped) || o.op === "chose" || o.op === "damaged" || (o.op === "moved" && o.skipped)) continue;   // выбор отменять нечем; урон pf2e откатывает своей карточкой
+      if ((o.op === "vis" && o.skipped) || o.op === "chose" || o.op === "damaged" || o.op === "noted" || (o.op === "moved" && o.skipped)) continue;   // выбор отменять нечем; урон pf2e откатывает своей карточкой
       if (o.op === "moved") {   // позиция возвращается, только если токен всё ещё там, куда его сдвинули
         if (await undoMove(await fromUuid(o.token), o)) undone++; else notify("moveSkip.undone", { target: (await fromUuid(o.token))?.name ?? "" });
         continue;

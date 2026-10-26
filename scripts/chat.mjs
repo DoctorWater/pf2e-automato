@@ -87,6 +87,9 @@ function persFormulaText(f, t) {
   return f.replace(/@item\.rank/g, t("chat.varRank")).replace(/@item\.level/g, t("chat.varItemLevel")).replace(/@actor\.level/g, t("chat.varActorLevel"));
 }
 
+/** Заметка с `when` в плане не показывается: applyOps шепчет её ГМу, когда условие выполнено. В режиме off applyOps не запустится — тогда заметка остаётся в плане текстом. */
+const planned = (off) => (a) => off || !(a.note && a.when);
+
 export function stepText(a, env, defTo) {
   const t = env.t;
   if (a.note) return a.note;
@@ -228,7 +231,7 @@ export function buildViewModel(message, user, env = null) {
       const dcN = ck && (isGM || meta.dcs || (ck.vs?.dc == null && env.isPc?.(key, use))) ? (r?.dc ?? env.checkDc(key, use)) : null;
       const seen = !r || isGM || meta.results;   // степень и всё, что её выдаёт (pf2e скрывает и от владельца)
       const seenTotal = seen || env.isOwner(key, use, user);   // бросок публичный: владельцу число оставляем
-      const plan = seen ? steps.map((a) => stepText(a, env, "target")) : [];
+      const plan = seen ? steps.filter(planned(modeApply === "off")).map((a) => stepText(a, env, "target")) : [];
       if (imm) plan.push(t("checks.immunityPlan", { name: imm.label ?? use.item?.name ?? imm.slug }));
       return {
         key,
@@ -276,7 +279,7 @@ export function buildViewModel(message, user, env = null) {
     const done = !isEmpty(state.apply);
     const noneToApply = allFar && on.apply.every((a) => a.to === "target");   // шаги только на цели — применять нечего, кнопку не показываем
     vm.useApply = {
-      plan: on.apply.map((a) => stepText(a, env, "self")),
+      plan: on.apply.filter(planned(env.mode("effect") === "off")).map((a) => stepText(a, env, "self")),
       done: done ? t("chat.applyDone") : null,
       noTargets: !done && on.targets === "selected" && on.apply.some((a) => a.to === "target") && !(use.targets?.length) ? t("checks.noTargets") : null,
       canApply: canAct && !done && !noneToApply && (env.mode("effect") === "button" || (env.mode("effect") === "auto" && !!state.done && (on.targets !== "area" || !!state.area)))   // auto: после попытки (state.done) кнопка на случай сбоя

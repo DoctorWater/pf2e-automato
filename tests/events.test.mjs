@@ -668,6 +668,18 @@ test("checkAnswer: onUse.challenge на strike-gate (feat) переводитс�
   assert.equal(checkAnswer({ uuid: "u", rule: { ...bare, onEvent: [{ ...bare.onEvent[0], afterUse: true }] } }, refs, DAZING, "feat").kind, "accepted");
 });
 
+test("checkAnswer: Vicious Evisceration (Удар, при попадании состояние без save) — attack-roll без afterUse отказ, с afterUse принят; пассив не трогаем", () => {
+  const VE = "You make a vicious strike that maims your enemy. Make a melee Strike. If the Strike hits and deals damage, the target is @UUID[Compendium.pf2e.conditionitems.Item.4D2KBtexWXa6oUMR]{Drained 1}, or @UUID[Compendium.pf2e.conditionitems.Item.4D2KBtexWXa6oUMR]{Drained 2} on a critical success.";
+  const refs = { conditions: { drained: true }, effects: {} };
+  const ev = (o) => ({ on: "attack-roll", side: "self", when: ["self:action:slug:strike", "outcome:success"], apply: [{ to: "target", condition: { slug: "drained", value: 1 } }], ...o });
+  const kind = { type: "feat", actionType: "action" };
+  const bad = checkAnswer({ uuid: "u", rule: { v: 1, onEvent: [ev({})] } }, refs, VE, kind);
+  assert.equal(bad.kind, "error");
+  assert.match(bad.errors[0], /afterUse/);
+  assert.equal(checkAnswer({ uuid: "u", rule: { v: 1, onEvent: [ev({ afterUse: true })] } }, refs, VE, kind).kind, "accepted");
+  assert.equal(checkAnswer({ uuid: "u", rule: { v: 1, onEvent: [ev({})] } }, refs, VE, { type: "feat", actionType: "passive" }).kind, "accepted");
+});
+
 test("afterUse: валидатор — только свои броски владельца; форма туда-обратно", () => {
   const ch = dazingUse().onUse.challenge;
   assert.equal(one({ on: "attack-roll", afterUse: true, challenge: ch }).ok, true);
@@ -817,4 +829,15 @@ test("strikeCardFor: предмет находится по uuid (кирилли
   const atk = { id: "s", flags: { pf2e: { origin: { actor: A.uuid }, context: { type: "attack-roll" } } }, timestamp: NOW + 1 };
   assert.equal(ev.strikeCardFor([cardA], atk, { uuid: "Actor.a.Item.dazing", slug: "шокирующее-избиение" }, { slugOf: () => null }), cardA);
   assert.equal(ev.strikeCardFor([cardA], atk, { uuid: "Actor.a.Item.other", slug: null }, { slugOf: () => null }), null);
+});
+
+test("checkAnswer: сторож «Удар, при попадании» — damage-roll тоже, side target и Trigger не трогает", () => {
+  const T = "Make a melee Strike. If your Strike hits, the target is @UUID[Compendium.pf2e.conditionitems.Item.4D2KBtexWXa6oUMR]{Drained 1}.";
+  const refs = { conditions: { drained: true }, effects: {} };
+  const ev = (o) => ({ on: "damage-roll", side: "self", when: ["self:action:slug:strike"], apply: [{ to: "target", condition: { slug: "drained", value: 1 } }], ...o });
+  const kind = { type: "feat", actionType: "action" };
+  assert.equal(checkAnswer({ uuid: "u", rule: { v: 1, onEvent: [ev({})] } }, refs, T, kind).kind, "error");
+  assert.equal(checkAnswer({ uuid: "u", rule: { v: 1, onEvent: [ev({ side: "target" })] } }, refs, T, kind).kind, "accepted");
+  const TR = "<p><strong>Trigger</strong> Your Strike hits a creature</p><hr /><p><strong>Effect</strong> The target is @UUID[Compendium.pf2e.conditionitems.Item.4D2KBtexWXa6oUMR]{Drained 1}.</p>";
+  assert.equal(checkAnswer({ uuid: "u", rule: { v: 1, onEvent: [ev({})] } }, refs, TR, kind).kind, "accepted");
 });

@@ -156,7 +156,7 @@
       "aliases": ["mode choice", "several modes", "\\bmodes\\b", "choice", "cube face", "face choice", "activations"]
     },
     "mods-conditional": {
-      "title": "Бонус/штраф только против одного существа или источника, для одного чувства или вида проверки, или без конечного срока",
+      "title": "Бонус/штраф с иным условием (общий запасной): одно чувство или без конечного срока",
       "primitive": null,
       "aliases": ["\\((hearing|sight)", "\\bvs\\.? target\\b", "disbelie", "mods-conditional"]
     },
@@ -194,6 +194,61 @@
       "title": "Бессрочный эффект ради разового бонуса (нужен конец по событию)",
       "primitive": null,
       "aliases": ["effect too long"]
+    },
+    "mods-action": {
+      "title": "Бонус/штраф только к одному действию или виду проверки",
+      "primitive": null,
+      "aliases": ["mods-action", "bonus (to|on) (one|a single) action", "only (to|on) (the )?\\w+ (action|checks?)\\b"]
+    },
+    "mods-target": {
+      "title": "Бонус/штраф только против одного существа или источника",
+      "primitive": null,
+      "aliases": ["mods-target", "bonus against (one|a single) (creature|source)", "only against (the )?(creature|source)"]
+    },
+    "mods-state": {
+      "title": "Бонус/штраф, пока выполнено условие или состояние",
+      "primitive": null,
+      "aliases": ["mods-state", "bonus while (in|a) state", "\\bwhile (prone|raging|in a stance)\\b"]
+    },
+    "counteract": {
+      "title": "Рассеивание/контрсила: эффект противодействует заклинанию или эффекту проверкой",
+      "primitive": null,
+      "aliases": ["counteract", "counteract check", "counteracts? (a|the) (spell|effect)"]
+    },
+    "temp-hp": {
+      "title": "Временные ПЗ",
+      "primitive": null,
+      "aliases": ["temp-hp", "temporary hit points", "temp(orary)? hp"]
+    },
+    "speed-grant": {
+      "title": "Новый вид скорости (полёт, плавание, лазание, копание) или скорость, заданная значением",
+      "primitive": null,
+      "aliases": ["speed-grant", "(fly|swim|burrow|climb) speed", "gain(s)? a (fly|swim|burrow|climb) speed"]
+    },
+    "reach": {
+      "title": "Досягаемость, дистанция или другая протяжённость Удара/способности",
+      "primitive": null,
+      "aliases": ["reach increases", "range increment", "(extends?|increases?) (its |your )?reach"]
+    },
+    "proficiency": {
+      "title": "Повышение или приравнивание ранга мастерства",
+      "primitive": null,
+      "aliases": ["proficiency rank", "treated? as (expert|master|legendary)"]
+    },
+    "grant-action": {
+      "title": "Существо получает действие, реакцию или бесплатное применение способности",
+      "primitive": null,
+      "aliases": ["grant-action", "gains? an? (action|reaction)", "free action grant"]
+    },
+    "flanking": {
+      "title": "Фланкирование: создаёт, игнорирует или меняет",
+      "primitive": null,
+      "aliases": ["flanking", "flanked", "ignores? flanking"]
+    },
+    "terrain": {
+      "title": "Труднопроходимая местность, поверхность или иное изменение поля боя",
+      "primitive": null,
+      "aliases": ["difficult terrain", "greater difficult terrain"]
     }
   }
 }

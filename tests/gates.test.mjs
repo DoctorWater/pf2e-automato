@@ -3,7 +3,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { enemiesOnly, strikeGate, deriveFromMarkup, setWho } from "../scripts/rules.mjs";
+import { enemiesOnly, strikeGate, strikeHitEffect, deriveFromMarkup, setWho } from "../scripts/rules.mjs";
 import { checkAnswer, normalizeRule, processAnswers, emptyState } from "../tools/validate.mjs";
 import { withAccepted } from "../tools/coverage.mjs";
 import { modelCatalog } from "../tools/drafts.mjs";
@@ -197,4 +197,11 @@ test("challengeWho: общее who шагов к цели", async () => {
 
 test("strikeGate: предусловие кончается чертой <hr> (Fearful Symmetry)", () => {
   assert.equal(strikeGate("<p><strong>Requirements</strong> Your last action was a critically successful Strike.</p><hr /><p>All enemies within 30 feet of the creature you critically hit must attempt a @Check[will|against:class] save.</p>"), false);
+});
+
+test("strikeHitEffect: все формулировки «при попадании» (STRIKE_HIT), без save; Trigger/Requirements не считаются", () => {
+  for (const hit of ["If you hit and deal damage", "If the Strike is successful", "on a success", "If your Strike hits", "If the attack hits", "If this Strike hits"])
+    assert.equal(strikeHitEffect(`<p>Make a Strike. ${hit}, the target is @UUID[Compendium.pf2e.conditionitems.Item.x]{Dazzled}.</p>`), true, hit);
+  assert.equal(strikeHitEffect("<p>Make a Strike. If it hits, the target must attempt a @Check[will|dc:20] save.</p>"), false);
+  assert.equal(strikeHitEffect("<p><strong>Trigger</strong> Your Strike hits a creature</p><hr /><p><strong>Effect</strong> You gain a +1 bonus.</p>"), false);
 });

@@ -1,7 +1,7 @@
 // items.json -> triage.json: слой (ROADMAP §2; pf2e-automations — НЕ слой 1, а очередь переноса pa-port), статус, пачка (§5), приоритет (§4), выведенное правило.
-import { stripHtml, readJson, readOut, writeJson, outPath, ROOT, AUTOMATIONS_CONFIG, isMain } from "./lib.mjs";
+import { stripHtml, readJson, readOut, writeJson, outPath, ROOT, AUTOMATIONS_CONFIG, ACCEPTED, isMain } from "./lib.mjs";
 import { join } from "node:path";
-import { existsSync } from "node:fs";
+import { existsSync, readdirSync } from "node:fs";
 import { deriveFromMarkup, buildCatalog, activateOf } from "../scripts/rules.mjs";
 import { buildAutomationsIndex, groupsCovering } from "../scripts/compat.mjs";
 
@@ -67,7 +67,7 @@ export function priorityOf(it) {
 }
 
 /** Контекст (индексы справочников) для triageItem. */
-export function makeContext({ refs, catalogJsons = [], automationsRules = null, labels, items = [] }) {
+export function makeContext({ refs, catalogJsons = [], automationsRules = null, labels, items = [], accepted = null }) {
   const condById = new Map(), condNames = [];
   for (const [slug, c] of Object.entries(refs.conditions)) {
     condById.set(c.id, slug);
@@ -83,7 +83,7 @@ export function makeContext({ refs, catalogJsons = [], automationsRules = null, 
     if (!cur || rank < cur.rank) slugKind.set(it.slug, { type: it.type, pack: it.pack, rank });
   }
   return {
-    labels, slugKind,
+    labels, slugKind, accepted,
     condSlugByUuid: (u) => (u.includes(".conditionitems.") ? condById.get(u.split(".").pop()) ?? null : null),
     condNames,
     catalog,
@@ -91,14 +91,23 @@ export function makeContext({ refs, catalogJsons = [], automationsRules = null, 
   };
 }
 
-const OTHER_LINKS = /@UUID\[(Compendium\.pf2e\.[a-z0-9-]+\.Item\.\w+)\]/g;
+// ссылки на справочные паки (описание другого действия/заклинания/предмета) selfEffect не мешают; состояния и эффекты — мешают
+const OTHER_LINKS = /@UUID\[(Compendium\.pf2e\.(?!(?:actionspf2e|feats-srd|spells-srd|equipment-srd|classfeatures)\.)[a-z0-9-]+\.Item\.\w+)\]/g;
+// действия, чья ссылка сама даёт эффект (Raise a Shield — щит, Take Cover — укрытие): это механика, а не справка
+const MECH_ACTIONS = /@UUID\[Compendium\.pf2e\.actionspf2e\.Item\.(?:xjGwis0uaC2305pm|ust1jJSCZQUhBZIz)\]/;
 const PART_WORDS = /\b(?:allys?|allies|enem(?:y|ies)|aura|targets?)\b/i;
 /** selfEffect закрыл не всё: в тексте есть ссылки кроме самого эффекта либо слова про союзника, врага, ауру, цель. */
 export function partOnly(it, html) {
   const h = html ?? "";
+  if (MECH_ACTIONS.test(h)) return true;
   for (const m of h.matchAll(OTHER_LINKS)) if (m[1] !== it.selfEffect) return true;
   return PART_WORDS.test(stripHtml(h));
 }
+
+const OBJ_TARGET = /\b(?:objects?|items?|walls?|doors?|locks?|containers?|surfaces?|ropes?|structures?)\b/i;
+const LIVE_TARGET = /\b(?:creatures?|allys?|allies|you|enem(?:y|ies)|willing|targets?|persons?|petrified|undead|foes?|humanoids?|animals?|plants?|constructs?|hazards?|effects?|spells?|poisons?)\b/i;
+/** Цель заклинания/действия — только предмет, дверь или стена: существа и эффекты на них не затронуты, автоматизировать нечего. */
+export const objectOnly = (it, html) => !it.defense && !/@UUID\[Compendium\.pf2e\.[a-z0-9-]*-effects\./.test(html ?? "") && ["spell", "action", "feat"].includes(it.type) && !it.embedded && !!it.target && OBJ_TARGET.test(it.target) && !LIVE_TARGET.test(it.target);
 
 /** Совпадение с каталогом по slug — только для того же типа и пака, что у документа-образца; встроенные NPC по slug не совпадают. */
 export function slugMatches(it, ctx) {
@@ -152,6 +161,11 @@ export function triageItem(it, html, ctx) {
   const groups = groupsCovering(ctx.automations, { slug: it.slug, sourceUuid: sourceUuidOf(it) });
   if (groups.length) return done("pa-port", 3, groups.slice(0, 3).join("; "), withBatch);
   if (!active) return done("skip", null, "passive");
+  // любая запись drafts-accepted (правило, долг, model-null) важнее отсева: модель по документу уже отвечала
+  if (!ctx.accepted?.has(it.uuid)) {
+    if (it.ritual) return done("skip", null, "ritual");
+    if (objectOnly(it, html)) return done("skip", null, "object-target");
+  }
   if (!trace.any) return done("skip", null, /@Damage|\[\[\/r/.test(html ?? "") ? "damage-only" : "no-trace");
   if (trace.S && !trace.E && !trace.Z && !trace.R && it.defense?.basic && !COND_OR_EFFECT.test(html ?? "")) return done("skip", null, "damage-only");
 
@@ -176,7 +190,8 @@ function main() {
   const html = readOut("html.json"), refs = readOut("refs.json");
   const catalogJsons = ["catalog.json", "catalog.campaign.json"].map((f) => readJson(join(ROOT, "rules", f)));
   const ar = existsSync(AUTOMATIONS_CONFIG) ? readJson(AUTOMATIONS_CONFIG).groups : null;
-  const ctx = makeContext({ refs, catalogJsons, automationsRules: ar, labels: readJson(join(ROOT, "rules/labels.json")), items });
+  const accepted = new Set(readdirSync(ACCEPTED).filter((f) => /^b\d+-.*\.json$/.test(f)).flatMap((f) => readJson(join(ACCEPTED, f)).items.map((d) => d.uuid)));
+  const ctx = makeContext({ refs, catalogJsons, automationsRules: ar, labels: readJson(join(ROOT, "rules/labels.json")), items, accepted });
   const out = items.map((it) => ({ uuid: it.uuid, ...triageItem(it, html[it.uuid], ctx) }));
   const counts = {};
   for (const r of out) counts[r.status] = (counts[r.status] ?? 0) + 1;

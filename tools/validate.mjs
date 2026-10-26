@@ -7,7 +7,7 @@ import { readFileSync, readdirSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { isDeepStrictEqual } from "node:util";
 import { ROOT, ACCEPTED, DRAFTS, serializeDrafts, readJson, readOut, writeJson, writeText, outPath, arg, cmp, isMain } from "./lib.mjs";
-import { validateRule, activateOf, activateSpells, activateUses, withActivation, dupActivate, frequencyOf, enemiesOnly, strikeGate, setWho, afflictionStages } from "../scripts/rules.mjs";
+import { validateRule, activateOf, activateSpells, activateUses, withActivation, dupActivate, frequencyOf, enemiesOnly, strikeGate, strikeHitEffect, setWho, afflictionStages } from "../scripts/rules.mjs";
 import { ruleToForm, formToRule } from "../scripts/sheet.mjs";
 import { BUILTIN } from "../scripts/builtin/index.mjs";
 import { stepCount } from "./triage.mjs";
@@ -182,12 +182,15 @@ export function checkAnswer(ans, refs, html = null, kind = null) {
   if (html && !["consumable", "action", "feat"].includes(kind?.type) && v.rule.onUse && !v.rule.activate?.length && frequentActivations(html).length) return { kind: "error", errors: ["the text has an `Activate … Frequency …` block, so its steps belong in `activate: [{id, label, per, onUse}]` and the root onUse stays null (the frequency counter is keyed by the activation entry); unsure: true if the rule also has passive parts"] };
   // событие «бросок атаки» на тексте «Make a Strike. If it hits…» без afterUse сработало бы на каждом попадании владельца
   if (html && hasCard(kind) && strikeGate(html) && !multiStrike(html) && v.rule.onEvent?.some((e) => ["attack-roll", "damage-roll"].includes(e.on) && !e.afterUse)) return { kind: "error", errors: ["the text is \"Make a Strike, then …\": an onEvent entry on attack-roll/damage-roll needs afterUse:true (or write a plain onUse.challenge and the tool will convert it)"] };
+  // то же для «Удар; при попадании эффект без спасброска» (strikeGate такой текст не ловит: нет save)
+  if (html && hasCard(kind) && strikeHitEffect(html) && !multiStrike(html) && v.rule.onEvent?.some((e) => ["attack-roll", "damage-roll"].includes(e.on) && (e.side ?? "self") === "self" && !e.afterUse)) return { kind: "error", errors: ["the text is \"Make a Strike; if it hits, <effect>\": an onEvent entry (side self) on attack-roll/damage-roll needs afterUse:true (Exception 2b), otherwise it fires on every hit of the owner"] };
   const { rule, gate } = normalizeRule(v.rule, html, kind);
   if (notesOnly(rule)) return { kind: "notes-only", rule };
   // испытание остаётся при использовании, а текст — «Удар, затем испытание»: оно бросилось бы и при промахе
   if (gate) return { kind: "unsure", guess: rule, key: multiStrike(html) ? "multi-strike" : "strike-gate" };
   return { kind: "accepted", rule };
 }
+
 
 export const emptyState = () => ({ attempts: {}, retry: {}, sonnet: {} });
 

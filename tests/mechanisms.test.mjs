@@ -69,7 +69,9 @@ const FIXTURE = [
   [N + "affliction: random duration", null, "random-duration"],
   [N + "-10 ft speed penalty on success", null, "mods"],
   [N + "can't use reactions", null, "mods"],
-  [N + "teleport", null, "teleport"]
+  [N + "teleport", null, "teleport"],
+  [N + "trample through difficult terrain", null, "trample"],
+  [N + "zone within reach", null, null]
 ];
 
 test("словарь механизмов: причина из фикстуры сводится к ожидаемому ключу", () => {

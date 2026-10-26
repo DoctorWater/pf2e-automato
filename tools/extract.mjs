@@ -39,7 +39,7 @@ export function normItem(doc, { pack, uuid, ru = null, embedded = null }) {
     actionType: type === "spell" ? null : sys.actionType?.value ?? (type === "melee" ? "melee" : null), cost: cost(sys, type),
     frequency: sys.frequency ? `${sys.frequency.max ?? sys.frequency.value}/${sys.frequency.per}` : null,
     range: sys.range?.value || null, area: areaOf(sys.area), defense: save?.statistic ? { save: save.statistic, basic: !!save.basic } : null,
-    duration: dur || null, target: target || null,
+    duration: dur || null, target: target || null, ritual: !!sys.ritual,
     selfEffect: sys.selfEffect?.uuid ?? null, ruleKeys: [...new Set(rules.map((r) => r.key).filter(Boolean))],
     auraEffects: rules.some((r) => r.key === "Aura" && r.effects?.length > 0),   // Aura без effects — только шаблон, системой ничего не применяется
     descEn: cut(stripHtml(html), DESC_MAX), descRu: ru?.description ? cut(stripHtml(ru.description), DESC_MAX) : null,

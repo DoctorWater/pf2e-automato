@@ -142,5 +142,10 @@
   "seed": 27,
   "n": 50,
   "pool": 683
+ },
+ "b02-self-ally-effects:model:seed28": {
+  "seed": 28,
+  "n": 50,
+  "pool": 543
  }
 }

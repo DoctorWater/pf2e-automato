@@ -16,8 +16,8 @@ const HIGH_DC = [16, 16, 17, 18, 20, 21, 22, 24, 25, 26, 28, 29, 30, 32, 33, 34,
 export const highDc = (level) => HIGH_DC[Math.min(Math.max(Math.trunc(level) || 0, -1), 24) + 1];
 export const highAttack = (level) => highDc(level) - 8;
 
-/** Ведём ли собственный счётчик частоты: нет у способности со своей частотой pf2e (только показываем) и у «в день» для NPC (restForTheNight только у character). */
-export const tracksUses = (item, per) => !!per && !item?.system?.frequency && (item?.actor?.type === "character" || per.unit !== "days");
+/** Ведём ли собственный счётчик частоты: нет у способности со своей частотой pf2e (только показываем) и у «раз в день» для NPC (restForTheNight только у character; «раз в N дней» закрывает время мира). */
+export const tracksUses = (item, per) => !!per && !item?.system?.frequency && (item?.actor?.type === "character" || per.unit !== "days" || multiDay(per));
 
 /**
  * Источник заклинания с рангом и записью заклинателя (как createConsumableFromSpell, pf2e:39893): явный ранг — heightenedLevel не ниже базового;
@@ -30,10 +30,12 @@ export function rankSource(src, itemLevel, rank, locationId) {
   return out;
 }
 
-// Окно частоты: uses раз за value единиц. Хранится {at:{time,combat,round}, log:[id сообщений]}; days закрывает только отдых (pf2e.restForTheNight)
-const UNIT_SEC = { minutes: 60, hours: 3600 };
+// Окно частоты: uses раз за value единиц. Хранится {at:{time,combat,round}, log:[id сообщений]}; «раз в день» закрывает только отдых (pf2e.restForTheNight),
+// «раз в N дней» (неделя) — время мира, отдых его не сбрасывает (restReset)
+const UNIT_SEC = { minutes: 60, hours: 3600, days: 86400 };
+const multiDay = (per) => per?.unit === "days" && per.value > 1;
 const windowOpen = (e, per, now) => !!e?.at && (per.unit === "rounds" ? !!e.at.combat && e.at.combat === now.combat && now.round - e.at.round < per.value
-  : per.unit === "days" || now.time - e.at.time < per.value * UNIT_SEC[per.unit]);
+  : (per.unit === "days" && !multiDay(per)) || now.time - e.at.time < per.value * UNIT_SEC[per.unit]);
 /** Сколько использований осталось (null — частоты нет). now = {time, combat, round}. */
 export const usesLeft = (e, per, now) => (per ? (windowOpen(e, per, now) ? Math.max(0, (per.uses ?? 1) - e.log.length) : per.uses ?? 1) : null);
 /** Запись счётчика после использования: окно закрылось — начинается новое. */
@@ -290,11 +292,23 @@ export async function castItem(item, id) {
 // флаг снимается: у вложенного предмета pf2e сливает правку mergeObject без performDeletions — ключ «-=» не сработает, пишем null (usesOf видит пусто)
 const unset = (item, path) => (item.parentItem ? { [path]: null } : forcedDelete(path));
 
-/** pf2e.restForTheNight: счётчики «раз в день» (и прочие) предметов отдохнувшего актёра обнуляются. */
+/** Правка сброса отдыхом: весь флаг счётчиков либо его ключи без записей «раз в N дней» (их окно закрывает время). null — сбрасывать нечего. */
+function restReset(item, del) {
+  const ids = Object.entries(item.flags?.[MOD]?.uses ?? {}).filter(([, v]) => v).map(([k]) => k);   // null — уже снятый ключ вложенного (unset)
+  if (!ids.length) return null;   // resolveRule (с разбором разметки) — только у предметов со счётчиком
+  const keep = new Set((rules.activateOf(rules.resolveRule(item)?.rule) ?? []).filter((c) => multiDay(c.per)).map((c) => c.id));
+  const drop = ids.filter((id) => !keep.has(id));
+  return !drop.length ? null : drop.length === ids.length ? del(flagPath("uses")) : Object.assign({}, ...drop.map((id) => del(flagPath("uses", id))));
+}
+
+/** pf2e.restForTheNight: счётчики предметов отдохнувшего актёра обнуляются, кроме «раз в N дней» (restReset). */
 async function resetUses(actor) {
-  const update = actor.items.filter((i) => i.flags?.[MOD]?.uses).map((i) => ({ _id: i.id, ...forcedDelete(flagPath("uses")) }));
+  const update = actor.items.map((i) => ({ _id: i.id, ...restReset(i, forcedDelete) })).filter((u) => Object.keys(u).length > 1);
   if (update.length) await actor.updateEmbeddedDocuments("Item", update);
-  for (const sub of actor.inventory?.flatMap((i) => i.subitems?.contents ?? []).filter((i) => i.flags?.[MOD]?.uses) ?? []) await sub.update(unset(sub, flagPath("uses")));   // вложенные: правка уходит в родителя
+  for (const sub of actor.inventory?.flatMap((i) => i.subitems?.contents ?? []) ?? []) {   // вложенные: правка уходит в родителя
+    const u = restReset(sub, (p) => unset(sub, p));
+    if (u) await sub.update(u);
+  }
 }
 
 /** Карточка активации удалена — использование возвращается (у того клиента, что её удалил). */

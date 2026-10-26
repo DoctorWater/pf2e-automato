@@ -189,6 +189,9 @@ test("частота: окна минут/часов по времени мир�
   const e1 = withUse(undefined, { value: 1, unit: "days" }, now, "m1");
   assert.deepEqual(e1, { at: now, log: ["m1"] });
   assert.equal(usesLeft(e1, { value: 1, unit: "days" }, { ...now, time: 10_000 + 86400 * 30 }), 0);   // дни время не закрывает
+  const week = { value: 7, unit: "days" };   // «раз в N дней» — время мира (отдых не сбрасывает)
+  assert.equal(usesLeft(e1, week, { ...now, time: 10_000 + 86400 * 7 - 1 }), 0);
+  assert.equal(usesLeft(e1, week, { ...now, time: 10_000 + 86400 * 7 }), 1);
   const hour = { value: 1, unit: "hours" };
   assert.equal(usesLeft(e1, hour, { ...now, time: 10_000 + 3599 }), 0);
   assert.equal(usesLeft(e1, hour, { ...now, time: 10_000 + 3600 }), 1);
@@ -231,6 +234,7 @@ test("tracksUses: счётчик не ведём у способности со 
   const pc = { actor: { type: "character" } }, npc = { actor: { type: "npc" } };
   assert.deepEqual([tracksUses(pc, day), tracksUses(npc, day), tracksUses(npc, hour), tracksUses(pc, null)], [true, false, true, false]);
   assert.equal(tracksUses({ ...pc, system: { frequency: { max: 1, per: "day" } } }, day), false);
+  assert.equal(tracksUses(npc, { value: 7, unit: "days" }), true);   // «раз в N дней» закрывает время мира, отдых не нужен
 });
 
 test("deriveFromMarkup: расходник (палочка) в живом выводе без cast — заряды ведёт pf2e", () => {

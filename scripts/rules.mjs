@@ -1280,7 +1280,7 @@ export function markReplace(onUse) {
 
 const SPELL_LINK = /@UUID\[(Compendium\.pf2e\.spells-srd\.Item\.[^\]]+)\](?:\{([^}]*)\})?/g;
 const WORD_COUNT = { once: 1, twice: 2, thrice: 3, two: 2, three: 3, four: 4, five: 5, six: 6 };
-const PER_UNIT = { round: ["rounds", 1], minute: ["minutes", 1], hour: ["hours", 1], day: ["days", 1], week: ["days", 7] };   // неделя — 7 дней: сбрасывается отдыхом, лимит мягкий
+const PER_UNIT = { round: ["rounds", 1], minute: ["minutes", 1], hour: ["hours", 1], day: ["days", 1], week: ["days", 7] };   // неделя — 7 дней: окно по времени мира (отдых не сбрасывает), лимит мягкий
 /** Частота из текста («once per day», «three times per day», «once per 10 minutes») -> {value, unit, uses?} | null. */
 export function frequencyOf(text) {
   const m = /\b(once|twice|thrice|(\d+|two|three|four|five|six)\s+times?)\s+per\s+(?:(\d+)\s+)?(round|minute|hour|day|week)s?\b(?!\s+(?:per|for each)\b)/i.exec(text ?? "");

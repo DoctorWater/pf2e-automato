@@ -121,6 +121,7 @@ test("значок: фильтры использования и подпись 
   assert.equal(itemUseKind({ type: "feat", system: { selfEffect: { uuid: "x" } } }), null);
   assert.equal(itemUseKind({ type: "feat", system: {} }), "use");
   assert.equal(itemUseKind({ type: "weapon", system: {} }), "card");
+  assert.equal(itemUseKind({ type: "ammo", system: {} }), "card");
   assert.equal(itemUseKind({ type: "lore", system: {} }), null);
   const eq = validateRule({ v: 1, onUse: { targets: "self", apply: [{ to: "self", note: "n" }] } }).rule;
   assert.ok(wantsSnapshot("use", eq) && !wantsSnapshot("card", eq));   // у снаряжения без области значка нет

@@ -15,7 +15,7 @@ import { moveOrder, areaPoint } from "./move.mjs";
 import { asksActions } from "./builtin/variable-cast.mjs";
 
 const CAST = "origin:action:slug:cast-a-spell";
-const CARD_TYPES = new Set(["consumable", "equipment", "spell", "weapon", "armor", "treasure", "backpack", "shield"]);
+const CARD_TYPES = new Set(["consumable", "equipment", "spell", "weapon", "armor", "treasure", "backpack", "shield", "ammo"]);   // ammo: активация боеприпаса (Golden-Cased Bullet) — с карточки
 
 /* ---------- чистые функции (юнит-тесты) ---------- */
 

@@ -15,6 +15,7 @@ test("useKindOf: consume / каст / действие / карточка / пр
   assert.equal(useKindOf(msg({ origin: { type: "spell", rollOptions: [CAST] }, context: { type: "spell-cast" } })), "use");
   assert.equal(useKindOf(msg({ origin: { type: "spell", rollOptions: ["origin:item:spell"] } })), "card");
   assert.equal(useKindOf(msg({ origin: { type: "consumable", rollOptions: ["x"] } })), "card");
+  assert.equal(useKindOf(msg({ origin: { type: "ammo", rollOptions: ["x"] } })), "card");
   assert.equal(useKindOf(msg({ origin: { type: "action", rollOptions: [] } })), "use");
   assert.equal(useKindOf(msg({ origin: { type: "feat", rollOptions: [] } })), "use");
   assert.equal(useKindOf(msg({ origin: { type: "spell", rollOptions: [CAST] }, context: { type: "saving-throw" } })), null);

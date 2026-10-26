@@ -11,6 +11,7 @@ export const BATCHES = {
 };
 
 const COND_OR_EFFECT = /@UUID\[Compendium\.pf2e\.(?:conditionitems|[a-z-]*effects)\./;
+const COVER_BYPASS = /\bignor\w*[^.]{0,80}\bcover\b/i;   // эффект-проводник модуля (plan-cover-bypass.md): след без ссылки на эффект
 const DURATION = /\bfor\s+\d+\s*(?:round|minute|hour|day)|\buntil the (?:start|end) of\b|\bsustain/i;
 const SAVE_CHECK = /@Check\[(?:fortitude|reflex|will)\b/;
 const COND_LINK = /@UUID\[Compendium\.pf2e\.(?:conditionitems|[a-z-]*effects)\./;   // состояние или эффект (Heat Surge, Infernal Wound)
@@ -19,7 +20,7 @@ const CAMPAIGN_PACKS = new Set(["kingmaker-features", "adventure-specific-action
 /** Какие виды следа (E/S/Z/R, методика coverage.md §0) есть у документа. */
 export function traceOf(it, html) {
   const h = html ?? "";
-  const E = COND_OR_EFFECT.test(h) || !!it.duration || DURATION.test(h);
+  const E = COND_OR_EFFECT.test(h) || !!it.duration || DURATION.test(h) || COVER_BYPASS.test(h);
   const S = /@Check\[/.test(h) || !!it.defense;
   const Z = /@Template\[/.test(h) || !!it.area;
   const R = it.actionType === "reaction" || /<strong>\s*Trigger/i.test(h);

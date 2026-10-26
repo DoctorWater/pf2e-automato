@@ -29,6 +29,9 @@ test("след и пачка по механике", () => {
   assert.equal(batchOf(npc, "", traceOf(npc, "")), 9);
   assert.equal(batchOf({ ...base, type: "consumable" }, "", {}), 8);
   assert.equal(isActive({ ...base, type: "feat", actionType: "passive", traits: [], frequency: null }, ""), false);
+  // обход укрытия — след E (эффект-проводник модуля), окно до 80 знаков в пределах фразы (Golden-Cased Major)
+  assert.equal(traceOf(base, "allowing you to ignore the bonus to AC granted to a target in greater, standard, or lesser cover.").E, true);
+  assert.equal(traceOf(base, "You ignore it. Take cover.").E, false);
 });
 
 test("приоритет: заклинания 0-5, расходники, NPC, кампания", () => {

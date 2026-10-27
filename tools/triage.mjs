@@ -110,6 +110,20 @@ const LIVE_TARGET = /\b(?:creatures?|allys?|allies|you|enem(?:y|ies)|willing|tar
 /** Цель заклинания/действия — только предмет, дверь или стена: существа и эффекты на них не затронуты, автоматизировать нечего. */
 export const objectOnly = (it, html) => !it.defense && !/@UUID\[Compendium\.pf2e\.[a-z0-9-]*-effects\./.test(html ?? "") && ["spell", "action", "feat"].includes(it.type) && !it.embedded && !!it.target && OBJ_TARGET.test(it.target) && !LIVE_TARGET.test(it.target);
 
+const MECHANICS_TEXT = /bonus|penalty|resistance|weakness|temporary hit points|immun|persistent|damage|healing|regeneration|speed|\bAC\b|hit points/i;   // @Damage входит в «damage»
+
+const AFFLICTION_TEXT = /\bStage\s*[12]\b|@Check\[(?:type:)?(?:fortitude|reflex|will)\b/i;   // недуг и спасбросок — механика даже с traits:secret
+const OUTCOME_SHIFT = /normal hit|critical|misses|destroys|passes harmlessly/i;   // реакция, меняющая исход чужой атаки/броска: модель пометит долгом
+// ворота «flat-проверка перед сотворением/концентрацией/речью/телепортацией/нацеливанием» — долг flat-check-gate (rules/mechanisms.json), не «нечего автоматизировать»
+const FLAT_GATE = /(?:flat check|@Check\[flat[^\]]*\])[^.]{0,120}\b(?:cast|spell|concentrat|speak|teleport|target)|\b(?:cast|spell|concentrat|speak|teleport|target)\w*[^.]{0,120}(?:flat check|@Check\[flat[^\]]*\])/i;
+
+/** Все проверки текста — flat или secret (сведения, лор, воскрешение, контрсила), без defense:/against:, и нет ни состояния, ни эффекта, ни числовой механики в тексте: автоматизировать нечего. */
+export function flatOrSecretOnly(it, html) {
+  const h = html ?? "", checks = [...h.matchAll(/@Check\[([^\]]*)\]/g)].map((m) => m[1]);
+  return !it.defense && checks.length > 0 && !COND_OR_EFFECT.test(h) && !/@Cond\[/.test(h) && !MECHANICS_TEXT.test(h) && !AFFLICTION_TEXT.test(h) && !OUTCOME_SHIFT.test(h) && !FLAT_GATE.test(stripHtml(h))
+    && checks.every((c) => /^flat\b|\btraits:[^|]*\bsecret\b/.test(c) && !/\b(?:defense|against):/.test(c));
+}
+
 /** Совпадение с каталогом по slug — только для того же типа и пака, что у документа-образца; встроенные NPC по slug не совпадают. */
 export function slugMatches(it, ctx) {
   if (it.embedded) return false;
@@ -166,6 +180,7 @@ export function triageItem(it, html, ctx) {
   if (!ctx.accepted?.has(it.uuid)) {
     if (it.ritual) return done("skip", null, "ritual");
     if (objectOnly(it, html)) return done("skip", null, "object-target");
+    if (flatOrSecretOnly(it, html)) return done("skip", null, "flat-secret-check");
   }
   if (!trace.any) return done("skip", null, /@Damage|\[\[\/r/.test(html ?? "") ? "damage-only" : "no-trace");
   if (trace.S && !trace.E && !trace.Z && !trace.R && it.defense?.basic && !COND_OR_EFFECT.test(html ?? "")) return done("skip", null, "damage-only");

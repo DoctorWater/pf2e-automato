@@ -53,3 +53,19 @@ test("triage: Raise a Shield / Take Cover — механика, selfEffect не 
   assert.notEqual(triageItem(act, `<p>You ${raise} and become anchored, gaining @UUID[${eff}]{E}.</p>`, ctx).status, "pf2e");
   assert.notEqual(triageItem(act, `<p>You @UUID[Compendium.pf2e.actionspf2e.Item.ust1jJSCZQUhBZIz]{Take Cover}, gaining @UUID[${eff}]{E}.</p>`, ctx).status, "pf2e");
 });
+
+test("triage: только flat/secret-проверки без defense/against -> skip: flat-secret-check; принятое и состояние важнее", () => {
+  const t = (h, it = base) => triageItem(it, `<p>${h}</p>`, ctx);
+  assert.equal(t("@Check[flat|dc:11|showDC:all] On a success, you move only 5 feet.").reason, "flat-secret-check");
+  assert.equal(t("@Check[occultism|dc:20|traits:secret] You learn a fact.").reason, "flat-secret-check");
+  assert.notEqual(t("@Check[flat|dc:11] you are @UUID[Compendium.pf2e.conditionitems.Item.abcdefghijklmnop]{Blinded}.").reason, "flat-secret-check");
+  for (const m of ["you gain a +1 status bonus", "you take a -2 penalty", "gain resistance 5", "gain 10 temporary Hit Points", "you become immune", "it takes persistent bleed", "it takes @Damage[2d6[fire]] damage"]) assert.notEqual(t(`@Check[flat|dc:11] ${m}.`).reason, "flat-secret-check", m);   // механика в тексте: не отсев
+  assert.notEqual(t("@Check[fortitude|dc:20|traits:secret] (secret) Onset 1 minute Stage 1 The reader forgets").reason, "flat-secret-check");   // недуг (Forgetful Ink)
+  assert.notEqual(t("@Check[flat|dc:5] or receive no healing from the effect.").reason, "flat-secret-check");   // Field of Undeath
+  assert.notEqual(t("<strong>Trigger</strong> You are hit. @Check[flat|dc:11]. On a success, the attack becomes a normal hit.").reason, "flat-secret-check");   // сдвиг степени чужой атаки
+  assert.equal(t("@Check[flat|dc:10] when you overcharge the wand. You disbelieve your failure.").reason, "flat-secret-check");   // Cyrusian Wand
+  assert.notEqual(t("Whenever a creature in the aura attempts to Cast a Spell, they must succeed at a @Check[flat|dc:5] or the spell is disrupted.").reason, "flat-secret-check");   // ворота flat-check-gate (Aeon Interference): долг, не отсев
+  assert.notEqual(t("@Check[athletics|defense:fortitude|traits:secret] the target slows.").reason, "flat-secret-check");
+  assert.notEqual(t("@Check[flat|dc:11] ok", { ...base, defense: { save: "will", basic: false } }).reason, "flat-secret-check");
+  assert.notEqual(triageItem(base, "<p>@Check[flat|dc:11] ok</p>", { ...ctx, accepted: new Set([base.uuid]) }).reason, "flat-secret-check");
+});

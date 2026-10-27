@@ -94,6 +94,13 @@ test("статус механизма: порог, примитив, промп�
   assert.equal(statusOf("ammo-bomb", THRESHOLD - 1), "ждёт");
 });
 
+test("черты предмета не дают механизм: teleportation/impulse в чертах не подмешиваются в алиасы без «@»", () => {
+  assert.equal(mechanismOf("teleport-like effect", { type: "equipment", traits: ["teleportation"] }), mechanismOf("teleport-like effect", { type: "equipment", traits: [] }));
+  assert.notEqual(mechanismOf("something else", { type: "feat", traits: ["impulse"] }), "impulse-attack");
+  assert.equal(mechanismOf("impulse attack roll", { type: "feat", traits: [] }), "impulse-attack");
+  assert.equal(mechanismOf("strike-gate", { type: "equipment", actionType: null, traits: ["bomb"] }), "ammo-bomb");   // алиасы с «@» по-прежнему видят подсказку
+});
+
 test("счёт долга: только needs-primitive, без метки — отдельно", () => {
   const acc = [{ uuid: "a", reason: N + "push 10 ft" }, { uuid: "b", reason: "model: ok" }, { uuid: "c", reason: N + "weird thing" }, { uuid: "d", reason: N + "weird thing" }];
   const r = debtByMechanism(acc, []);
@@ -163,4 +170,16 @@ test("owner: долг ammo-bomb/event-trigger считается в пачке-�
   assert.equal(d.byBatch["b01-save-conditions"].manual, 1);
   assert.equal(d.priority1ByBatch["b08-consumables"].manual, 1);
   assert.ok(tally);
+});
+
+test("partial-запись: механизм виден по строке partial[] (алиас словаря), без needs-primitive в причине", () => {
+  const rule = { v: 1, activate: [{ id: "a" }] };
+  const rows = debtByMechanism([
+    { uuid: "u1", reason: "model: x (partial)", partial: ["activation Quench Flames: counteract check against a fire"], rule },
+    { uuid: "u2", reason: "model: x (partial)", partial: ["activation 1: activation without a spell (own mechanic)"], rule }
+  ], []);
+  assert.deepEqual(rows.byUuid.get("u1").keys, ["counteract"]);
+  assert.equal(rows.byUuid.has("u2"), false);
+  const r3 = debtByMechanism([{ uuid: "u3", reason: "model: x (partial)", partial: ["text outside the activations: Armor You gain a +2 item bonus"], rule }], []);
+  assert.equal(r3.byUuid.has("u3"), false);   // служебная строка не даёт mode-choice
 });

@@ -11,11 +11,13 @@ const RE = Object.fromEntries(KEYS.map((k) => [k, (MECHANISMS[k].aliases ?? []).
 const KEY_RE = Object.fromEntries(KEYS.map((k) => [k, new RegExp(`^${k}([:]|$)`, "i")]));
 const RULE_RE = Object.fromEntries(KEYS.filter((k) => MECHANISMS[k].rule).map((k) => [k, new RegExp(MECHANISMS[k].rule, "i")]));
 
+/** Служебные строки cast-конвертера (cast-batch.mjs gaps): пересказ текста, не механизм — иначе «activations» совпадает с mode-choice. */
+const SERVICE_PARTIAL = /^(?:text outside the activations|activation \d+):/;
 export const isDebt = (d) => /^needs-primitive/.test(d.reason ?? "");
 export const plainReason = (reason) => reason.replace(/^needs-primitive:\s*/, "").replace(/^missing:\s*/, "");
 /** Подсказка из самого предмета: «@тип/вид-действия/черты» — чтобы метку «strike-gate» разнести по настоящему механизму. */
 const hint = (it) => (it ? ` @${it.type}/${it.actionType ?? "null"}/${(it.traits ?? []).join(",")}` : "");
-const keyOfPart = (part, it) => KEYS.find((k) => k !== "strike-gate" && KEY_RE[k].test(part)) ?? KEYS.find((k) => RE[k].some((re) => re.test(part + hint(it)))) ?? null;
+const keyOfPart = (part, it) => KEYS.find((k) => k !== "strike-gate" && KEY_RE[k].test(part)) ?? KEYS.find((k) => RE[k].some((re) => re.test(re.source.includes("@") ? part + hint(it) : part))) ?? null;   // подсказка (черты предмета) — только алиасам с «@»: иначе черта teleportation/impulse даёт ложный механизм
 
 /** Куски причины: делим по ; и , вне скобок. После `new:` остаток — свободный текст модели, дальше не делится. */
 export function partsOf(reason) {
@@ -64,7 +66,8 @@ export function debtByMechanism(accepted, items) {
   for (const d of accepted) {
     let m;
     if (isDebt(d)) m = mechanismsOf(d.reason, by.get(d.uuid));
-    else if (d.partial?.length && d.rule) m = { keys: Object.keys(RULE_RE).filter((k) => RULE_RE[k].test(JSON.stringify(d.rule))), free: false };
+    // partial: механизм виден в заметке правила (rule) или в строке partial[] (ключ/алиас словаря: «activation Icicle: counteract …»)
+    else if (d.partial?.length && d.rule) m = { keys: [...new Set([...Object.keys(RULE_RE).filter((k) => RULE_RE[k].test(JSON.stringify(d.rule))), ...d.partial.filter((x) => !SERVICE_PARTIAL.test(x)).map((x) => keyOfPart(x, by.get(d.uuid)))].filter(Boolean))], free: false };
     if (!m || (!m.keys.length && !isDebt(d))) continue;
     byUuid.set(d.uuid, m);
     for (const k of m.keys) { count[k] = (count[k] ?? 0) + 1; if (MECHANISMS[k].primitive && !poolable(m) && !MECHANISMS[k].via && isDebt(d)) blocked[k] = (blocked[k] ?? 0) + 1; }

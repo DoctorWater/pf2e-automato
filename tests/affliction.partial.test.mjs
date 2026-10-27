@@ -111,12 +111,12 @@ test("лор по FLAVOR_OK: ignoreOutside -> «готово» (unsure пуст,
 const rest = (h, o) => P(h, o).debt;
 const lk = (slug, n) => `@UUID[Compendium.pf2e.conditionitems.Item.${slug}]{${slug} ${n}}`;
 
-test("«as stage N»: чистая ссылка копирует стадию; своё содержимое/остаток («except», «plus») — долг, не копия", () => {
+test("«as stage N»: чистая ссылка копирует стадию; правки с уроном/числом в остатке — долг, не копия", () => {
   const p = P(mk(`${lk("clumsy", 2)} (1 round)`, "as stage 1 (2 rounds)"));
   assert.deepEqual(p.debt, []);
   assert.deepEqual(p.def.stages[1].conditions, [{ slug: "clumsy", value: 2 }]);
   assert.equal(p.def.stages[1].duration.value, 2);
-  for (const t of ["as stage 1, except " + lk("clumsy", 3), "as stage 1 plus " + lk("slowed", 1), "as stage 1, but lasts longer"]) {
+  for (const t of ["as stage 1 plus " + D(1).replace(" (1 day)", ""), "as stage 1, but a -2 status penalty", "as stage 1, but also " + lk("slowed", 1)]) {
     assert.ok(rest(mk(`${lk("clumsy", 2)} (1 day)`, `${t} (1 day)`)).includes("stage clarification: as stage 1 with changes"), t);
   }
 });
@@ -217,7 +217,8 @@ test("extraNote: добавка к заметке идёт первой", () => 
 test("круг 1: virulent только из трейтов/скобок; название в заметку не лезет; «as long as … persists» — не linger; ';' перед смертью", () => {
   const body = mk(D(1), D(2));
   assert.equal(P(`<p>The addiction is virulent.</p>` + body).def.virulent, false);
-  assert.ok(P(`<p>The addiction is virulent.</p>` + body).debt.includes("virulent in text, not in traits"));
+  assert.deepEqual(P(`<p>The addiction is virulent.</p>` + body).debt, []);   // «addiction is virulent» — признак зависимости, не яда
+  assert.ok(P(`<p>The poison is virulent.</p>` + body).debt.includes("virulent in text, not in traits"));
   assert.equal(P(body, { traits: ["disease", "virulent"] }).def.virulent, true);
   assert.equal(P(`<p>X (disease, virulent)</p>` + body).def.virulent, true);
   assert.equal(P(`<p>It can't be removed.</p><p>X</p>` + body).def.note, "It can't be removed.");

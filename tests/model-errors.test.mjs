@@ -126,3 +126,38 @@ test("постоянный урон от круга: формулы из отв�
   assert.deepEqual([1, 3, 5].map((rank) => resolveFormula("(2+2*floor((@item.rank-1)/2))", { rank })), ["2", "4", "6"]);
   assert.deepEqual([5, 7, 9].map((rank) => resolveFormula("(1+max(0,floor((@item.rank-5)/2)))d10", { rank })), ["1d10", "2d10", "3d10"]);
 });
+
+test("снаряжение: блоков Activate больше, чем записей activate — ошибка; unsure и consumable не трогаем", () => {
+  const two = '<p><strong>Activate</strong> Light <strong>Effect</strong> glow</p><p><strong>Activate</strong> Flash <strong>Frequency</strong> once per day <strong>Effect</strong> flash</p>';
+  const one = { id: "flash", label: "Flash", per: { value: 1, unit: "days" }, onUse: { targets: "selected", apply: [{ to: "target", condition: { slug: "blinded" } }] } };
+  const e = checkAnswer({ uuid: "u", rule: { v: 1, activate: [one] } }, refs, two, { type: "equipment" });
+  assert.equal(e.kind, "error");
+  assert.match(e.errors[0], /1 more `Activate` block/);
+  assert.equal(checkAnswer({ uuid: "u", rule: { v: 1, activate: [one, { ...one, id: "light", per: undefined }] } }, refs, two, { type: "equipment" }).kind, "accepted");
+  assert.match(e.errors[0], /single `note` step/);   // подсказка не разрешает молча пропустить
+  const note = { id: "light", label: "Light", onUse: { targets: "self", apply: [{ to: "self", note: "Только сюжет." }] } };
+  assert.equal(checkAnswer({ uuid: "u", rule: { v: 1, activate: [one, note] } }, refs, two, { type: "equipment" }).kind, "accepted");
+  assert.equal(checkAnswer({ uuid: "u", rule: { v: 1, activate: [one] }, unsure: true }, refs, two, { type: "equipment" }).kind, "unsure");
+  assert.equal(checkAnswer({ uuid: "u", rule: { v: 1, activate: [one] } }, refs, two, { type: "consumable" }).kind, "accepted");
+});
+
+test("атака заклинанием против спасброска (Murderous Vine) — ошибка; против AC и навык против Fortitude — принято", () => {
+  const atk = (vs) => ({ v: 1, onUse: { targets: "selected", check: { statistic: "spell-attack", vs, roll: "system", byDegree: { success: [{ to: "target", condition: { slug: "grabbed" } }] } } } });
+  const html = "Make a ranged spell attack roll against the target's Fortitude DC. On a success, the creature is grabbed.";
+  for (const vs of [{ defense: "fortitude" }, { against: "will" }]) assert.match(chk(atk(vs), html).errors?.[0] ?? "", /spell-attack-save/);
+  assert.equal(chk(atk({ defense: "ac" }), html).kind, "accepted");
+  const skill = atk({ defense: "fortitude" });
+  skill.onUse.check.statistic = "athletics"; delete skill.onUse.check.roll;
+  assert.equal(chk(skill, html).kind, "accepted");
+});
+
+test("--final: догадка с пропущенной активацией не теряется, пропуск идёт в partial", async () => {
+  const { processAnswers, emptyState } = await import("../tools/validate.mjs");
+  const two = '<p><strong>Activate</strong> Light <strong>Effect</strong> glow</p><p><strong>Activate</strong> Flash <strong>Frequency</strong> once per day <strong>Effect</strong> flash</p>';
+  const one = { id: "flash", label: "Flash", per: { value: 1, unit: "days" }, onUse: { targets: "selected", apply: [{ to: "target", condition: { slug: "blinded" } }] } };
+  const r = processAnswers([{ uuid: "u", rule: { v: 1, activate: [one] }, unsure: true, note: "activation Light: narrative" }], [{ uuid: "u", type: "equipment", name: "X" }], refs, emptyState(), { htmlOf: () => two, final: true });
+  const [a] = r.accepted;
+  assert.equal(a.confidence, "needs-primitive");
+  assert.equal(a.rule?.activate?.length, 1);
+  assert.match(a.partial[0], /1 activation/);
+});

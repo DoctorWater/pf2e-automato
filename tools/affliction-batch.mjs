@@ -6,7 +6,7 @@ import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { readOut, readJson, writeText, serializeDrafts, stripHtml, ACCEPTED, arg, cmp, isMain } from "./lib.mjs";
 import { afflictionStages, validateRule, AFFLICTION_KINDS, VALUED } from "../scripts/rules.mjs";
-import { afflictionRule, outsideText, coatOf, FLAVOR_OK, EXTRA_NOTE, DEATH_NOTE } from "./affliction.mjs";
+import { saveSegment, headSecondSave, afflictionRule, outsideText, coatOf, FLAVOR_OK, REFINE_OK, EXTRA_NOTE, DEATH_NOTE } from "./affliction.mjs";
 import { roundTrip, semanticErrors, mergeAccepted } from "./validate.mjs";
 import { readModelAccepted } from "./drafts.mjs";
 import { pick } from "./sample.mjs";
@@ -39,13 +39,13 @@ export function checkAffliction(rule, html, item, refs, { partial = false } = {}
       else if (v != null && c.value !== +v) bad.push(`stage ${i + 1}: ${slug} ${c.value} != text ${v}`);
     }
   });
-  const dcs = [...html.slice(0, marks[0]?.index ?? 0).matchAll(/@Check\[(?:fortitude|reflex|will)[^\]]*?\|dc:(\d+)/g)].map((m) => +m[1]);
+  const head0 = html.slice(0, marks[0]?.index ?? 0), dcs = [...(saveSegment(head0)?.text ?? head0).matchAll(/@Check\[(?:fortitude|reflex|will)[^\]]*?\|dc:(\d+)/g)].map((m) => +m[1]);
   if (dcs.length && (def.save.dc !== dcs[0] || ch.dc?.value !== dcs[0])) bad.push(`dc ${def.save.dc}/${ch.dc?.value} != text ${dcs[0]}`);
   const last = def.stages.length - 1;
   def.stages.forEach((s, i) => { if (!s.duration && !s.text.includes(DEATH_NOTE) && (def.maxDuration || i < last || def.kind === "poison")) bad.push(`stage ${i + 1}: duration null`); });
   const head = html.slice(0, marks[0]?.index ?? 0);
   if (/<strong>\s*Onset/i.test(head) && def.onset == null) bad.push("onset lost");
-  if ([...head.matchAll(/@Check\[(?:fortitude|reflex|will)/g)].length > 1) bad.push("second save check in head");
+  if (headSecondSave(head)) bad.push("second save check in head");
   const outside = partial ? "" : outsideText(html);
   if (outside) bad.push(`text outside stages: ${outside.slice(0, 60)}`);
   const kinds = AFFLICTION_KINDS.filter((k) => item.traits.includes(k));
@@ -91,7 +91,7 @@ export function buildBatch() {
     const ours = a?.reason?.startsWith(CONV) || a?.reason?.includes("missing: affliction:"), oldDebt = a?.confidence === "needs-primitive" && !ours;
     if (a && !ours && !oldDebt) continue;   // принятое руками/моделью не трогаем; прежний долг перезаписывается только чистым правилом
     const d = { uuid: it.uuid, slug: it.slug, type: it.type, name: it.name, nameRu: it.nameRu, layer: t.layer, batch: t.batchName, dupCount: it.dupCount };
-    const r = afflictionRule(h, { name: it.name, traits: it.traits ?? [], condSlug, save: it.defense ? { statistic: it.defense.save } : null, ignoreOutside: FLAVOR_OK.has(it.uuid), extraNote: EXTRA_NOTE.get(it.uuid) });
+    const r = afflictionRule(h, { name: it.name, traits: it.traits ?? [], condSlug, save: it.defense ? { statistic: it.defense.save } : null, ignoreOutside: FLAVOR_OK.has(it.uuid), extraNote: EXTRA_NOTE.get(it.uuid), refineOk: REFINE_OK.get(it.uuid) });
     let why = null, diffs = [];
     const injury = it.type === "weapon" || (it.traits ?? []).includes("injury") || /@Check\[[^\]]*traits:[^\]|]*\binjury\b/.test(h);
     if (injury && it.type !== "consumable") why = it.type === "weapon" ? "weapon activation" : /^(envenom|vishkanyan venom)$/i.test(it.name) ? "envenom" : "npc injury action, not coat";   // в `coat` идут только расходники

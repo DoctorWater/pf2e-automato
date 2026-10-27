@@ -100,7 +100,7 @@ export function semanticErrors(rule, refs, html = null) {
   }
   const k = u?.check;
   if (k) {
-    for (const s of [k.statistic].flat()) if (!CHECK_STATS.has(s) && !isLore(s)) bad.push(`check.statistic "${s}" must be a skill, perception or spell-attack`);
+    for (const s of [k.statistic].flat()) if (!CHECK_STATS.has(s) && !isLore(s)) bad.push(`check.statistic "${s}" must be a skill, perception or spell-attack (an impulse attack roll \`@Check[impulse|…]\`: unsure: true, note \`impulse-attack\`)`);
     if (k.vs?.against && !VS_AGAINST.has(k.vs.against)) bad.push(`vs.against "${k.vs.against}" is unknown`);
   }
   for (const m of rule.macros ?? []) if (!m.builtin || !BUILTIN[m.builtin]) bad.push(`macro ${m.builtin ?? m.uuid} is not available: do not use macros`);
@@ -158,7 +158,13 @@ export function frequentActivations(html) {
 }
 
 /** Один ответ агента -> { kind: "accepted"|"notes-only"|"null"|"unsure"|"error", rule?, errors? }. */
-export function checkAnswer(ans, refs, html = null, kind = null) {
+/** Сколько блоков Activate текста снаряжения не покрыто записями activate (+ корневой onUse с областью). */
+export function missingActivations(rule, html, kind) {
+  const blocks = html && !['consumable', 'action', 'feat'].includes(kind?.type) ? (html.match(/<strong>\s*Activate\b/gi) ?? []).length : 0;
+  return Math.max(0, blocks - (rule.activate?.length ?? 0) - (rule.onUse?.targets === 'area' ? 1 : 0));
+}
+
+export function checkAnswer(ans, refs, html = null, kind = null, opts = {}) {
   if (!ans || typeof ans.uuid !== "string" || !("rule" in ans)) return { kind: "error", errors: ["answer must be {uuid, rule|null, unsure:bool, note}"] };
   if (ans.unsure === true) return { kind: "unsure", guess: ans.rule ?? null };
   if (ans.rule === null && html && afflictionStages(html)) return { kind: "error", errors: ["the text has affliction stages (Stage 1, Stage 2 …): never answer null, write the `affliction` step (or unsure: true with \"missing: affliction\")"] };
@@ -181,6 +187,8 @@ export function checkAnswer(ans, refs, html = null, kind = null) {
   if (html && kind?.area === null && !/@Template\[/.test(html) && [v.rule.onUse, ...activateUses(v.rule)].some((o) => o?.targets === "area")) return { kind: "error", errors: [`targets "area" needs an area: the item has no "area" in its header and no @Template in the text; ${[v.rule.onUse, ...activateUses(v.rule)].some((o) => o?.zone) ? "a zone needs a real area: for an aura of the owner write onEvent side:\"near\" with range (forms 1a/1c)" : "use \"selected\" (a push then has no \"from\": it goes away from the user)"}`] };
   // атаку заклинанием бросает pf2e (карточка), по ней считается урон; без roll:"system" модуль бросил бы вторую, свою
   if ([v.rule.onUse, ...activateUses(v.rule)].some((o) => o?.check && [o.check.statistic].flat().includes("spell-attack") && o.check.roll !== "system")) return { kind: "error", errors: ['check.statistic "spell-attack" needs "roll":"system": pf2e rolls the spell attack itself (its card), the module takes the degree from it'] };
+  // карточка pf2e бросает атаку заклинанием только против AC: «против Fortitude DC» (Murderous Vine) модуль выразить не может
+  if ([v.rule.onUse, ...activateUses(v.rule)].some((o) => o?.check && [o.check.statistic].flat().includes("spell-attack") && (SAVES.includes(o.check.vs?.defense) || SAVES.includes(o.check.vs?.against)))) return { kind: "error", errors: ['a spell attack against a Fortitude/Reflex/Will DC cannot be rolled: the spell card rolls against AC only; answer `unsure: true`, note `spell-attack-save`'] };
   // постоянный урон из system.damage pf2e превращает в состояние сам: второй шаг дал бы второе состояние
   const dupPers = stepsOf(v.rule).filter((s) => s.persistent && kind?.persistentDmg?.includes(s.persistent.damageType));
   if (dupPers.length) return { kind: "error", errors: [`the item's own damage already has persistent ${dupPers[0].persistent.damageType}: pf2e applies that condition itself when the damage is applied, so a \`persistent\` step of that type would add a second condition: remove the step (a \`note\` if the GM must act)`] };
@@ -197,6 +205,9 @@ export function checkAnswer(ans, refs, html = null, kind = null) {
   // то же для «Удар; при попадании эффект без спасброска» (strikeGate такой текст не ловит: нет save)
   if (html && hasCard(kind) && strikeHitEffect(html) && !multiStrike(html) && v.rule.onEvent?.some((e) => ["attack-roll", "damage-roll"].includes(e.on) && (e.side ?? "self") === "self" && !e.afterUse)) return { kind: "error", errors: ["the text is \"Make a Strike; if it hits, <effect>\": an onEvent entry (side self) on attack-roll/damage-roll needs afterUse:true (Exception 2b), otherwise it fires on every hit of the owner"] };
   const { rule, gate } = normalizeRule(v.rule, html, kind);
+  // блоков Activate больше, чем записей activate (+ корневой onUse с областью): невыразимую активацию молча не пропускаем; перепроверка догадки (--final) её не применяет
+  const lost = opts.recheck ? 0 : missingActivations(rule, html, kind);
+  if (lost) return { kind: "error", errors: [`the text has ${lost} more \`Activate\` block(s) than the rule has activations: every activation is an \`activate\` entry; one the schema cannot express -> unsure: true with a label in the note; an activation that is only damage or only story (nothing to automate) still gets an \`activate\` entry with a single \`note\` step (in Russian), never skipped`] };
   if (notesOnly(rule)) return { kind: "notes-only", rule };
   // испытание остаётся при использовании, а текст — «Удар, затем испытание»: оно бросилось бы и при промахе
   if (gate) return { kind: "unsure", guess: rule, key: multiStrike(html) ? "multi-strike" : "strike-gate" };
@@ -232,11 +243,12 @@ export function processAnswers(answers, draftItems, refs, state = emptyState(), 
     else if (c.kind === "null") res.accepted.push({ ...d, status: "skip", confidence: null, reason: `model-null: ${c.note}`, rule: null });
     else if (c.kind === "unsure" && final) {
       // догадка проходит те же проверки, что и обычный ответ; негодная -> rule:null (правило по ней писать нечем)
-      const g = checkAnswer({ uuid: a.uuid, rule: c.guess, unsure: false }, refs, htmlOf(a.uuid), kindOf(a.uuid, d));
+      const g = checkAnswer({ uuid: a.uuid, rule: c.guess, unsure: false }, refs, htmlOf(a.uuid), kindOf(a.uuid, d), { recheck: true });
       // механизм назван кодом (c.key — unsure с ключом; g.key — догадка сама оказалась strike-gate/multi-strike): правило-догадка остаётся как есть
       const key = c.key ?? (g.kind === "unsure" ? g.key : null);
       const keep = c.key ? c.guess : g.kind === "unsure" && g.key ? g.guess : ["accepted", "notes-only"].includes(g.kind) ? g.rule : null;
-      res.accepted.push({ ...d, status: "manual", confidence: "needs-primitive", reason: `needs-primitive: ${key ? `${key}; ` : ""}${a.note ?? ""}`.replace(/;\s*$/, "").trim(), rule: keep });
+      const lost = keep ? missingActivations(keep, htmlOf(a.uuid), kindOf(a.uuid, d)) : 0;   // пропущенные активации — в partial записи
+      res.accepted.push({ ...d, status: "manual", confidence: "needs-primitive", ...(lost && { partial: [`${lost} activation(s) not expressed by the rule: ${a.note ?? "see reason"}`] }), reason: `needs-primitive: ${key ? `${key}; ` : ""}${a.note ?? ""}`.replace(/;\s*$/, "").trim(), rule: keep });
     }
     else if (c.kind === "unsure") { state.sonnet[a.uuid] = { uuid: a.uuid, why: "unsure", note: c.key ?? a.note ?? "", guess: c.guess }; res.sonnet.push(a.uuid); }
     else fail(a.uuid, c.errors, a.rule ?? null);

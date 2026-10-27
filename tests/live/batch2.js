@@ -79,11 +79,11 @@ async () => {
 
   // ---------- окружение одного сценария ----------
   const newEnv = async (id) => {
-    const e = { dead: false, id, tracked: new Set(), dialogs: [], windows: [], step: "старт", stop: false, d20: null };
+    const e = { dead: false, id, tracked: new Set(), dialogs: [], windows: [], step: "старт", stop: false, d20: null, pick: null };
     const hook = Hooks.on("createChatMessage", (m) => { if (m.author?.id === game.user.id) e.tracked.add(m.id); });
     e.scene = await Scene.create({ name: `${PFX}сцена ${id}`, width: 2400, height: 2000, padding: 0, grid: { size: 100, distance: 5 }, navigation: false, tokenVision: false });
     await e.scene.view(); await wait(700);
-    // окна: наши .paf-dialog закрываются (отмена); ChoiceSet pf2e — первый вариант; окна бросков pf2e — жмём «Бросок»
+    // окна: наши .paf-dialog: e.pick = data-action кнопки (значение варианта choose), иначе закрываются (отмена); ChoiceSet pf2e — первый вариант; окна бросков pf2e — жмём «Бросок»
     const seen = new Set();
     (async () => {
       while (!e.stop) {
@@ -91,7 +91,8 @@ async () => {
           if (seen.has(el.id)) continue;
           seen.add(el.id);
           e.dialogs.push(el.querySelector(".window-title")?.textContent?.trim() ?? el.id);
-          foundry.applications.instances.get(el.id)?.close();
+          const b = e.pick != null ? el.querySelector(`button[data-action="${e.pick}"]`) : null;
+          if (b) b.click(); else foundry.applications.instances.get(el.id)?.close();
         }
         for (const app of foundry.applications.instances.values()) {
           if (seen.has(app.id) || !app.element || !/Prompt|Picker/i.test(app.constructor.name)) continue;
@@ -257,7 +258,7 @@ async () => {
     t.ok(!e.cond(e.A(tP), "sickened"), "у автора sickened нет");
   });
 
-  sc("strike-hit-move", "Clobber (шаг move при Ударе): промах — цель на месте; попадание — толчок на 5 фт (600 -> 700) и prone", async (e, t) => {
+  sc("strike-hit-move", "Clobber (шаг move при Ударе): промах — цель на месте; окно choose «do» — толчок на 5 фт (600 -> 700) и prone; «no» — без толчка, prone есть", async (e, t) => {
     needApply();
     const pc = await e.pc("атакующий"), vic = await e.foe("цель");
     const tP = await e.tok(pc, 500, 500, 1), tV = await e.tok(vic, 600, 500, -1);
@@ -266,10 +267,18 @@ async () => {
     await rigTo(e, tP, tV);
     const m1 = await cardSwing(e, item, tP, tV, 1);
     t.ok(!OK_DEG.includes(outcome(m1)) && e.T(tV).x === 600 && !e.cond(e.A(tV), "prone"), `после промаха цель на месте: x=${e.T(tV).x} [${cond2(e.A(tV))}]`);
+    e.pick = "do";   // окно choose: толкнуть
     const m2 = await cardSwing(e, item, tP, tV, 10);
     t.ok(outcome(m2) === "success", `Удар попал не критом (${outcome(m2)})`);
-    t.ok(!!(await waitFor(() => e.T(tV).x === 700 && e.T(tV).y === 500, 8000)), `толчок на 5 фт: позиция (${e.T(tV).x},${e.T(tV).y})`);
-    t.ok(!!(await waitFor(() => e.cond(e.A(tV), "prone"), 6000)), `цель prone [${cond2(e.A(tV))}]`);
+    t.ok(!!(await waitFor(() => e.T(tV).x === 700 && e.T(tV).y === 500, 8000)), `«do»: толчок на 5 фт: позиция (${e.T(tV).x},${e.T(tV).y})`);
+    t.ok(!!(await waitFor(() => e.cond(e.A(tV), "prone"), 6000)), `«do»: цель prone [${cond2(e.A(tV))}]`);
+    await e.T(tV).update({ x: 600 }); await e.A(tV).decreaseCondition("prone", { forceRemove: true }); await wait(700);
+    e.pick = "no";   // окно choose: не толкать
+    const m3 = await cardSwing(e, item, tP, tV, 10);
+    t.ok(outcome(m3) === "success", `второй Удар попал (${outcome(m3)})`);
+    t.ok(!!(await waitFor(() => e.cond(e.A(tV), "prone"), 6000)), `«no»: prone есть [${cond2(e.A(tV))}]`);
+    await wait(1500);
+    t.ok(e.T(tV).x === 600, `«no»: цель не сдвинута: x=${e.T(tV).x}`);
   });
 
   sc("policy-add", "Fuel Impossible Spell (policy add): первая активация — doomed 1, вторая — doomed 2", async (e, t) => {

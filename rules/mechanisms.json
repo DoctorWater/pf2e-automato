@@ -43,14 +43,55 @@
       "aliases": ["^affliction stages", "affliction: (spell with degree table|note)"]
     },
     "hold": {
-      "title": "Недуг: состояние нельзя снять/уменьшить, пока не излечён (считается по заметке partial-правила)",
+      "title": "Состояние нельзя снять/уменьшить ниже значения (недуг: пока не излечён; считается по заметке partial-правила)",
       "primitive": null,
       "rule": "(can.t|cannot) be (reduced|removed|healed|cured)"
+    },
+    "check-auto-unless": {
+      "title": "Проверка только при условии цели (схвачена), иначе автоматический успех",
+      "primitive": null,
+      "aliases": ["check-auto-unless", "check only if (the )?(victim|target) is grabbed", "automatic (success )?unless"]
+    },
+    "flat-check-gate": {
+      "title": "Чистая проверка перед действием вида (речь, концентрация, сотворение, телепортация, нацеливание)",
+      "primitive": null,
+      "aliases": ["flat-check-gate", "flat check before (speaking|casting|teleport|targeting)"]
+    },
+    "persistent-recover": {
+      "title": "Немедленная проверка восстановления от продолжительного урона",
+      "primitive": null,
+      "aliases": ["persistent-recover", "recover from persistent damage", "flat check (removes|to remove) persistent"]
+    },
+    "random-table": {
+      "title": "Случайный эффект по таблице броска",
+      "primitive": null,
+      "aliases": ["random-table", "random (effect|table|spell)"]
     },
     "healing-modifier": {
       "title": "Модификатор лечения («восстанавливает вдвое меньше»)",
       "primitive": null,
-      "aliases": ["healing modifier"]
+      "aliases": ["healing modifier"],
+      "rule": "regains? half as many Hit Points|no benefit from (healing|regeneration)"
+    },
+    "hp-transfer": {
+      "title": "Перенос очков здоровья между существами (каждый ход)",
+      "primitive": null,
+      "aliases": ["hp transfer"]
+    },
+    "spellheart-strike-event": {
+      "title": "Спеллхарт: состояние цели при критическом успехе Удара оружием",
+      "primitive": null,
+      "aliases": ["spellheart strike"]
+    },
+    "impulse-attack": {
+      "title": "Атака импульсом/deviant-способностью: check.statistic не знает impulse и deviant",
+      "primitive": null,
+      "aliases": ["impulse attack|deviant", "deviant (attack|statistic)", "attack statistic"]
+    },
+    "spell-attack-save": {
+      "title": "Атака заклинанием против КС спасброска (Fortitude/Reflex/Will DC), а не против AC: карточка pf2e бросает только против AC",
+      "primitive": null,
+      "aliases": ["spell attack (vs|against) (fortitude|reflex|will|save)"]
     },
     "passive-hit-trigger": {
       "title": "Пассивный триггер при попадании/уроне/крите (не активность с Ударом)",
@@ -158,6 +199,11 @@
       "title": "Выбор режима или числа действий у самого заклинания/умения (не снаряжения)",
       "primitive": null,
       "aliases": ["actions change targets", "random color choice", "backlash choice", "(mode choice|several modes).* @(spell|feat)/"]
+    },
+    "mythic-proficiency": {
+      "title": "Эффект зависит от мифического мастерства («At mythic proficiency»): модуль его не учитывает",
+      "primitive": null,
+      "aliases": ["mythic proficiency", "mythic-proficiency"]
     },
     "mode-choice": {
       "title": "Выбор режима/грани/нескольких активаций",

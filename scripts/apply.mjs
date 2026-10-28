@@ -3,7 +3,7 @@
 // вокруг applyCondition/applyEffect/removeByKey, иначе зависнет. Очередь "msg:<id>" apply не берёт (её держит вызывающий).
 import { MOD, L, DEGREES, flagPath, sluggify, queue, forcedDelete, socket, ENDS_EARLY, sharedDialog } from "./util.mjs";
 import { runMacros } from "./macros.mjs";
-import { effectSource } from "./builtin/lib.mjs";
+import { effectSource, messageTargets } from "./builtin/lib.mjs";
 import { card } from "./card.mjs";
 import { inRange } from "./range.mjs";
 import { resolveFormula, isZeroFormula, isActiveStep, DAMAGE_TYPES } from "./rules.mjs";
@@ -15,6 +15,7 @@ import { forcedMove, undoMove, areaPoint } from "./move.mjs";
 import { rulesOfMods, textOfMods, inlineSlug } from "./inline-effect.mjs";
 import { afflictionStep, afflictionUndo, afflictionUnmake, afflictionRestore } from "./affliction-run.mjs";
 import { coatStep, coatArm, coatUnarm, coatUnmake } from "./coat.mjs";
+import * as hold from "./hold.mjs";
 
 const esc = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
@@ -73,19 +74,26 @@ export function applyInlineEffect(actor, spec /* {mods, duration} */, meta = {},
  * Состояние с длительностью: эффект-обёртка pf2e + GrantItem состояния (значение — алтерацией badge-value, она применяется один раз при выдаче).
  * Снимается вместе с обёрткой (cascade). Обычные состояния обёртка держит (grantee restrict — ГМ не удалит состояние, пока жива обёртка);
  * убывающие и кончающиеся досрочно (ENDS_EARLY) — detach: ГМ уменьшает/снимает их вручную, а обёртка по истечении срока снимет остаток.
+ * «Шок на срок» (stunned без значения): в имени числа нет; значение — 4 на раунд срока: pf2e само значение не убавляет, ГМ (или модуль) убавляет вручную в начале хода цели, и остатка должно хватать на запрет реакций до снятия обёртки. Не restrict: убавление до нуля ГМ вправе снять сам (иначе RemovalPrevented).
  * Носитель повтора (meta.repeat) — cascade: конец выданного состояния уносит и обёртку (иначе пустая обёртка слала бы карточки вечно).
  */
+const STUN_ROUNDS = { rounds: 1, minutes: 10, hours: 600, days: 14400 };
+/** Значение под «шок на срок»: 4 на каждый раунд срока (d.value — уже брошенное число); потолок 99. */
+const stunValue = (d) => Math.min(99, 4 * d.value * (STUN_ROUNDS[d.unit] ?? 1));
+
 async function createTimed(actor, spec, meta, ctx, base) {
   const d = spec.duration, valued = !!base.system?.value?.isValued;
+  const forStun = sluggify(spec.slug) === "stunned" && spec.value == null;   // шок на срок
+  const dur = typeof d.value === "string" ? (await new Roll(d.value).evaluate()).total : d.value;   // срок бросаем до расчёта значения
   // getCondition() отдаёт копию без uuid — источник в компендиуме берём из _stats/sourceId
   const uuid = base.uuid ?? base._stats?.compendiumSource ?? base.sourceId;
   const grant = { key: "GrantItem", uuid, onDeleteActions: { grantee: meta.repeat ? "cascade" : ENDS_EARLY.has(sluggify(spec.slug)) ? "detach" : "restrict" },
-    ...(valued && { alterations: [{ mode: "override", property: "badge-value", value: spec.value ?? 1 }] }) };
+    ...(valued && { alterations: [{ mode: "override", property: "badge-value", value: spec.value ?? (forStun ? stunValue({ ...d, value: dur }) : 1) }] }) };
   const { tToken, who } = timedWho(actor, d, ctx);
   const data = effectSource({
-    name: `${base.name}${valued ? ` ${spec.value ?? 1}` : ""}`, img: base.img, rules: [grant],
+    name: `${base.name}${valued && !forStun ? ` ${spec.value ?? 1}` : ""}`, img: base.img, rules: [grant],
     description: who.item ? `<p>@UUID[${who.item}]</p>` : "",   // ссылка на источник: оговорки предмета (лишнее действие Haste только на…) не теряются
-    duration: { value: typeof d.value === "string" ? (await new Roll(d.value).evaluate()).total : d.value, unit: d.unit, expiry: d.expiry ?? null }, origin: who, target: { actor: actor.uuid, token: tToken?.uuid }
+    duration: { value: dur, unit: d.unit, expiry: d.expiry ?? null }, origin: who, target: { actor: actor.uuid, token: tToken?.uuid }
   });
   withMeta(data, meta);
   const [item] = await actor.createEmbeddedDocuments("Item", [data]);
@@ -270,16 +278,33 @@ export function removeCarrier(actor, key) {
 }
 
 const ROUNDS_IN = { rounds: 1, minutes: 10, hours: 600, days: 14400 };
-/** Шаг extendEffect {slug, rounds}: продлить действующий эффект получателя на раунды (Затяжная композиция, Фортиссимо, Extend Boost). Срок в минутах/часах переводится в раунды; бессрочный и «до конца встречи» — пропуск. Повтор того же шага (meta.key) не продлевает дважды. */
-export function extendEffect(actor, spec, meta = {}) {
+/** Шаг extendEffect {slug, rounds}: продлить действующий эффект получателя на раунды (Затяжная композиция, Фортиссимо, Extend Boost). Срок в минутах/часах переводится в раунды; бессрочный и «до конца встречи» — пропуск. Повтор того же шага (meta.key) не продлевает дважды.
+ * {cast:true, rounds} + spec.message (applyOps кладёт state.castMessage): вместо slug — эффект, выданный сотворением с этим id сообщения (Lingering Composition: аура на барде). */
+export async function extendEffect(actor, spec, meta = {}) {
+  // эффект сотворения ставит execUse того же сообщения: ждём его до очереди актёра (execUse сам берёт её — иначе тупик)
+  if (spec.cast && spec.message) await queue(`use:${spec.message}`, () => {});
   return queue(`actor:${actor.uuid}`, async () => {
-    const cur = effectsOf(actor, spec).find((e) => ROUNDS_IN[e.system?.duration?.unit] && e.system.duration.value >= 0);
+    // эффект сотворения лежит на барде или на цели сотворения (Allegro, Uplifting Overture)
+    const holders = spec.cast ? [actor, ...(game.messages?.get(spec.message) ? messageTargets(game.messages.get(spec.message)).map((t) => t.actor) : [])] : [actor];
+    const own = spec.cast ? [...new Set(holders)].flatMap((h) => h.itemTypes.effect.filter((e) => spec.message && metaOf(e)?.message === spec.message)) : effectsOf(actor, spec);
+    const cur = own.find((e) => ROUNDS_IN[e.system?.duration?.unit] && e.system.duration.value >= 0);
     const done = cur?.flags?.[MOD]?.bumped ?? [];
+    if (!cur && spec.cast) notify("apply.noCastEffect", { name: actor.name });
     if (!cur || !meta.key || done.includes(meta.key)) return { op: "skipped" };
     const d = cur.system.duration, prev = { value: d.value, unit: d.unit, expiry: d.expiry ?? null };
     // expiry передаём явно: pf2e при смене unit без expiry подставляет turn-start (EffectPF2e#_preUpdate)
     await cur.update({ "system.duration.value": d.value * ROUNDS_IN[d.unit] + spec.rounds, "system.duration.unit": "rounds", "system.duration.expiry": d.expiry ?? null, [`flags.${MOD}.bumped`]: [...done, meta.key] });
     return { op: "extended", item: cur, prev, key: meta.key };
+  });
+}
+
+/** Шаг refundFocus: вернуть владельцу n очков фокуса (не выше максимума). -> сколько вернулось (0 — нечего) */
+export function refundFocus(actor, n = 1) {
+  return queue(`actor:${actor.uuid}`, async () => {
+    const f = actor.system?.resources?.focus, value = f?.value ?? 0, delta = Math.min(n, (f?.max ?? value) - value);
+    if (!(delta > 0)) return 0;
+    await actor.update({ "system.resources.focus.value": value + delta });
+    return delta;
   });
 }
 
@@ -298,7 +323,7 @@ export function setRollOption(actor, spec) {
 
 /** Получатели «party» и «allies»: участники партий автора; союзники автора в радиусе range футов от его токена без преграды стен (как PA OnlyAllyWithinRange). */
 const partyOf = (actor) => [...new Map([...(actor?.parties ?? [])].flatMap((p) => [...p.members]).map((m) => [m.uuid, m])).values()];
-function alliesIn(actor, token, range, rel = "isAllyOf", withSelf = false) {   // withSelf — сам автор тоже кандидат (если он не центр отсчёта)
+export function alliesIn(actor, token, range, rel = "isAllyOf", withSelf = false) {   // withSelf — сам автор тоже кандидат (если он не центр отсчёта)
   const src = token?.object, scene = token?.parent;
   if (!actor || !scene) return [];
   // сцена не на холсте (нет .object): расстояние по документам (центры токенов), стены проверить нечем — предупреждаем ГМа
@@ -362,7 +387,10 @@ export function applyEffect(actor, spec /* {uuid, badge?} */, meta = {}, ctx = {
       const pool = ctx.originActor == null ? [actor] : [actor, ...[...(game.actors ?? []), ...(game.scenes?.contents ?? []).flatMap((s) => s.tokens.filter((t) => !t.actorLink).map((t) => t.actor))].filter((a) => a && a !== actor)];
       for (const a of pool) for (const e of a.itemTypes.effect.filter((i) => i._stats?.compendiumSource === spec.uuid && (ctx.originActor == null || i.system?.context?.origin?.actor === ctx.originActor.uuid))) await e.delete();
     }
-    if (hasEffect(actor, spec.uuid, ctx.originActor?.uuid, meta.key)) return { op: "skipped" };
+    const own = spec.duration?.of === "target";   // срок считает ход самого получателя (метка «до конца вашего хода»): автор эффекта — получатель, иначе pf2e отсчитает ход заклинателя
+    // у own автор срока — получатель, у всех меток он один: различаем по meta.by (метка Убежища привязана к защищённому, второй защищённый ставит свою)
+    if (own ? (meta.key && findByKey(actor, meta.key)) || actor.items.some((i) => i.type === "effect" && i._stats?.compendiumSource === spec.uuid && i.system?.context?.origin?.actor === actor.uuid && (metaOf(i)?.by ?? null) === (meta.by ?? null))
+      : hasEffect(actor, spec.uuid, ctx.originActor?.uuid, meta.key)) return { op: "skipped" };
     const src = await fromUuid(spec.uuid);
     if (!src || src.type !== "effect") { console.warn(`${MOD} | applyEffect: ${spec.uuid} не эффект`); return { op: "skipped" }; }
     const data = src.toObject();
@@ -379,6 +407,7 @@ export function applyEffect(actor, spec /* {uuid, badge?} */, meta = {}, ctx = {
       },
       ...(ctx.originItem && { traits: { value: (ctx.originItem.system?.traits?.value ?? []).filter((t) => t in valid) } })
     });
+    if (own) { const o = data.system.context.origin; o.actor = actor.uuid; o.token = (ctx.target ?? actor.getActiveTokens(true, true)[0])?.uuid ?? null; }
     // уровень эффекта = круг сотворения: формулы @item.level (твёрдость Щита, бонус Защиты, руны) растут как при перетаскивании из карточки
     if (ctx.castRank != null && data.system.level) data.system.level.value = ctx.castRank;
     // срок шага (duration) заменяет срок эффекта; кубик («1d4» раундов) бросается здесь, expiry без указания берётся из эффекта
@@ -486,6 +515,9 @@ export async function applyOps(message, tokenKey, steps, ctx = {}) {
   // актёр токена: у несвязанного токена это синтетический актёр, и pf2e сверяет автора срока с combatant.actor именно с ним
   const selfActor = ctx.originActor ?? originToken?.actor ?? actorOf(await fromUuid(use.actor));
   const originItem = ctx.originItem ?? (use.item?.uuid ? await fromUuid(use.item.uuid) : null) ?? ((message.flags?.[MOD]?.activation ?? message.flags?.[MOD]?.cast) ? message.item : null);   // эфемерное заклинание активации по uuid не найти
+  // карточка Воли удержанной атаки (state.event = `<атака>:<носитель>:<i>`): автор меток — защищённый, владелец носителя, а не бросающий нападающий
+  const carrierUuid = String(use.state?.event ?? "").split(":")[1];
+  const guardUuid = carrierUuid ? (await fromUuid(carrierUuid).catch(() => null))?.actor?.uuid ?? null : null;
   const ectx = { originActor: selfActor, originToken, originItem, rollOptions: ctx.rollOptions,
     roll: ctx.degree != null && Number.isFinite(ctx.total) ? { total: ctx.total, degreeOfSuccess: ctx.degree } : null,
     castRank: originItem?.type === "spell" ? (message.flags?.pf2e?.origin?.castRank ?? originItem.rank ?? null) : null,
@@ -521,6 +553,7 @@ export async function applyOps(message, tokenKey, steps, ctx = {}) {
 
   for (const job of jobs) {
     const { i, step } = job;
+    if (step.hold) { ops.push(...await holdStep(step.hold, message, use, ctx, scope === "challenge" ? `c${ctx.degree}.${i}` : `${i}`, doneOps)); continue; }
     const actor = step.to === "chosen" ? picks.actor : job.actor;
     if (!actor || !isActiveStep(step)) continue;   // note — только текст в блоке
     if (step.rank && (rank < (step.rank.min ?? 1) || rank > (step.rank.max ?? Infinity))) continue;   // круг сотворения вне границ шага
@@ -548,7 +581,7 @@ export async function applyOps(message, tokenKey, steps, ctx = {}) {
       key: `${message.id}:${step.to === "self" ? selfKey : step.to === "target" ? tokenKey : `grp.${actor.uuid}`}:${stepKey}`,
       rank: ectx.castRank,
       source: scope, message: message.id, region: ctx.region?.uuid ?? null,
-      origin: use.item?.uuid ?? null, by: selfActor?.uuid ?? null
+      origin: use.item?.uuid ?? null, by: guardUuid ?? selfActor?.uuid ?? null
     };
     if (step.choose) {
       const c = step.choose, prev = doneOps.find((o) => o.op === "chose" && o.key === meta.key);
@@ -623,6 +656,11 @@ export async function applyOps(message, tokenKey, steps, ctx = {}) {
       if (r.op === "removed") ops.push({ op: "removed", slug: r.slug, actor: actor.uuid, ...(r.prev != null && { prev: r.prev }), ...(r.also && { also: r.also }) });
       continue;
     }
+    if (step.refundFocus) {   // очки фокуса самого заклинания (Lingering Composition: 1); повтор шага по ключу не возвращает второй раз
+      const n = Number(originItem?.system?.cast?.focusPoints) || 1, done = doneOps.some((o) => o.key === meta.key), delta = done ? 0 : await refundFocus(actor, n);
+      if (!done) ops.push({ op: "focus", actor: actor.uuid, delta, key: meta.key });   // и при delta 0 (запас полный): карточка отмечена, поздний клик не вернёт очко задним числом
+      continue;
+    }
     if (step.affliction || step.stageDelta) {   // недуг: наложение и сдвиг стадии (affliction-run.mjs); носитель — свой эффект с meta.affliction
       const r = await afflictionStep(actor, step, { message, meta, scope, use, tokenKey, degree: ctx.degree, selfActor, originToken, originItem, traits });
       if (r.op !== "skipped") ops.push({ op: r.op, ...(r.item && { item: r.item.uuid }), ...(r.data && { actor: actor.uuid, data: r.data }), ...(r.prev != null && { prev: r.prev }), ...(r.made?.length && { made: r.made }) });
@@ -656,7 +694,7 @@ export async function applyOps(message, tokenKey, steps, ctx = {}) {
       ? await applyCondition(actor, dur ? { ...step.condition, duration: dur } : step.condition, meta, { ...ectx, target: tgt })
       : step.removeKey ? await removeCarrier(actor, step.removeKey)
       : step.removeEffect ? await removeEffect(actor, step.removeEffect, ectx)
-      : step.extendEffect ? await extendEffect(actor, step.extendEffect, meta)
+      : step.extendEffect ? await extendEffect(actor, step.extendEffect.cast ? { ...step.extendEffect, message: use.state?.castMessage } : step.extendEffect, meta)
       : step.rollOption ? await setRollOption(actor, step.rollOption)
       : step.effect.mods ? await applyInlineEffect(actor, { ...step.effect, duration: step.duration }, meta, { ...ectx, target: tgt })
       : await applyEffect(actor, step.duration ? { ...step.effect, duration: step.duration } : step.effect, meta, { ...ectx, markUuid, choice: step.choice, target: tgt });
@@ -685,6 +723,26 @@ export async function applyOps(message, tokenKey, steps, ctx = {}) {
   return ops;
 }
 
+/**
+ * Шаг hold (hold.mjs): атака, удерживаемая записью-носителем, выпускается (release), отменяется (cancel) или выпускается с концом заклинания (end: носитель снимается с защищённого).
+ * Атака — ctx.holdMessage (запись события) либо первая часть use.state.event карточки испытания (`<id атаки>:<uuid носителя>:<i>`); носитель — вторая.
+ * Автор заклинания не участвует: карточка и носитель находятся по ключу события. -> ops
+ */
+async function holdStep(kind, message, use, ctx, at, doneOps) {
+  const key = `${message.id}:hold:${ctx.stepKey ?? at}`, out = [];
+  if (doneOps.some((o) => o.key === key)) return out;
+  const [msgId, carrierUuid] = String(use.state?.event ?? "").split(":");
+  const held = ctx.holdMessage ?? game.messages.get(msgId);
+  if (kind === "end" && carrierUuid) {
+    const carrier = await fromUuid(carrierUuid).catch(() => null);
+    const r = carrier?.actor ? await queue(`actor:${carrier.actor.uuid}`, () => dropEffects([carrier], carrier.actor)) : null;
+    if (r?.op === "effRemoved") out.push({ op: "effRemoved", actor: carrier.actor.uuid, data: r.data, key });
+  }
+  const r = held ? await hold.resolve(held, kind === "cancel" ? "cancel" : "release", { wait: !ctx.holdMessage }) : null;
+  out.push({ op: "hold", msg: held?.id ?? null, ...(r && { prev: r.prev }), key });
+  return out;
+}
+
 /** Откат записанного в ops: созданное удаляется, поднятое возвращается к prev; затем запись state чистится. */
 export async function undoOps(message, tokenKey) {
   const state = message.flags?.[MOD]?.use?.state ?? {};
@@ -693,6 +751,7 @@ export async function undoOps(message, tokenKey) {
   for (const [scope, rec] of places) {
     if (!rec) continue;
     for (const o of [...(rec.ops ?? [])].reverse()) {
+      if (o.op === "hold") { if (o.prev) await hold.restore(game.messages.get(o.msg), o.prev); continue; }   // атака снова ждёт: карточку можно применить заново
       if ((o.op === "vis" && o.skipped) || o.op === "chose" || o.op === "damaged" || o.op === "noted" || (o.op === "moved" && o.skipped)) continue;   // выбор отменять нечем; урон pf2e откатывает своей карточкой
       if (o.op === "moved") {   // позиция возвращается, только если токен всё ещё там, куда его сдвинули
         if (await undoMove(await fromUuid(o.token), o)) undone++; else notify("moveSkip.undone", { target: (await fromUuid(o.token))?.name ?? "" });
@@ -718,6 +777,11 @@ export async function undoOps(message, tokenKey) {
         if (!a) continue;
         await queue(`actor:${a.uuid}`, () => (o.op === "option" ? a.toggleRollOption(o.domain, o.option, null, o.prev) : a.createEmbeddedDocuments("Item", foundry.utils.deepClone(o.data))));
         undone++;
+        continue;
+      }
+      if (o.op === "focus") {   // возврат очков фокуса откатываем дельтой: за это время актёр мог потратить фокус
+        const a = actorOf(await fromUuid(o.actor));
+        if (a) { await queue(`actor:${a.uuid}`, () => a.update({ "system.resources.focus.value": Math.max(0, a.system.resources.focus.value - o.delta) })); undone++; }
         continue;
       }
       if (o.op === "coatMade") {   // нанесённый яд: носитель по ключу шага (id мог смениться при откате траты)

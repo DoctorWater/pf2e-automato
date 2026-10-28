@@ -353,6 +353,9 @@
         "ofOrigin": "Only the one I created",
         "dmgBasic": "Basic save (×0 / ×½ / ×1 / ×2)",
         "extendRounds": "Extend by rounds",
+        "effectSlugCast": "* = effects of this casting",
+        "extendCastPlate": "Extend this casting's effects by {rounds} rd.",
+        "refundPlate": "Refund the Focus Point",
         "optionName": "Option (e.g. mighty-rage)",
         "optOff": "Turn off instead of on",
         "stepWhen": "When (condition)",
@@ -480,6 +483,7 @@
         "kindRemove": "Remove a condition",
         "kindRemoveEffect": "Remove an effect",
         "kindExtendEffect": "Extend an effect",
+        "kindRefundFocus": "Refund Focus Point",
         "kindRollOption": "Turn on an option",
         "probeOnlyUse": "The test run is only for the “On use” event.",
         "keep": {

@@ -28,8 +28,13 @@ test("catalog.pa: ручные каталоги побеждают при скл
   }
 });
 
+// Calm: ошибочная запись pa перекрыта в catalog.json (l3, кусок 1) до перегенерации pa-port — тогда ключи из pa уйдут сами
+const PA_OVERRIDDEN = new Set(["Compendium.pf2e.spells-srd.Item.b515AZlB0sridKSq", "calm", "calm-emotions"]);
+test("catalog.pa: исключения PA_OVERRIDDEN не устарели (ключ есть в pa)", () => {
+  for (const k of PA_OVERRIDDEN) assert.ok(k in pa.bySource || k in pa.bySlug, `${k} нет в pa — уберите из PA_OVERRIDDEN`);
+});
 test("catalog.pa: ни один ключ не пересекается с ручными (источник и slug)", () => {
-  for (const f of ["bySource", "bySlug"]) for (const m of [builtin, campaign]) for (const k of Object.keys(m[f] ?? {})) assert.ok(!(k in pa[f]), `${f}.${k}`);
+  for (const f of ["bySource", "bySlug"]) for (const m of [builtin, campaign]) for (const k of Object.keys(m[f] ?? {})) assert.ok(!(k in pa[f]) || PA_OVERRIDDEN.has(k), `${f}.${k}`);
 });
 
 test("buildPaCatalog: slug только если однозначен, конфликт источника и ручной каталог", () => {

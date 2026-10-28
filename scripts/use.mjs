@@ -13,6 +13,7 @@ import { itemRange, markFar, inRange, TENTACLES } from "./range.mjs";
 import { recentShape, spentOptions } from "./builtin/spellshape.mjs";
 import { moveOrder, areaPoint } from "./move.mjs";
 import { asksActions } from "./builtin/variable-cast.mjs";
+import { isHeld, replayers } from "./hold.mjs";
 
 const CAST = "origin:action:slug:cast-a-spell";
 const CARD_TYPES = new Set(["consumable", "equipment", "spell", "weapon", "armor", "treasure", "backpack", "shield", "ammo"]);   // ammo: активация боеприпаса (Golden-Cased Bullet) — с карточки
@@ -202,7 +203,7 @@ const setState = (message, patch) =>
 const useOf = (message) => message?.flags?.[MOD]?.use;
 
 export async function onCreateMessage(message) {
-  if (!guardActiveGM()) return;
+  if (!guardActiveGM() || isHeld(message)) return;   // удержанная атака (hold.mjs) ждёт выпуска: replay вернётся сюда
   const ctx = message.flags?.pf2e?.context?.type;
   if (ctx === "saving-throw" || ctx === "skill-check" || ctx === "perception-check" || ctx === "flat-check") {
     const accepted = await tolerate("acceptSavingThrow", () => saves.acceptSavingThrow(message));
@@ -237,6 +238,7 @@ export function init() {
   Hooks.on("preCreateChatMessage", onPreCreateMessage);
   Hooks.on("preCreateRegion", onPreCreateRegion);
   Hooks.on("createChatMessage", onCreateMessage);
+  replayers.add(onCreateMessage);
   Hooks.on("updateChatMessage", onUpdateMessage);
   Hooks.on("createRegion", onCreateRegion);
   Hooks.on("deleteRegion", onDeleteRegion);

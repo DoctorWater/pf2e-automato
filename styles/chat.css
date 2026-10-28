@@ -94,6 +94,11 @@
 .paf-hide-pdamage .damage-application,
 .paf-hide-precovery .persistent-damage-recovery { display: none !important; }
 
+/* Удержанная/отменённая атака (scripts/hold.mjs): плашка в карточке атаки */
+.paf-hold { margin: 4px 0; padding: 4px 8px; border: 1px solid #baa991; border-radius: 3px; background: #f8f4f1; color: #5e0000; font-style: italic; }
+.paf-hold p { margin: 0; }
+.paf-hold .paf-card-actions { display: flex; gap: 4px; margin-top: 4px; font-style: normal; }
+
 /* Шёпот модуля (scripts/card.mjs) — самостоятельная карточка в языке «Мастерской» и листа pf2e:
    пергамент #f8f4f1, рамка #baa991, золотая черта #d8c384 под шапкой (Eczar), бордовое #5e0000 единственное действие. */
 .paf-card > .pf2e-automato { margin: 2px 0 0; padding: 0; border: 0; font-size: 13px; line-height: 1.45; }

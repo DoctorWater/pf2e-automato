@@ -49,7 +49,8 @@
         "move": { "bad": "Move: mode is push or pull, distance is a multiple of 5 ft from 5, only for the target; not in zone triggers nor with targets: area, the area centre is not the author token ({path})" },
         "dmg": { "bad": "Damage: the formula is dice and numbers or variables (for example 2d6+3, @actor.level), the type is from the damage list or \"healing\" ({path})" },
         "rmEff": { "bad": "Remove effect: exactly one of slug (a-z, digits, hyphen) or UUID is needed; \"of\" can only be origin ({path})" },
-        "extEff": { "bad": "Extend effect: the effect slug and an integer number of rounds from 1 are needed ({path})" },
+        "extEff": { "bad": "Extend effect: either the effect slug or cast: true (effects of this casting), plus an integer number of rounds from 1 ({path})" },
+        "refund": { "bad": "Refund Focus Point: only refundFocus: true, only for the owner (to: self) ({path})" },
         "rollOpt": { "bad": "Option: a domain and an option name without spaces are needed; value is true/false ({path})" },
         "rm": {
           "slug": "Remove condition: pick a condition from the list ({path})"
@@ -108,6 +109,7 @@
           "against": "Check: set a target statistic (lowercase slug, e.g. \"will\") ({path})",
           "map": "Check: the multiple attack penalty steps must be from 0 to 2 ({path})",
           "roll": "Check: the roll can only be \"system\" ({path})",
+          "oneRoll": "Check: oneRoll must be true and needs a target defense (vs) without a system roll ({path})",
           "selfSteps": "Check without a target: degree steps apply to the author only ({path})",
           "noVsSelf": "Check without a target: \"self\" targeting, no immunity ({path})"
         },

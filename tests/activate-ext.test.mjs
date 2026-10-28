@@ -167,3 +167,10 @@ test("activationWarnings: шаг с repeat среди прочих и затир
   const v = ok({ v: 1, activate: [{ id: "x", label: "X", choices: [{ id: "c1", spell: SPELL, duration: dur }, { id: "c2", spell: SPELL }] }] });
   assert.match(activationWarnings(v, () => null)[0], /^x.c1:/);
 });
+
+test("withActivation: stunned без value (= stunned 1) срок не получает", () => {
+  const rule = ok({ v: 1, onUse: { targets: "selected", apply: [{ to: "target", condition: { slug: "stunned" } }, { to: "target", condition: { slug: "stunned", value: 2 } }] } });
+  const [a, b] = withActivation(rule, { duration: dur }).onUse.apply;
+  assert.equal(a.duration, undefined);
+  assert.ok(b.duration);
+});

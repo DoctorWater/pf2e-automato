@@ -10,7 +10,7 @@ import { moveOrder, areaPoint } from "./move.mjs";
 import { challengeWho } from "./rules.mjs";
 import { testPredicate } from "./predicate.mjs";
 import { runMacros } from "./macros.mjs";
-import { runCheck, findCheckByOrigin, applyImmunity, isCheck, isImmune } from "./checks.mjs";
+import { runCheck, findCheckByOrigin, applyImmunity, isCheck, isImmune, recordOneRoll } from "./checks.mjs";
 
 const MARKER = new RegExp(`^${MOD}:([^:]+):([^:]+)$`);
 const rolling = new Set();
@@ -105,12 +105,14 @@ export async function challengeTargets(message) {
   const ch = challengeOf(use);
   // who у всех шагов к цели («только враги»): союзник области не бросает и не получает иммунитет
   const who = challengeWho(ch), myDisp = who ? (safeSync(use.token)?.disposition ?? 1) : 1;
-  return (await challengeTargetsAll(message, use)).filter((t) => challengeApplies(ch, t.token?.actor, use.actor) && (!who || (who === "enemy") === opposed(myDisp, t.token?.disposition ?? 0)));
+  // oneRoll: после первого броска состав целей фиксирован (eligible) — позже испугавшаяся цель не добавляется; результат/eligible = «when проверен»
+  const res = use.state?.challenge?.results ?? {}, elig = ch?.oneRoll ? use.state?.challenge?.eligible : null;
+  return (await challengeTargetsAll(message, use)).filter((t) => (!elig || elig.includes(t.key) || res[t.key]) && challengeApplies(ch, t.token?.actor, use.actor, !!res[t.key] || !!elig?.includes(t.key)) && (!who || (who === "enemy") === opposed(myDisp, t.token?.disposition ?? 0)));
 }
 
 /** challenge.when — условие на цель (target:*, target:self): не выполнено — цель не бросает и в карточке не показана (Возложение рук: бросает только нежить). */
-export function challengeApplies(ch, actor, authorUuid) {
-  if (!ch?.when || !actor) return true;
+export function challengeApplies(ch, actor, authorUuid, resolved = false) {
+  if (resolved || !ch?.when || !actor) return true;   // resolved: результат записан — условие проверено при броске и не пересчитывается (испуг снят — цель остаётся в карточке)
   const o = new Set(["target", ...(actor.getSelfRollOptions?.("target") ?? [])]);
   if (authorUuid && actor.uuid === authorUuid) o.add("target:self");
   return testPredicate(ch.when, o);
@@ -235,6 +237,10 @@ export async function acceptSavingThrow(message) {
     if (!challengeOf(use) || use.state?.yielded) return null;
 
     const die = roll.dice?.[0]?.results?.find((r) => r.active && !r.discarded)?.result ?? null;
+    if (use.rule.onUse.check?.oneRoll) {   // один итог — степень по СЛ каждой цели (ctx.dc — СЛ одной цели, не годится)
+      return await recordOneRoll(target.msg, { total: roll.total, die, key: target.key,
+        by: message.author?.id ?? message.user?.id ?? null, rollMessageId: message.id, src: "saving-throw", isReroll: !!ctx.isReroll });
+    }
     let degree = roll.degreeOfSuccess ?? null;
     if (degree == null) {
       const dc = ctx.dc?.value ?? await resolveDC(use);
@@ -265,7 +271,10 @@ export async function acceptToolbeltSave({ data, message, roll, target, isReroll
 }
 
 /** ГМ: запись результата Toolbelt (поля из сокета перечисляются явно). */
-export function recordToolbeltResult(messageId, tokenKey, { degree, total, isReroll }) {
+export async function recordToolbeltResult(messageId, tokenKey, { degree, total, isReroll }) {
+  // Toolbelt пишет результат любой своей цели: challenge.when проверяем здесь (у решённой цели challengeTargets его не пересчитывает)
+  const message = game.messages.get(messageId);
+  if (challengeOf(useOf(message))?.when && !(await challengeTargets(message)).some((t) => t.key === tokenKey)) return { ok: false, reason: "not-target" };
   return recordResult(messageId, tokenKey, { degree, total, by: game.user.id, rollMessageId: null, src: "toolbelt", isReroll: !!isReroll });
 }
 

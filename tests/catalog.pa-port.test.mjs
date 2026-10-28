@@ -49,7 +49,7 @@ test("pa-port: каталог собирается без ошибок; кажд
     assert.ok(rule(slug), `bySlug.${slug}`);
     if (src) assert.deepEqual(cat.bySource.get(src), rule(slug), `bySource.${slug}`);
   }
-  for (const k of cat.bySource.keys()) assert.match(k, /^Compendium\.pf2e\.[\w-]+\.Item\.\w{16}$/);
+  for (const k of cat.bySource.keys()) assert.match(k, /^Compendium\.pf2e(?:-automato)?\.[\w-]+\.Item\.\w{16}$/);
 });
 
 test("pa-port: resolveRule на предметах (инвентарь героев/мира или синтетический по slug+источнику) даёт каталог", () => {

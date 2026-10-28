@@ -48,7 +48,7 @@ export const usesPrimitive05g2 = (rule) => {
   const u = rule?.onUse;
   if (!u) return false;
   const steps = [...(u.apply ?? []), ...Object.values(u.challenge?.byDegree ?? {}).flat(), ...Object.values(u.check?.byDegree ?? {}).flat()];
-  return steps.some((a) => a.when || a.removeEffect || a.extendEffect || a.rollOption || a.effect?.badge === "decrement" || a.to === "party" || a.to === "allies");
+  return steps.some((a) => a.when || a.removeEffect || a.extendEffect || a.refundFocus || a.rollOption || a.effect?.badge === "decrement" || a.to === "party" || a.to === "allies");
 };
 /** --subpack 0.5g3: правила с примитивом onEvent (правило срабатывает по событию: бросок, урон, ход, эффект). */
 export const usesPrimitive05g3 = (rule) => !!rule?.onEvent?.length;

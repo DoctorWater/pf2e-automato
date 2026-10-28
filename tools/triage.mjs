@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { existsSync, readdirSync } from "node:fs";
 import { deriveFromMarkup, buildCatalog, activateOf } from "../scripts/rules.mjs";
 import { buildAutomationsIndex, groupsCovering } from "../scripts/compat.mjs";
+import { notesOnly } from "./validate.mjs";
 
 export const BATCHES = {
   1: "b01-save-conditions", 2: "b02-self-ally-effects", 3: "b03-attack-check", 4: "b04-reactions", 5: "b05-persistent-escape",
@@ -172,6 +173,8 @@ export function triageItem(it, html, ctx) {
   }
   const cat = ctx.catalog;
   const inCat = cat.bySource.get(it.uuid) ?? (it.source && cat.bySource.get(it.source)) ?? (slugMatches(it, ctx) && cat.bySlug.get(it.slug)) ?? cat.byName.get(it.name) ?? (it.nameRu && cat.byName.get(it.nameRu));
+  // правило из одних заметок — не «готово» (ROADMAP: из одних заметок — долг): ведущему напоминание, автоматики нет
+  if (inCat && notesOnly(inCat)) return done("manual", 3, "notes-only", withBatch);
   if (inCat) return done("catalog", inCat.macros?.some((m) => m.builtin) ? 4 : 3, "catalog", withBatch);
   const groups = groupsCovering(ctx.automations, { slug: it.slug, sourceUuid: sourceUuidOf(it) });
   if (groups.length) return done("pa-port", 3, groups.slice(0, 3).join("; "), withBatch);

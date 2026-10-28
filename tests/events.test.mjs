@@ -335,7 +335,7 @@ test("effect-created / turn-end: init подписывает хуки и про�
   const handlers = {};
   globalThis.Hooks = { on: (name, fn) => { (handlers[name] ??= []).push(fn); } };
   ev.init();
-  assert.deepEqual(Object.keys(handlers).sort(), ["createChatMessage", "createItem", "deleteChatMessage", "deleteItem", "moveToken", "pf2e.endTurn", "pf2e.startTurn", "updateChatMessage"]);
+  assert.deepEqual(Object.keys(handlers).sort(), ["createChatMessage", "createItem", "deleteChatMessage", "deleteItem", "moveToken", "pf2e.endTurn", "pf2e.startTurn", "preCreateChatMessage", "updateChatMessage"]);
   const rule = validate({ v: 1, onEvent: [{ on: "turn-end", apply: [{ to: "self", removeEffect: { slug: "agitate" } }] }] }).rule;
   const agitate = mkEffect({ id: "a", slug: "agitate" });
   const hero = mkActor("Actor.hero", [agitate, mkFeat("agitate", rule)]);
@@ -685,7 +685,7 @@ test("afterUse: валидатор — только свои броски вла
   assert.equal(one({ on: "attack-roll", afterUse: true, challenge: ch }).ok, true);
   assert.equal(one({ on: "turn-start", afterUse: true, challenge: ch }).ok, false);
   assert.equal(one({ on: "attack-roll", side: "target", afterUse: true, challenge: ch }).ok, false);
-  assert.equal(one({ on: "spell-cast", afterUse: true, challenge: ch }).ok, false);
+  assert.equal(one({ on: "spell-cast", afterUse: true, challenge: ch }).ok, true);   // Lingering Composition: связь «следующее сотворение»
   assert.equal(one({ on: "attack-roll", afterUse: "yes", challenge: ch }).ok, false);
   assert.equal("afterUse" in one({ on: "attack-roll", afterUse: false, challenge: ch }).rule.onEvent[0], false);
   assert.equal(blankEvent().afterUse, false);

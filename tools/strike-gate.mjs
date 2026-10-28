@@ -23,7 +23,7 @@ const MULTI = /\b(?:all|both|every|each)\b[^.]{0,30}\bStrikes\b|\b(?:two|three|f
 // «counts as two attacks for your multiple attack penalty» — один Удар, а не два
 const ONE_STRIKE = /\bcounts?\s+as\s+(?:two|three|four|five|six)\s+attacks?\b[^.]{0,60}\battack\s+penalty/gi;
 export const multiStrike = (html) => MULTI.test(plain(html).replace(ONE_STRIKE, " "));
-const ACTIVE = { condition: 1, effect: 1, damage: 1, removeCondition: 1, removeEffect: 1, extendEffect: 1, rollOption: 1, persistent: 1, visibility: 1, choose: 1 };
+const ACTIVE = { condition: 1, effect: 1, damage: 1, removeCondition: 1, removeEffect: 1, extendEffect: 1, refundFocus: 1, rollOption: 1, persistent: 1, visibility: 1, choose: 1 };
 const isNote = (s) => !!s.note && !Object.keys(ACTIVE).some((k) => s[k]);
 
 /** kind: тип предмета строкой или { type, actionType }. Карточка есть только у feat/action, не passive: у пассива и оружия afterUse был бы мёртвым. */

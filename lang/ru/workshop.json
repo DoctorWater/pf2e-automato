@@ -353,6 +353,9 @@
         "ofOrigin": "Только созданный мной",
         "dmgBasic": "Обычное испытание (×0 / ×½ / ×1 / ×2)",
         "extendRounds": "Продлить на раундов",
+        "effectSlugCast": "* = эффекты этого сотворения",
+        "extendCastPlate": "Продлить эффекты этого сотворения на {rounds} р.",
+        "refundPlate": "Вернуть очко фокуса",
         "optionName": "Опция (например, mighty-rage)",
         "optOff": "Выключить, а не включить",
         "stepWhen": "Когда (условие)",
@@ -480,6 +483,7 @@
         "kindRemove": "Снять состояние",
         "kindRemoveEffect": "Снять эффект",
         "kindExtendEffect": "Продлить эффект",
+        "kindRefundFocus": "Вернуть очко фокуса",
         "kindRollOption": "Включить опцию",
         "probeOnlyUse": "Пробный запуск — только для «При использовании».",
         "keep": {

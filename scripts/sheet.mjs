@@ -56,7 +56,7 @@ function rowCore(a) {
   if (a.condition) return { to: a.to, kind: "condition", text: a.condition.slug, value: a.condition.value ?? "", policy: a.condition.policy ?? "max", keep, ...dur, ...VIS_BLANK, ...PERS_BLANK };
   // срок эффекта (переопределение): значение — число или кубик, единица и конец хода; «чей ход» у эффекта не бывает
   // inline-эффект (mods): кубики — JSON в text (как у choose), «чей ход» у него есть
-  if (a.effect) return { to: a.to, kind: "effect", text: a.effect.mods ? JSON.stringify(a.effect.mods) : a.effect.uuid, value: "", policy: "max", keep, ...(d ? { ...dur, durOf: a.effect.mods ? d.of ?? "origin" : "origin" } : DUR_BLANK), ...VIS_BLANK, ...PERS_BLANK };
+  if (a.effect) return { to: a.to, kind: "effect", text: a.effect.mods ? JSON.stringify(a.effect.mods) : a.effect.uuid, value: "", policy: "max", keep, ...(d ? { ...dur, durOf: d.of ?? "origin" } : DUR_BLANK), ...VIS_BLANK, ...PERS_BLANK };
   // damage: формула — text, тип (или «healing») — pType; choose — JSON {from, options?, prompt?, range?} в text
   if (a.damage) return { to: a.to, kind: "damage", text: a.damage.formula, value: "", policy: "max", keep, ...DUR_BLANK, ...VIS_BLANK, pType: a.damage.damageType };
   if (a.move) return { to: a.to, kind: "move", text: String(a.move.distance), value: "", policy: "max", keep, ...DUR_BLANK, ...VIS_BLANK, ...PERS_BLANK, moveMode: a.move.mode, moveFrom: a.move.from === "point" ? "point" : "origin" };
@@ -66,7 +66,9 @@ function rowCore(a) {
   if (a.removeCondition) return { to: a.to, kind: "remove", text: a.removeCondition.slug, value: "", policy: "max", keep, ...DUR_BLANK, ...VIS_BLANK, ...PERS_BLANK };
   const plain = (kind, text, value = "") => ({ to: a.to, kind, text, value, policy: "max", keep, ...DUR_BLANK, ...VIS_BLANK, ...PERS_BLANK });
   if (a.removeEffect) return plain("removeEffect", a.removeEffect.slug ?? a.removeEffect.uuid);
-  if (a.extendEffect) return plain("extendEffect", a.extendEffect.slug, a.extendEffect.rounds);
+  if (a.extendEffect) return plain("extendEffect", a.extendEffect.cast ? "*" : a.extendEffect.slug, a.extendEffect.rounds);   // «*» вместо slug — cast:true (эффекты этого же сотворения)
+  if (a.refundFocus) return plain("refundFocus", "");
+  if (a.hold) return plain("hold", a.hold);
   if (a.rollOption) return plain("rollOption", a.rollOption.option);
   if (a.visibility) return { to: a.to, kind: "visibility", text: "", value: "", policy: "max", keep, ...DUR_BLANK, visLevel: a.visibility.level, visOf: a.visibility.of, visUntil: (a.visibility.until ?? []).join(", "), ...PERS_BLANK };
   if (a.persistent) return { to: a.to, kind: "persistent", text: a.persistent.formula, value: a.persistent.dc ?? "", policy: "max", keep, ...DUR_BLANK, ...VIS_BLANK, pType: a.persistent.damageType };
@@ -96,6 +98,7 @@ function applyCore(r) {
     try { choose = JSON.parse(text); } catch { /* битый JSON уйдёт в валидатор как пустой выбор */ }
     return { to: "self", choose: choose ?? {} };
   }
+  if (r.kind === "refundFocus") return { to, refundFocus: true };
   if (r.kind === "move") return text ? { to: "target", move: { mode: r.moveMode === "pull" ? "pull" : "push", distance: num(text), ...(r.moveFrom === "point" && { from: "point" }) } } : null;
   if (r.kind === "damage") return text ? { to, damage: { formula: text, damageType: r.pType } } : null;
   if (r.kind === "visibility") {
@@ -122,10 +125,11 @@ function applyCore(r) {
       return { to, effect: { mods }, ...(dice !== undefined && { duration: { value: dice, unit: r.durUnit, expiry: r.durExpiry || null, of: r.durOf === "target" ? "target" : "origin" } }) };
     }
     return { to, effect: { uuid: text, ...(r.stack ? { badge: "increment", ...(num(r.stackBy) > 1 && { by: num(r.stackBy) }), ...(num(r.stackStart) > 1 && { start: num(r.stackStart) }) } : r.unstack && { badge: "decrement" }), ...(r.replace && { replace: true }) },
-      ...(dice !== undefined && { duration: { value: dice, unit: r.durUnit, expiry: r.durExpiry || null } }) };
+      ...(dice !== undefined && { duration: { value: dice, unit: r.durUnit, expiry: r.durExpiry || null, ...(r.durOf === "target" && { of: "target" }) } }) };
   }
+  if (r.kind === "hold") return { to, hold: text };
   if (r.kind === "removeEffect") return { to, removeEffect: { ...(/^[a-z0-9-]+$/.test(text) ? { slug: text } : { uuid: text }), ...(r.ofOrigin && { of: "origin" }) } };
-  if (r.kind === "extendEffect") return { to, extendEffect: { slug: text, rounds: num(r.value) } };
+  if (r.kind === "extendEffect") return { to, extendEffect: { ...(text === "*" ? { cast: true } : { slug: text }), rounds: num(r.value) } };
   if (r.kind === "rollOption") return { to, rollOption: { domain: String(r.domain ?? "").trim() || "all", option: text, ...(r.optOff && { value: false }) } };
   if (r.kind === "remove") return { to, removeCondition: { slug: text } };
   if (r.kind === "persistent") { const dc = num(r.value); return { to, persistent: { formula: text, damageType: r.pType, ...(dc !== undefined && { dc }) } }; }
@@ -173,11 +177,11 @@ export const blankCoat = () => ({ durValue: "", durUnit: "rounds", durExpiry: ""
 /** Пустая запись для кнопки «добавить событие». */
 export const blankEvent = () => ({ on: "attack-roll", side: "self", when: "", once: false, afterUse: false, aura: "", range: "", per: "", apply: [], ch: chForm(null) });
 // side:"near" (T3): aura / range / per живут в форме всегда, в правило идут только у near
-const evForm = (e) => ({ on: e.on, side: e.side ?? "self", when: whenText(e.when), once: !!e.once, afterUse: !!e.afterUse, aura: e.aura ?? "", range: e.range ?? "", per: e.per ?? "", apply: (e.apply ?? []).map(rowOf), ch: { ...chForm(e.challenge), on: !!e.challenge } });
+const evForm = (e) => ({ on: e.on, side: e.side ?? "self", when: whenText(e.when), hold: !!e.hold, once: !!e.once, afterUse: !!e.afterUse, aura: e.aura ?? "", range: e.range ?? "", per: e.per ?? "", apply: (e.apply ?? []).map(rowOf), ch: { ...chForm(e.challenge), on: !!e.challenge }, check: e.check });   // check (Lingering Composition) Мастерская не правит: едет в форме как есть
 const nearZone = (e) => ({ ...(String(e.aura ?? "").trim() && { aura: String(e.aura).trim() }), ...(num(e.range) !== undefined && { range: num(e.range) }), ...(e.per && { per: e.per }) });
 function evRule(e) {
   const when = parseWhen(e.when);
-  return { on: e.on, side: e.side, ...(when !== undefined && { when }), ...(e.once && { once: true }), ...(e.afterUse && { afterUse: true }), ...(e.side === "near" && nearZone(e)), apply: (e.apply ?? []).map(applyOf).filter(Boolean), ...(e.ch?.on && { challenge: chRule(e.ch) }) };
+  return { on: e.on, side: e.side, ...(when !== undefined && { when }), ...(e.hold && { hold: true }), ...(e.once && { once: true }), ...(e.afterUse && { afterUse: true }), ...(e.side === "near" && nearZone(e)), apply: (e.apply ?? []).map(applyOf).filter(Boolean), ...(e.ch?.on && { challenge: chRule(e.ch) }), ...(e.check && { check: e.check }) };
 }
 
 // триггеры зоны (T2): запись onUse.zone.triggers <-> форма; испытание и шаги — как у onEvent
@@ -244,7 +248,7 @@ export function ruleToForm(rule) {
     ck: {
       on: !!k, statistic: [k?.statistic ?? "athletics"].flat().join(", "),
       vsType: !k ? "defense" : vs.dc != null ? "dc" : vs.against != null ? "against" : vs.defense != null ? "defense" : "none", vsText: vs.defense ?? vs.dc ?? vs.against ?? "will",
-      traits: (k?.traits ?? []).join(", "), options: (k?.options ?? []).join(", "), map: String(k?.mapIncreases ?? ""), roll: k?.roll ?? "",
+      traits: (k?.traits ?? []).join(", "), options: (k?.options ?? []).join(", "), map: String(k?.mapIncreases ?? ""), roll: k?.roll ?? "", when: whenText(k?.when), one: !!k?.oneRoll,
       imm: immForm(k?.immunity),
       deg: degRows(k?.byDegree)
     },
@@ -294,6 +298,7 @@ export function formToRule(f) {
         statistic: stats.length > 1 ? stats : stats[0] ?? "", ...(!none && { vs }), byDegree: degSteps(k.deg),
         ...(csv(k.traits).length && { traits: csv(k.traits) }), ...(csv(k.options).length && { options: csv(k.options) }),
         ...(map !== undefined && { mapIncreases: map }), ...((none || k.roll === "system") && { roll: "system" }),
+        ...(parseWhen(k.when) !== undefined && { when: parseWhen(k.when) }), ...(k.one && !none && k.roll !== "system" && { oneRoll: true }),
         ...(k.imm?.on && { immunity: immRule(k.imm) })
       };
     }
@@ -501,7 +506,7 @@ function buildContext(item, draft) {
       map: ["", "0", "1", "2"].map((v) => ({ value: v, label: v || "-" })),
       stat: choices(keys("stat", ["reflex", "fortitude", "will", "perception", "flat"])),
       to: choices(keys("to", ["self", "target", "party", "allies", "chosen"])),
-      rowKind: choices(keys("row", ["condition", "effect", "note", "visibility", "persistent", "remove", "removeEffect", "extendEffect", "rollOption", "damage", "choose", "move", "affliction", "coat"])),
+      rowKind: choices(keys("row", ["condition", "effect", "note", "visibility", "persistent", "remove", "removeEffect", "extendEffect", "refundFocus", "rollOption", "damage", "choose", "move", "affliction", "coat", "hold"])),
       moveMode: choices(keys("moveMode", ["push", "pull"])),
       moveFrom: choices(keys("moveFrom", ["origin", "point"])),
       dmgType: [{ value: "healing", label: L("workshop.au.healing") }, ...DAMAGE_TYPES.map((v) => ({ value: v, label: damageLabel(v) }))],   // «лечение» — только у шага damage

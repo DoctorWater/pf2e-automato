@@ -20,5 +20,5 @@ test("catalog.campaign: загрузчик не отбрасывает запи�
   assert.deepEqual(errors, []);
   assert.ok(bySource.size >= 4);
   assert.ok(bySlug.size >= 4);
-  for (const k of bySource.keys()) assert.match(k, /^Compendium\.pf2e\.[\w-]+\.Item\.\w{16}$/);
+  for (const k of bySource.keys()) assert.match(k, /^Compendium\.pf2e(?:-automato)?\.[\w-]+\.Item\.\w{16}$/);   // pf2e-automato — носители на эффектах своего пака (Убежище)
 });

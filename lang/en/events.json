@@ -4,10 +4,18 @@
       "host": "\"{item}\": {target} must attempt a challenge against the ability's owner.",
       "repeat": "\"{item}\": {target} attempts the repeat save.",
       "zone": "\"{item}\": {target} is in the area and must attempt a challenge.",
-      "affliction": "\"{item}\": {target} attempts the affliction save."
+      "affliction": "\"{item}\": {target} attempts the affliction save.",
+      "linger": "\"{item}\": {target} attempts a check; the DC is set by the highest-level creature of the composition: allies in its area or its targets, {n} creature(s) (for compositions aimed at enemies, e.g. Dirge of Doom, allies count). The GM may change the DC."
+    },
+    "hold": {
+      "waiting": "The attack is held: the attacker must first pass the target's protection (see the challenge card).",
+      "cancelled": "The attack is cancelled, the action is spent: do not roll or apply damage.",
+      "release": "Release",
+      "cancel": "Cancel"
     },
     "rules": {
       "err": {
+        "hold": { "step": "A hold step is release, cancel or end ({path})" },
         "trg": {
           "on": "A zone trigger has no event: enter, start or end of turn ({path})",
           "per": "\"At most\" is once per round or once per turn ({path})",
@@ -20,6 +28,10 @@
           "sideTarget": "\"Roll target\" exists only for rolls and spell casting ({path})",
           "once": "\"Once\" is yes or no only ({path})",
           "afterUse": "\"After use\" is yes or no, and only for the owner's own roll (attack, check, save, damage) ({path})",
+          "check": "A check exists only for spell casting with \"after use\", and not together with a challenge ({path})",
+          "checkDc": "The check DC is {ofTargets: \"level\"} only ({path})",
+          "hold": "\"Hold\" is only true, only for the roll target's attack or a check ({path})",
+          "holdStep": "A hold step exists only in an entry with hold ({path})",
           "empty": "The event entry is empty: add steps or a challenge ({path})",
           "nearOn": "The \"in aura\" side exists only for start of turn, end of turn and enter ({path})",
           "enter": "Entering an aura is only for the \"in the owner's aura\" side ({path})",
@@ -258,6 +270,7 @@
       "stepAfflictionDC": "affliction \"{name}\": stage {stage} of {of} (DC {dc})",
       "stepStageDelta": "shift the affliction stage by the degree (success down, failure up)",
       "stepRemoveKey": "remove the effect that called for the save",
+      "stepHold": { "release": "the held attack goes through", "cancel": "the held attack is cancelled (the action is wasted)", "end": "the held attack goes through and the protecting effect ends" },
       "stepCoat": "coat a poison on a weapon (choose the weapon)"
     }
   }

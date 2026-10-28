@@ -1,10 +1,12 @@
 import { modeOf } from "./settings.mjs";
-import { MOD } from "./util.mjs";
+import { MOD, L, callGM } from "./util.mjs";
+import { isHeld, isCancelled } from "./hold.mjs";
 
 const OUTCOMES = ["criticalFailure", "failure", "success", "criticalSuccess"];
 
-/** Чистая: какие кнопки урона оставить по исходу (0..3). Исход неизвестен -> обе. */
-export function allowedDamage(degree) {
+/** Чистая: какие кнопки урона оставить по исходу (0..3). Исход неизвестен -> обе. blocked — атака удержана или отменена (hold.mjs): обе скрыты при любом исходе. */
+export function allowedDamage(degree, blocked = false) {
+  if (blocked) return { success: false, "critical-success": false };
   if (!Number.isInteger(degree) || degree < 0 || degree > 3) return { success: true, "critical-success": true };
   return { success: degree === 2, "critical-success": degree === 3 };
 }
@@ -37,6 +39,17 @@ const workbench = () => {
   return { applyPersistentDamage: get("applyPersistentDamage"), applyPersistentDamageRecoveryRoll: get("applyPersistentDamageRecoveryRoll") };
 };
 
+/** Плашка удержанной/отменённой атаки (Sanctuary); ГМу при удержании — ручные «Выпустить» / «Отменить» (карточка испытания не пришла, закрыта, сломалась). */
+function holdBlock(message, html) {
+  const held = isHeld(message), box = html.querySelector(".message-content");
+  if (!box || box.querySelector(".paf-hold")) return;
+  const el = document.createElement("div");
+  el.className = "paf-hold";
+  el.innerHTML = `<p>${L(held ? "hold.waiting" : "hold.cancelled")}</p>${held && game.user?.isGM ? `<div class="paf-card-actions"><button type="button" data-hold="release">${L("hold.release")}</button><button type="button" data-hold="cancel">${L("hold.cancel")}</button></div>` : ""}`;
+  for (const b of el.querySelectorAll("[data-hold]")) b.addEventListener("click", (ev) => { ev.preventDefault(); b.disabled = true; callGM("holdResolve", message.id, b.dataset.hold); });
+  box.append(el);
+}
+
 export function init() {
   Hooks.on("renderChatMessageHTML", (message, html) => {
     if (!isPersistentCard(message)) return;
@@ -47,9 +60,11 @@ export function init() {
   });
   Hooks.on("renderChatMessageHTML", (message, html) => {
     if (modeOf("damageGate") === "off") return;
+    const blocked = isHeld(message) || isCancelled(message);
     const degree = gateDegree(message);
-    if (degree === null) return;
-    const allow = allowedDamage(degree);
+    if (degree === null && !blocked) return;
+    if (blocked) holdBlock(message, html);
+    const allow = allowedDamage(degree, blocked);
     const box = html.querySelector(".message-buttons");
     for (const b of html.querySelectorAll(".message-buttons button[data-action$='-damage']")) {
       if (!allow[b.dataset.outcome]) b.remove();

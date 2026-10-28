@@ -28,6 +28,7 @@
       "prompt": { "allies": "Choose an ally", "enemies": "Choose an enemy", "options": "Choose an option" },
       "zeroPersistent": "\"{name}\": persistent damage is 0 at this level — not applied.",
       "noOption": "\"{name}\": no toggleable option {option} — not turned on.",
+      "noCastEffect": "\"{name}\": no effect of this casting to extend — extend it by hand or press Apply again once the effect appears.",
       "noWalls": "\"{name}\": the scene is not open — allies in range are counted without walls.",
       "choose": "Choose"
     }

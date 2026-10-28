@@ -143,17 +143,31 @@ export async function markApplied(messageId, tokenUuid) {
   if (m?.flags?.pf2e?.context?.type === "damage-roll" && token?.id) await m.update({ [`flags.${MOD}.shieldBlock.done.${token.id}`]: true });
 }
 
-/** ГМ: Щит — снять эффект; Amped — сломать слои. Идемпотентно; щит не от этого эффекта — ничего. */
-export function dropSpellShield(actorUuid, effectId, layers = 0) {
+// «Щит» после Блока: 10 минут иммунитета к повторному сотворению (Spell Effect: Shield Immunity)
+export const SHIELD_IMMUNITY = "Compendium.pf2e.spell-effects.Item.QF6RDlCoTvkVHRo4";
+
+/** ГМ: Щит — снять эффект и выдать иммунитет; Amped — сломать слои. Идемпотентно; щит не от этого эффекта — ничего. */
+export async function dropSpellShield(actorUuid, effectId, layers = 0) {
+  const spent = await dropShieldEffect(actorUuid, effectId, layers);
+  if (!spent) return;
+  // вне очереди первого шага: applyEffect встаёт в ту же очередь актёра
+  const actor = await fromUuid(actorUuid);
+  const { applyEffect } = await import("../apply.mjs");   // ленивый импорт: apply -> macros -> builtin/index
+  await applyEffect(actor, { uuid: SHIELD_IMMUNITY }, { key: `shield-imm:${effectId}`, source: "builtin" }, { originActor: actor });
+}
+
+/** -> true, если эффект Щита снят (слои Amped — нет). */
+function dropShieldEffect(actorUuid, effectId, layers) {
   return queue(`actor:${actorUuid}`, async () => {
     const actor = await fromUuid(actorUuid);
     const item = actor?.items.get(effectId);
-    if (item?.type !== "effect" || actor.attributes?.shield?.itemId !== effectId) return;
+    if (item?.type !== "effect" || actor.attributes?.shield?.itemId !== effectId) return false;
     const slug = item.slug ?? item.system?.slug;
     if (slug === AMPED && layers > 0) {
       const left = ampedLeft(item.system.badge?.value, layers);
-      if (left > 0) await item.update({ "system.badge.value": left }); else await item.delete();
-    } else if (SPELL_ENDS.has(slug)) await item.delete();
+      if (left > 0) await item.update({ "system.badge.value": left }); else { await item.delete(); return true; }   // последний слой: щит рухнул — иммунитет
+    } else if (SPELL_ENDS.has(slug)) { await item.delete(); return true; }
+    return false;
   });
 }
 

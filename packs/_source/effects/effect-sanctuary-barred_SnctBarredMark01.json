@@ -1,0 +1,57 @@
+{
+  "_id": "SnctBarredMark01",
+  "name": "Effect: Sanctuary Barred",
+  "type": "effect",
+  "img": "icons/svg/aura.svg",
+  "system": {
+    "description": {
+      "value": "<p>You critically failed the Will save against Sanctuary: you can't attempt to attack the protected creature for the rest of the spell's duration.</p>"
+    },
+    "duration": {
+      "expiry": null,
+      "sustained": false,
+      "value": 1,
+      "unit": "minutes"
+    },
+    "level": {
+      "value": 1
+    },
+    "publication": {
+      "license": "",
+      "remaster": false,
+      "title": ""
+    },
+    "rules": [],
+    "start": {
+      "initiative": null,
+      "value": 0
+    },
+    "tokenIcon": {
+      "show": true
+    },
+    "traits": {
+      "rarity": "common",
+      "value": []
+    },
+    "slug": "effect-sanctuary-barred"
+  },
+  "effects": [],
+  "folder": null,
+  "sort": 0,
+  "ownership": {
+    "default": 0
+  },
+  "flags": {},
+  "_stats": {
+    "coreVersion": "14.366",
+    "systemId": "pf2e",
+    "systemVersion": "8.6.1",
+    "createdTime": null,
+    "modifiedTime": null,
+    "lastModifiedBy": null,
+    "compendiumSource": null,
+    "duplicateSource": null,
+    "exportSource": null
+  },
+  "_key": "!items!SnctBarredMark01"
+}

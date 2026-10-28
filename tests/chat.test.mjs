@@ -190,13 +190,14 @@ test("метаигра: СЛ check скрыта у игрока (в шапке �
   const fixed = { v: 1, onUse: { targets: "selected", check: { statistic: "will", vs: { dc: 22 }, byDegree: {} } } };
   const def = { v: 1, onUse: { targets: "selected", check: { statistic: "will", vs: { defense: "will" }, byDegree: {} } } };
   const env = (e) => mkEnv({ env: { metagame: { dcs: false, results: true }, checkDc: (k, use) => use.rule.onUse.check.vs.dc ?? 19, isPc: (k) => k === "b", ...e } });
-  let vm = buildViewModel(mkMsg({ rule: fixed }), other, env()).challenge;
+  let vm = buildViewModel(mkMsg({ rule: fixed, dc: null }), other, env()).challenge;
   assert.match(vm.stat, /chat\.dcHidden/);
   assert.deepEqual(vm.rows.map((r) => r.dc), [null, null]);
-  assert.match(buildViewModel(mkMsg({ rule: fixed }), gm, env()).challenge.stat, /22/);
-  vm = buildViewModel(mkMsg({ rule: def }), other, env()).challenge;
+  assert.match(buildViewModel(mkMsg({ rule: fixed, dc: null }), gm, env()).challenge.stat, /22/);
+  assert.match(buildViewModel(mkMsg({ rule: fixed, dc: 25, state: { dcSet: true } }), gm, env()).challenge.stat, /25/);   // СЛ, исправленная ГМом (use.dc); у реального снимка проверки он пуст
+  vm = buildViewModel(mkMsg({ rule: def, dc: null }), other, env()).challenge;
   assert.deepEqual([vm.rows[0].dc, /19/.test(vm.rows[1].dc)], [null, true]);
-  vm = buildViewModel(mkMsg({ rule: fixed }), other, env({ isActorPc: () => true })).challenge;
+  vm = buildViewModel(mkMsg({ rule: fixed, dc: null }), other, env({ isActorPc: () => true })).challenge;
   assert.match(vm.stat, /22/);
 });
 
@@ -321,4 +322,19 @@ test("move + apply=auto: пока не все бросили — «Примен�
   const d = vm({ results: { a: { degree: 1, total: 5 } }, autoAll: true });
   assert.equal(d.rows[0].canApply, false);
   assert.equal(d.waiting, null);
+});
+
+test("setDC на карточке проверки с фиксированной vs.dc (Lingering Composition): кнопка у ГМа, пока нет результатов; шапка и строки показывают исправленную СЛ", () => {
+  const rule = { v: 1, onUse: { targets: "selected", check: { statistic: "performance", vs: { dc: 22 }, rollerRole: "author", byDegree: {} } } };
+  const env = () => mkEnv({ env: { checkDc: (k, use) => use.dc ?? use.rule.onUse.check.vs.dc } });
+  const vm = (u, use) => buildViewModel(mkMsg({ rule, dc: null, ...use }), u, env()).challenge;
+  assert.equal(vm(gm).canSetDC, true);
+  assert.equal(vm(pl).canSetDC, false);
+  assert.equal(vm(gm, { state: { challenge: { results: { a: { degree: 2, total: 20 } } } } }).canSetDC, false);   // есть результат — поздно
+  assert.match(vm(gm, { dc: 25, state: { dcSet: true } }).stat, /25/);
+  assert.doesNotMatch(vm(gm, { dc: 25 }).stat, /25/);   // use.dc без dcSet/castMessage — СЛ активации, vs.dc не перекрывает
+  assert.match(vm(gm, { dc: 25 }).rows[0].dc, /25/);
+  // проверка против защиты цели (vs.defense) кнопки не получает — СЛ у неё от цели
+  const def = { v: 1, onUse: { targets: "selected", check: { statistic: "will", vs: { defense: "will" }, byDegree: {} } } };
+  assert.equal(buildViewModel(mkMsg({ rule: def, dc: null }), gm, env()).challenge.canSetDC, false);
 });

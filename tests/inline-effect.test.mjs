@@ -28,7 +28,8 @@ test("валидатор: без срока, с бессрочным, с лиш�
   assert.equal(ok({ to: "target", effect: { mods: [will] }, duration: { value: 1, unit: "unlimited" } }).ok, false);
   for (const extra of [{ badge: "increment" }, { replace: true }, { by: 2 }, { start: 2 }, { uuid: "X" }, { name: "x" }]) assert.equal(ok({ to: "target", effect: { mods: [will], ...extra }, duration: DUR }).ok, false, JSON.stringify(extra));
   for (const extra of [{ mark: "enemy" }, { choice: "a" }, { unlessEffect: "U" }]) assert.equal(ok({ to: "target", effect: { mods: [will] }, duration: DUR, ...extra }).ok, false, JSON.stringify(extra));
-  assert.equal(ok({ to: "target", effect: { uuid: "X" }, duration: { ...DUR, of: "target" } }).ok, false, "of у эффекта по uuid по-прежнему нельзя");
+  assert.equal(ok({ to: "target", effect: { uuid: "X" }, duration: { ...DUR, of: "target" } }).ok, true, "of:target у эффекта по uuid — метка «до конца хода получателя» (Убежище)");
+  assert.equal(ok({ to: "target", effect: { uuid: "X" }, duration: { ...DUR, of: "origin" } }).ok, false, "of:origin у эффекта по uuid — по-прежнему нельзя (это и так умолчание)");
 });
 
 test("normalizeMods: белый список", () => {

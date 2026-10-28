@@ -52,6 +52,8 @@
       "stepBadgeDec": "badge −1 if present",
       "stepEffect": "effect {name}",
       "stepExtend": "extend effect {slug} by {rounds} rd.",
+      "stepExtendCast": "extend the effects of this casting by {rounds} rd.",
+      "stepRefundFocus": "refund the Focus Point spent on this spell",
       "stepOption": "turn on option {option}",
       "stepOptionOff": "turn off option {option}",
       "stepWhen": "if {when}",

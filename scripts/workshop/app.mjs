@@ -83,7 +83,7 @@ function stepFields(row, p, names, card, ctx) {
   const out = [
     ...(row.kind === "affliction" || row.kind === "coat" ? [] : [F.seg(`${p}.to`, t("workshop.au.stepTo"), row.to, ["target", "self", "party", "allies", "chosen"].map((k) => [k, t(`sheet.to.${k}`)]))]),   // недуг — только к цели
     ...(row.to === "allies" && row.kind !== "affliction" && row.kind !== "coat" ? [F.num(`${p}.range`, t("sheet.row.range"), row.range, { min: 5, placeholder: "30" })] : []),
-    F.sel(`${p}.kind`, t("workshop.au.stepKind"), row.kind, Object.assign(sheetChoices("row", ["condition", "effect", "note", "visibility", "persistent", "remove", "removeEffect", "extendEffect", "rollOption", "damage", "choose", "move"]), { choose: t("workshop.au.chooseKind"), affliction: t("workshop.au.kindAffliction"), ...(coatOk(row, p, ctx.a.f) && { coat: t("workshop.au.kindCoat") }) }))
+    F.sel(`${p}.kind`, t("workshop.au.stepKind"), row.kind, Object.assign(sheetChoices("row", ["condition", "effect", "note", "visibility", "persistent", "remove", "removeEffect", "extendEffect", "refundFocus", "rollOption", "damage", "choose", "move", "hold"]), { choose: t("workshop.au.chooseKind"), affliction: t("workshop.au.kindAffliction"), ...(coatOk(row, p, ctx.a.f) && { coat: t("workshop.au.kindCoat") }) }))
   ];
   const rank = [F.num(`${p}.rankMin`, t("sheet.row.rankMin"), row.rankMin, { min: 1 }), F.num(`${p}.rankMax`, t("sheet.row.rankMax"), row.rankMax, { min: 1 })];
   if (row.kind === "remove") out.push(F.sel(`${p}.text`, t("workshop.au.condition"), row.text, { "": "—", ...Object.fromEntries(grantable().map((c) => [c.slug, c.label])) }));
@@ -121,8 +121,9 @@ function stepFields(row, p, names, card, ctx) {
   else if (row.kind === "affliction") out.push(afflFields(row, p, ctx));
   else if (row.kind === "coat") out.push(...coatFields(row, p, ctx));
   else if (row.kind === "removeEffect") out.push(F.text(`${p}.text`, t("workshop.au.effectRef"), row.text, { drop: "effect", cls: "ws-grow", hint: names.get(row.text) ?? "" }), F.chk(`${p}.ofOrigin`, t("workshop.au.ofOrigin"), row.ofOrigin));
-  else if (row.kind === "extendEffect") out.push(F.text(`${p}.text`, t("workshop.au.effectSlug"), row.text, { cls: "ws-grow" }), F.num(`${p}.value`, t("workshop.au.extendRounds"), row.value, { min: 1 }));
+  else if (row.kind === "extendEffect") out.push(F.text(`${p}.text`, t("workshop.au.effectSlug"), row.text, { cls: "ws-grow", placeholder: t("workshop.au.effectSlugCast") }), F.num(`${p}.value`, t("workshop.au.extendRounds"), row.value, { min: 1 }));
   else if (row.kind === "rollOption") out.push(F.text(`${p}.domain`, t("sheet.row.domain"), row.domain, { placeholder: "all" }), F.text(`${p}.text`, t("workshop.au.optionName"), row.text, { cls: "ws-grow" }), F.chk(`${p}.optOff`, t("workshop.au.optOff"), row.optOff));
+  else if (row.kind === "hold") out.push(F.text(`${p}.text`, t("sheet.row.hold"), row.text, { cls: "ws-grow", placeholder: "release" }));
   else if (row.kind === "note") out.push(F.text(`${p}.text`, t("workshop.au.noteText"), row.text, { cls: "ws-grow" }));
   else if (row.kind === "persistent") out.push(
     F.text(`${p}.text`, t("workshop.au.persFormula"), row.text, { placeholder: "1d6" }),
@@ -643,7 +644,7 @@ export class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
       else rollFields.push(F.text("f.ck.vsText", t("workshop.au.vsWhat"), k.vsText, { inpCls: "ws-num" }));
       rollFields.push(
         F.sel("f.ck.map", t("sheet.map"), k.map, [["", "—"], ["0", "0"], ["1", "1"], ["2", "2"]]), F.text("f.ck.traits", t("sheet.traits"), k.traits), F.text("f.ck.options", t("sheet.options"), k.options),
-        ...(k.vsType === "none" ? [] : immFields("f.ck.imm", k.imm))
+        chWhen("f.ck", k), ...(k.vsType === "none" ? [] : [F.chk("f.ck.one", t("sheet.oneRoll"), k.one), ...immFields("f.ck.imm", k.imm)])
       );
     }
 

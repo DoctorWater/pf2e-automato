@@ -293,7 +293,8 @@ export function plate(row, env) {
   }
   if (row.kind === "remove") return { ...base, name: t("workshop.au.removePlate", { name: row.text ? env.conditionLabel(row.text) : "?" }) };
   if (row.kind === "removeEffect") return { ...base, name: t("workshop.au.removePlate", { name: row.text ? env.uuidName(row.text) ?? row.text : "?" }) };
-  if (row.kind === "extendEffect") return { ...base, name: t("workshop.au.extendPlate", { slug: row.text || "?", rounds: num(row.value) ?? "?" }) };
+  if (row.kind === "extendEffect") return { ...base, name: t(row.text !== "*" ? "workshop.au.extendPlate" : "workshop.au.extendCastPlate", { slug: row.text, rounds: num(row.value) ?? "?" }) };
+  if (row.kind === "refundFocus") return { ...base, name: t("workshop.au.refundPlate") };
   if (row.kind === "rollOption") return { ...base, name: t(row.optOff ? "workshop.au.optionOffPlate" : "workshop.au.optionPlate", { option: row.text || "?" }) };
   if (row.kind === "effect") return { ...base, name: row.text?.startsWith("[") ? (() => { try { return textOfMods(JSON.parse(row.text), { t }); } catch { return "?"; } })() : row.text ? env.uuidName(row.text) ?? row.text : "?", dur: String(row.durValue ?? "").trim() ? t("workshop.au.dur", { value: String(row.durValue).trim(), unit: t(`workshop.unitShort.${row.durUnit}`) }) : "" };
   if (row.kind === "damage") return { ...base, name: `${String(row.text ?? "").trim() || "?"} · ${row.pType === "healing" ? t("workshop.au.healing") : env.damageLabel?.(row.pType) ?? row.pType}` };

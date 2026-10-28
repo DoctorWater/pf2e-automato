@@ -69,8 +69,8 @@ const defaultEnv = () => ({
   uuidName: nameOfUuid,
   castInfo: (use, c) => { try { return cast.castInfo(fromUuidSync(use.item?.uuid), c); } catch { return { why: null, left: null, dc: null }; } },
   damageLabel,
-  checkDc: (key, use) => checks.defenseDc(tokenDocOf(key, use)?.actor, use.rule.onUse.check.vs),
-  skipped: (key, use, ch) => !saves.challengeApplies(ch, tokenDocOf(key, use)?.actor, use.actor),
+  checkDc: (key, use) => checks.checkDcOf(use, tokenDocOf(key, use)?.actor, use.rule.onUse.check),
+  skipped: (key, use, ch) => !saves.challengeApplies(ch, tokenDocOf(key, use)?.actor, use.actor, !!use.state?.challenge?.results?.[key]),
   immune: (key, use) => checks.hasImmunity(tokenDocOf(key, use)?.actor, (use.rule.onUse.challenge ?? use.rule.onUse.check).immunity, use.actor)
 });
 
@@ -105,13 +105,15 @@ export function stepText(a, env, defTo) {
   if (a.stageDelta) return t("chat.stepStageDelta");
   if (a.coat) return t("chat.stepCoat");
   if (a.removeKey) return t("chat.stepRemoveKey");
+  if (a.hold) return t(`chat.stepHold.${a.hold}`);
   const p = a.persistent;
   if (a.choose) return t(`chat.stepChoose.${a.choose.from}`, { options: (a.choose.options ?? []).map((o) => o.label ?? o.value).join(" / ") });
   const to = { self: "Self", target: "Target", party: "Party", allies: "Allies", chosen: "Chosen" }[a.to ?? defTo] ?? "Target", rank = a.rank ? `[${t("chat.stepRank", { range: a.rank.min != null && a.rank.max != null ? (a.rank.min === a.rank.max ? a.rank.min : `${a.rank.min}–${a.rank.max}`) : a.rank.min != null ? `${a.rank.min}+` : `≤${a.rank.max}` })}] ` : "";
   const when = a.when ? ` [${t("chat.stepWhen", { when: whenHuman(a.when) })}]` : "", say = (key, what) => rank + t(`chat.${key}${to}`, { what, range: a.range }) + when;
   if (a.removeCondition) return say("stepRemove", env.conditionLabel(a.removeCondition.slug));
   if (a.removeEffect) return say("stepRemove", t("chat.stepEffect", { name: a.removeEffect.uuid ? env.uuidName(a.removeEffect.uuid) ?? a.removeEffect.uuid : a.removeEffect.slug }));
-  if (a.extendEffect) return say("step", t("chat.stepExtend", a.extendEffect));
+  if (a.extendEffect) return say("step", t(a.extendEffect.cast ? "chat.stepExtendCast" : "chat.stepExtend", a.extendEffect));
+  if (a.refundFocus) return say("step", t("chat.stepRefundFocus"));
   if (a.rollOption) return say("step", t(a.rollOption.value === false ? "chat.stepOptionOff" : "chat.stepOption", { option: a.rollOption.option }));
   if (a.move) return say("step", t(`chat.stepMove.${a.move.mode}${a.move.from === "point" ? "Point" : ""}`, { distance: a.move.distance }));
   if (a.damage) return say("step", t(a.damage.damageType === "healing" ? "chat.stepHeal" : "chat.stepDamage", { formula: persFormulaText(a.damage.formula, t), type: env.damageLabel?.(a.damage.damageType) ?? a.damage.damageType }) + (a.damage.basic ? ` ${t("chat.stepBasic")}` : ""));
@@ -255,12 +257,12 @@ export function buildViewModel(message, user, env = null) {
     });
     const dcKnown = ck || !showDc ? null : use.dc ?? ch.dc?.value ?? null;
     vm.challenge = {
-      stat: ck ? (ck.vs ? t("checks.head", { stat: [ck.statistic].flat().map(env.statLabel).join(" / "), vs: vsLabel(ck.vs, env, showDc) }) : t("checks.headSelf", { stat: [ck.statistic].flat().map(env.statLabel).join(" / ") }))
+      stat: ck ? (ck.vs ? t("checks.head", { stat: [ck.statistic].flat().map(env.statLabel).join(" / "), vs: vsLabel(ck.vs?.dc != null && checks.dcOverridden(use) ? { ...ck.vs, dc: use.dc } : ck.vs, env, showDc) }) : t("checks.headSelf", { stat: [ck.statistic].flat().map(env.statLabel).join(" / ") }))
         : t("chat.challenge", { stat: env.statLabel(ch.statistic) }),
       basic: ch.basic ? t("chat.basic") : null,
       dc: dcKnown != null ? t("chat.dc", { dc: dcKnown }) : null,
       dcUnknown: !ck && showDc && dcKnown == null ? t("chat.dcUnknown") : null,
-      canSetDC: !ck && isGM && !allFar && dcKnown == null && isEmpty(state.challenge?.results),
+      canSetDC: isGM && !allFar && (ck ? ck.vs?.dc != null : dcKnown == null) && isEmpty(state.challenge?.results),   // у проверки с фиксированной СЛ — ГМ правит её (Lingering Composition: СЛ по уровню существ)
       toolbelt: ck ? (rows.length || allFar || !(isUse || isRoll) ? null : t(isRoll ? "checks.noTargetRoll" : "checks.noTargets")) : env.toolbelt ? t("chat.challengeOff") : null,
       rows,
       canApplyAll: rows.some((r) => r.canApply),

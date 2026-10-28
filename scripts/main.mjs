@@ -23,6 +23,7 @@ import * as damageGate from "./damage-gate.mjs";
 import * as turnConditions from "./turn-conditions.mjs";
 import * as escape from "./escape.mjs";
 import * as events from "./events.mjs";
+import * as hold from "./hold.mjs";
 import * as cast from "./cast.mjs";
 import * as migrateActivate from "./migrate-activate.mjs";
 import * as affliction from "./affliction-run.mjs";
@@ -76,7 +77,7 @@ export const HANDLERS = {
     const m = msgOf(messageId), u = m.flags[MOD]?.use;
     if (!u || !Number.isFinite(value)) throw new Error("setDC: нет снимка или значение не число");
     if (Object.keys(u.state?.challenge?.results ?? {}).length) throw new Error("setDC: уже есть результаты");
-    await m.update({ [flagPath("use", "dc")]: value });
+    await m.update({ [flagPath("use", "dc")]: value, [flagPath("use", "state.dcSet")]: true });
     await saves.runChallenge(game.messages.get(messageId));   // испытание стартует по введённой СЛ (K7 п.7)
   }),
   useReaction: gm("useReaction", (hintMessageId) => reactions.useReaction(hintMessageId), "owner", async (user, hintMessageId) => {
@@ -98,6 +99,7 @@ export const HANDLERS = {
   dropSpellShield: gm("dropSpellShield", (actorUuid, effectId, layers) => shieldBlock.dropSpellShield(actorUuid, effectId, layers), "owner", async (user, actorUuid) => ({ owns: ownsActor(await fromUuid(actorUuid), user) })),
   applyRetch: gm("applyRetch", (actorUuid, degree) => turnConditions.applyRetch(actorUuid, degree), "owner", async (user, actorUuid) => ({ owns: ownsActor(await fromUuid(actorUuid), user) })),
   applyEscape: gm("applyEscape", (actorUuid, items, degree) => escape.applyEscape(actorUuid, items, degree), "owner", async (user, actorUuid) => ({ owns: ownsActor(await fromUuid(actorUuid), user) })),
+  holdResolve: gm("holdResolve", (messageId, how) => hold.resolveManual(messageId, how)),   // ручные кнопки удержанной атаки (damage-gate)
   dismissVis: gm("dismissVis", (sceneId, key) => vision.dismissSource(game.scenes.get(sceneId), key)),
   saveCatalogRule: gm("saveCatalogRule", (key, rule) => rules.saveWorldRule(key, rule))
 };
@@ -130,7 +132,7 @@ Hooks.once("init", () => {
     automationsGroups: compat.automationsGroups, shouldYield: compat.shouldYield,
     validateRule: rules.validateRule, deriveFromMarkup: rules.deriveFromMarkup, deriveCast: rules.deriveCast, castItem: cast.castItem, slugOf: rules.slugOf, sourceOf: rules.sourceOf,
     openWorkshop: workshop.Workshop.open, afflictionTick: affliction.tick, afflictionSweep: affliction.sweep,
-    degreeFromTotal, callGM, HANDLERS
+    degreeFromTotal, callGM, HANDLERS, holdResolve: hold.resolveManual, isHeld: hold.isHeld
   };
 });
 

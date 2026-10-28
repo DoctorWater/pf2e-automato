@@ -52,6 +52,8 @@
       "stepBadgeDec": "значок −1, если есть",
       "stepEffect": "эффект {name}",
       "stepExtend": "продлить эффект {slug} на {rounds} р.",
+      "stepExtendCast": "продлить эффекты этого сотворения на {rounds} р.",
+      "stepRefundFocus": "вернуть очко фокуса, потраченное на это заклинание",
       "stepOption": "включить опцию {option}",
       "stepOptionOff": "выключить опцию {option}",
       "stepWhen": "если {when}",

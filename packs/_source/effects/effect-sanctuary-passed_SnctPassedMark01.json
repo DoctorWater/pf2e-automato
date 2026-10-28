@@ -1,0 +1,57 @@
+{
+  "_id": "SnctPassedMark01",
+  "name": "Effect: Sanctuary Passed",
+  "type": "effect",
+  "img": "icons/svg/aura.svg",
+  "system": {
+    "description": {
+      "value": "<p>You passed the Will save against Sanctuary: you can attempt your attack and any other attacks against the protected creature this turn.</p>"
+    },
+    "duration": {
+      "expiry": "turn-end",
+      "sustained": false,
+      "value": 0,
+      "unit": "rounds"
+    },
+    "level": {
+      "value": 1
+    },
+    "publication": {
+      "license": "",
+      "remaster": false,
+      "title": ""
+    },
+    "rules": [],
+    "start": {
+      "initiative": null,
+      "value": 0
+    },
+    "tokenIcon": {
+      "show": true
+    },
+    "traits": {
+      "rarity": "common",
+      "value": []
+    },
+    "slug": "effect-sanctuary-passed"
+  },
+  "effects": [],
+  "folder": null,
+  "sort": 0,
+  "ownership": {
+    "default": 0
+  },
+  "flags": {},
+  "_stats": {
+    "coreVersion": "14.366",
+    "systemId": "pf2e",
+    "systemVersion": "8.6.1",
+    "createdTime": null,
+    "modifiedTime": null,
+    "lastModifiedBy": null,
+    "compendiumSource": null,
+    "duplicateSource": null,
+    "exportSource": null
+  },
+  "_key": "!items!SnctPassedMark01"
+}

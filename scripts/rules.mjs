@@ -85,7 +85,7 @@ export const REPEAT_ON = ["turn-start", "turn-end"];
 export const REPEAT_END = ["success", "criticalSuccess"];
 
 /** Шаг apply делает что-то с получателем (есть вид шага); note — только текст в блоке. */
-export const STEP_KINDS = ["condition", "effect", "visibility", "persistent", "removeCondition", "removeEffect", "extendEffect", "rollOption", "damage", "choose", "move", "affliction", "coat"];
+export const STEP_KINDS = ["condition", "effect", "visibility", "persistent", "removeCondition", "removeEffect", "extendEffect", "refundFocus", "rollOption", "damage", "choose", "move", "affliction", "coat", "hold"];
 export const isActiveStep = (a) => STEP_KINDS.some((k) => a?.[k]) || !!a?.removeKey || !!a?.stageDelta || !!a?.coatArm;   // removeKey — внутренний шаг карточки повтора (repeat.mjs), stageDelta — карточки недуга (affliction.mjs), coatArm — носитель яда (coat.mjs); в схему не входят
 // получатели шага: self — автор, target — цель, party — участники партий автора, allies — союзники автора в радиусе range футов от его токена,
 // chosen — существо, которое автор выбрал предыдущим шагом choose (from: allies | enemies)
@@ -99,12 +99,12 @@ function vDuration(d, path, err, ofOk) {
   const dice = isStr(d?.value) && /^\d+d\d+$/i.test(d.value.trim());
   if (!isObj(d) || !(dice || (isInt(d.value) && (d.value >= 1 || (d.value === 0 && d.expiry === "turn-end")))) || !APPLY_UNITS.includes(d.unit)) err.push(E("dur.bad", path));
   else if (d.expiry != null && !["turn-start", "turn-end"].includes(d.expiry)) err.push(E("dur.expiry", `${path}.expiry`));
-  else if (d.of != null && (!ofOk || !["origin", "target"].includes(d.of))) err.push(E("dur.of", `${path}.of`));
+  else if (d.of != null && (!ofOk || !["origin", "target"].includes(d.of) || (ofOk === "target" && d.of !== "target"))) err.push(E("dur.of", `${path}.of`));
   else return { value: dice ? d.value.trim().toLowerCase() : d.value, unit: d.unit, expiry: d.expiry ?? null };
   return null;
 }
 
-function vApply(a, path, defTo, err, basicOk = false) {
+function vApply(a, path, defTo, err, basicOk = false, castOk = false) {
   if (!isObj(a)) { err.push(E("notObj", path)); return null; }
   const out = { to: a.choose != null && a.to == null ? "self" : a.to ?? defTo };   // choose — выбор делает автор: получатель шага всегда «self»
   if (!APPLY_TO.includes(out.to) || (a.choose != null && out.to !== "self")) err.push(E("apply.to", `${path}.to`));
@@ -133,9 +133,13 @@ function vApply(a, path, defTo, err, basicOk = false) {
   }
   if (a.extendEffect != null) {
     const x = a.extendEffect;
-    if (!isObj(x) || !isStr(x.slug) || !SLUG.test(x.slug) || !(isInt(x.rounds) && x.rounds >= 1)) err.push(E("extEff.bad", `${path}.extendEffect`));
-    else out.extendEffect = { slug: x.slug, rounds: x.rounds };
+    // cast:true вместо slug — эффекты, выданные этим же сотворением (Lingering Composition: у проверки записи onEvent.check); slug и cast вместе нельзя
+    const byCast = castOk && isObj(x) && x.cast === true && x.slug == null;
+    if (!isObj(x) || !(byCast || (isStr(x.slug) && SLUG.test(x.slug) && x.cast == null)) || !(isInt(x.rounds) && x.rounds >= 1)) err.push(E("extEff.bad", `${path}.extendEffect`));
+    else out.extendEffect = byCast ? { cast: true, rounds: x.rounds } : { slug: x.slug, rounds: x.rounds };
   }
+  // refundFocus: вернуть владельцу очки фокуса, потраченные на это заклинание; только на самого автора
+  if (a.refundFocus != null) { if (a.refundFocus !== true || out.to !== "self") err.push(E("refund.bad", `${path}.refundFocus`)); else out.refundFocus = true; }
   if (a.rollOption != null) {
     const o = a.rollOption;
     if (!isObj(o) || !isStr(o.domain) || !SLUG.test(o.domain) || !isStr(o.option) || /\s/.test(o.option) || (o.value != null && typeof o.value !== "boolean")) err.push(E("rollOpt.bad", `${path}.rollOption`));
@@ -167,9 +171,9 @@ function vApply(a, path, defTo, err, basicOk = false) {
   if (a.duration != null) {
     if (a.condition == null && a.effect == null) err.push(E("dur.needCond", `${path}.duration`));
     else {
-      const o = vDuration(a.duration, `${path}.duration`, err, !(a.effect != null && a.effect.mods == null));
+      const o = vDuration(a.duration, `${path}.duration`, err, a.effect != null && a.effect.mods == null ? "target" : true);   // of — чей ход считает срок; у эффекта по uuid только target (метка «до конца хода получателя»: pf2e считает ход автора эффекта)
       if (o && out.condition) out.duration = { ...o, of: a.duration.of ?? "origin" };
-      else if (o && a.effect != null) out.duration = { ...o, ...(a.effect.mods != null && { of: a.duration.of ?? "origin" }) };   // у inline-эффекта срок считает ход автора или цели, как у состояния
+      else if (o && a.effect != null) out.duration = { ...o, ...(a.effect.mods != null ? { of: a.duration.of ?? "origin" } : a.duration.of != null && { of: a.duration.of }) };   // у inline-эффекта срок считает ход автора или цели, как у состояния
     }
   }
   // damage — урон (или лечение, type "healing") по формуле: бросок и применение pf2e без кнопок, с учётом сопротивлений
@@ -201,6 +205,8 @@ function vApply(a, path, defTo, err, basicOk = false) {
     else if (a.effect.start != null && !(a.effect.badge === "increment" && isInt(a.effect.start) && a.effect.start >= 1 && a.effect.start <= 10)) err.push(E("effect.badge", `${path}.effect.start`));   // start — значок нового эффекта (Кража тени: Enfeebled 2 при первом применении)
     else out.effect = { uuid: a.effect.uuid, ...(a.effect.badge && { badge: a.effect.badge === "increment" ? "increment" : "decrement" }), ...(a.effect.by > 1 && { by: a.effect.by }), ...(a.effect.start > 1 && { start: a.effect.start }), ...(a.effect.replace && { replace: true }) };
   }
+  // hold — исход удержанной атаки (scripts/hold.mjs): release выпускает, cancel отменяет, end выпускает и снимает носитель (заклинание кончается); только у записи onEvent с hold
+  if (a.hold != null) { if (!HOLD_STEPS.includes(a.hold)) err.push(E("hold.step", `${path}.hold`)); else out.hold = a.hold; }
   if (a.note != null) {
     if (!isStr(a.note)) err.push(E("note.text", `${path}.note`)); else out.note = a.note;
   }
@@ -340,10 +346,10 @@ function vAffliction(x, path, err) {
   };
 }
 
-function vApplyList(list, path, defTo, err, basicOk = false) {
+function vApplyList(list, path, defTo, err, basicOk = false, castOk = false) {
   if (list == null) return [];
   if (!Array.isArray(list)) { err.push(E("notArr", path)); return []; }
-  const out = list.map((a, i) => vApply(a, `${path}[${i}]`, defTo, err, basicOk));
+  const out = list.map((a, i) => vApply(a, `${path}[${i}]`, defTo, err, basicOk, castOk));
   // to:"chosen" — только после шага choose из allies/enemies в этом же списке
   let picked = false;
   out.forEach((a, i) => {
@@ -511,6 +517,10 @@ function vCheck(c, path, err) {
     if (!(isInt(c.mapIncreases) && c.mapIncreases >= 0 && c.mapIncreases <= 2)) err.push(E("chk.map", `${path}.mapIncreases`)); else out.mapIncreases = c.mapIncreases;
   }
   if (c.immunity != null) { const im = vImmunity(c.immunity, `${path}.immunity`, err); if (im) out.immunity = im; }
+  // when — условие на цель (как у challenge.when); вычисляется при броске и запоминается: цель с результатом из карточки не пропадает
+  if (c.when != null) { if (!isPredicate(c.when)) err.push(E("apply.when", `${path}.when`)); else out.when = c.when; }
+  // oneRoll — один бросок автора на все цели: степень по СЛ каждой цели от одного итога (No Cause for Alarm); нужен vs, без roll:"system"
+  if (c.oneRoll != null) { if (c.oneRoll !== true || !out.vs || c.roll === "system") err.push(E("chk.oneRoll", `${path}.oneRoll`)); else out.oneRoll = true; }
   // roll:"system" — модуль сам не бросает (напр. атака заклинанием с карточки): степень берётся из броска pf2e (actions.mjs)
   if (c.roll != null) { if (c.roll !== "system") err.push(E("chk.roll", `${path}.roll`)); else out.roll = "system"; }
   out.rollerRole = "author";
@@ -578,9 +588,29 @@ export const EVENT_SIDES = ["self", "target", "origin", "near"];
 export const NEAR_ON = ["turn-start", "turn-end", "enter"];
 export const EVENT_TARGETED = new Set(["attack-roll", "skill-check", "damage-roll", "spell-cast"]);   // у остальных событий цели нет: side:"target" бессмысленна
 
-// afterUse: бросок владельца сразу после карточки этого предмета (strike-gate: «Make a Strike. If it hits…»). Сотворение (spell-cast) — отдельной пачкой.
+// afterUse: бросок владельца сразу после карточки этого предмета (strike-gate: «Make a Strike. If it hits…»). Сотворение (spell-cast) — «следующее действие» (Lingering Composition, запись с check).
+export const HOLD_STEPS = ["release", "cancel", "end"];
 export const EVENT_GATES = ["target", "removed", "idle"];
-export const EVENT_AFTER_USE = new Set(["attack-roll", "skill-check", "saving-throw", "damage-roll"]);
+export const EVENT_AFTER_USE = new Set(["attack-roll", "skill-check", "saving-throw", "damage-roll", "spell-cast"]);
+
+/** check записи onEvent (Lingering Composition): проверка владельца против СЛ уровня самого высокого существа среди целей сотворения; шаги по степеням — только на владельца. */
+function vEventCheck(c, path, err) {
+  if (!isObj(c)) { err.push(E("notObj", path)); return null; }
+  const out = {};
+  if (!isStr(c.statistic) || !SLUG.test(c.statistic)) err.push(E("chk.stat", `${path}.statistic`)); else out.statistic = c.statistic;
+  if (!isObj(c.dc) || c.dc.ofTargets !== "level" || Object.keys(c.dc).length !== 1) err.push(E("ev.checkDc", `${path}.dc`)); else out.dc = { ofTargets: "level" };
+  out.byDegree = {};
+  if (c.byDegree != null) {
+    if (!isObj(c.byDegree)) err.push(E("degrees.obj", `${path}.byDegree`));
+    else for (const [k, v] of Object.entries(c.byDegree)) {
+      if (!DEGREES.includes(k)) { err.push(E("degrees.unknown", `${path}.byDegree.${k}`, { k })); continue; }
+      const list = vApplyList(v, `${path}.byDegree.${k}`, "self", err, false, true);
+      if (list.some((a) => a.to !== "self")) err.push(E("chk.selfSteps", `${path}.byDegree.${k}`));
+      if (list.length) out.byDegree[k] = list;
+    }
+  }
+  return out;
+}
 
 function vEvent(e, i, err) {
   const path = `onEvent[${i}]`;
@@ -602,12 +632,20 @@ function vEvent(e, i, err) {
   if (e.afterUse != null) { if (typeof e.afterUse !== "boolean" || (e.afterUse && !(EVENT_AFTER_USE.has(e.on) && out.side === "self"))) err.push(E("ev.afterUse", `${path}.afterUse`)); else if (e.afterUse) out.afterUse = true; }
   // gate — внутреннее условие записи носителя яда (coat.mjs, runEntry): target — урон нанесён взведённой цели; removed — испытание только если шаг снятия реально снял носитель (гонка двух Ударов)
   if (e.gate != null) { if (!Array.isArray(e.gate) || !e.gate.length || !e.gate.every((g) => EVENT_GATES.includes(g))) err.push(E("ev.gate", `${path}.gate`)); else out.gate = EVENT_GATES.filter((g) => e.gate.includes(g)); }
+  // hold — запись носителя «нападение на меня ждёт»: атака (бросок атаки или проверка с чертой attack) по владельцу держится, пока шаги hold этой записи не выпустят/отменят её
+  if (e.hold != null) { if (e.hold !== true || out.side !== "target" || !["attack-roll", "skill-check"].includes(e.on)) err.push(E("ev.hold", `${path}.hold`)); else out.hold = true; }
   const apply = vApplyList(e.apply, `${path}.apply`, "self", err);
   if (apply.length) out.apply = apply;
   if (e.challenge != null) { const c = vChallenge(e.challenge, `${path}.challenge`, err); if (c) out.challenge = c; }
-  if (!apply.length && e.challenge == null) err.push(E("ev.empty", path));
+  if (!out.hold && [apply, ...Object.values(out.challenge?.byDegree ?? {})].some((l) => l.some((a) => a.hold))) err.push(E("ev.holdStep", `${path}.apply`));
+  // check — проверка владельца после сотворения (только spell-cast + afterUse), с challenge несовместима
+  if (e.check != null) {
+    if (e.challenge != null || e.on !== "spell-cast" || !out.afterUse) err.push(E("ev.check", `${path}.check`));
+    else { const c = vEventCheck(e.check, `${path}.check`, err); if (c) out.check = c; }
+  }
+  if (!apply.length && e.challenge == null && e.check == null) err.push(E("ev.empty", path));
   // у события нет области использования: from:"point" некуда указывать
-  if ([apply, ...Object.values(out.challenge?.byDegree ?? {})].some((l) => movesOf(l).some((m) => m.from === "point"))) err.push(E("move.bad", `${path}.apply`));
+  if ([apply, ...Object.values(out.challenge?.byDegree ?? {}), ...Object.values(out.check?.byDegree ?? {})].some((l) => movesOf(l).some((m) => m.from === "point"))) err.push(E("move.bad", `${path}.apply`));
   return out;
 }
 
@@ -894,7 +932,7 @@ function linksOf(html, condSlug, hints) {
       if (VALUED.has(slug)) {
         const inLabel = [...label.matchAll(/\d+/g)].pop();
         const after = AFTER_NUM.exec(html.slice(m.index + m[0].length));
-        // «шок на 1 раунд»: срок вместо значения — не «stunned 1» (теряет все действия на срок); правилом не выразить
+        // «шок на 1 раунд»: срок вместо значения — не «stunned 1»: уходит в hints.timed, «шок на срок» (stunned без value + duration) пишется вручную
         if (!inLabel && !after && DURATION_ONLY.has(slug) && durNext(html.slice(end))) { if (!timed.includes(slug)) timed.push(slug); continue; }
         value = inLabel ? +inLabel[0] : after ? +after[1] : 1;
         if (!inLabel && after) end += after[0].length;
@@ -917,7 +955,7 @@ const condApply = (c, to) => ({ to, condition: { slug: c.slug, ...(c.value != nu
 const PLAIN_SKIP = new Set([...NOT_ON_TARGET, "persistent-damage", "friendly", "helpful", "hostile", "indifferent", "unfriendly", "malevolence", "cursebound", "broken", "controlled", "unnoticed"]);
 const DUR = /(?<!\p{L})(?:в течение|на|for)\s+(\d+)\s*(раунд|минут|час|дн|ден|round|minute|hour|day)/giu;
 const NEXT_TURN = /(?<!\p{L})(?:до|until)\s+(?:the\s+)?(начала|конца|start|end)\s+(?:of\s+)?(своего|его|ее|их|вашего|its|their|his|her|your)\s+(?:следующего|next)\s+(?:хода|turn)/giu;
-// pf2e допускает «stunned на срок» вместо значения; шагом правила это не выразить: createTimed даёт значение 1 (теряет 1 действие, а не все)
+// «stunned на срок» (без значения): в правиле — condition без value + duration (createTimed: обёртка держит настоящее stunned); разметка сама такое не пишет — только подсказка
 export const DURATION_ONLY = new Set(["stunned"]);
 const durNext = (s) => [DUR, NEXT_TURN].some((re) => new RegExp("^[\\s,]*(?:(?:both|all|each)\\s+)?(?:" + re.source + ")", "iu").test(s));
 const UNIT_OF = { р: "rounds", r: "rounds", м: "minutes", m: "minutes", ч: "hours", h: "hours", д: "days", d: "days" };
@@ -1866,7 +1904,7 @@ export function withActivation(rule, flag) {
   const u = rule?.onUse;
   if (!u || (!d && !immunity)) return rule;
   const step = (s) => {
-    if (!d || s.repeat || (!s.condition && !s.effect) || s.condition?.policy === "reduce") return s;
+    if (!d || s.repeat || (s.condition?.slug === "stunned" && s.condition.value == null) || (!s.condition && !s.effect) || s.condition?.policy === "reduce") return s;
     const of = s.condition || s.effect.mods != null ? { of: s.duration?.of ?? "origin" } : {};
     return { ...s, duration: { value: d.value, unit: d.unit, expiry: d.expiry ?? null, ...of } };
   };

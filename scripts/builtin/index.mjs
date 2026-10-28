@@ -4,6 +4,7 @@
 import { MOD, isActiveGM, whenSettled } from "../util.mjs";
 import { sweepEffects } from "./lib.mjs";
 import { modeOf } from "../settings.mjs";
+import { isHeld, replayers } from "../hold.mjs";
 import * as bloodMagic from "./blood-magic.mjs";
 import * as twinFeint from "./twin-feint.mjs";
 import * as dirtyTrick from "./dirty-trick.mjs";
@@ -52,6 +53,13 @@ export const BUILTIN = {
 // Обработчики по сообщениям чата без правила: кровь — тег заклинания, статуэтка — карточка предмета (kind "card" конвейер не исполняет).
 const MESSAGE_HOOKS = [["blood-magic", bloodMagic.onMessage], ["reactive-strike", reactiveStrike.onMessage], ["onyx-dog", onyxDog.onMessage], ["one-shot-one-kill", oneShot.onMessage], ["surprise-attack", surprise.onMessage], ["spellshape", spellshape.onMessage], ["tentacular-limbs", tentacles.onMessage], ["strike-effects", strikeEffects.onMessage], ["hunt-prey", huntPrey.onMessage], ["oscillating-wave", oscillatingWave.onMessage], ["shield-ward", shieldWard.onMessage], ["damage-link", damageLink.onMessage], ["apparition-sense", apparitionSense.onMessage], ["prey-share", preyShare.onMessage], ["smite", smite.onMessage]];
 
+// независимо: обработчик с окном (Магия крови ждёт ответа) не должен задерживать остальные; записи в актёра — через queue
+export function dispatchBuiltin(message, hooks = MESSAGE_HOOKS) {
+  if (!isActiveGM() || modeOf("macro") === "off" || isHeld(message)) return false;   // удержанная атака (hold.mjs): replay вернётся сюда после выпуска
+  for (const [id, fn] of hooks) Promise.resolve().then(() => fn(message)).catch((e) => console.error(`${MOD} | builtin ${id}`, e));
+  return true;
+}
+
 export function initBuiltinHooks() {
   if (!globalThis.Hooks) return;   // node-тесты
   // число действий переменного заклинания спрашивает автор сообщения (игрок у себя, ГМ у себя), не ГМ-исполнитель
@@ -60,11 +68,8 @@ export function initBuiltinHooks() {
     if (modeOf("macro") === "off") return;
     variableCast.onMessage(message).catch((e) => console.error(`${MOD} | builtin variable-cast`, e));
   });
-  Hooks.on("createChatMessage", async (message) => {
-    if (!isActiveGM() || modeOf("macro") === "off") return;
-    // независимо: обработчик с окном (Магия крови ждёт ответа) не должен задерживать остальные; записи в актёра — через queue
-    for (const [id, fn] of MESSAGE_HOOKS) Promise.resolve().then(() => fn(message)).catch((e) => console.error(`${MOD} | builtin ${id}`, e));
-  });
+  Hooks.on("createChatMessage", (message) => { dispatchBuiltin(message); });
+  replayers.add((message) => { dispatchBuiltin(message); });
   Hooks.on("createChatMessage", (message) => {   // свой хук: не зависит от mode.macro (mode.shieldBlock проверяет onMessage)
     if (isActiveGM()) shieldBlock.onMessage(message).catch((e) => console.error(`${MOD} | builtin shield-block`, e));
   });

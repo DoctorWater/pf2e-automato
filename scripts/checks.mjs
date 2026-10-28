@@ -27,6 +27,12 @@ export function defenseDc(actor, vs) {
   return null;
 }
 
+/** use.dc перекрывает фиксированную vs.dc только если её задал ГМ (state.dcSet) или карточка проверки записи (state.castMessage); иначе use.dc — СЛ активации/сотворения. */
+export const dcOverridden = (use) => Number.isFinite(use?.dc) && !!(use.state?.dcSet || use.state?.castMessage);
+
+/** СЛ проверки карточки: фиксированная vs.dc может быть исправлена ГМом (use.dc, кнопка «СЛ»); остальные защиты — от цели. */
+export const checkDcOf = (use, actor, check) => (check?.vs?.dc != null && dcOverridden(use) ? use.dc : defenseDc(actor, check?.vs));
+
 /** slug защиты для `dc.slug` pf2e (контекст цели: бонусы против атакующего); у фиксированной СЛ slug нет. */
 export const dcSlug = (vs) => (vs?.defense === "ac" ? "armor" : vs?.defense ?? vs?.against ?? null);
 
@@ -77,7 +83,7 @@ export async function rollCheck(author, check, ctx = {}) {
   const { message, tokenKey, target } = ctx, use = useOf(message), tActor = target?.actor;
   if (!tActor) return null;
   if (hasImmunity(tActor, check.immunity, author.uuid)) { ui.notifications.info(L("checks.immuneNote", { name: tActor.name })); return null; }
-  const dc = defenseDc(tActor, check.vs);
+  const dc = checkDcOf(use, tActor, check);
   if (dc == null) { ui.notifications.warn(L("checks.dcUnknown", { name: tActor.name })); return null; }
   const stat = pickStatistic(author, check.statistic);
   if (!stat) { ui.notifications.warn(L("saves.noStatistic", { name: author.name, stat: [check.statistic].flat().join("/") })); return null; }
@@ -104,7 +110,45 @@ export async function rollCheck(author, check, ctx = {}) {
   const roll = await stat.check.roll(params);
   if (!roll) return null;
   const die = roll.dice?.[0]?.results?.find((r) => r.active && !r.discarded)?.result ?? null;
-  return { degree: roll.degreeOfSuccess ?? degreeFromTotal(roll.total, dc, die), total: roll.total, dc, rollMessage };
+  return { degree: roll.degreeOfSuccess ?? degreeFromTotal(roll.total, dc, die), total: roll.total, die, dc, rollMessage };
+}
+
+/** oneRoll: ОДИН бросок автора (по СЛ первой цели), степени остальных — от того же итога. */
+async function runOneRoll(message, ck, author, only) {
+  const res = () => useOf(message).state?.challenge?.results ?? {};
+  const pending = (await challengeTargets(message)).filter((t) => !res()[t.key] && !hasImmunity(t.token?.actor, ck.immunity, author.uuid));
+  const rk = `${message.id}:*`;
+  if (!pending.length || rolling.has(rk)) return [];
+  rolling.add(rk);
+  const fail = async () => { if (!only) for (const t of pending) await markTried(message.id, "rollTried", t.key); return []; };
+  try {
+    const first = pending[0];
+    const r = await rollCheck(author, ck, { message, tokenKey: first.key, target: first.token, skipDialog: true, askMap: !!only, messageMode: S.get("challenge.messageMode") });
+    if (!r) return await fail();
+    return (await recordOneRoll(message, { total: r.total, die: r.die, key: first.key, degree: r.degree, dc: r.dc, by: game.user.id, rollMessageId: r.rollMessage?.id ?? null, src: "own" })).keys;
+  } catch (e) { console.error(`${MOD} | runCheck oneRoll`, e); return await fail(); }
+  finally { rolling.delete(rk); }
+}
+
+/**
+ * oneRoll: один итог -> результат каждой цели карточки по её СЛ (key — цель, по которой бросал pf2e: берём её степень и СЛ).
+ * Иммунные и уже решённые пропускаются (при переброске пересчитываются все). Возвращает {ok, keys}.
+ */
+export async function recordOneRoll(message, { total, die = null, key, degree = null, dc = null, ...meta }) {
+  const use = useOf(message), ck = challengeOf(use), author = await authorOf(use), keys = [];
+  const targets = await challengeTargets(message);
+  // состав целей фиксируется при первой записи: поздно испугавшаяся цель не получит бросок (challengeTargets берёт state.challenge.eligible)
+  if (!use.state?.challenge?.eligible) await message.update({ [flagPath("use", "state", "challenge", "eligible")]: targets.map((t) => t.key) });
+  for (const t of targets) {
+    const own = t.key === key, has = !!useOf(message).state?.challenge?.results?.[t.key];
+    if (has ? !meta.isReroll : hasImmunity(t.token?.actor, ck.immunity, author?.uuid)) continue;   // иммунная без результата не участвует; с результатом пересчитывается при переброске
+    const d = own && dc != null ? dc : defenseDc(t.token?.actor, ck.vs);
+    if (d == null) continue;
+    // ponytail: степень неглавных целей — по статической СЛ; AdjustDegreeOfSuccess автора и контекстные модификаторы СЛ цели учтены только у главной (её считает pf2e); upgrade — отдельный расчёт pf2e по цели
+    const r = await recordResult(message.id, t.key, { ...meta, total, dc: d, degree: own && degree != null ? degree : degreeFromTotal(total, d, die) });
+    if (r.ok) keys.push(t.key);
+  }
+  return { ok: keys.length > 0, keys };
 }
 
 const authorOf = async (use) => {
@@ -119,6 +163,7 @@ export async function runCheck(message, { only } = {}) {
   const author = await authorOf(use);
   if (!author) return [];
   if (!only && isPcActor(author)) return [];
+  if (ck.oneRoll) return runOneRoll(message, ck, author, only);
   const done = [];
   for (const { key, token } of await challengeTargets(message)) {
     if (only && only !== key) continue;
@@ -152,7 +197,8 @@ export async function findCheckByOrigin(message, ctx) {
     if (ctx.actor && use.actor && !use.actor.endsWith(ctx.actor)) continue;
     if (stat && ![ck.statistic].flat().includes(stat)) continue;
     const targets = await challengeTargets(m), tok = ctx.target?.token;
-    const hit = targets.find((t) => t.token.uuid === tok) ?? (!tok && targets.length === 1 ? targets[0] : null);
+    // oneRoll: бросок касается всех (выбранная цель может быть не в списке) — берём её или первую нерешённую, остальные получат степень от того же итога
+    const hit = targets.find((t) => t.token.uuid === tok) ?? (ck.oneRoll ? targets.find((t) => !use.state?.challenge?.results?.[t.key]) ?? (ctx.isReroll ? targets[0] : null) : !tok && targets.length === 1 ? targets[0] : null);
     if (hit && (!use.state?.challenge?.results?.[hit.key] || ctx.isReroll)) return { msg: m, key: hit.key };
   }
   return null;

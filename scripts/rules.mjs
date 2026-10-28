@@ -186,7 +186,7 @@ function vApply(a, path, defTo, err, basicOk = false, castOk = false) {
   // move — принудительное перемещение цели: push — от токена автора, pull — к нему; distance в футах (кратно 5). Только to:"target"; дистанция по степени — отдельными шагами в byDegree
   if (a.move != null) {
     const m = a.move;
-    if (!isObj(m) || !["push", "pull"].includes(m.mode) || !(isInt(m.distance) && m.distance >= 5 && m.distance % 5 === 0) || out.to !== "target" || (m.from != null && !["origin", "point"].includes(m.from)) || Object.keys(m).some((k) => !["mode", "distance", "from"].includes(k))) err.push(E("move.bad", `${path}.move`));
+    if (!isObj(m) || !["push", "pull", "choose"].includes(m.mode) || !(isInt(m.distance) && m.distance >= 5 && m.distance % 5 === 0) || out.to !== "target" || (m.from != null && (m.mode === "choose" || !["origin", "point"].includes(m.from))) || Object.keys(m).some((k) => !["mode", "distance", "from"].includes(k))) err.push(E("move.bad", `${path}.move`));
     else out.move = { mode: m.mode, distance: m.distance, ...(m.from === "point" && { from: "point" }) };   // from:"point" — центр области этого использования; где она есть, решает vOnUse
   }
   if (a.effect != null) {

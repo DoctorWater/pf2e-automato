@@ -76,7 +76,7 @@ test("валидатор move: режим, кратность 5, только ц
 });
 
 test("форма ↔ правило и текст шага", () => {
-  for (const mode of ["push", "pull"]) {
+  for (const mode of ["push", "pull", "choose"]) {
     const rule = { v: 1, onUse: { targets: "selected", apply: [{ to: "target", move: { mode, distance: 15 } }] } };
     const back = validate(formToRule(ruleToForm(validate(rule).rule)));
     assert.equal(back.ok, true);
@@ -153,6 +153,24 @@ test("притяжение: останавливается вплотную к �
   const m = mkMsg(use());
   await applyOps(m, "t", [{ to: "target", move: { mode: "pull", distance: 30 } }], { scope: "apply", target: foe });
   assert.equal(foe.x, 100);   // клетка автора занята, 100 — соседняя
+});
+
+test("choose: сторону карты выбирает владелец автора; окно закрыто — цель стоит; from запрещён", async () => {
+  const asked = [];
+  let answer = "up";
+  game.users = [{ id: "p1", isGM: false, active: true }];
+  author.actor.testUserPermission = () => true;
+  setSocket({ executeAsUser: async (name, uid, data) => { asked.push([name, uid, data.choices.map((c) => c.value)]); return answer; } });
+  foe.y = 300;
+  const step = [{ to: "target", move: { mode: "choose", distance: 10 } }];
+  await applyOps(mkMsg(use()), "t", step, { scope: "apply", target: foe });
+  assert.deepEqual([foe.x, foe.y], [100, 100]);
+  assert.deepEqual(asked[0], ["pickChoice", "p1", ["up", "down", "left", "right"]]);
+  answer = null;
+  const ops = await applyOps(mkMsg(use(), "M2"), "t", step, { scope: "apply", target: foe });
+  assert.deepEqual([foe.x, foe.y, ops[0].skipped, warns.length], [100, 100, "noSide", 0]);
+  assert.equal(ok(step).ok, true);
+  assert.equal(ok([{ to: "target", move: { mode: "choose", distance: 10, from: "origin" } }]).ok, false);
 });
 
 test("ключ без степени: переброс успех → крит не двигает второй раз", async () => {

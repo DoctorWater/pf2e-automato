@@ -398,7 +398,7 @@
         "moveDist": "Distance, ft",
         "moveMode": "Direction",
         "moveFrom": "From",
-        "movePlate": { "push": "push {distance} ft", "pull": "pull up to {distance} ft", "pushPoint": "push {distance} ft from the area centre", "pullPoint": "pull up to {distance} ft to the area centre" },
+        "movePlate": { "push": "push {distance} ft", "pull": "pull up to {distance} ft", "pushPoint": "push {distance} ft from the area centre", "pullPoint": "pull up to {distance} ft to the area centre", "choose": "move {distance} ft in a chosen direction" },
         "kindChoose": "Player's choice",
         "kindAffliction": "Affliction",
         "affl": {

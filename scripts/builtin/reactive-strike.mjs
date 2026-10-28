@@ -55,7 +55,7 @@ export async function onMove(doc, movement) {
   const g = canvas.grid.size, unit = canvas.grid.distance;
   const rect = (p) => ({ x: p.x / g, y: p.y / g, w: p.width ?? doc.width, h: p.height ?? doc.height });
   const passed = movement.passed?.waypoints ?? [];
-  if (passed.length && passed.every((w) => w.action === "displace")) return;   // принудительное перемещение (шаг move, откат) реакций не вызывает
+  if (passed.length && passed.every((w) => CONFIG.Token.movement.actions[w.action]?.teleport)) return;   // принудительное перемещение (displace: шаг move, откат) и телепорт (blink) реакций не вызывают
   const squares = leftSquares(movement.origin, movement.passed?.waypoints ?? []).map(rect);
   const step = (movement.passed?.distance ?? 99) <= unit;   // Шаг реакций не вызывает — по одному сдвигу его не отличить
   for (const holder of canvas.tokens.placeables) {

@@ -307,7 +307,7 @@ export function plate(row, env) {
     const names = Object.values(row.coat?.ch?.deg ?? {}).flat().filter((r) => r.kind === "affliction").map((r) => { try { return JSON.parse(r.text)?.def?.name; } catch { return null; } });
     return { ...base, name: t("workshop.au.coatPlate", { name: names.find(Boolean) ?? "?" }), note };
   }
-  if (row.kind === "move") return { ...base, name: t(`workshop.au.movePlate.${row.moveMode === "pull" ? "pull" : "push"}${row.moveFrom === "point" ? "Point" : ""}`, { distance: String(row.text ?? "").trim() || "?" }) };
+  if (row.kind === "move") return { ...base, name: t(`workshop.au.movePlate.${row.moveMode === "choose" ? "choose" : `${row.moveMode === "pull" ? "pull" : "push"}${row.moveFrom === "point" ? "Point" : ""}`}`, { distance: String(row.text ?? "").trim() || "?" }) };
   if (row.kind === "choose") return { ...base, name: t("workshop.au.choosePlate") };
   if (row.kind === "persistent") return { ...base, name: `${String(row.text ?? "").trim() || "?"} · ${env.damageLabel?.(row.pType) ?? row.pType}` };
   if (row.kind === "visibility") return { ...base, name: t(`chat.visLevel.${row.visLevel}`) };

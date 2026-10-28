@@ -1,4 +1,4 @@
-// Принудительное перемещение (шаг apply.move): толчок от автора (или от центра области, from:"point") / притяжение к ним. Исполняет активный ГМ (из applyOps).
+// Принудительное перемещение (шаг apply.move): толчок от автора (или от центра области, from:"point") / притяжение к ним / сдвиг в выбранную сторону карты (choose). Исполняет активный ГМ (из applyOps).
 // Чистая часть (forcedPath, moveOrder) — без Foundry; обёртка forcedMove — над сеткой и стенами сцены.
 import { MOD } from "./util.mjs";
 
@@ -55,16 +55,21 @@ const centre = (doc, p, g) => ({ x: p.x + (doc.width * g) / 2, y: p.y + (doc.hei
  * ГМ: сдвинуть токен цели. mode push|pull, distance — футы. Возвращает {skipped: причина} или {from, to, id, stoppedBy}.
  * Причины пропуска: noToken, noOrigin, scene, grid, same, atPoint. Нулевой сдвиг — {skipped: "blocked"}.
  * point — {x, y} px (центр области, from:"point"): отсчёт от неё вместо токена автора, origin тогда не нужен.
+ * side — для mode "choose": сторона по карте (ключ SIDES), origin не нужен. Нет стороны (окно закрыто) — {skipped: "noSide"}.
  */
-export async function forcedMove(target, origin, { mode, distance }, point = null) {
+export const SIDES = { up: { x: 0, y: -1 }, down: { x: 0, y: 1 }, left: { x: -1, y: 0 }, right: { x: 1, y: 0 } };
+export async function forcedMove(target, origin, { mode, distance }, point = null, side = null) {
   if (!target?.parent?.grid) return { skipped: "noToken" };   // цель без токена на сцене (актёр)
   const scene = target.parent;
-  if (!origin && !point) return { skipped: "noOrigin" };
-  if ((!point && scene !== origin.parent) || scene !== globalThis.canvas?.scene) return { skipped: "scene" };
+  const fixed = mode === "choose" ? SIDES[side] : null;
+  if (mode === "choose" && !fixed) return { skipped: "noSide" };
+  if (!fixed && !origin && !point) return { skipped: "noOrigin" };
+  if ((!fixed && !point && scene !== origin.parent) || scene !== globalThis.canvas?.scene) return { skipped: "scene" };
   const grid = scene.grid, g = grid.size;
   if (grid.isGridless || grid.distance !== 5) return { skipped: "grid" };
-  const tc = centre(target, target, g), oc = point ?? centre(origin, origin, g);
-  const sign = mode === "push" ? 1 : -1;
+  // choose: мнимый автор в клетке напротив стороны — дальше обычный толчок
+  const tc = centre(target, target, g), oc = fixed ? { x: tc.x - fixed.x * g, y: tc.y - fixed.y * g } : point ?? centre(origin, origin, g);
+  const sign = mode === "pull" ? -1 : 1;
   const len = Math.hypot(tc.x - oc.x, tc.y - oc.y);
   if (!len) return { skipped: "same" };
   // притяжение к точке не проскакивает её: не дальше целых клеток до центра области

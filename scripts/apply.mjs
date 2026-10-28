@@ -11,7 +11,7 @@ import { testPredicate } from "./predicate.mjs";
 import { setSource, dropSource, visionActive } from "./vision.mjs";
 import { escapeDC, offerEscape } from "./escape.mjs";
 import { repeatMeta, sameCarrier } from "./repeat.mjs";
-import { forcedMove, undoMove, areaPoint } from "./move.mjs";
+import { forcedMove, undoMove, areaPoint, SIDES } from "./move.mjs";
 import { rulesOfMods, textOfMods, inlineSlug } from "./inline-effect.mjs";
 import { afflictionStep, afflictionUndo, afflictionUnmake, afflictionRestore } from "./affliction-run.mjs";
 import { coatStep, coatArm, coatUnarm, coatUnmake } from "./coat.mjs";
@@ -629,10 +629,13 @@ export async function applyOps(message, tokenKey, steps, ctx = {}) {
       // from:"point" — центр области этого использования; нет области/формы без центра — откат на токен автора с заметкой
       const point = step.move.from === "point" ? areaPoint(use, ctx.region) : null;
       if (step.move.from === "point" && !point) noteOnce(message, "noPoint", { name: use.item?.name ?? "", target: targetDoc?.name ?? "" });
-      const r = await forcedMove(targetDoc, originToken, step.move, point);
+      // choose: сторону карты выбирает автор (игрок-владелец или ГМ); окно закрыто — цель стоит
+      const side = step.move.mode === "choose" && targetDoc ? await askChoice(ectx.chooser, use.item?.name ?? use.rule?.label ?? "",
+        L("apply.prompt.side", { target: targetDoc.name, distance: step.move.distance }), Object.keys(SIDES).map((s) => ({ value: s, label: L(`apply.side.${s}`) }))) : null;
+      const r = await forcedMove(targetDoc, originToken, step.move, point, side);
       if (r.skipped) {
         const d = { name: use.item?.name ?? "", target: targetDoc?.name ?? "" };
-        if (r.skipped === "noOrigin") noteOnce(message, "noOrigin", d); else notify(`moveSkip.${r.skipped}`, d);   // noOrigin одинаков для всех целей — один тост
+        if (r.skipped === "noOrigin") noteOnce(message, "noOrigin", d); else if (r.skipped !== "noSide") notify(`moveSkip.${r.skipped}`, d);   // noOrigin одинаков для всех целей — один тост
         ops.push({ op: "moved", skipped: r.skipped, key: mkey });   // строка отработана; причина — уведомлением ГМу
       } else ops.push({ op: "moved", token: targetDoc.uuid, from: r.from, to: r.to, id: r.id, key: mkey });
       continue;

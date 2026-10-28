@@ -398,7 +398,7 @@
         "moveDist": "Дистанция, фт",
         "moveMode": "Направление",
         "moveFrom": "Откуда",
-        "movePlate": { "push": "толчок на {distance} фт", "pull": "притяжение до {distance} фт", "pushPoint": "толчок на {distance} фт от центра области", "pullPoint": "притяжение до {distance} фт к центру области" },
+        "movePlate": { "push": "толчок на {distance} фт", "pull": "притяжение до {distance} фт", "pushPoint": "толчок на {distance} фт от центра области", "pullPoint": "притяжение до {distance} фт к центру области", "choose": "сдвиг на {distance} фт в выбранную сторону" },
         "kindChoose": "Выбор игрока",
         "kindAffliction": "Недуг",
         "affl": {

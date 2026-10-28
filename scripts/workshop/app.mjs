@@ -116,7 +116,7 @@ function stepFields(row, p, names, card, ctx) {
     F.sel(`${p}.pType`, t("workshop.au.persType"), row.pType, [["healing", t("workshop.au.healing")], ...DAMAGE_TYPES.map((v) => [v, damageLabel(v)])]),
     F.chk(`${p}.dmgBasic`, t("workshop.au.dmgBasic"), row.dmgBasic)
   );
-  else if (row.kind === "move") out.push(F.num(`${p}.text`, t("workshop.au.moveDist"), row.text, { min: 5, placeholder: "10" }), F.sel(`${p}.moveMode`, t("workshop.au.moveMode"), row.moveMode, sheetChoices("moveMode", ["push", "pull"])), F.sel(`${p}.moveFrom`, t("workshop.au.moveFrom"), row.moveFrom ?? "origin", sheetChoices("moveFrom", ["origin", "point"])));
+  else if (row.kind === "move") out.push(F.num(`${p}.text`, t("workshop.au.moveDist"), row.text, { min: 5, placeholder: "10" }), F.sel(`${p}.moveMode`, t("workshop.au.moveMode"), row.moveMode, sheetChoices("moveMode", ["push", "pull", "choose"])), F.sel(`${p}.moveFrom`, t("workshop.au.moveFrom"), row.moveFrom ?? "origin", sheetChoices("moveFrom", ["origin", "point"])));
   else if (row.kind === "choose") out.push(...chooseFields(row, p));
   else if (row.kind === "affliction") out.push(afflFields(row, p, ctx));
   else if (row.kind === "coat") out.push(...coatFields(row, p, ctx));

@@ -99,7 +99,7 @@ function applyCore(r) {
     return { to: "self", choose: choose ?? {} };
   }
   if (r.kind === "refundFocus") return { to, refundFocus: true };
-  if (r.kind === "move") return text ? { to: "target", move: { mode: r.moveMode === "pull" ? "pull" : "push", distance: num(text), ...(r.moveFrom === "point" && { from: "point" }) } } : null;
+  if (r.kind === "move") return text ? { to: "target", move: { mode: ["pull", "choose"].includes(r.moveMode) ? r.moveMode : "push", distance: num(text), ...(r.moveFrom === "point" && r.moveMode !== "choose" && { from: "point" }) } } : null;
   if (r.kind === "damage") return text ? { to, damage: { formula: text, damageType: r.pType } } : null;
   if (r.kind === "visibility") {
     const until = csv(r.visUntil);

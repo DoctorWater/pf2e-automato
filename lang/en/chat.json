@@ -43,7 +43,7 @@
       "stepChoose": { "allies": "choose an ally", "enemies": "choose an enemy", "options": "choose an option: {options}" },
       "stepDamage": "{formula} damage ({type})",
       "stepHeal": "{formula} healing",
-      "stepMove": { "push": "push {distance} ft away from the author", "pull": "pull up to {distance} ft toward the author", "pushPoint": "push {distance} ft away from the area centre", "pullPoint": "pull up to {distance} ft toward the area centre" },
+      "stepMove": { "push": "push {distance} ft away from the author", "pull": "pull up to {distance} ft toward the author", "pushPoint": "push {distance} ft away from the area centre", "pullPoint": "pull up to {distance} ft toward the area centre", "choose": "move {distance} ft in a chosen direction" },
       "stepBasic": "(basic save)",
       "stepReduce": "reduce {what} by {n}",
       "stepRemoveParty": "remove {what} from party members",

@@ -97,6 +97,24 @@ test("ярость: признак — эффект effect-rage", () => {
   assert.equal(rage.isRage(null), false);
 });
 
+test("ярость: требования, Вспыльчивость, концентрация", () => {
+  assert.equal(rage.blockedBy({ raging: true, fatigued: true }), "raging");
+  assert.equal(rage.blockedBy({ raging: false, fatigued: true }), "fatigued");
+  assert.equal(rage.blockedBy({ raging: false, fatigued: false }), null);
+  assert.equal(rage.quickTempered({ encumbered: false, heavy: false }), true);
+  assert.equal(rage.quickTempered({ encumbered: true, heavy: false }), false);
+  assert.equal(rage.quickTempered({ encumbered: false, heavy: true, invulnerable: false }), false);
+  assert.equal(rage.quickTempered({ encumbered: false, heavy: true, invulnerable: true }), true);
+  const br = (traits, slug, type) => rage.breaksRage({ type, traits, slug });
+  assert.equal(br(["concentrate", "manipulate"], "fear", "spell-cast"), true);
+  assert.equal(br(["auditory", "concentrate", "emotion", "mental"], "demoralize", "skill-check"), true);
+  assert.equal(br(["concentrate", "secret"], "seek", "perception-check"), false);    // Поиск разрешён
+  assert.equal(br(["concentrate", "rage"], "x", undefined), false);                  // есть «ярость»
+  assert.equal(br(["concentrate", "emotion"], "rage", "self-effect"), false);         // сама Ярость — требования
+  assert.equal(br(["concentrate"], "x", "damage-roll"), false);                       // бросок, не использование
+  assert.equal(br(["attack"], "strike", undefined), false);
+});
+
 test("добыча NPC: переключатель на способности без selfEffect; у PC (selfEffect) и без переключателя — нет", () => {
   const rules = (o, extra = {}) => [{ key: "RollOption", option: o, toggleable: true, ...extra }];
   assert.equal(prey.preyToggle({ type: "action", system: { rules: rules("hunted-prey") } }), "hunted-prey");

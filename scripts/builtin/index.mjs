@@ -51,7 +51,7 @@ export const BUILTIN = {
 };
 
 // Обработчики по сообщениям чата без правила: кровь — тег заклинания, статуэтка — карточка предмета (kind "card" конвейер не исполняет).
-const MESSAGE_HOOKS = [["blood-magic", bloodMagic.onMessage], ["reactive-strike", reactiveStrike.onMessage], ["onyx-dog", onyxDog.onMessage], ["one-shot-one-kill", oneShot.onMessage], ["surprise-attack", surprise.onMessage], ["spellshape", spellshape.onMessage], ["tentacular-limbs", tentacles.onMessage], ["strike-effects", strikeEffects.onMessage], ["hunt-prey", huntPrey.onMessage], ["oscillating-wave", oscillatingWave.onMessage], ["shield-ward", shieldWard.onMessage], ["damage-link", damageLink.onMessage], ["apparition-sense", apparitionSense.onMessage], ["prey-share", preyShare.onMessage], ["smite", smite.onMessage]];
+const MESSAGE_HOOKS = [["blood-magic", bloodMagic.onMessage], ["reactive-strike", reactiveStrike.onMessage], ["onyx-dog", onyxDog.onMessage], ["one-shot-one-kill", oneShot.onMessage], ["surprise-attack", surprise.onMessage], ["spellshape", spellshape.onMessage], ["tentacular-limbs", tentacles.onMessage], ["strike-effects", strikeEffects.onMessage], ["hunt-prey", huntPrey.onMessage], ["oscillating-wave", oscillatingWave.onMessage], ["shield-ward", shieldWard.onMessage], ["damage-link", damageLink.onMessage], ["apparition-sense", apparitionSense.onMessage], ["prey-share", preyShare.onMessage], ["smite", smite.onMessage], ["rage", rage.onMessage]];
 
 // независимо: обработчик с окном (Магия крови ждёт ответа) не должен задерживать остальные; записи в актёра — через queue
 export function dispatchBuiltin(message, hooks = MESSAGE_HOOKS) {
@@ -78,6 +78,7 @@ export function initBuiltinHooks() {
     if (!isActiveGM() || modeOf("macro") === "off") return;
     oneShot.onCombatEnd(combat).catch((e) => console.error(`${MOD} | builtin one-shot-one-kill end`, e));
     surprise.onCombatEnd(combat).catch((e) => console.error(`${MOD} | builtin surprise-attack end`, e));
+    rage.onCombatEnd(combat).catch((e) => console.error(`${MOD} | builtin rage end`, e));
     sweep();
   });
   Hooks.on("deleteCombatant", () => { if (isActiveGM() && modeOf("macro") !== "off") sweep(); });
@@ -110,6 +111,9 @@ export function initBuiltinHooks() {
   Hooks.on("deleteItem", gmMacro("suffocation", suffocation.onDelete));
   Hooks.on("deleteItem", (item, options, ...rest) => { if (!options?.[MOD]?.undo) return gmMacro("rage", rage.onDelete)(item, options, ...rest); });   // откат модулем — ярости не было, иммунитета нет
   Hooks.on("createItem", gmMacro("prey-share hunt", preyShare.onCreate));
+  Hooks.on("createItem", gmMacro("rage unconscious", rage.onCreate));
+  Hooks.on("preCreateItem", (item) => (modeOf("macro") === "off" || rage.preCreate(item) ? undefined : false));   // у создающего клиента: второй эффект ярости не создаётся
+  Hooks.on("renderChatMessageHTML", rage.bind);
   gear.init();   // выдача и уборка временного снаряжения (уборка не зависит от режима макросов)
   Hooks.on("renderChatMessageHTML", strikeEffects.bind);
   Hooks.on("moveToken", (doc, movement) => {

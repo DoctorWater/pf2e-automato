@@ -54,6 +54,13 @@
         "spent": "{name} (spent)",
         "hint": "<p><b>{shape}</b>: the next spell {name} casts gets this spellshape. The effect is spent by the cast and ends with the next cast or at the end of the turn.</p>"
       },
+      "rage": {
+        "raging": "<p><b>{name}</b> is already raging and can't Rage again (requirement: not raging).</p>",
+        "fatigued": "<p><b>{name}</b> is fatigued and can't Rage (requirement: not fatigued). The effect wasn't applied; the GM can apply it from the card button.</p>",
+        "quick": "<p><b>Quick-Tempered</b>: {name} rolled initiative and can Rage as a free action.</p>",
+        "button": "Rage",
+        "concentrate": "<p><b>{name}</b> is raging: “{what}” has the concentrate trait without rage — not allowed while raging (Seek is).</p>"
+      },
       "oneShot": {
         "effect": "One Shot, One Kill: ready",
         "hint": "<p><b>One Shot, One Kill</b>: {name} rolled Stealth for initiative. Interact to draw a firearm or crossbow; the first Strike with it deals extra precision damage.</p>"

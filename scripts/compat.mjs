@@ -52,6 +52,37 @@ function getIndex() {
 export function init() {
   // реестр pf2e-automations меняется их настройкой -> сброс индекса
   Hooks.on("updateSetting", (setting) => { if (setting.key === `${AUTOMATIONS}.rulesV3`) index = null; });
+  Hooks.on("createSequencerEffect", teleportGhost);
+}
+
+/** Пресет «Телепортация» A-A: у выбирающего — заметный круг дальности (у A-A тонкая линия) и полупрозрачный токен за курсором — там, куда A-A его поставит. */
+function teleportGhost(effect) {
+  const token = effect.data?.name === "teleportation" && effect.data.creatorUserId === game.user.id ? effect.sourceDocument?.object : null;
+  if (!token?.mesh?.texture) return;
+  const shape = effect.data.shapes?.[0], color = game.user.color;
+  const ring = new PIXI.Graphics();
+  if (shape?.type === "circle") {
+    const r = shape.radius * (shape.gridUnits ? canvas.grid.size : 1);
+    ring.beginFill(color, 0.12).drawCircle(0, 0, r).endFill()
+      .lineStyle(14, 0x000000, 0.5).drawCircle(0, 0, r)
+      .lineStyle(7, color, 1).drawCircle(0, 0, r);
+    ring.position.set(token.center.x, token.center.y);
+  }
+  const ghost = new PIXI.Sprite(token.mesh.texture);
+  Object.assign(ghost, { width: Math.abs(token.mesh.width), height: Math.abs(token.mesh.height), alpha: 0.5 });
+  ghost.anchor.set(0.5);
+  canvas.controls.addChild(ring, ghost);
+  const stop = () => {
+    canvas.app.ticker.remove(follow); Hooks.off("endedSequencerEffect", hook);
+    for (const g of [ring, ghost]) if (!g.destroyed) g.destroy();
+  };
+  const follow = () => {
+    if (ghost.destroyed) return stop();   // сцену сменили — холст убрал спрайт
+    const p = canvas.grid.getTopLeftPoint(canvas.mousePosition);   // A-A ставит левый верхний угол токена в клетку под курсором
+    ghost.position.set(p.x + token.w / 2, p.y + token.h / 2);
+  };
+  const hook = Hooks.on("endedSequencerEffect", (e) => { if (e === effect) stop(); });
+  canvas.app.ticker.add(follow);
 }
 export function ready() { index = null; getIndex(); }
 

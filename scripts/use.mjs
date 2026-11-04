@@ -270,9 +270,9 @@ function moveSorted(steps, list, region) {
   return moveOrder(steps, list.map((i) => ({ ...c(i.doc), i })), pt).map((o) => o.i);
 }
 
-/** Цели шагов: область — токены state.area.keys своей сцены, иначе use.targets. */
+/** Цели шагов: область — токены state.area.keys своей сцены, иначе (и без региона) use.targets. */
 async function stepTargets(use) {
-  if (use.rule?.onUse?.targets === "area") {
+  if (use.rule?.onUse?.targets === "area" && use.state?.area) {
     const region = regionOf(use.state?.area?.regionUuid), scene = region?.parent;
     return (use.state?.area?.keys ?? []).map((key) => ({ key, doc: scene?.tokens.get(key) ?? null, region }));
   }

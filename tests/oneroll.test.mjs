@@ -156,3 +156,8 @@ test("Toolbelt + challenge.when: результат цели, не подход�
   await acceptToolbeltSave({ ...res, target: uuids.get("tok.t1") });
   assert.deepEqual(Object.keys(m.flags[MOD].use.state.challenge?.results ?? {}), ["t1"]);
 });
+
+test("область без региона (цели выделены руками, спасы через Toolbelt): цели — снимок, «Применить» есть к кому", async () => {
+  const m = mkMsg("M9", { targets: [{ key: "t1", uuid: "tok.t1" }], state: { challenge: { results: { t1: { degree: 1, total: 10 } } } } });
+  assert.deepEqual((await challengeTargets(m)).map((t) => t.key), ["t1"]);
+});

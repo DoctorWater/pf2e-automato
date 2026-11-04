@@ -124,8 +124,8 @@ async function challengeTargetsAll(message, use) {
     const far = new Set((use.targets ?? []).filter((t) => t.far).map((t) => t.key));   // цели Toolbelt берутся из его списка — вне дальности отсеиваем по снимку
     if (tb) return tb.filter((t) => !far.has(t.id)).map((t) => ({ key: t.id, token: t }));
   }
-  if (use.rule?.onUse?.targets === "area") {
-    const area = use.state?.area;
+  if (use.rule?.onUse?.targets === "area" && use.state?.area) {   // регион не ставили (цели выделены руками, спасы через Toolbelt) — снимок ниже
+    const area = use.state.area;
     const scene = (safeSync(area?.regionUuid)?.parent) ?? canvas?.scene;
     return (area?.keys ?? []).map((k) => scene?.tokens.get(k)).filter(Boolean).map((t) => ({ key: t.id, token: t }));
   }

@@ -563,6 +563,12 @@ function vOnUse(u, err) {
     if (out.check && !out.check.vs && (u.targets !== "self" || out.check.immunity)) err.push(E("chk.noVsSelf", "onUse.check"));
   }
   out.apply = vApplyList(u.apply, "onUse.apply", "self", err);
+  // pulse: повтор испытания и шагов to:"target" при первом Поддержании раунда (use.mjs onPulse); new — область выбирают заново, только с областью
+  if (u.pulse != null) {
+    const hasTarget = out.challenge || out.apply.some((a) => a.to === "target");
+    if (u.check != null || !["same", "new"].includes(u.pulse) || !["area", "selected"].includes(u.targets) || !hasTarget || (u.pulse === "new" && u.targets !== "area")) err.push(E("use.pulse", "onUse.pulse"));
+    else out.pulse = u.pulse;
+  }
   // ponytail: эманацию вокруг автора от области не отличить (формы зоны в схеме нет) — в области move только from:"point" (эманация = центр рамки, т.е. автор)
   // from:"point" — только с областью; в области толкать от автора нельзя (см. выше)
   const moves = [out.apply, ...Object.values(out.challenge?.byDegree ?? {}), ...Object.values(out.check?.byDegree ?? {})].flatMap(movesOf);

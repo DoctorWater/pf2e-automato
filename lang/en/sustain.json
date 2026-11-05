@@ -10,6 +10,8 @@
       "offerQuiet": "<p><b>{name}</b>: \"{spell}\" can be sustained (the familiar ability fires on Sustain too).</p>",
       "support": "Sustain",
       "dismiss": "Dismiss",
+      "pulse": "<p><strong>{spell}</strong>: sustain pulse.</p>",
+      "pulseNoArea": "<p>{spell}: no area to template — place the pulse template manually.</p>",
       "gone": "This sustained spell has already ended.",
       "pick": "<p><b>{name}</b> is sustaining several spells: press “Sustain” on the card of the right one.</p>",
       "unreachable": "End of sustaining “{spell}”: could not remove bound effects on: {list}.",

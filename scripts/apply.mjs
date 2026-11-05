@@ -598,7 +598,8 @@ export async function applyOps(message, tokenKey, steps, ctx = {}) {
       source: scope, message: message.id, region: ctx.region?.uuid ?? null,
       origin: use.item?.uuid ?? null, by: guardUuid ?? selfActor?.uuid ?? null
     };
-    if (step.sustain === true && selfActor) { meta.sustainOf = sustain.anchorKey(message.id); meta.sustainBy = selfActor.uuid; }   // привязка к якорю Поддержания автора (sustain.mjs)
+    // привязка к якорю Поддержания автора (sustain.mjs); карточка импульса (state.sustainKey) — только к живому якорю заклинания, после «Прекратить» не воскрешаем
+    if (step.sustain === true && selfActor && (!use.state?.sustainKey || sustain.findAnchor(selfActor, use.state.sustainKey))) { meta.sustainOf = use.state?.sustainKey ?? sustain.anchorKey(message.id); meta.sustainBy = selfActor.uuid; }
     if (step.choose) {
       const c = step.choose, prev = doneOps.find((o) => o.op === "chose" && o.key === meta.key);
       let value = prev?.value ?? null, chosen = prev?.actor ? actorOf(await fromUuid(prev.actor)) : null;
@@ -736,7 +737,7 @@ export async function applyOps(message, tokenKey, steps, ctx = {}) {
     // первый выполненный шаг sustain:true создаёт якорь на авторе — отдельной операцией журнала (откат последней привязки убирает якорь)
     if (meta.sustainOf && r.op === "created") {
       try {
-        const a = await sustain.attach(selfActor, actor, { key: meta.sustainOf, msg: message.id, item: originItem, token: originToken, at: use.at });
+        const a = await sustain.attach(selfActor, actor, { key: meta.sustainOf, msg: message.id, item: originItem, token: originToken, at: use.at, create: !use.state?.sustainKey });
         if (a.created) ops.push({ op: "anchor", item: a.item.uuid, actor: selfActor.uuid, key: meta.sustainOf });
       } catch (e) { console.error(`${MOD} | sustain`, e); }
     }

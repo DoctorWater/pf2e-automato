@@ -235,7 +235,7 @@ export function ruleToForm(rule) {
     label: rule?.label ?? "", yield: tri(rule?.yield),
     kind: u ? "onUse" : r ? "onAttacked" : rule?.onEvent?.length ? "onEvent" : rule?.activate?.length ? "cast" : "none",
     ev: (rule?.onEvent ?? []).map(evForm), cast: (rule?.activate ?? []).map(castForm),
-    targets: u?.targets ?? "self", excludeSelf: tri(u?.excludeSelf),
+    targets: u?.targets ?? "self", excludeSelf: tri(u?.excludeSelf), pulse: u?.pulse ?? "",
     zone: { on: !!z, cond: z?.condition?.slug ?? "", condValue: z?.condition?.value ?? "", effect: z?.effect?.uuid ?? "", seconds: z?.duration?.seconds ?? "", rounds: z?.duration?.rounds ?? "", noFollow: z?.follow === false, enterBy: z?.enterBy ?? "end", gone: z?.onCarrierGone ?? "close", trig: (z?.triggers ?? []).map(trgForm) },
     ch: {
       on: !!c, statistic: c?.statistic ?? "reflex",
@@ -264,6 +264,7 @@ export function formToRule(f) {
   if (f.label?.trim()) rule.label = f.label.trim();
   if (f.kind === "onUse") {
     const u = { targets: f.targets, excludeSelf: untri(f.excludeSelf), zone: null, challenge: null, apply: (f.apply ?? []).map(applyOf).filter(Boolean) };
+    if (f.pulse && f.targets !== "self") u.pulse = f.pulse;
     const z = f.zone ?? {};
     if (f.targets === "area" && z.on) {
       const cv = num(z.condValue), s = num(z.seconds), r = num(z.rounds);
@@ -541,7 +542,7 @@ async function inject(app, $html) {
 
   const sec = body.querySelector(`.tab.${TAB}`);
   const errBox = sec.querySelector(".af-errors");
-  const read = () => ({ ...readForm(sec), ev: bc.f.ev, cast: bc.f.cast });   // события и активации на вкладке не правятся (Мастерская) — едут как были, иначе сохранение их потеряет
+  const read = () => ({ ...readForm(sec), ev: bc.f.ev, cast: bc.f.cast, pulse: bc.f.pulse });   // события и активации на вкладке не правятся (Мастерская) — едут как были, иначе сохранение их потеряет
   const draft = () => { app._afDraft = read(); syncUi(sec); };
   const build = () => {
     const v = validateRule(formToRule(read()));

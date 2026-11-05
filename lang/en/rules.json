@@ -17,6 +17,7 @@
         "use": {
           "targets": "Choose who the rule affects: yourself, selected targets or an area ({path})",
           "excludeSelf": "\"Exclude author\" must be on or off ({path})",
+          "pulse": "Sustain pulse is \"same\" or \"new\" and needs an area or selected targets plus a challenge or a target step; \"new\" — area only ({path})",
           "both": "A challenge and a check are mutually exclusive — keep only one ({path})",
           "checkSelf": "A check against a target does not work with \"self\" — choose selected targets or an area ({path})"
         },

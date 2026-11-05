@@ -14,6 +14,9 @@ import { recentShape, spentOptions } from "./builtin/spellshape.mjs";
 import { moveOrder, areaPoint } from "./move.mjs";
 import { asksActions } from "./builtin/variable-cast.mjs";
 import { isHeld, replayers } from "./hold.mjs";
+import * as sustain from "./sustain.mjs";
+import { whisper, esc } from "./builtin/lib.mjs";
+import { spellDcOf } from "./familiar.mjs";
 
 const CAST = "origin:action:slug:cast-a-spell";
 const CARD_TYPES = new Set(["consumable", "equipment", "spell", "weapon", "armor", "treasure", "backpack", "shield", "ammo"]);   // ammo: активация боеприпаса (Golden-Cased Bullet) — с карточки
@@ -244,6 +247,8 @@ export function init() {
   Hooks.on("updateChatMessage", onUpdateMessage);
   Hooks.on("createRegion", onCreateRegion);
   Hooks.on("deleteRegion", onDeleteRegion);
+  sustain.sustained.add((e) => onPulse(e).catch((err) => console.error(`${MOD} | use.pulse`, err)));
+  Hooks.on("deleteItem", (i) => pulseSeen.delete(i.uuid));
   Hooks.on("userConnected", () => { if (guardActiveGM()) tolerate("resume", () => resumePending()); });
 }
 
@@ -353,6 +358,7 @@ function execUse(messageId, skipIfDone) {
     const area = onUse?.targets === "area";
 
     const low = use.confidence === "low";
+    if (onUse?.pulse && !use.state?.pulse && !use.state?.done && !low) await tolerate("pulseAnchor", () => pulseAnchor(use, message));
     if (low) {
       // §3.G: шаги apply не исполняем (только кнопкой); stepKey = "u<i>". Бросок испытания — как у high, применение степеней — кнопкой
       const applied = use.state?.derived?.applied ?? [];
@@ -433,6 +439,74 @@ export async function runRegion(region, message) {
     }
     if ((onUse.challenge || onUse.check) && modeOf("challenge") === "auto") await saves.runChallenge(message);
   });
+}
+
+/* ---------- импульс Поддержания (onUse.pulse, docs/plan-sustain-pulse.md) ---------- */
+
+/** Урезанная копия правила для карточки импульса: испытание и шаги to:"target" без inline-эффекта; без pulse/zone/macros и шагов на себя. */
+export function pulseRule(rule) {
+  const u = rule?.onUse ?? {};
+  const apply = (u.apply ?? []).filter((s) => s.to === "target" && !(s.effect && !s.effect.uuid));
+  const keep = (list) => (list ?? []).filter((s) => s.to === "target" && !(s.effect && !s.effect.uuid));   // испытание: те же шаги по степеням
+  const ch = u.challenge && { ...u.challenge, ...(u.challenge.byDegree && { byDegree: Object.fromEntries(Object.entries(u.challenge.byDegree).map(([k, v]) => [k, keep(v)])) }) };
+  return { v: rule?.v ?? 1, onUse: { targets: u.targets, excludeSelf: u.excludeSelf ?? null, ...(ch && { challenge: ch }), apply } };
+}
+
+const pulseSeen = new Map();   // якорь -> время последнего импульса вне боя
+const areaText = (spell) => { const a = spell?.system?.area; return a?.type && a.value ? `<p>@Template[type:${a.type}|distance:${a.value}]</p>` : ""; };
+
+/**
+ * Слушатель sustain.sustained: первое Поддержание раунда -> новая карточка использования с урезанной копией правила.
+ * same + живой регион сотворения -> runRegion(регион, карточка). Региона нет (burst снят) либо new: awaitingRegion выставляем здесь и кладём в content @Template
+ * (как cast.mjs для активации) — игрок ставит шаблон из карточки, pf2e пишет region.flags.pf2e.messageId, onCreateRegion -> runRegion;
+ * resumeRegion («Дозапустить») подхватит последний регион этой карточки, если хук пропущен. same без живого региона ведёт себя как new.
+ */
+export async function onPulse({ anchor, actor, pos }) {
+  const d = anchor.flags?.[MOD]?.sustain;
+  if (!guardActiveGM() || !actor || !d || (modeOf("effect") === "off" && modeOf("challenge") === "off")) return;
+  const spell = d.src ? await fromUuid(d.src).catch(() => null) : null;
+  const cast = d.msg ? game.messages.get(d.msg) : null, cu = useOf(cast);
+  if (cu?.state?.yielded) return;
+  const found = cu ? null : spell && rules.resolveRule(spell);
+  const rule = cu?.rule ?? found?.rule;
+  const mode = rule?.onUse?.pulse;
+  if (!mode || (!cu && compat.shouldYield(rule, { slug: found.slug, sourceUuid: found.sourceUuid }))) return;
+  const base = anchor.flags[MOD].meta.key;
+  if (pos?.round == null) { if (Date.now() - (pulseSeen.get(anchor.uuid) ?? 0) < 6000) return; pulseSeen.set(anchor.uuid, Date.now()); }
+  const key = pos?.round == null ? `${base}:t${Date.now()}` : `${base}:${pos.combat}:${pos.round}`;
+  return queue(`pulse:${base}`, async () => {
+    if (game.messages.find((m) => m.flags?.[MOD]?.use?.state?.pulse?.key === key)) return;
+    const o = cast?.flags?.pf2e?.origin;
+    const castRank = o?.castRank ?? spell?.rank;
+    const castRegion = mode === "same" ? regionOf(cu?.state?.area?.regionUuid) : null;
+    const waiting = rule.onUse.targets === "area" && !castRegion;
+    const snap = buildSnapshot({
+      kind: "use", now: Date.now(), actor: actor.uuid, token: cu?.token ?? anchor.system?.context?.origin?.token ?? null,
+      dc: cu?.dc ?? spellDcOf(spell), targets: rule.onUse.targets === "selected" ? cu?.targets ?? [] : [],
+      rollOptions: [...(o?.rollOptions ?? spell?.getRollOptions?.("origin:item") ?? []), "sustain:pulse"],
+      resolved: { rule: pulseRule(rule), source: cu?.src ?? found?.source, confidence: "high", slug: cu?.slug ?? found?.slug, sourceUuid: cu?.sourceUuid ?? found?.sourceUuid },
+      item: cu?.item ?? { uuid: spell?.uuid ?? d.src, name: spell?.name ?? "", type: "spell", sourceId: found?.sourceUuid ?? null }
+    });
+    Object.assign(snap.state, { pulse: { key, anchor: anchor.uuid }, sustainKey: base, ...(waiting && { awaitingRegion: true }) });
+    const tpl = waiting ? areaText(spell) : "";
+    // ponytail: шаблон — по system.area заклинания; у Widen и подобного (область из текста) его нет — ГМу шёпот «поставьте вручную»
+    if (waiting && !tpl) whisper(actor, L("sustain.pulseNoArea", { spell: esc(snap.item.name) }), "sustain", {}, "", "gm").catch(() => {});
+    const msg = await ChatMessage.create({
+      speaker: ChatMessage.getSpeaker?.({ actor }),
+      content: L("sustain.pulse", { spell: esc(snap.item.name) }) + tpl,
+      // в origin только castRank: любое другое поле сделало бы карточку «сотворением» (useKindOf, spell-cast, автоякорь фамильяра)
+      flags: { [MOD]: { use: snap }, ...(castRank != null && { pf2e: { origin: { castRank } } }) }
+    });
+    if (msg && castRegion) await runRegion(castRegion, game.messages.get(msg.id) ?? msg);
+  });
+}
+
+/** Якорь заклинания с onUse.pulse: ставится при сотворении (идемпотентно по ключу), флаг pulse удерживает его от prune. */
+async function pulseAnchor(use, message) {
+  const spell = use.item?.uuid ? await fromUuid(use.item.uuid).catch(() => null) : null, author = use.actor ? await fromUuid(use.actor).catch(() => null) : null;
+  if (!spell?.system?.duration?.sustained || !author) return;
+  const { item: anchor } = await sustain.attach(author, null, { key: sustain.anchorKey(message.id), msg: message.id, item: spell, token: use.token ? await fromUuid(use.token).catch(() => null) : null, at: use.at, pulse: true });
+  if (anchor && !use.at) pulseSeen.set(anchor.uuid, Date.now());   // вне боя Поддержание сразу после сотворения — не импульс
 }
 
 /** Последний живой регион сообщения -> runRegion, если область ещё не снята (K7 п.5). Вне очереди use:<id> — runRegion берёт её сам. */

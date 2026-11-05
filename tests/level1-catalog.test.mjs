@@ -218,3 +218,46 @@ test("Толчок: подсказка Подкидывания улик — т�
   }
   for (const d of ["failure", "criticalFailure"]) assert.ok(!(by[d] ?? []).some((s) => /Подкидывание улик/.test(s.note ?? "")), d);
 });
+
+/* ---------- анимист, первая партия (docs/plan-animist.md): действующая запись = слои, ключ заменён целиком ---------- */
+
+const model = layer(".model");
+const sourceOf = (id) => id.split(".").pop();
+
+test("анимист: A27, A28, A33, A20, A32 — шаг эффекта под Поддержанием, остальная запись как в model", () => {
+  for (const [id, fx] of [["ew4ToaTU3o8ahKio", "aaA6cgroFMRMsisy"], ["wTldMJx0vyBAehrI", "Le5Sewk43o7V60nO"], ["X4On99Nti8gjWywG", "uiXWJVwWuMS3KvkV"], ["h2DLv8TQV0Z83tQp", "C2jiokGoehvLu0fi"], ["rzcXUF5YmJYxgxEa", "qXWCvqt24iczeN8V"]]) {
+    const u = hex(id);
+    assert.equal(u.targets, "self", id);
+    assert.deepEqual(u.apply.map((s) => [s.to, sourceOf(s.effect.uuid), s.sustain]), [["self", fx, true]], id);
+    // перенос из model ничего не потерял: без sustain запись совпадает с модельной
+    const base = model[SP + id];
+    if (id !== "rzcXUF5YmJYxgxEa") assert.ok(base, `в catalog.model нет ${id}`);
+    if (base) { const s = structuredClone(merged[SP + id]); delete s.onUse.apply[0].sustain; assert.deepEqual(s, base, id); }
+  }
+});
+
+test("Garden of Healing: лечение rank d4 в области, метка под Поддержанием; конец — эффект JhxAUu3JEyERedMd; повторного лечения при нём нет", () => {
+  const r = merged[SP + "w4M6Vqvq8k6MOFvj"], u = hex("w4M6Vqvq8k6MOFvj"), LING = "Compendium.pf2e.spell-effects.Item.JhxAUu3JEyERedMd";
+  assert.equal(u.targets, "area");
+  const [heal, mark] = u.apply;
+  assert.deepEqual(heal.damage, { formula: "(@item.rank)d4", damageType: "healing" });
+  assert.equal(mark.effect.uuid, FX + "GardnHealedMark1"); assert.equal(mark.sustain, true);
+  assert.ok([heal, mark].every((s) => s.unlessEffect === LING && s.to === "target"));
+  const [e] = r.onEvent;
+  assert.deepEqual([e.on, e.side, e.apply[0].effect.uuid], ["effect-deleted", "origin", LING]);
+  const slug = pack("GardnHealedMark1").system.slug;
+  assert.equal(slug, "spell-effect-garden-of-healing-healed");
+  assert.ok(testPredicate(e.when, new Set(["effect:origin", `effect:slug:${slug}`])));
+  assert.ok(!testPredicate(e.when, new Set(["effect:origin", "effect:slug:spell-effect-garden-of-healing"])));   // конец самого бонуса цепочку не запускает
+  assert.equal(pack("GardnHealedMark1").system.duration.sustained, true);
+});
+
+test("Earth's Bile: Рефлекс basic, огонь и дробящий 1d4 за два круга; персистент — только при провале, ×2 при крит. провале", () => {
+  const ch = hex("PrlR2sLWeiuTcPF2").challenge, by = ch.byDegree;
+  assert.deepEqual([ch.statistic, ch.basic], ["reflex", true]);
+  assert.deepEqual(Object.keys(by).sort(), ["criticalFailure", "failure", "success"]);
+  const dmg = (d) => by[d].filter((s) => s.damage).map((s) => [s.damage.damageType, s.damage.basic]);
+  for (const d of Object.keys(by)) assert.deepEqual(dmg(d), [["fire", true], ["bludgeoning", true]], d);
+  assert.deepEqual(by.success.filter((s) => s.persistent), []);
+  assert.deepEqual([by.failure, by.criticalFailure].map((l) => l.find((s) => s.persistent).persistent.formula), ["(ceil(@item.rank/2))", "(2*ceil(@item.rank/2))"]);
+});

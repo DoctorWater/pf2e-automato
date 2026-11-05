@@ -49,10 +49,10 @@ export function isSustainMessage(message) {
 // ponytail: автоякорь фамильяра (events.runFamiliar) и якорь шага sustain:true делят ключ anchorKey(message.id): кто пришёл первым, создаёт якорь и шлёт offer,
 // второй только добавляет привязку. Будущему hex со sustain:true: offer уже ушёл «тихим» текстом; prune по откату шага автоякорь без привязок не снимает.
 /** Якорь по ключу на авторе (идемпотентно по meta.key) + актёр-получатель в список привязок (target null — автоякорь наговора: привязок нет). -> {item, created} */
-export function attach(author, target, { key, msg, item, token, at }) {
+export function attach(author, target, { key, msg, item, token, at, pulse, create = true }) {
   return queue(`actor:${author.uuid}`, async () => {
     let anchor = findAnchor(author, key), created = false;
-    if (!anchor) {
+    if (!anchor && create) {
       const d = anchorDuration(item), tok = token ?? author.getActiveTokens?.(true, true)?.[0];
       const data = effectSource({
         name: L("sustain.name", { name: item?.name ?? "?" }), img: item?.img,
@@ -62,15 +62,16 @@ export function attach(author, target, { key, msg, item, token, at }) {
       });
       data.system.slug = anchorSlug(item?.slug ?? sluggify(item?.name));
       // message "ev:…" — как у эффектов событий: onItem не гоняет по якорю onEvent effect-created/deleted
-      data.flags = { [MOD]: { meta: { key, source: "sustain", message: "ev:sustain", origin: item?.uuid ?? null, by: author.uuid }, sustain: { msg, src: item?.uuid ?? null, actors: [], last: at ?? posOfActor(author) } } };
+      data.flags = { [MOD]: { meta: { key, source: "sustain", message: "ev:sustain", origin: item?.uuid ?? null, by: author.uuid }, sustain: { msg, src: item?.uuid ?? null, actors: [], last: at ?? posOfActor(author), ...(pulse && { pulse: true }) } } };
       [anchor] = await author.createEmbeddedDocuments("Item", [data]);
       created = !!anchor;
     }
     if (!anchor) return { item: null, created: false };
+    if (pulse && !dataOf(anchor)?.pulse) await anchor.update({ [flagPath("sustain", "pulse")]: true });   // якорь уже поставил шаг sustain:true — без флага prune снял бы его при откате
     const actors = dataOf(anchor)?.actors ?? [];
     if (target && !actors.includes(target.uuid)) await anchor.update({ [flagPath("sustain", "actors")]: [...actors, target.uuid] });
     // откат → «Применить» заново: карточка с кнопками по этому ключу уже есть — второй не шлём
-    if (created && !globalThis.game?.messages?.find?.((m) => m.flags?.[MOD]?.sustain?.key === key)) Promise.resolve(offer(author, anchor, item, key, !target)).catch((e) => console.error(`${MOD} | sustain offer`, e));
+    if (created && !globalThis.game?.messages?.find?.((m) => m.flags?.[MOD]?.sustain?.key === key)) Promise.resolve(offer(author, anchor, item, key, !target && !pulse)).catch((e) => console.error(`${MOD} | sustain offer`, e));
     return { item: anchor, created };
   });
 }
@@ -78,7 +79,7 @@ export function attach(author, target, { key, msg, item, token, at }) {
 /** Откат: у якоря не осталось живых привязок — якорь удаляется как откат (без «конца заклинания»). */
 export async function prune(author, key) {
   const anchor = findAnchor(author, key);
-  if (!anchor) return false;
+  if (!anchor || dataOf(anchor)?.pulse) return false;   // якорь заклинания с импульсом живёт и без привязок
   const all = dataOf(anchor)?.actors ?? [], live = [];
   for (const uuid of all) if ((await fromUuid(uuid))?.items?.some((i) => metaOf(i)?.sustainOf === key)) live.push(uuid);
   if (live.length) {
@@ -122,7 +123,7 @@ export async function check(actors, pos, mode) {
       try {   // сбой одного якоря не обрывает проверку остальных
         const last = dataOf(anchor)?.last;
         const reason = anchor.isExpired ? "expired" : (mode === "turn" ? missedAt(last, pos) : pos.round >= 2 && missedBefore(last, pos)) ? "missed" : null;
-        const quiet = !(dataOf(anchor)?.actors ?? []).length;   // автоякорь без привязок: снимать нечего, «пропущено» не шлём
+        const quiet = !(dataOf(anchor)?.actors ?? []).length && !dataOf(anchor)?.pulse;   // автоякорь без привязок: снимать нечего, «пропущено» не шлём
         if (reason && await end(anchor)) { total++; if (!quiet) gone.push(L(`sustain.ended.${reason}`, { name: esc(actor.name), spell: esc(anchor.name) })); }
       } catch (e) { console.error(`${MOD} | sustain check`, e); }
     }

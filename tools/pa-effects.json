@@ -1799,6 +1799,15 @@
     "unit": "minutes"
    },
    "authored": true
+  },
+  "GardnHealedMark1": {
+   "name": "Spell Effect: Garden of Healing (Healed)",
+   "kind": "own",
+   "dur": {
+    "value": 1,
+    "unit": "minutes"
+   },
+   "authored": true
   }
  }
 }

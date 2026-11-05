@@ -222,7 +222,7 @@
           "slugNote": "The target gets an effect named “Effect: [item]” with slug af-[item slug]; the “remove effect” and “extend effect” steps find it by that slug."
         },
         "chs": {
-          "from": "From", "allies": "allies", "enemies": "enemies", "options": "options", "prompt": "Question for the player", "range": "Range, ft", "of": "From", "ofOrigin": "author", "ofTarget": "target",
+          "from": "From", "allies": "allies", "enemies": "enemies", "creatures": "creatures", "options": "options", "prompt": "Question for the player", "range": "Range, ft", "of": "From", "ofOrigin": "author", "ofTarget": "target",
           "optionsLabel": "Options", "value": "Code", "label": "Label", "when": "Condition", "whenHint": "shown if…", "add": "Add option", "remove": "Remove option",
           "hint": "The code is a latin slug (fire); conditions of later steps check it as choice:fire. An option condition is a pf2e predicate on the author."
         },

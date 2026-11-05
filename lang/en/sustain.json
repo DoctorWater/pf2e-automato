@@ -1,0 +1,22 @@
+{
+  "PF2E_AUTOMATO": {
+    "familiar": {
+      "noToken": "<p>{name}'s familiar \"{familiar}\" has no token on this scene: the ability did not fire. Shown once per session.</p>"
+    },
+    "sustain": {
+      "name": "Sustaining: {name}",
+      "desc": "The spell is being sustained: the Sustain action is needed each of the caster’s turns. Spell effects bound to the sustaining are removed when this effect goes away.",
+      "offer": "<p><b>{name}</b>: “{spell}” is sustained. Press “Sustain” once per turn; a missed turn or “Dismiss” ends the spell.</p>",
+      "offerQuiet": "<p><b>{name}</b>: \"{spell}\" can be sustained (the familiar ability fires on Sustain too).</p>",
+      "support": "Sustain",
+      "dismiss": "Dismiss",
+      "gone": "This sustained spell has already ended.",
+      "pick": "<p><b>{name}</b> is sustaining several spells: press “Sustain” on the card of the right one.</p>",
+      "unreachable": "End of sustaining “{spell}”: could not remove bound effects on: {list}.",
+      "ended": {
+        "missed": "<b>{name}</b>: “{spell}” ended — Sustain was missed.",
+        "expired": "<b>{name}</b>: “{spell}” ended — duration ran out."
+      }
+    }
+  }
+}

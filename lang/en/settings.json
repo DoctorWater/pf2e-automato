@@ -25,6 +25,7 @@
         "showWindow": { "name": "Show reaction window", "hint": "A small window with Use / Skip buttons when a reaction hint is whispered to you (this client only)." }
       },
       "vision": { "marks": { "name": "Visibility marks in PF2e Vision", "hint": "When the PF2e Vision module is active, smoke, blindness and invisibility write marks into its matrix instead of conditions on actors." } },
+      "sustain": { "parse": { "name": "Count pf2e Sustain messages", "hint": "The Sustain action posted in chat (from the sheet or the action list) counts for the caster’s sustained spell when they have exactly one. Several — a hint to press the button on the card." } },
       "resumeMinutes": { "name": "Resume window (minutes)", "hint": "Messages older than this are not resumed automatically (1-1440)." },
       "debug": { "name": "Debug", "hint": "Write verbose logs to the console (this client only)." }
     }

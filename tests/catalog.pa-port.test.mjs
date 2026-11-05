@@ -163,9 +163,9 @@ test("pa-port: общие действия — защита, статистик�
   assert.equal(steps("disarm", "success")[0].effect.uuid, "Compendium.pf2e.other-effects.Item.PuDS0DEq0CnaSIFV");
   assert.deepEqual(steps("disarm", "criticalFailure")[0], { to: "self", condition: { slug: "off-guard", policy: "max" }, duration: { value: 1, unit: "rounds", expiry: "turn-start", of: "origin" } });
   // Feint: КС — до конца следующего хода, У — до конца этого хода (value:0 + turn-end), КП — автор
-  assert.deepEqual(steps("feint", "criticalSuccess")[0].duration.expiry, "turn-end");
-  assert.deepEqual(steps("feint", "success")[0].duration, { value: 0, unit: "rounds", expiry: "turn-end", of: "origin" });
-  assert.equal(steps("feint", "criticalFailure")[0].to, "self");
+  assert.deepEqual(conds(steps("feint", "criticalSuccess"))[0].duration.expiry, "turn-end");
+  assert.deepEqual(conds(steps("feint", "success"))[0].duration, { value: 0, unit: "rounds", expiry: "turn-end", of: "origin" });
+  assert.equal(conds(steps("feint", "criticalFailure"))[0].to, "self");
   // Escape: список статистик автора, СЛ Атлетики схватившего
   assert.deepEqual(rule("escape").onUse.check.statistic, ["athletics", "acrobatics"]);
   assert.deepEqual(rule("escape").onUse.check.vs, { against: "athletics" });
@@ -205,7 +205,7 @@ test("pa-port: сверка с англ. снимком pf2e (если он ле
     if (Array.isArray(o)) return o.forEach((x) => walk(x, at));
     if (!o || typeof o !== "object") return;
     const u = o.effect?.uuid ?? (typeof o.uuid === "string" && o.uuid.startsWith("Compendium") ? o.uuid : null);
-    if (u) assert.equal(find(u)?.type, "effect", `${at}: ${u}`);
+    if (u && !u.startsWith("Compendium.pf2e-automato.")) assert.equal(find(u)?.type, "effect", `${at}: ${u}`);   // эффекты пака модуля (Пройдоха, Вовлекающий финт) — не в снимке pf2e
     Object.values(o).forEach((v) => walk(v, at));
   };
   for (const slug of PORTED) walk(rule(slug), slug);

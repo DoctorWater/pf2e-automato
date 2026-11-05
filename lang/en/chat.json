@@ -40,7 +40,7 @@
       "stepAllies": "{what} on allies within {range} ft",
       "stepChosen": "{what} on the chosen creature",
       "stepRemoveChosen": "remove {what} from the chosen creature",
-      "stepChoose": { "allies": "choose an ally", "enemies": "choose an enemy", "options": "choose an option: {options}" },
+      "stepChoose": { "allies": "choose an ally", "enemies": "choose an enemy", "creatures": "choose a creature", "options": "choose an option: {options}" },
       "stepDamage": "{formula} damage ({type})",
       "stepHeal": "{formula} healing",
       "stepMove": { "push": "push {distance} ft away from the author", "pull": "pull up to {distance} ft toward the author", "pushPoint": "push {distance} ft away from the area centre", "pullPoint": "pull up to {distance} ft toward the area centre", "choose": "move {distance} ft in a chosen direction" },

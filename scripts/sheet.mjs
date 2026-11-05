@@ -32,7 +32,7 @@ const STEP_BLANK = { rankMin: "", rankMax: "", stack: false, stackBy: "", stackS
 export const blankRow = () => ({ to: "target", kind: "condition", text: "", value: "", policy: "max", keep: "", ...DUR_BLANK, ...VIS_BLANK, ...PERS_BLANK, ...STEP_BLANK });
 
 // поля шага, которых нет в форме (who/mark/choice/unlessEffect): едут в строке JSON-ом и разворачиваются обратно в applyOf
-const KEEP = ["who", "mark", "choice", "unlessEffect", "escape", "repeat"];
+const KEEP = ["who", "mark", "choice", "unlessEffect", "escape", "repeat", "sustain"];
 const keepOf = (a) => { const k = Object.fromEntries(KEEP.filter((n) => a[n] != null).map((n) => [n, a[n]])); return Object.keys(k).length ? JSON.stringify(k) : ""; };   // dmgBasic — «обычное» испытание у шага damage
 
 /** Строка keep <-> объект. Мастерская правит эти поля через keepGet/keepSet (automation.mjs), вкладка листа несёт строку скрытым полем data-r="keep". */
@@ -175,13 +175,13 @@ const coatRule = (c) => ({ weapon: "choose", ...c.rest, ...(num(c.durValue) !== 
 /** Пустой шаг coat для Мастерской: испытание Стойкости с чертами «яд, ранение», СЛ вписывает ГМ. */
 export const blankCoat = () => ({ durValue: "", durUnit: "rounds", durExpiry: "", rest: {}, ch: { ...chForm(null), on: true, statistic: "fortitude", traits: "poison, injury" } });
 /** Пустая запись для кнопки «добавить событие». */
-export const blankEvent = () => ({ on: "attack-roll", side: "self", when: "", once: false, afterUse: false, aura: "", range: "", per: "", apply: [], ch: chForm(null) });
+export const blankEvent = () => ({ on: "attack-roll", side: "self", when: "", once: false, afterUse: false, cost: false, free: "", aura: "", range: "", per: "", apply: [], ch: chForm(null) });
 // side:"near" (T3): aura / range / per живут в форме всегда, в правило идут только у near
-const evForm = (e) => ({ on: e.on, side: e.side ?? "self", when: whenText(e.when), hold: !!e.hold, once: !!e.once, afterUse: !!e.afterUse, aura: e.aura ?? "", range: e.range ?? "", per: e.per ?? "", apply: (e.apply ?? []).map(rowOf), ch: { ...chForm(e.challenge), on: !!e.challenge }, check: e.check });   // check (Lingering Composition) Мастерская не правит: едет в форме как есть
+const evForm = (e) => ({ on: e.on, side: e.side ?? "self", when: whenText(e.when), hold: !!e.hold, once: !!e.once, afterUse: !!e.afterUse, cost: e.cost === "reaction", free: whenText(e.free), aura: e.aura ?? "", range: e.range ?? "", per: e.per ?? "", apply: (e.apply ?? []).map(rowOf), ch: { ...chForm(e.challenge), on: !!e.challenge }, check: e.check });   // check (Lingering Composition, Ты следующий) Мастерская не правит: едет в форме как есть
 const nearZone = (e) => ({ ...(String(e.aura ?? "").trim() && { aura: String(e.aura).trim() }), ...(num(e.range) !== undefined && { range: num(e.range) }), ...(e.per && { per: e.per }) });
 function evRule(e) {
-  const when = parseWhen(e.when);
-  return { on: e.on, side: e.side, ...(when !== undefined && { when }), ...(e.hold && { hold: true }), ...(e.once && { once: true }), ...(e.afterUse && { afterUse: true }), ...(e.side === "near" && nearZone(e)), apply: (e.apply ?? []).map(applyOf).filter(Boolean), ...(e.ch?.on && { challenge: chRule(e.ch) }), ...(e.check && { check: e.check }) };
+  const when = parseWhen(e.when), free = e.cost ? parseWhen(e.free) : undefined;
+  return { on: e.on, side: e.side, ...(when !== undefined && { when }), ...(e.hold && { hold: true }), ...(e.once && { once: true }), ...(e.afterUse && { afterUse: true }), ...(e.cost && { cost: "reaction", ...(free !== undefined && { free }) }), ...(e.side === "near" && nearZone(e)), apply: (e.apply ?? []).map(applyOf).filter(Boolean), ...(e.ch?.on && { challenge: chRule(e.ch) }), ...(e.check && { check: e.check }) };
 }
 
 // триггеры зоны (T2): запись onUse.zone.triggers <-> форма; испытание и шаги — как у onEvent

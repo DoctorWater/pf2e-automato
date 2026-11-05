@@ -9,14 +9,17 @@ import * as apply from "./apply.mjs";
 import { testPredicate } from "./predicate.mjs";
 import { useKindOf, buildSnapshot } from "./use.mjs";
 import { card } from "./card.mjs";
-import { messageTargets, esc, combatOf } from "./builtin/lib.mjs";
+import { messageTargets, esc, combatOf, whisper } from "./builtin/lib.mjs";
+import * as sustain from "./sustain.mjs";
+import { familiarsOf, familiarToken, familiarDown, spellDcOf } from "./familiar.mjs";
 import { parseMarker, challengeApplies } from "./saves.mjs";
-import { isImmune } from "./checks.mjs";
+import { isImmune, hasImmunity } from "./checks.mjs";
 import { repeatChallenge } from "./repeat.mjs";
 import { nearRadius, insideAura, pathRects, rectOf, auraOf } from "./aura.mjs";
 import { armedAt } from "./coat.mjs";
 import { levelDc } from "./cast.mjs";
 import * as hold from "./hold.mjs";
+import { reactionAvailable, spendReaction } from "./reactions.mjs";
 
 /* ---------- чистые функции ---------- */
 
@@ -80,7 +83,7 @@ const pass = (when, opts) => (globalThis.game?.pf2e?.Predicate?.test ? game.pf2e
 
 /** Записи правила под это событие и сторону, у которых выполнено условие when. -> [{i, entry}] */
 export function matchEntries(rule, on, side, opts) {
-  return (rule?.onEvent ?? []).map((entry, i) => ({ i, entry })).filter(({ entry }) => entry.on === on && entry.side === side && (!entry.when || pass(entry.when, opts)));
+  return (rule?.onEvent ?? []).map((entry, i) => ({ i, entry })).filter(({ entry }) => [].concat(entry.on).includes(on) && entry.side === side && (!entry.when || pass(entry.when, opts)));
 }
 
 /** Шаги записи: «на владельца» (self, party, allies) и «на другого участника» (target). */
@@ -194,13 +197,34 @@ const safeDoc = async (uuid) => { try { return uuid ? await fromUuid(uuid) : nul
  * Одна запись onEvent для владельца. ev: { id (сообщение/событие), message?, options:Set, degree?, total?, actor, other, otherToken? }.
  * -> журнал { key, recs:[{tk, ops}], host? } | null (уже исполнялось / нечего).
  */
-export async function runEntry(ev, owner, { item, rule }, { i, entry }, sink = null) {
+export async function runEntry(ev, owner, found, m, sink = null) {
+  const entry = m.entry;
+  if (entry.cost !== "reaction") return execEntry(ev, owner, found, m, sink, false);
+  // реакция: гейт до окна (потрачена/запрещена — тишина), очередь на владельца и дедуп пачки урона по источнику; free — Легендарное Запугивание и т.п.: реакция не тратится
+  // реакция опирается на выбор/проверку: выключенные режимы — тишина до окна, реакция цела
+  if (((entry.check || entry.challenge) && modeOf("challenge") === "off") || (entry.apply?.length && modeOf("effect") !== "auto")) return null;
+  const free = !!entry.free && pass(entry.free, new Set(owner.getRollOptions?.() ?? []));
+  if (!free && !reactionAvailable(owner)) return null;
+  const group = `${owner.uuid}|${ev.message?.flags?.pf2e?.origin?.uuid ?? ev.other?.uuid ?? ""}`;
+  return queue(`reaction:${owner.uuid}`, async () => {
+    if (fired.has(ev.key ?? entryKey(ev.id, found.item.uuid, m.i)) || Date.now() - (reactionBurst.get(group) ?? 0) < BURST_MS) return null;
+    if (!free && !reactionAvailable(owner)) return null;   // пока ждали очередь, реакцию потратили
+    try { return await execEntry(ev, owner, found, m, sink, free); }
+    finally { reactionBurst.set(group, Date.now()); }   // окно закрыто (принято, отказ или тайм-аут): та же пачка новых окон не открывает, следующая — откроет
+  });
+}
+
+const BURST_MS = 5000;
+const reactionBurst = new Map();   // владелец|источник урона -> когда закрылось окно; ponytail: растёт с числом источников, чистится только перезагрузкой
+
+async function execEntry(ev, owner, { item, rule }, { i, entry }, sink, free) {
   const key = ev.key ?? entryKey(ev.id, item.uuid, i);   // ev.key — ключ окна per (side:"near"), общий у записей «вход» и «конец хода»
   const base = entry.once ? `once:${item.uuid}:${i}` : key;   // once — ключ без события: эффект/состояние получателя ставится и продлевается один раз
   if (fired.has(key) || ev.message?.flags?.[MOD]?.events?.some((r) => r.key === key)) return null;
   // носитель яда (coat.mjs): запись о уроне — только по цели, на которую яд взведён; другая цель (область) носителя не трогает
   if (entry.gate?.includes("target") && !armedAt(item, ev.otherToken ?? tokenOf(ev.other), ev.other)) return null;
   if (entry.gate?.includes("idle") && combatOf(game.combats, owner)?.started) return null;   // вне боя конца хода нет: яд тратит следующий Удар, в бою — конец хода
+  if (ev.familiar && entry.challenge && modeOf("challenge") === "off") return null;   // WF07: без режима испытаний окно выбора не открываем
   remember(key);
   const res = { key, recs: [], ...(entry.hold && { hold: true }) };
   sink?.push(res);   // журнал уже применённого остаётся, даже если ниже что-то упадёт
@@ -218,15 +242,34 @@ export async function runEntry(ev, owner, { item, rule }, { i, entry }, sink = n
     targets: other ? [{ key: tk, uuid: otherToken?.uuid ?? other.uuid, name: otherToken?.name ?? other.name, pc: !!other.hasPlayerOwner }] : []
   });
 
+  // реакция: тратится только после подтверждения (первый шаг choose либо окно да/нет) и повторной проверки; откат записи возвращает флаг (op reactionSpent)
+  const picks = { opts: new Set(), actor: null };
+  let spent = !entry.cost, halt = false;
+  const spend = async () => {
+    if (ev.message?.flags?.pf2e?.appliedDamage?.isReverted) return false;   // урон откатили, пока окно было открыто
+    if (!free && !reactionAvailable(owner)) return false;
+    const r = free ? null : await spendReaction(owner, item);
+    if (r) res.recs.push({ tk: "self", ops: [{ op: "reactionSpent", actor: owner.uuid, prev: r.prev, set: r.set }] });
+    return (spent = true);
+  };
   if (entry.apply?.length && modeOf("effect") === "auto") {
     const twin = makeTwin(`ev:${base}`, snap({ v: 1, label: rule.label, onEvent: [entry] }, "event"), ev.message?.flags?.pf2e ?? null);
     // picks — общий на запись выбор шагов choose: шаги идут по одному (свой applyOps), а выбор нужен следующим
-    const ctx = { scope: "apply", originActor: owner, originToken: ownerToken, originItem: item, rollOptions: [...ev.options], holdMessage: entry.hold ? ev.message : null, notes: !entry.challenge, degree: ev.degree, total: ev.total, picks: { opts: new Set(), actor: null }, ...(other && { target: otherToken ?? other }) };
+    const ctx = { scope: "apply", centre: ev.centre ?? null, skipPick: entry.cost ? { uuids: [other?.uuid], alive: true, immune: entry.check?.immunity ? (a) => hasImmunity(a, entry.check.immunity, owner.uuid) : null } : null, originActor: owner, originToken: ownerToken, originItem: item, rollOptions: [...ev.options], holdMessage: entry.hold ? ev.message : null, notes: !entry.challenge, degree: ev.degree, total: ev.total, picks, ...(other && { target: otherToken ?? other }) };
     const { mine, theirs } = splitSteps(entry);
+    if (entry.cost && !mine.some((s) => s.choose)) {   // выбора нет — подтверждение окном да/нет
+      const chooser = apply.chooserOf(ev.message, owner) ?? (ev.message?.author ? null : apply.ownerPlayer(owner));
+      const yes = await apply.askChoice(chooser, item.name, L(free ? "events.reaction.promptFree" : "events.reaction.prompt", { item: item.name }), [{ value: "yes", label: L(free ? "events.reaction.useFree" : "events.reaction.use") }]);
+      if (yes == null || !(await spend())) halt = true;
+    }
     const run = async (tkey, steps, offset) => {
       for (const [j, step] of steps.entries()) {   // по одному шагу: у каждого свой stepKey, а значит свой meta.key
+        if (halt) return;
+        // способность фамильяра: закрытое окно выбора существа обрывает запись (второго окна WF01 нет)
+        if (ev.familiar && j > 0 && steps[j - 1].choose && steps[j - 1].choose.from !== "options" && !picks.actor) return;
         const ops = await apply.applyOps(twin, tkey, [step], { ...ctx, stepKey: `${i}.${offset + j}` });
         if (ops.length) res.recs.push({ tk: tkey, ops });
+        if (!spent && step.choose && !(picks.actor && await spend())) halt = true;   // окно закрыто или реакцию успели потратить: остальное не исполняется
       }
     };
     await run("self", mine, 0);
@@ -235,12 +278,23 @@ export async function runEntry(ev, owner, { item, rule }, { i, entry }, sink = n
 
   // gate removed: испытание только если шаг снятия реально снял носитель — второй из двух быстрых Ударов его уже не найдёт (ops пуст), испытания нет
   const removed = !entry.gate?.includes("removed") || res.recs.some((r) => r.ops.some((o) => o.op === "effRemoved"));
-  if (entry.challenge && other && removed && modeOf("challenge") !== "off") {
+  if (entry.challenge && other && removed && spent && modeOf("challenge") !== "off") {
     const id = await hostChallenge({ owner, other, otherToken, challenge: entry.challenge, key, name: item.name, build: (r) => snap(r, "use") });
     if (id) res.host = id;
   }
   // check (Lingering Composition): проверка владельца, СЛ по существам композиции; шаги по степеням — на владельца карточки-хозяина
-  if (entry.check && ev.message && modeOf("challenge") !== "off") {
+  // полная проверка (Ты следующий): владелец против выбранного шагом choose; опции в check.options попадают в бросок
+  // способность фамильяра: испытание — выбранного существа, СЛ — колдовства наговора ведьмы (явно: dc.source:"spell" взял бы первую запись актёра)
+  if (entry.challenge && ev.familiar && spent && picks.actor && modeOf("challenge") !== "off") {
+    const to = picks.actor, toToken = tokenOf(to) ?? [...(ownerToken?.parent?.tokens ?? [])].find((t) => t.actor === to) ?? null;
+    const id = await hostChallenge({ owner, other: to, otherToken: toToken, challenge: entry.challenge, dc: spellDcOf(ev.spell ?? ev.message?.item), key, name: item.name, build: (r) => snap(r, "use") });
+    if (id) res.host = id;
+  }
+  if (entry.check && !entry.check.dc && spent && picks.actor && modeOf("challenge") !== "off") {
+    const id = await hostChallenge({ owner, other: picks.actor, otherToken: tokenOf(picks.actor), check: entry.check, key, name: item.name, build: (r) => snap(r, "use"), text: "events.pick" });
+    if (id) res.host = id;
+  }
+  if (entry.check?.dc && ev.message && modeOf("challenge") !== "off") {
     const castToken = ev.message.token ?? ownerToken, crowd = lingerCrowd(owner, castToken, ev.message), dc = lingerDc(crowd);
     const id = await hostChallenge({ owner, other: owner, otherToken: castToken, check: { statistic: entry.check.statistic, vs: { dc }, rollerRole: "author", basic: false, byDegree: entry.check.byDegree }, dc, castMessage: ev.message.id, crowd: crowd.map((a) => `${a.name}:${a.level}`), vars: { n: crowd.length },
       key, name: item.name, build: (r) => snap(r, "use"), text: "events.linger" });
@@ -472,7 +526,37 @@ export async function originEffectOptions(carrier, owner) {
   return out;
 }
 
-/** Все владельцы события с подходящими записями. parties: { self:[Actor], target:[Actor], origin:[Actor] }. */
+const noTokenWarned = new Set();   // ведьма -> шёпот «нет токена фамильяра» один раз за сессию
+
+/**
+ * Способность фамильяра ведьмы (side:"familiar", docs/plan-familiar.md): запись лежит на предмете фамильяра, исполняется от лица ведьмы, центр отсчёта — токен фамильяра.
+ * Наговор с Поддержанием получает автоякорь (тот же ключ, что у шага sustain:true), чтобы Поддержание дошло до модуля. Фамильяр на 0 ОЗ / без токена — тишина (токен — шёпот ГМу раз).
+ */
+async function runFamiliar(ev, on, witch, log) {
+  const carriers = [];
+  for (const fam of familiarsOf(witch)) for (const found of eventItems(fam)) if (found.rule.onEvent.some((e) => e.side === "familiar")) carriers.push({ fam, found });
+  if (!carriers.length) return;
+  const witchToken = ev.witchToken ?? ev.message?.token ?? tokenOf(witch);
+  const spell = ev.spell ?? ev.message?.item;
+  if (on === "spell-cast" && ev.message && ev.options.has("origin:item:trait:hex") && spell?.system?.duration?.sustained) {
+    try { await sustain.attach(witch, null, { key: sustain.anchorKey(ev.message.id), msg: ev.message.id, item: spell, token: witchToken }); }
+    catch (e) { console.error(`${MOD} | familiar anchor`, e); }
+  }
+  for (const { fam, found } of carriers) {
+    if (familiarDown(fam) || compat.shouldYield(found.rule, { slug: rules.slugOf(null, found.item), sourceUuid: rules.sourceOf(null, found.item) })) continue;
+    const token = familiarToken(fam, witchToken?.parent);
+    if (!token) {
+      if (!noTokenWarned.has(witch.uuid)) { noTokenWarned.add(witch.uuid); await whisper(witch, L("familiar.noToken", { name: esc(witch.name), familiar: esc(fam.name) }), "sustain", {}, "", "gm").catch(() => {}); }
+      continue;
+    }
+    for (const m of matchEntries(found.rule, on, "familiar", ev.options)) {
+      try { await runEntry({ ...ev, other: null, otherToken: null, ownerToken: witchToken, centre: token, familiar: fam, spell }, witch, found, m, log); }
+      catch (e) { console.error(`${MOD} | familiar ${found.item.name}[${m.i}]`, e); }
+    }
+  }
+}
+
+/** Все владельцы события с подходящими записями. parties: { self:[Actor], target:[Actor], origin:[Actor], familiar:[Actor] (ведьмы) }. */
 async function runEvent(ev, on, parties, check = false, held = false) {
   const log = [];
   for (const side of ["self", "target", "origin"]) {
@@ -480,7 +564,7 @@ async function runEvent(ev, on, parties, check = false, held = false) {
       const options = side !== "self" ? new Set([...ev.options, ...(await originEffectOptions(ev.otherFor(side), owner))]) : ev.options;
       for (const found of eventItems(owner)) {
         if (compat.shouldYield(found.rule, { slug: rules.slugOf(null, found.item), sourceUuid: rules.sourceOf(null, found.item) })) continue;
-        for (const m of matchEntries(found.rule, on, side, options).filter((x) => !!x.entry.check === check && (held ? x.entry.hold || side === "self" : !x.entry.hold))) {   // записи с check — одним запуском на сообщение (onMessage); записи hold — только пока атака удержана (replay их пропускает); side:self (конец Убежища атакующего) исполняется и при удержании, повтор после выпуска отсекает журнал
+        for (const m of matchEntries(found.rule, on, side, options).filter((x) => !!x.entry.check?.dc === check && (held ? x.entry.hold || side === "self" : !x.entry.hold))) {   // записи с check — одним запуском на сообщение (onMessage); записи hold — только пока атака удержана (replay их пропускает); side:self (конец Убежища атакующего) исполняется и при удержании, повтор после выпуска отсекает журнал
           if (m.entry.afterUse && !linkedCard(ev.message, found.item)) continue;   // после when: ленту листаем только для подходящего исхода
           try { await runEntry({ ...ev, options, other: ev.otherFor(side), otherToken: ev.otherTokenFor(side) }, owner, found, m, log); }
           catch (e) { console.error(`${MOD} | event ${found.item.name}[${m.i}]`, e); }   // одна запись не должна ронять остальные
@@ -488,7 +572,26 @@ async function runEvent(ev, on, parties, check = false, held = false) {
       }
     }
   }
+  for (const witch of parties.familiar ?? []) await runFamiliar(ev, on, witch, log);
   return log.filter((r) => r.recs.length || r.host);
+}
+
+/**
+ * Поддержание (sustain.sustained): событие spell-sustain для ведьмы-автора якоря. Опции — из заклинания якоря (сообщения-карточки нет), поэтому
+ * origin:item:trait:hex работает как при сотворении; не-hex якорь способность не запускает. Вне боя (раунда нет) дедуп — окно 6 с по якорю.
+ */
+const sustainSeen = new Map();   // якорь -> время последнего запуска вне боя
+export async function onSustain({ anchor, actor, pos }) {
+  if (!guardActiveGM() || !actor || (modeOf("effect") === "off" && modeOf("challenge") === "off")) return;
+  const d = anchor.flags?.[MOD]?.sustain, spell = await safeDoc(d?.src);
+  if (!spell) return;
+  const base = anchor.flags?.[MOD]?.meta?.key ?? anchor.id;
+  if (pos?.round == null) { if (Date.now() - (sustainSeen.get(anchor.uuid) ?? 0) < 6000) return; sustainSeen.set(anchor.uuid, Date.now()); }
+  const id = pos?.round == null ? `${base}:t${Date.now()}` : `${base}:${pos.combat}:${pos.round}`;
+  const options = new Set([...(spell.getRollOptions?.("origin:item") ?? []), ...(actor.getRollOptions?.() ?? []), ...(actor.getSelfRollOptions?.("self") ?? [])]);
+  const witchToken = (await safeDoc(anchor.system?.context?.origin?.token)) ?? tokenOf(actor);
+  const ev = { id, options, spell, witchToken, otherFor: () => null, otherTokenFor: () => null };
+  await queue(`events:${id}`, () => runEvent(ev, "spell-sustain", { familiar: [actor] }));
 }
 
 /* ---------- сообщения чата ---------- */
@@ -523,17 +626,26 @@ export function spellTargets(spell) {
 async function messageParties(message) {
   const ctx = message.flags.pf2e.context ?? {}, pf = message.flags.pf2e;
   const actor = message.actor ?? null;
-  const targetToken = await safeDoc(ctx.target?.token), target = actorOfDoc(targetToken) ?? (await safeDoc(ctx.target?.actor)) ?? null;
+  // pf2e 8.6.1 не пишет цель в тайные проверки (Вспомнить информацию, Почувствовать мотив): цель — единственная цель бросавшего (Организатор, Monster Hunter, Predictable)
+  const authorTarget = !ctx.target && (ctx.type === "skill-check" || ctx.type === "perception-check") && message.author?.targets?.size === 1 ? [...message.author.targets][0]?.document ?? null : null;
+  const targetToken = (await safeDoc(ctx.target?.token)) ?? authorTarget, target = actorOfDoc(targetToken) ?? (await safeDoc(ctx.target?.actor)) ?? null;
   const origin = (await safeDoc(ctx.origin?.actor ?? pf.origin?.actor)) ?? null;
   return { actor, target, origin, targetToken, actorToken: message.token ?? null };
 }
 
-function messageOptions(message, { actor, target }, on) {
+export function messageOptions(message, { actor, target, origin = null }, on) {
   const pf = message.flags.pf2e, ctx = pf.context ?? {};
+  // pf2e копит origin:ally/enemy по всем целям группового применения в одном массиве: свои считаем по паре жертва/автор
+  const ctxOptions = on === "damage-taken" ? (ctx.options ?? []).filter((o) => o !== "origin:ally" && o !== "origin:enemy") : (ctx.options ?? []);
+  const pair = on === "damage-taken" && actor?.alliance && origin?.alliance ? [`origin:${actor.alliance === origin.alliance ? "ally" : "enemy"}`] : [];
   // тот же набор, что видит предикат у pf2e-automations: опции броска и источника, исход, области (domain:*), цель (`target`, `target:*`) и опции бросавшего
-  const set = new Set([...(ctx.options ?? []), ...(pf.origin?.rollOptions ?? []), ...(ctx.domains ?? []).map((d) => `domain:${d}`),
+  const set = new Set([...ctxOptions, ...pair, ...(pf.origin?.rollOptions ?? []), ...(ctx.domains ?? []).map((d) => `domain:${d}`),
     ...(actor?.getRollOptions?.() ?? []), ...(actor?.getSelfRollOptions?.("self") ?? []), ...(target ? ["target", ...(target.getSelfRollOptions?.("target") ?? [])] : [])]);
-  if (on === "damage-taken") for (const o of damageOptions(pf.appliedDamage)) set.add(o);
+  if (on === "damage-taken") {
+    for (const o of damageOptions(pf.appliedDamage)) set.add(o);
+    // ОЗ стали 0: pf2e пишет hp-remaining без префикса, а набор смешивает опции жертвы и автора — считаем сами (только если урон дошёл до ОЗ)
+    if (set.has("damage-taken:hp") && (actor?.hitPoints?.value ?? actor?.system?.attributes?.hp?.value) <= 0) set.add("damage-taken:hp0");
+  }
   for (const o of attackEffectOptions(message.item)) set.add(o);
   for (const o of chosenOptions(actor, message.item)) set.add(o);
   for (const s of message.item?.subitems ?? []) if (s.slug) set.add(`sub-item:${s.slug}`);   // как у PA: вложенные предметы оружия, которым нанесён бросок
@@ -574,7 +686,8 @@ export async function onMessage(message) {
       // «другой» у урона — его источник (ctx.origin), у остальных событий — цель броска / бросавший
       const ev = { id, message, options: set, degree, total,
         otherFor: (side) => (side === "self" ? (on === "damage-taken" ? q.origin : q.target) : q.actor), otherTokenFor: (side) => (side === "self" ? (on === "damage-taken" ? tokenOf(q.origin) : q.targetToken) : q.actorToken) };
-      const log = await runEvent(ev, on, { self: [q.actor], target: q.target ? [q.target] : [], origin: q.origin && q.origin.uuid !== q.actor.uuid ? [q.origin] : [] }, check, held);
+      // способность фамильяра — один раз на сообщение (проход check), а не по разу на цель сотворения
+      const log = await runEvent(ev, on, { self: [q.actor], target: q.target ? [q.target] : [], origin: q.origin && q.origin.uuid !== q.actor.uuid ? [q.origin] : [], familiar: check && on === "spell-cast" ? [q.actor] : [] }, check, held);
       if (log.length) await message.update({ [flagPath("events")]: [...(message.flags?.[MOD]?.events ?? []), ...log] });
       // страховка: нет ни карточки испытания, ни шага hold (носитель исчез, режимы выключены, карточка не создалась) — атака выпускается (ниже, вне очереди: replay снова зайдёт в onMessage)
       if (held && hold.isHeld(message) && !log.some((r) => r.host) && !hold.hostOf(message)) stuck = true;
@@ -661,6 +774,7 @@ export function init() {
   Hooks.on("preCreateChatMessage", onPreCreate);
   hold.init();
   hold.replayers.add(onMessage);
+  sustain.sustained.add((e) => onSustain(e));
   Hooks.on("createChatMessage", (m) => { onMessage(m).catch((e) => console.error(`${MOD} | events`, e)); });
   Hooks.on("deleteChatMessage", (m) => { try { onDeleteMessage(m); } catch (e) { console.error(`${MOD} | events.onDelete`, e); } });
   Hooks.on("updateChatMessage", (m, ch) => { onUpdateMessage(m, ch).catch((e) => console.error(`${MOD} | events.update`, e)); });

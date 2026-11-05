@@ -90,7 +90,7 @@ export const isActiveStep = (a) => STEP_KINDS.some((k) => a?.[k]) || !!a?.remove
 // получатели шага: self — автор, target — цель, party — участники партий автора, allies — союзники автора в радиусе range футов от его токена,
 // chosen — существо, которое автор выбрал предыдущим шагом choose (from: allies | enemies)
 export const APPLY_TO = ["self", "target", "party", "allies", "chosen"];
-export const CHOOSE_FROM = ["allies", "enemies", "options"];
+export const CHOOSE_FROM = ["allies", "enemies", "creatures", "options"];   // creatures — любое существо (фамильяр ведьмы: «существо в 15 фт»)
 /** Урон шага damage: типы урона и лечение (healing — формула лечит). */
 export const STEP_DAMAGE_TYPES = ["healing", ...DAMAGE_TYPES];
 
@@ -114,11 +114,15 @@ function vApply(a, path, defTo, err, basicOk = false, castOk = false) {
     if (!isObj(c) || !CHOOSE_FROM.includes(c.from) || (c.prompt != null && !isStr(c.prompt))
       || (c.from === "options" ? !(opts?.length && opts.every((o) => isObj(o) && isStr(o.value) && SLUG.test(o.value) && (o.label == null || isStr(o.label)) && (o.when == null || isPredicate(o.when))) && new Set(opts.map((o) => o.value)).size === opts.length) : c.options != null)
       || (c.range != null && !(c.from !== "options" && isInt(c.range) && c.range >= 5))
-      || (c.of != null && !(c.from !== "options" && c.of === "target")) || (c.withSelf != null && !(c.withSelf === true && c.from === "allies"))) err.push(E("choose.bad", `${path}.choose`));
+      || (c.of != null && !(c.from !== "options" && c.of === "target")) || (c.withSelf != null && !(c.withSelf === true && ["allies", "creatures"].includes(c.from))) || (c.where != null && !(c.from !== "options" && isPredicate(c.where)))) err.push(E("choose.bad", `${path}.choose`));
     // option.when — вариант виден, только если у автора выполнено условие (черта даёт вариант); of:"target" — радиус считается от цели события/карточки, а не от автора
-    else out.choose = { from: c.from, ...(opts && { options: opts.map((o) => ({ value: o.value, ...(o.label && { label: o.label }), ...(o.when && { when: o.when }) })) }), ...(c.prompt && { prompt: c.prompt }), ...(c.range != null && { range: c.range }), ...(c.of && { of: c.of }), ...(c.withSelf && { withSelf: true }) };
+    else out.choose = { from: c.from, ...(opts && { options: opts.map((o) => ({ value: o.value, ...(o.label && { label: o.label }), ...(o.when && { when: o.when }) })) }), ...(c.prompt && { prompt: c.prompt }), ...(c.range != null && { range: c.range }), ...(c.of && { of: c.of }), ...(c.withSelf && { withSelf: true }), ...(c.where && { where: c.where }) };   // where — предикат по опциям кандидата (getRollOptions: hp-percent:N)
   }  const kinds = [...STEP_KINDS, "note", "coatArm"].filter((k) => a[k] != null);
   if (kinds.length !== 1) err.push(E("apply.kind", path));
+  if (a.sustain !== undefined) {
+    if (typeof a.sustain !== "boolean" || kinds.length !== 1 || (a.condition == null && a.effect == null)) err.push(E("apply.sustain", `${path}.sustain`));
+    else out.sustain = a.sustain;
+  }
   // range — радиус в футах, только у союзников (Живые щиты, Сеятель)
   if (a.range != null) { if (out.to !== "allies" || !(isInt(a.range) && a.range >= 5)) err.push(E("apply.range", `${path}.range`)); else out.range = a.range; }
   else if (out.to === "allies") err.push(E("apply.range", `${path}.range`));
@@ -176,6 +180,8 @@ function vApply(a, path, defTo, err, basicOk = false, castOk = false) {
       else if (o && a.effect != null) out.duration = { ...o, ...(a.effect.mods != null ? { of: a.duration.of ?? "origin" } : a.duration.of != null && { of: a.duration.of }) };   // у inline-эффекта срок считает ход автора или цели, как у состояния
     }
   }
+  // sustain:true у состояния требует срок: без обёртки-срока applyCondition поднимает чужое значение без meta, и «своё» снять при конце Поддержания нельзя. sustain:false = как отсутствие поля
+  if (out.sustain === true && out.condition && out.duration == null) err.push(E("apply.sustainDur", `${path}.sustain`));
   // damage — урон (или лечение, type "healing") по формуле: бросок и применение pf2e без кнопок, с учётом сопротивлений
   if (a.damage != null) {
     const g = a.damage;
@@ -582,8 +588,10 @@ function vReaction(r, err) {
 
 // onEvent (0.5g3): правило на предмете актёра срабатывает по событию. side — кто из участников события держит предмет:
 // self — тот, кто бросает / получает урон / ходит / у кого эффект; target — цель броска (onAttacked — частный случай); origin — источник (автор эффекта, чья СЛ у броска).
-export const EVENT_ON = ["attack-roll", "skill-check", "saving-throw", "damage-roll", "damage-taken", "spell-cast", "turn-start", "turn-end", "enter", "effect-created", "effect-deleted"];
-export const EVENT_SIDES = ["self", "target", "origin", "near"];
+export const EVENT_ON = ["attack-roll", "skill-check", "saving-throw", "damage-roll", "damage-taken", "spell-cast", "spell-sustain", "turn-start", "turn-end", "enter", "effect-created", "effect-deleted"];
+export const EVENT_SIDES = ["self", "target", "origin", "near", "familiar"];
+// familiar: запись на способности фамильяра ведьмы-автора, срабатывает при сотворении/Поддержании её наговора; spell-sustain бывает только у неё
+export const FAMILIAR_ON = ["spell-cast", "spell-sustain"];
 // near (triggered-save T3): аура владельца — «другой» участник (чей ход / кто вошёл) внутри неё: slug Aura RE pf2e (aura) либо футы от владельца (range). enter — только near
 export const NEAR_ON = ["turn-start", "turn-end", "enter"];
 export const EVENT_TARGETED = new Set(["attack-roll", "skill-check", "damage-roll", "spell-cast"]);   // у остальных событий цели нет: side:"target" бессмысленна
@@ -596,6 +604,12 @@ export const EVENT_AFTER_USE = new Set(["attack-roll", "skill-check", "saving-th
 /** check записи onEvent (Lingering Composition): проверка владельца против СЛ уровня самого высокого существа среди целей сотворения; шаги по степеням — только на владельца. */
 function vEventCheck(c, path, err) {
   if (!isObj(c)) { err.push(E("notObj", path)); return null; }
+  // полная проверка (Ты следующий: Деморализация по выбранному врагу) — как onUse.check, обязательно против защиты/СЛ; без dc.ofTargets
+  if (c.dc == null) {
+    const full = vCheck(c, path, err);
+    if (full && !full.vs) err.push(E("ev.check", path));
+    return full;
+  }
   const out = {};
   if (!isStr(c.statistic) || !SLUG.test(c.statistic)) err.push(E("chk.stat", `${path}.statistic`)); else out.statistic = c.statistic;
   if (!isObj(c.dc) || c.dc.ofTargets !== "level" || Object.keys(c.dc).length !== 1) err.push(E("ev.checkDc", `${path}.dc`)); else out.dc = { ofTargets: "level" };
@@ -615,12 +629,15 @@ function vEventCheck(c, path, err) {
 function vEvent(e, i, err) {
   const path = `onEvent[${i}]`;
   if (!isObj(e)) { err.push(E("notObj", path)); return null; }
-  const out = { on: e.on, side: e.side ?? "self" };
-  if (!EVENT_ON.includes(e.on)) err.push(E("ev.on", `${path}.on`));
+  const ons = [].concat(e.on ?? []);   // on — строка или массив событий (одна запись ловит и сотворение, и Поддержание)
+  const out = { on: Array.isArray(e.on) ? [...ons] : e.on, side: e.side ?? "self" };
+  if (!ons.length || !ons.every((o) => EVENT_ON.includes(o)) || new Set(ons).size !== ons.length) err.push(E("ev.on", `${path}.on`));
   if (!EVENT_SIDES.includes(out.side)) err.push(E("ev.side", `${path}.side`));
-  else if (out.side === "near" && !NEAR_ON.includes(e.on)) err.push(E("ev.nearOn", `${path}.side`));
-  else if (e.on === "enter" && out.side !== "near") err.push(E("ev.enter", `${path}.on`));
-  else if (out.side === "target" && !EVENT_TARGETED.has(e.on)) err.push(E("ev.sideTarget", `${path}.side`));
+  else if (Array.isArray(e.on) && out.side !== "familiar") err.push(E("ev.onArray", `${path}.on`));   // массив событий — только у способности фамильяра
+  else if (out.side === "familiar" ? !ons.every((o) => FAMILIAR_ON.includes(o)) : ons.includes("spell-sustain")) err.push(E("ev.familiar", `${path}.side`));
+  else if (out.side === "near" && !ons.every((o) => NEAR_ON.includes(o))) err.push(E("ev.nearOn", `${path}.side`));
+  else if (ons.includes("enter") && out.side !== "near") err.push(E("ev.enter", `${path}.on`));
+  else if (out.side === "target" && !ons.every((o) => EVENT_TARGETED.has(o))) err.push(E("ev.sideTarget", `${path}.side`));
   if (e.when != null) { if (!isPredicate(e.when)) err.push(E("apply.when", `${path}.when`)); else out.when = e.when; }
   if (out.side === "near") {
     if ((e.aura == null) === (e.range == null)) err.push(E("ev.nearZone", `${path}.aura`));
@@ -629,18 +646,27 @@ function vEvent(e, i, err) {
     if (e.per != null) { if (!TRIGGER_PER.includes(e.per)) err.push(E("trg.per", `${path}.per`)); else out.per = e.per; }
   } else if (e.aura != null || e.range != null || e.per != null) err.push(E("ev.nearOnly", `${path}.aura`));
   if (e.once != null) { if (typeof e.once !== "boolean") err.push(E("ev.once", `${path}.once`)); else if (e.once) out.once = true; }   // once — один раз на эффект/состояние получателя, а не на каждое событие
+  const apply = vApplyList(e.apply, `${path}.apply`, "self", err);
+  // cost — запись тратит реакцию владельца; free — условие по опциям владельца, при котором не тратит (Ты следующий: Легендарное Запугивание)
+  if (e.cost != null) {
+    // подтверждение — шаги apply; выбор (если есть) первым и существа (enemies/allies): по нему определяется отказ
+    if (e.cost !== "reaction" || !apply.length || (apply.some((a) => a.choose) && !["enemies", "allies"].includes(apply[0]?.choose?.from))) err.push(E("ev.cost", `${path}.cost`)); else out.cost = "reaction";   // выбор — первым шагом: он же подтверждение траты
+  }
+  if (e.free != null) { if (e.cost == null || !isPredicate(e.free)) err.push(E("ev.free", `${path}.free`)); else out.free = e.free; }
   if (e.afterUse != null) { if (typeof e.afterUse !== "boolean" || (e.afterUse && !(EVENT_AFTER_USE.has(e.on) && out.side === "self"))) err.push(E("ev.afterUse", `${path}.afterUse`)); else if (e.afterUse) out.afterUse = true; }
   // gate — внутреннее условие записи носителя яда (coat.mjs, runEntry): target — урон нанесён взведённой цели; removed — испытание только если шаг снятия реально снял носитель (гонка двух Ударов)
   if (e.gate != null) { if (!Array.isArray(e.gate) || !e.gate.length || !e.gate.every((g) => EVENT_GATES.includes(g))) err.push(E("ev.gate", `${path}.gate`)); else out.gate = EVENT_GATES.filter((g) => e.gate.includes(g)); }
   // hold — запись носителя «нападение на меня ждёт»: атака (бросок атаки или проверка с чертой attack) по владельцу держится, пока шаги hold этой записи не выпустят/отменят её
   if (e.hold != null) { if (e.hold !== true || out.side !== "target" || !["attack-roll", "skill-check"].includes(e.on)) err.push(E("ev.hold", `${path}.hold`)); else out.hold = true; }
-  const apply = vApplyList(e.apply, `${path}.apply`, "self", err);
   if (apply.length) out.apply = apply;
+  // фамильяр: получатель — только «выбранное существо»/автор, без реакции; испытание — только выбранного существа (шаг choose из существ)
+  if (out.side === "familiar" && (e.cost != null || apply.some((a) => ["target", "allies", "party"].includes(a.to)) || (e.challenge != null && !apply.some((a) => a.choose && a.choose.from !== "options")))) err.push(E("ev.familiarSteps", `${path}.apply`));
   if (e.challenge != null) { const c = vChallenge(e.challenge, `${path}.challenge`, err); if (c) out.challenge = c; }
   if (!out.hold && [apply, ...Object.values(out.challenge?.byDegree ?? {})].some((l) => l.some((a) => a.hold))) err.push(E("ev.holdStep", `${path}.apply`));
   // check — проверка владельца после сотворения (только spell-cast + afterUse), с challenge несовместима
   if (e.check != null) {
-    if (e.challenge != null || e.on !== "spell-cast" || !out.afterUse) err.push(E("ev.check", `${path}.check`));
+    const full = isObj(e.check) && e.check.dc == null;   // полная форма — после урона, цель — выбранный шагом choose; СЛ-форма — Lingering Composition
+    if (e.challenge != null || (full ? e.on !== "damage-taken" || !["enemies", "allies"].includes(apply.find((a) => a.choose)?.choose?.from) : e.on !== "spell-cast" || !out.afterUse)) err.push(E("ev.check", `${path}.check`));
     else { const c = vEventCheck(e.check, `${path}.check`, err); if (c) out.check = c; }
   }
   if (!apply.length && e.challenge == null && e.check == null) err.push(E("ev.empty", path));

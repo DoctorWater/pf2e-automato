@@ -1,7 +1,7 @@
 // K5 «Реакции»: подсказка шёпотом + пересчёт исхода этой атаки, без висящего бонуса. plan.md §3.D'.
 import { MOD, L, DEGREES, degreeFromTotal, isActiveGM, queue, debug, callGM } from "./util.mjs";
 import { modeOf, S, rev } from "./settings.mjs";
-import { resolveRule, slugOf } from "./rules.mjs";
+import { resolveRule, slugOf, sourceOf } from "./rules.mjs";
 import { runMacros } from "./macros.mjs";
 import { buildReactionViewModel } from "./chat.mjs";
 import { noReactions } from "./inline-effect.mjs";
@@ -119,6 +119,23 @@ export function reactionItems(actor) {
   return out;
 }
 
+const nimbleDodge = (item) => slugOf(null, item) === "nimble-dodge"
+  || sourceOf(null, item) === "Compendium.pf2e.feats-srd.Item.dNH8OHEvx3vI9NBQ";
+
+/** Прирост от нового circumstance-бонуса к КБ: не складывается с уже действующим положительным (штрафы не в счёт). Модификаторы КБ цели читаем с листа в момент атаки: в flags.pf2e.context.dc их нет. */
+export function circumstanceGain(actor, bonus) {
+  const mods = actor?.armorClass?.modifiers ?? [];
+  const have = Math.max(0, ...mods.filter((m) => m.enabled !== false && m.type === "circumstance" && m.modifier > 0).map((m) => m.modifier));
+  return Math.max(0, bonus - have);
+}
+
+// «Вы видите атакующего»: только слепота плута и состояния атакующего; относительное восприятие pf2e не считаем. ponytail: see-invisibility игнорируем.
+async function cantSeeAttacker(actor, message) {
+  if (actor.hasCondition("blinded")) return true;
+  const attacker = message.actor ?? await fromUuid(message.flags?.pf2e?.context?.origin?.actor ?? "").catch(() => null);
+  return ["invisible", "hidden", "undetected", "unnoticed"].some((s) => attacker?.hasCondition?.(s));
+}
+
 const hintOf = (m) => m?.flags?.[MOD]?.reaction;
 const findHint = (key) => game.messages.contents.findLast((m) => {
   const h = hintOf(m);
@@ -144,7 +161,13 @@ export async function onAttackMessage(message) {
 
   for (const { item, reaction } of reactionItems(actor)) {
     if (reaction.trigger !== "attack-on-self" || reaction.bonus?.stat !== "ac") continue;
-    const bonus = reaction.bonus.value;
+    if (nimbleDodge(item) && actor.hasCondition("encumbered")) continue;
+    let bonus = reaction.bonus.value;
+    if (nimbleDodge(item)) {
+      if (await cantSeeAttacker(actor, message)) continue;
+      bonus = circumstanceGain(actor, bonus);
+      if (!bonus) continue;
+    }
     const r = recalcWithBonus(message, bonus);
     const existing = ctx.isReroll ? findHint({ attacker, actor: actor.uuid, item: item.uuid }) : null;
     if (existing) {   // переброс: обновляем подсказку, не дублируем
@@ -163,6 +186,19 @@ export async function onAttackMessage(message) {
   }
 }
 
+/**
+ * Трата реакции: карточка предмета для трекера (system.time.value === "reaction") + флаг reactionSpent (вне боя не ставим).
+ * -> { prev, set } (флаг до траты и поставленный, для отката) | null, если флаг не поставлен.
+ */
+export async function spendReaction(actor, item) {
+  const c = game.combat, track = async () => { if (item && game.modules.get("pf2e-auto-action-tracker")?.active) await item.toMessage(); };
+  if (!(actor && c?.started && c.combatants.some((x) => x.actorId === actor.id))) { await track(); return null; }
+  const prev = actor.getFlag?.(MOD, "reactionSpent") ?? null, set = { combat: c.id, round: c.round };
+  await actor.setFlag(MOD, "reactionSpent", set);   // флаг первым: сбой карточки трекера не оставит реакцию неотмеченной
+  await track();
+  return { prev, set };
+}
+
 export function useReaction(hintMessageId) {
   return queue(`reaction:${hintMessageId}`, async () => {
     const msg = game.messages.get(hintMessageId);
@@ -173,18 +209,16 @@ export function useReaction(hintMessageId) {
     if (!attack) return { ok: false, reason: "attack-gone" };   // атака переброшена/удалена
     const actor = await fromUuid(h.actor);
     if (actor && !reactionAvailable(actor)) return { ok: false, reason: "spent", error: L(noReactions(actor) ? "reactions.forbidden" : "reactions.spent") };   // вторая подсказка того же актёра
+    const item = await fromUuid(h.item);
+    if (!item) return { ok: false, reason: "item-gone", error: L("reactions.itemGone") };
+    if (actor && nimbleDodge(item) && actor.hasCondition("encumbered")) return { ok: false, reason: "encumbered", error: L("reactions.encumbered") };
+    if (actor && nimbleDodge(item) && await cantSeeAttacker(actor, attack)) return { ok: false, reason: "unseen", error: L("reactions.unseen") };
     const { before, after } = recalcWithBonus(attack, h.bonus);
     const next = { ...h, before, after, used: true };
     await msg.update({ content: content(next), [`flags.${MOD}.reaction`]: next });
     await attack.update({ [`flags.${MOD}.gate`]: { degree: after } });   // кнопки урона у стреляющего: damage-gate читает это при перерисовке
 
-    const item = await fromUuid(h.item);
-    // Трекер списывает реакцию по карточке предмета (system.time.value === "reaction")
-    if (item && game.modules.get("pf2e-auto-action-tracker")?.active) await item.toMessage();
-    const c = game.combat;
-    if (actor && c?.started && c.combatants.some((x) => x.actorId === actor.id)) {
-      await actor.setFlag(MOD, "reactionSpent", { combat: c.id, round: c.round });
-    }
+    await spendReaction(actor, item);
     try { await runMacros("onReaction", { message: attack, rule: item ? ruleOfItem(item) : null, actor, item, degree: after }); }
     catch (e) { console.warn(`${MOD} | onReaction macros`, e); }
     return { ok: true, before, after };

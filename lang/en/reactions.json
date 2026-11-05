@@ -6,6 +6,9 @@
       "used": "Reaction used: the outcome of this attack was recalculated.",
       "spent": "The reaction is already spent this round.",
       "forbidden": "An effect forbids using reactions.",
+      "encumbered": "Nimble Dodge is unavailable while encumbered.",
+      "unseen": "Nimble Dodge is unavailable: you can't see the attacker.",
+      "itemGone": "The reaction ability is no longer available.",
       "rerolled": "The attack was rerolled after the reaction was used - check the result manually.",
       "degree": {
         "criticalFailure": "critical miss",

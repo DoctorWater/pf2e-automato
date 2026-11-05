@@ -14,7 +14,9 @@
         "armor": "Armor", "weapon": "Weapon", "bullet": "Bullet", "bolt": "Bolt", "paralyzed": "Paralyzed for 4 rounds", "unconscious": "Unconscious for 2 hours", "killed": "Kill",
         "agitate-moved": "Strode, flew or swam this turn (no damage)", "agitate-idle": "Did not move (takes damage)",
         "confused": "Confused", "disease": "Disease", "poison": "Poison", "sickened": "Sickened", "injuries": "Injuries",
-        "speed": "Speed penalty", "enfeebled": "Enfeebled 1", "flanking": "Can't flank", "cover": "No bonus from cover", "precision": "Extra precision damage", "heartless": "Weakness to bleed and poison", "vicious": "Weakness to physical damage"
+        "speed": "Speed penalty", "enfeebled": "Enfeebled 1", "flanking": "Can't flank", "cover": "No bonus from cover", "precision": "Extra precision damage", "heartless": "Weakness to bleed and poison", "vicious": "Weakness to physical damage",
+        "plus": "+1 status to AC", "minus": "−1 status to AC",
+        "feint": "Regular Feint", "overextend": "Overextending Feint: −2 to the target’s attacks against you"
       }
     },
     "apply": {
@@ -25,7 +27,7 @@
       "needEnemy": "\"{name}\": target exactly one enemy (for the mark) — effect not applied.",
       "noChoice": "\"{name}\": no option chosen — effect not applied.",
       "noCandidates": "\"{name}\": nobody to choose on the scene — steps for the chosen creature skipped.",
-      "prompt": { "allies": "Choose an ally", "enemies": "Choose an enemy", "options": "Choose an option", "side": "Which way to move \"{target}\" {distance} ft (on the map)?" },
+      "prompt": { "allies": "Choose an ally", "enemies": "Choose an enemy", "creatures": "Choose a creature", "options": "Choose an option", "side": "Which way to move \"{target}\" {distance} ft (on the map)?" },
       "side": { "up": "↑ up", "down": "↓ down", "left": "← left", "right": "→ right" },
       "zeroPersistent": "\"{name}\": persistent damage is 0 at this level — not applied.",
       "noOption": "\"{name}\": no toggleable option {option} — not turned on.",

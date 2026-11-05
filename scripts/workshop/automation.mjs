@@ -231,7 +231,7 @@ export function setStepText(row, v, valued = false) {
 
 /* ---------- шаг «Игрок выбирает» (row.text — JSON {from, options?, prompt?, range?, of?, withSelf?}) ---------- */
 
-export const CHOOSE_FROM = ["allies", "enemies", "options"];
+export const CHOOSE_FROM = ["allies", "enemies", "creatures", "options"];
 export const chooseOf = (row) => { try { const c = JSON.parse(row.text); return c && typeof c === "object" && !Array.isArray(c) ? c : {}; } catch { return {}; } };
 const optsOf = (c) => (Array.isArray(c.options) ? c.options.map((o) => (typeof o === "string" ? { value: o } : { ...o })) : []);
 export function chooseView(row) {
@@ -252,8 +252,8 @@ export function chooseSet(row, name, v) {
   } else if (a === "from") {
     c.from = v;
     const held = keepGet(row).hold?.options;   // варианты прячутся при уходе к существам и возвращаются обратно
-    if (v === "options") { for (const k of ["range", "of", "withSelf"]) delete c[k]; c.options = optsOf(c).length ? optsOf(c) : held?.length ? held : [{ value: "" }]; hold(row, "options", null); }
-    else { if (optsOf(c).length) hold(row, "options", optsOf(c)); delete c.options; if (v !== "allies") delete c.withSelf; }
+    if (v === "options") { for (const k of ["range", "of", "withSelf", "where"]) delete c[k]; c.options = optsOf(c).length ? optsOf(c) : held?.length ? held : [{ value: "" }]; hold(row, "options", null); }
+    else { if (optsOf(c).length) hold(row, "options", optsOf(c)); delete c.options; if (v !== "allies" && v !== "creatures") delete c.withSelf; }
   } else if (a === "range") { const n = numOrRaw(v); if (n == null) delete c.range; else c.range = n; }
   else if (a === "of") { if (v === "target") c.of = "target"; else delete c.of; }
   else if (text(v)) c[a] = text(v); else delete c[a];
@@ -344,7 +344,7 @@ export function evLine(e, env) {
   const { t } = env, when = String(e.when ?? "").trim();
   const steps = plates(e.apply, env), ch = e.ch?.on ? t("workshop.au.ev.chLine", { stat: env.statLabel(e.ch.statistic), dc: dcLabel(e.ch, { ...env, dc: null }) }) : "";
   return {
-    head: `${t(`workshop.au.ev.on.${e.on}`)} · ${t(`workshop.au.ev.side.${e.side}`)}${when ? ` · ${when}` : ""}${e.side === "near" ? ` · ${e.aura?.trim() ? t("workshop.au.ev.auraShort", { aura: e.aura.trim() }) : t("workshop.au.ev.rangeShort", { range: e.range })}${e.per ? ` · ${t(`workshop.au.trg.per.${e.per}`)}` : ""}` : ""}${e.once ? ` · ${t("workshop.au.ev.onceShort")}` : ""}${e.afterUse ? ` · ${t("workshop.au.ev.afterUseShort")}` : ""}`,
+    head: `${[].concat(e.on).map((k) => t(`workshop.au.ev.on.${k}`)).join(", ")} · ${t(`workshop.au.ev.side.${e.side}`)}${when ? ` · ${when}` : ""}${e.side === "near" ? ` · ${e.aura?.trim() ? t("workshop.au.ev.auraShort", { aura: e.aura.trim() }) : t("workshop.au.ev.rangeShort", { range: e.range })}${e.per ? ` · ${t(`workshop.au.trg.per.${e.per}`)}` : ""}` : ""}${e.once ? ` · ${t("workshop.au.ev.onceShort")}` : ""}${e.afterUse ? ` · ${t("workshop.au.ev.afterUseShort")}` : ""}${e.cost ? ` · ${t("workshop.au.ev.costShort")}` : ""}`,
     body: [steps, ch].filter(Boolean).join("; ") || t("workshop.au.nothing")
   };
 }

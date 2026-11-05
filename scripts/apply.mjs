@@ -16,6 +16,7 @@ import { rulesOfMods, textOfMods, inlineSlug } from "./inline-effect.mjs";
 import { afflictionStep, afflictionUndo, afflictionUnmake, afflictionRestore } from "./affliction-run.mjs";
 import { coatStep, coatArm, coatUnarm, coatUnmake } from "./coat.mjs";
 import * as hold from "./hold.mjs";
+import * as sustain from "./sustain.mjs";
 
 const esc = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
@@ -28,11 +29,13 @@ export function findByKey(actor, key) {
   return key ? actor.items.find((i) => metaOf(i)?.key === key) ?? null : null;
 }
 
-/** Формула дедупа эффекта (§1.4): тот же источник + тот же автор, либо совпал meta.key. byActorUuid==null — автор не важен. */
-export function hasEffect(actor, uuid, byActorUuid, key = null) {
+/** Формула дедупа эффекта (§1.4): тот же источник + тот же автор, либо совпал meta.key. byActorUuid==null — автор не важен.
+ *  mark — метка TokenMark нового эффекта: тот же эффект с меткой на другого врага (Организатор по двум существам) — не повтор. */
+export function hasEffect(actor, uuid, byActorUuid, key = null, mark = null) {
   if (key && findByKey(actor, key)) return true;
   return actor.items.some((i) => i.type === "effect" && i._stats?.compendiumSource === uuid
-    && (byActorUuid == null || i.system?.context?.origin?.actor === byActorUuid));
+    && (byActorUuid == null || i.system?.context?.origin?.actor === byActorUuid)
+    && (mark == null || (i.system?.rules ?? []).some((r) => r.key === "TokenMark" && r.uuid === mark)));
 }
 
 const withMeta = (data, meta) => { data.flags ??= {}; data.flags[MOD] = { ...data.flags[MOD], meta }; };
@@ -224,7 +227,7 @@ const BASIC_MULT = [2, 1, 0.5, 0];
 const optionLabel = (o) => o.label ?? (game.i18n?.has?.(`PF2E_AUTOMATO.choose.opt.${o.value}`) ? L(`choose.opt.${o.value}`) : o.value);
 
 /** Игрок онлайн, владеющий актёром: ему показываем окна выбора, когда у сообщения нет автора (событие onEvent). */
-const ownerPlayer = (actor) => globalThis.game?.users?.find?.((u) => !u.isGM && u.active && actor?.testUserPermission?.(u, "OWNER")) ?? null;
+export const ownerPlayer = (actor) => globalThis.game?.users?.find?.((u) => !u.isGM && u.active && actor?.testUserPermission?.(u, "OWNER")) ?? null;
 
 /**
  * Предзаполнить selection у ChoiceSet с массивом choices по предмету-источнику (так же делает pf2e-automations):
@@ -274,6 +277,14 @@ export function removeCarrier(actor, key) {
     const hit = actor.items.filter((i) => metaOf(i)?.key === key && metaOf(i)?.repeat);
     if (!hit.length) return { op: "skipped" };
     return dropEffects(hit, actor);
+  });
+}
+
+/** Конец Поддержания: снять у актёра всё, что привязано к якорю key (meta.sustainOf) — состояния уходят с обёрткой. Не removeCarrier: тот берёт только носители повтора. */
+export function removeBound(actor, key) {
+  return queue(`actor:${actor.uuid}`, async () => {
+    const hit = actor.items.filter((i) => metaOf(i)?.sustainOf === key);
+    return hit.length ? dropEffects(hit, actor) : { op: "skipped" };
   });
 }
 
@@ -332,7 +343,8 @@ export function alliesIn(actor, token, range, rel = "isAllyOf", withSelf = false
   const dist = (t) => (live && t.object ? src.distanceTo(t.object) : scene.grid.measurePath([center(token), center(t)]).distance);
   if (range != null && !live) notify("apply.noWalls", { name: token.name ?? "" });
   // range == null — вся сцена, без стен (выбор союзника/врага шагом choose)
-  const hit = scene.tokens.filter((t) => t.actor && (t.actor === actor ? withSelf && token.actor !== actor : actor[rel](t.actor)) && (range == null || dist(t) <= range)
+  const hit = scene.tokens.filter((t) => t.actor && (t.actor === actor ? withSelf && token.actor !== actor : rel === "any" || actor[rel](t.actor)) && (range == null || dist(t) <= range)
+    && (rel !== "any" || (!t.hidden && (t.actor.isOfType?.("creature") ?? true) && !t.actor.isDead && (t.actor.hitPoints?.value ?? 1) > 0))   // «любое существо»: живое и не скрытое
     && !(range != null && live && t.object && CONFIG.Canvas.polygonBackends.move.testCollision(t.object.center, src.center, { type: "move", mode: "any", ...(token.level && token.parent?.levels?.get?.(token.level) && { level: token.parent.levels.get(token.level) }) }))).map((t) => t.actor);
   return [...new Map(hit.map((a) => [a.uuid, a])).values()];
 }
@@ -387,12 +399,15 @@ export function applyEffect(actor, spec /* {uuid, badge?} */, meta = {}, ctx = {
       const pool = ctx.originActor == null ? [actor] : [actor, ...[...(game.actors ?? []), ...(game.scenes?.contents ?? []).flatMap((s) => s.tokens.filter((t) => !t.actorLink).map((t) => t.actor))].filter((a) => a && a !== actor)];
       for (const a of pool) for (const e of a.itemTypes.effect.filter((i) => i._stats?.compendiumSource === spec.uuid && (ctx.originActor == null || i.system?.context?.origin?.actor === ctx.originActor.uuid))) await e.delete();
     }
+    const src = await fromUuid(spec.uuid);
+    if (!src || src.type !== "effect") { console.warn(`${MOD} | applyEffect: ${spec.uuid} не эффект`); return { op: "skipped" }; }
+    // метка на того же врага от того же автора новым шагом — новый срок вместо прежнего (Финт Пройдохи в следующем ходу продлевает, крит Организатора после успеха даёт минуту)
+    // ponytail: последний побеждает — успех после крита укоротит минуту; откат нового шага прежний эффект не вернёт (как replace)
+    if (ctx.markUuid && !(meta.key && findByKey(actor, meta.key))) for (const e of actor.itemTypes.effect.filter((i) => hasEffect({ items: [i] }, spec.uuid, ctx.originActor?.uuid, null, ctx.markUuid))) await e.delete();
     const own = spec.duration?.of === "target";   // срок считает ход самого получателя (метка «до конца вашего хода»): автор эффекта — получатель, иначе pf2e отсчитает ход заклинателя
     // у own автор срока — получатель, у всех меток он один: различаем по meta.by (метка Убежища привязана к защищённому, второй защищённый ставит свою)
     if (own ? (meta.key && findByKey(actor, meta.key)) || actor.items.some((i) => i.type === "effect" && i._stats?.compendiumSource === spec.uuid && i.system?.context?.origin?.actor === actor.uuid && (metaOf(i)?.by ?? null) === (meta.by ?? null))
-      : hasEffect(actor, spec.uuid, ctx.originActor?.uuid, meta.key)) return { op: "skipped" };
-    const src = await fromUuid(spec.uuid);
-    if (!src || src.type !== "effect") { console.warn(`${MOD} | applyEffect: ${spec.uuid} не эффект`); return { op: "skipped" }; }
+      : hasEffect(actor, spec.uuid, ctx.originActor?.uuid, meta.key, ctx.markUuid)) return { op: "skipped" };
     const data = src.toObject();
     delete data._id;
     data._stats = { ...data._stats, compendiumSource: spec.uuid };
@@ -583,6 +598,7 @@ export async function applyOps(message, tokenKey, steps, ctx = {}) {
       source: scope, message: message.id, region: ctx.region?.uuid ?? null,
       origin: use.item?.uuid ?? null, by: guardUuid ?? selfActor?.uuid ?? null
     };
+    if (step.sustain === true && selfActor) { meta.sustainOf = sustain.anchorKey(message.id); meta.sustainBy = selfActor.uuid; }   // привязка к якорю Поддержания автора (sustain.mjs)
     if (step.choose) {
       const c = step.choose, prev = doneOps.find((o) => o.op === "chose" && o.key === meta.key);
       let value = prev?.value ?? null, chosen = prev?.actor ? actorOf(await fromUuid(prev.actor)) : null;
@@ -594,9 +610,13 @@ export async function applyOps(message, tokenKey, steps, ctx = {}) {
           if (!choices.length) continue;
           value = choices.length === 1 ? choices[0].value : await askChoice(ectx.chooser, title, c.prompt ?? L("apply.prompt.options"), choices);
         } else {
-          const centre = c.of === "target" ? targetDoc : originToken;   // of:"target" — расстояние от цели броска/карточки
-          const list = alliesIn(selfActor, centre, c.range ?? null, c.from === "enemies" ? "isEnemyOf" : "isAllyOf", !!c.withSelf);
-          if (!list.length) { notify("apply.noCandidates", { name: title }); continue; }
+          const centre = c.of === "target" ? targetDoc : ctx.centre ?? originToken;   // of:"target" — расстояние от цели броска/карточки; ctx.centre — токен фамильяра (side:"familiar")
+          const skip = ctx.skipPick;   // запись-реакция: без жертвы события и без лежащих на 0 ОЗ
+          const any = c.from === "creatures";   // любое существо: автор — кандидат сам; центр отсчёта (сам фамильяр) никогда
+          const list = alliesIn(selfActor, centre, c.range ?? null, any ? "any" : c.from === "enemies" ? "isEnemyOf" : "isAllyOf", any || !!c.withSelf)
+            .filter((a) => !(ctx.centre && a.uuid === centre?.actor?.uuid) && (!c.where || whenPasses(c.where, new Set(a.getRollOptions?.() ?? []))))
+            .filter((a) => !skip || (!skip.uuids.includes(a.uuid) && !(skip.alive && (a.hitPoints?.value ?? a.system?.attributes?.hp?.value) <= 0) && !skip.immune?.(a)));
+          if (!list.length) { if (!ctx.centre) notify("apply.noCandidates", { name: title }); continue; }   // способность фамильяра (ctx.centre) молчит
           const uuid = await askChoice(ectx.chooser, title, c.prompt ?? L(`apply.prompt.${c.from}`), list.map((a) => ({ value: a.uuid, label: a.token?.name ?? a.name })));
           chosen = list.find((a) => a.uuid === uuid) ?? null;
           value = chosen?.uuid ?? null;
@@ -713,6 +733,13 @@ export async function applyOps(message, tokenKey, steps, ctx = {}) {
     }
     if (r.reason === "vision") ops.push({ op: "vis", skipped: "marks", key: meta.key });   // видимость — метками: строка отработана
     else if (r.op !== "skipped" && r.op !== "pending") ops.push({ op: r.op, ...(r.item && { item: r.item.uuid }), ...((r.data || r.domain || r.slug) && { actor: actor.uuid }), ...(r.slug && { slug: r.slug }), ...(r.data && { data: r.data }), ...(r.domain && { domain: r.domain, option: r.option }), ...(r.prev != null && { prev: r.prev }), ...(r.key && { key: r.key }) });
+    // первый выполненный шаг sustain:true создаёт якорь на авторе — отдельной операцией журнала (откат последней привязки убирает якорь)
+    if (meta.sustainOf && r.op === "created") {
+      try {
+        const a = await sustain.attach(selfActor, actor, { key: meta.sustainOf, msg: message.id, item: originItem, token: originToken, at: use.at });
+        if (a.created) ops.push({ op: "anchor", item: a.item.uuid, actor: selfActor.uuid, key: meta.sustainOf });
+      } catch (e) { console.error(`${MOD} | sustain`, e); }
+    }
   }
 
   if (ops.length) {
@@ -751,9 +778,17 @@ export async function undoOps(message, tokenKey) {
   const state = message.flags?.[MOD]?.use?.state ?? {};
   const places = [["challenge", state.challenge?.applied?.[tokenKey]], ["apply", state.apply?.[tokenKey]]];
   let undone = 0;
+  const pruneKeys = new Map();
   for (const [scope, rec] of places) {
     if (!rec) continue;
     for (const o of [...(rec.ops ?? [])].reverse()) {
+      if (o.op === "anchor") continue;   // сам якорь убирает prune после цикла: только когда привязок не осталось
+      if (o.op === "reactionSpent") {   // реакция возвращается как была; карточку трекера откатом не вернуть
+        const a = actorOf(await fromUuid(o.actor));
+        const cur = a?.getFlag(MOD, "reactionSpent");   // возвращаем, только если флаг всё ещё наш: иначе его поставили позже
+        if (a && (!o.set || (cur?.combat === o.set.combat && cur?.round === o.set.round))) { await (o.prev ? a.setFlag(MOD, "reactionSpent", o.prev) : a.unsetFlag(MOD, "reactionSpent")); undone++; }
+        continue;
+      }
       if (o.op === "hold") { if (o.prev) await hold.restore(game.messages.get(o.msg), o.prev); continue; }   // атака снова ждёт: карточку можно применить заново
       if ((o.op === "vis" && o.skipped) || o.op === "chose" || o.op === "damaged" || o.op === "noted" || (o.op === "moved" && o.skipped)) continue;   // выбор отменять нечем; урон pf2e откатывает своей карточкой
       if (o.op === "moved") {   // позиция возвращается, только если токен всё ещё там, куда его сдвинули
@@ -809,6 +844,7 @@ export async function undoOps(message, tokenKey) {
       }
       const item = await fromUuid(o.item);
       if (!item?.actor) continue;
+      if (metaOf(item)?.sustainOf) pruneKeys.set(`${metaOf(item).sustainBy}|${metaOf(item).sustainOf}`, [metaOf(item).sustainBy, metaOf(item).sustainOf]);
       if (o.made) await afflictionUnmake(o.made);   // недуг: состояния, созданные/поднятые его стадией, до снятия носителя
       await queue(`actor:${item.actor.uuid}`, async () => {
         if (o.op === "created") await item.delete({ [MOD]: { undo: true } });   // откат — не «снятие эффекта»: events.onItem такие удаления игнорирует
@@ -818,6 +854,8 @@ export async function undoOps(message, tokenKey) {
       });
       undone++;
     }
+    for (const [by, key] of pruneKeys.values()) { const a = by ? await fromUuid(by) : null; if (a) await sustain.prune(a, key); }   // откат последней привязки убирает якорь
+    pruneKeys.clear();
     const path = scope === "challenge" ? flagPath("use", "state", "challenge", "applied") : flagPath("use", "state", "apply");
     await message.update({ ...forcedDelete(`${path}.${tokenKey}`), ...(scope === "challenge" ? { [flagPath("use", "state", "challenge", "undone", tokenKey)]: true } : {}) });   // откат ГМа: авто-пакет эту цель заново не применит
   }

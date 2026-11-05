@@ -146,11 +146,41 @@ test("перенос урона: срок заклинания; связи це�
   assert.deepEqual(got.map((l) => [l.def.slug, l.rank, l.caster]), [["life-link", 6, "A"], ["share-life", 1, "A"]]);
 });
 
-test("Чутьё сущности: скрытые или невидимые враги-духи/фантомы/нежить в 30 фт; союзники, видимые и дальние не в счёт", () => {
-  const n = (o) => ({ enemy: true, traits: ["undead"], hidden: true, feet: 20, ...o });
-  assert.deepEqual(app.sensed([n({}), n({ traits: ["spirit", "undead"] }), n({ traits: ["haunt"] })]), ["spirit", "haunt", "undead"]);
-  assert.deepEqual(app.sensed([n({ enemy: false }), n({ hidden: false }), n({ feet: 35 }), n({ traits: ["beast"] })]), []);
+test("Чутьё сущности: скрытые союзники и враги в 30 фт, без видимых, дальних и посторонних черт", () => {
+  const n = (o) => ({ traits: ["undead"], hidden: true, feet: 20, ...o });
+  assert.deepEqual(app.sensed([n({ ally: true }), n({ ally: false, traits: ["spirit", "undead"] }), n({ traits: ["haunt"] }), n({ traits: ["undead"] })]), ["spirit", "haunt", "undead"]);
+  assert.deepEqual(app.sensed([n({ hidden: false }), n({ feet: 30.1 }), n({ traits: ["beast"] })]), []);
   assert.deepEqual(app.sensed([n({ feet: 30 })]), ["undead"]);
+});
+
+test("Чутьё сущности: карточка учитывает союзника и не раскрывает токены, имена и позиции", async (t) => {
+  const old = { scenes: game.scenes, users: game.users, format: game.i18n.format, config: globalThis.CONFIG, chat: globalThis.ChatMessage };
+  t.after(() => { game.scenes = old.scenes; game.users = old.users; game.i18n.format = old.format; globalThis.CONFIG = old.config; globalThis.ChatMessage = old.chat; });
+  const actor = { name: "Анимист", testUserPermission: () => true };
+  const token = (id, traits, feet, hidden = true) => ({
+    id, name: `Токен ${id}`, hidden, actor: { name: `Существо ${id}`, traits, isAllyOf: () => { throw Error("союзность не должна проверяться"); } }, object: { feet }
+  });
+  const own = token("self", ["spirit"], 0);
+  own.object.distanceTo = (target) => target.feet;
+  const ally = token("ally-secret", ["undead"], 30);
+  ally.actor.hasCondition = () => false;
+  const enemy = token("enemy-secret", ["haunt"], 15, false);
+  enemy.actor.hasCondition = (...conditions) => conditions.includes("invisible");
+  const scene = { tokens: [own, ally, enemy, token("visible", ["spirit"], 10, false), token("far", ["spirit"], 31)] };
+  scene.tokens.get = (id) => scene.tokens.find((x) => x.id === id);
+  own.parent = scene;
+  game.scenes = { get: () => scene };
+  game.users = [{ id: "gm", isGM: true }, { id: "owner", isGM: false }];
+  game.i18n.format = (_key, data) => `${data.name}: ${data.list}`;
+  globalThis.CONFIG = { PF2E: { creatureTraits: { spirit: "spirit", haunt: "haunt", undead: "undead" } } };
+  const messages = [];
+  globalThis.ChatMessage = { create: (data) => { messages.push(data); }, getSpeaker: () => ({}) };
+
+  await app.onMessage({ flags: { pf2e: { origin: { type: "feat" } } }, item: { slug: app.SLUG, actor }, speaker: { scene: "S", token: "self" } });
+  assert.equal(messages.length, 1);
+  assert.deepEqual(messages[0].whisper, ["gm", "owner"]);
+  assert.match(messages[0].content, /haunt, undead/);
+  for (const secret of ["ally-secret", "enemy-secret", "visible", "far", "15", "30"]) assert.doesNotMatch(messages[0].content, new RegExp(secret));
 });
 
 test("доля добычи: тег pf2e hunters-edge-sharing; действие — Дар заступника, пассивка — Общая добыча / Тройная угроза", () => {

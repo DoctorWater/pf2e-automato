@@ -6,7 +6,7 @@ export const HEADS = {
   "blade-dance": "fa-khanda", "double-slice": "fa-khanda", "one-shot-one-kill": "fa-crosshairs", "onyx-dog": "fa-dog",
   "reactive-strike": "fa-bolt", "shield-block": "fa-shield-halved", "surprise-attack": "fa-user-ninja", escape: "fa-unlock",
   retch: "fa-face-dizzy", spellshape: "fa-wand-sparkles", invis: "fa-ghost", saves: "fa-dice-d20", vision: "fa-eye",
-  suffocation: "fa-lungs", "follow-up": "fa-hand-back-fist", "apparition-sense": "fa-ghost", "damage-link": "fa-link", "hunt-prey": "fa-bullseye", coat: "fa-flask", rage: "fa-fire"
+  suffocation: "fa-lungs", "follow-up": "fa-hand-back-fist", "apparition-sense": "fa-ghost", "damage-link": "fa-link", "hunt-prey": "fa-bullseye", coat: "fa-flask", rage: "fa-fire", sustain: "fa-hourglass-half"
 };
 
 /** head: { title, icon } | null. buttons — готовые cardButton(...) (и поле СЛ, если нужно). */

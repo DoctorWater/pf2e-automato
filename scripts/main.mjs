@@ -27,6 +27,7 @@ import * as hold from "./hold.mjs";
 import * as cast from "./cast.mjs";
 import * as migrateActivate from "./migrate-activate.mjs";
 import * as affliction from "./affliction-run.mjs";
+import * as sustain from "./sustain.mjs";
 
 const { S } = settings;
 
@@ -99,6 +100,7 @@ export const HANDLERS = {
   dropSpellShield: gm("dropSpellShield", (actorUuid, effectId, layers) => shieldBlock.dropSpellShield(actorUuid, effectId, layers), "owner", async (user, actorUuid) => ({ owns: ownsActor(await fromUuid(actorUuid), user) })),
   applyRetch: gm("applyRetch", (actorUuid, degree) => turnConditions.applyRetch(actorUuid, degree), "owner", async (user, actorUuid) => ({ owns: ownsActor(await fromUuid(actorUuid), user) })),
   applyEscape: gm("applyEscape", (actorUuid, items, degree) => escape.applyEscape(actorUuid, items, degree), "owner", async (user, actorUuid) => ({ owns: ownsActor(await fromUuid(actorUuid), user) })),
+  sustainRun: gm("sustainRun", (actorUuid, key, how) => sustain.run(actorUuid, key, how), "owner", async (user, actorUuid) => ({ owns: ownsActor(await fromUuid(actorUuid), user) })),   // кнопки «Поддержать / Прекратить» шёпота якоря
   holdResolve: gm("holdResolve", (messageId, how) => hold.resolveManual(messageId, how)),   // ручные кнопки удержанной атаки (damage-gate)
   dismissVis: gm("dismissVis", (sceneId, key) => vision.dismissSource(game.scenes.get(sceneId), key)),
   saveCatalogRule: gm("saveCatalogRule", (key, rule) => rules.saveWorldRule(key, rule))
@@ -117,7 +119,7 @@ Hooks.once("socketlib.ready", () => {
 Hooks.once("setup", () => leader.start());
 
 Hooks.once("init", () => {
-  settings.init(); compat.init(); zone.init(); height.init(); saves.init(); use.init(); actions.init(); chat.init(); reactions.init(); sheet.init(); badge.init(); vision.init(); invis.init(); workshop.init(); hud.init(); damageGate.init(); turnConditions.init(); escape.init(); events.init(); cast.init(); migrateActivate.init(); affliction.init();
+  settings.init(); compat.init(); zone.init(); height.init(); saves.init(); use.init(); actions.init(); chat.init(); reactions.init(); sheet.init(); badge.init(); vision.init(); invis.init(); workshop.init(); hud.init(); damageGate.init(); turnConditions.init(); escape.init(); events.init(); sustain.init(); cast.init(); migrateActivate.init(); affliction.init();
   game.modules.get(MOD).api = {
     // контракт plan.md §2 main
     attachZone: zone.attachZone, sweepZone: zone.sweepZone, closeZone: zone.closeZone, expireZones: zone.expireZones,
@@ -143,7 +145,7 @@ Hooks.once("ready", async () => {
   // При каждом переходе в лидеры (первый — после ready, потом — когда прежний лидер закрыт/перезагружен): подхватить его работу.
   leader.onLead(async () => {
     if (!guardActiveGM()) return;
-    for (const step of [() => zone.reconcileZones(), () => use.resumePending({ maxAgeMinutes: S.get("resumeMinutes") }), () => affliction.sweep()]) {
+    for (const step of [() => zone.reconcileZones(), () => use.resumePending({ maxAgeMinutes: S.get("resumeMinutes") }), () => affliction.sweep(), () => sustain.sweep(game.combat)]) {
       try { await step(); }
       catch (e) { if (String(e?.message).startsWith("not implemented")) debug(e.message); else console.error(`${MOD} | ready`, e); }   // пока куски не готовы — заглушки
     }

@@ -40,7 +40,7 @@
       "stepAllies": "{what} на союзников в {range} фт",
       "stepChosen": "{what} на выбранного",
       "stepRemoveChosen": "снять {what} с выбранного",
-      "stepChoose": { "allies": "выбрать союзника", "enemies": "выбрать врага", "options": "выбрать вариант: {options}" },
+      "stepChoose": { "allies": "выбрать союзника", "enemies": "выбрать врага", "creatures": "выбрать существо", "options": "выбрать вариант: {options}" },
       "stepDamage": "урон {formula} ({type})",
       "stepHeal": "лечение {formula}",
       "stepMove": { "push": "оттолкнуть на {distance} фт от автора", "pull": "притянуть к автору до {distance} фт", "pushPoint": "оттолкнуть на {distance} фт от центра области", "pullPoint": "притянуть к центру области до {distance} фт", "choose": "сдвинуть на {distance} фт в выбранную сторону" },

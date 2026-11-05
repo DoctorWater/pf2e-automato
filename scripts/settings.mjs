@@ -28,6 +28,7 @@ export function init() {
     if (TWO_STATE.has(key)) delete choices.button;
     reg(key, { type: String, default: def, choices, ...(key === "mode.macro" && { onChange: (v) => Hooks.callAll("pf2e-automato.macroMode", v) }) });
   }
+  reg("sustain.parse", { type: Boolean, default: true });   // Sustain из чата pf2e засчитывается якорю автора
   reg("yieldToAutomations", { type: Boolean, default: true });
   reg("useToolbeltTargetHelper", { type: Boolean, default: true });
   reg("challenge.messageMode", {

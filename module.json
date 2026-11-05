@@ -45,6 +45,7 @@
     { "lang": "ru", "name": "Русский", "path": "lang/ru/hud.json" },
     { "lang": "ru", "name": "Русский", "path": "lang/ru/turn.json" },
     { "lang": "ru", "name": "Русский", "path": "lang/ru/events.json" },
+    { "lang": "ru", "name": "Русский", "path": "lang/ru/sustain.json" },
     { "lang": "en", "name": "English", "path": "lang/en/common.json" },
     { "lang": "en", "name": "English", "path": "lang/en/settings.json" },
     { "lang": "en", "name": "English", "path": "lang/en/zone.json" },
@@ -59,6 +60,7 @@
     { "lang": "en", "name": "English", "path": "lang/en/rules.json" },
     { "lang": "en", "name": "English", "path": "lang/en/hud.json" },
     { "lang": "en", "name": "English", "path": "lang/en/turn.json" },
-    { "lang": "en", "name": "English", "path": "lang/en/events.json" }
+    { "lang": "en", "name": "English", "path": "lang/en/events.json" },
+    { "lang": "en", "name": "English", "path": "lang/en/sustain.json" }
   ]
 }

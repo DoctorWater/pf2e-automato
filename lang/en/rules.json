@@ -43,6 +43,8 @@
           "range": "Step: a radius in feet (integer, 5 or more) is required for nearby allies and only for them ({path})",
           "groupKind": "Step: a visibility change cannot be applied to a group ({path})",
           "when": "Step: \"when\" is a pf2e predicate: roll option strings, comparisons (gte/lte/gt/lt/eq) and and/or/not/nor ({path})",
+          "sustain": "Step: \"sustain\" must be true or false and is only allowed with a condition or effect ({path})",
+          "sustainDur": "Step: a condition with \"sustain: true\" requires a duration, otherwise it cannot be removed when the spell is no longer sustained ({path})",
           "chosen": "A step for the chosen creature needs an ally or enemy choice step before it ({path})"
         },
         "choose": { "bad": "Choice: say what to choose from — allies, enemies or options (options are a list of unique Latin codes); the radius is an integer from 5 and only for allies and enemies ({path})" },

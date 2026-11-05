@@ -46,8 +46,8 @@ test("onEvent: валидная запись нормализуется (side п
 });
 
 test("onEvent: все события и стороны; side:target — только у бросков и сотворения", () => {
-  for (const on of rules.EVENT_ON) assert.equal(one({ on, ...(on === "enter" && { side: "near", range: 20 }), apply: [{ effect: { uuid: EFF } }] }).ok, true, on);   // enter — только near
-  for (const side of rules.EVENT_SIDES.filter((s) => s !== "near")) assert.equal(one({ on: "attack-roll", side, apply: [{ effect: { uuid: EFF } }] }).ok, true, side);
+  for (const on of rules.EVENT_ON.filter((o) => o !== "spell-sustain")) assert.equal(one({ on, ...(on === "enter" && { side: "near", range: 20 }), apply: [{ effect: { uuid: EFF } }] }).ok, true, on);   // enter — только near
+  for (const side of rules.EVENT_SIDES.filter((s) => s !== "near" && s !== "familiar")) assert.equal(one({ on: "attack-roll", side, apply: [{ effect: { uuid: EFF } }] }).ok, true, side);
   for (const on of ["saving-throw", "damage-taken", "turn-start", "turn-end", "effect-created", "effect-deleted"]) assert.equal(one({ on, side: "target", apply: [{ effect: { uuid: EFF } }] }).ok, false, on);
   for (const on of ["attack-roll", "skill-check", "damage-roll", "spell-cast"]) assert.equal(one({ on, side: "target", apply: [{ effect: { uuid: EFF } }] }).ok, true, on);
 });

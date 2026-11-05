@@ -50,6 +50,8 @@ export function itemUseKind(item) {
  * Сборка снимка §1.4. i: { kind, resolved:{rule,source,slug,sourceUuid,confidence}, item:{uuid,name,type,sourceId},
  * actor, token, dc, targets, yielded, consume, now }.
  */
+/** Бой и раунд сотворения (бой, где актёр участвует) — для Поддержания: «сотворено в этом раунде = поддержано». null — вне боя. */
+const castAt = (actorUuid) => { const c = globalThis.game?.combats?.find?.((x) => x.round > 0 && x.combatants.some((k) => k.actor?.uuid === actorUuid)); return c ? { combat: c.id, round: c.round } : null; };
 export function buildSnapshot(i) {
   const rule = JSON.parse(JSON.stringify(i.resolved.rule));
   const state = {};
@@ -63,7 +65,7 @@ export function buildSnapshot(i) {
     ...(((i.resolved.hints?.possible?.length ?? 0) + (i.resolved.hints?.excluded?.length ?? 0)) && { hints: { possible: i.resolved.hints.possible ?? [], excluded: i.resolved.hints.excluded ?? [] } }),   // подсказки разметки (только ГМу в чате)
     slug: i.resolved.slug ?? null, sourceUuid: i.resolved.sourceUuid ?? null,
     item: i.item, actor: i.actor ?? null, token: i.token ?? null,
-    dc: i.dc ?? null, createdAt: i.now, targets: i.targets ?? [], state,
+    dc: i.dc ?? null, createdAt: i.now, ...(castAt(i.actor) && { at: castAt(i.actor) }), targets: i.targets ?? [], state,
     ...(i.rollOptions?.length && { rollOptions: i.rollOptions })
   };
 }

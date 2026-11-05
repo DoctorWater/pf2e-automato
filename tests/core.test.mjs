@@ -102,7 +102,7 @@ function mkActor(uuid) {
   const items = [];
   const actor = {
     uuid, items,
-    get itemTypes() { return { condition: items.filter((i) => i.type === "condition") }; },
+    get itemTypes() { return { condition: items.filter((i) => i.type === "condition"), effect: items.filter((i) => i.type === "effect") }; },
     getActiveTokens: () => [],
     async createEmbeddedDocuments(_, datas) {
       return datas.map((d) => {
@@ -189,6 +189,23 @@ test("applyEffect + hasEffect: дедуп по источнику+автору �
     assert.equal((await applyEffect(a, { uuid: EFF }, { key: "m:t:9" }, ctx)).op, "skipped");   // тот же источник и автор
     assert.equal((await applyEffect(a, { uuid: EFF }, { key: "m:t:9" }, { originActor: { uuid: "Actor.other" } })).op, "created");   // другой автор
     assert.equal((await applyEffect(a, { uuid: "nope" }, { key: "m:t:8" }, ctx)).op, "skipped");
+  } finally { teardown(); }
+});
+
+test("applyEffect: метка TokenMark — другой враг даёт второй эффект, тот же враг новым шагом обновляет срок, повтор шага — пропуск", async () => {
+  setup();
+  try {
+    const EFF = "Compendium.pf2e-automato.effects.Item.MstrmindOffGrd01";
+    registry.set(EFF, { type: "effect", toObject: () => ({ _id: "src", name: "Effect: Mastermind", type: "effect", system: { traits: { value: [] }, slug: "effect-mastermind", duration: { value: 1, unit: "rounds", expiry: "turn-start" }, rules: [{ key: "TokenMark", slug: "enemy-mastermind" }] }, _stats: { compendiumSource: null } }) });
+    const a = mkActor("Actor.r"), ctx = { originActor: { uuid: "Actor.r", system: {} } };
+    const marks = () => a.items.map((i) => [i.system.rules[0].uuid, i.system.duration.unit]);
+    assert.equal((await applyEffect(a, { uuid: EFF }, { key: "m1:self:0" }, { ...ctx, markUuid: "Token.a" })).op, "created");
+    assert.equal((await applyEffect(a, { uuid: EFF }, { key: "m2:self:0" }, { ...ctx, markUuid: "Token.b" })).op, "created");
+    assert.deepEqual(marks(), [["Token.a", "rounds"], ["Token.b", "rounds"]]);
+    assert.equal((await applyEffect(a, { uuid: EFF, duration: { value: 1, unit: "minutes" } }, { key: "m3:self:1" }, { ...ctx, markUuid: "Token.a" })).op, "created");
+    assert.deepEqual(marks(), [["Token.b", "rounds"], ["Token.a", "minutes"]]);   // прежний по Token.a снят, новый — с новым сроком
+    assert.equal((await applyEffect(a, { uuid: EFF }, { key: "m3:self:1" }, { ...ctx, markUuid: "Token.a" })).op, "skipped");   // повтор того же шага
+    assert.equal(a.items.length, 2);
   } finally { teardown(); }
 });
 

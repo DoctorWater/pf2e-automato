@@ -6,9 +6,9 @@ import { whisper, paHas, itemSlug, esc } from "./lib.mjs";
 export const SLUG = "apparition-sense", RANGE = 30;
 export const TRAITS = ["spirit", "haunt", "undead"];   // порядок названия в шёпоте; у существа берётся первая из его черт
 
-/** Чистая: что почуяли. near: [{enemy, traits: [slug], hidden: bool, feet}] -> уникальные черты в порядке TRAITS. */
+/** Чистая: что почуяли. near: [{traits: [slug], hidden: bool, feet}] -> уникальные черты в порядке TRAITS. */
 export function sensed(near, range = RANGE) {
-  const found = new Set(near.filter((n) => n.enemy && n.hidden && n.feet <= range).map((n) => TRAITS.find((t) => n.traits.includes(t))).filter(Boolean));
+  const found = new Set(near.filter((n) => n.hidden && n.feet <= range).map((n) => TRAITS.find((t) => n.traits.includes(t))).filter(Boolean));
   return TRAITS.filter((t) => found.has(t));
 }
 
@@ -20,7 +20,7 @@ export async function onMessage(message) {
   const sp = message.speaker ?? {}, own = sp.scene && sp.token ? game.scenes.get(sp.scene)?.tokens.get(sp.token) : null;
   if (!own?.object) return;
   const near = own.parent.tokens.filter((t) => t.id !== own.id && t.actor && t.object).map((t) => ({
-    enemy: !t.actor.isAllyOf?.(actor), traits: [...t.actor.traits], feet: own.object.distanceTo(t.object),
+    traits: [...t.actor.traits], feet: own.object.distanceTo(t.object),
     hidden: !!t.hidden || !!t.actor.hasCondition?.("hidden", "invisible", "undetected", "unnoticed")   // t.hidden — токен скрыт ведущим
   }));
   const list = sensed(near).map(name);

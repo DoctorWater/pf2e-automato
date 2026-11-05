@@ -83,16 +83,19 @@ async () => {
     const hook = Hooks.on("createChatMessage", (m) => { if (m.author?.id === game.user.id) e.tracked.add(m.id); });
     e.scene = await Scene.create({ name: `${PFX}сцена ${id}`, width: 2400, height: 2000, padding: 0, grid: { size: 100, distance: 5 }, navigation: false, tokenVision: false });
     await e.scene.view(); await wait(700);
-    // окна: наши .paf-dialog: e.pick = data-action кнопки (значение варианта choose), иначе закрываются (отмена); ChoiceSet pf2e — первый вариант; окна бросков pf2e — жмём «Бросок»
+    // окна: наши .paf-dialog: e.pick = подпись варианта choose (или data-action кнопки), иначе закрываются (отмена); ChoiceSet pf2e — первый вариант; окна бросков pf2e — жмём «Бросок»
     const seen = new Set();
     (async () => {
       while (!e.stop) {
         for (const el of document.querySelectorAll(".paf-dialog")) {
           if (seen.has(el.id)) continue;
           seen.add(el.id);
-          e.dialogs.push(el.querySelector(".window-title")?.textContent?.trim() ?? el.id);
-          const b = e.pick != null ? el.querySelector(`button[data-action="${e.pick}"]`) : null;
-          if (b) b.click(); else foundry.applications.instances.get(el.id)?.close();
+          const opts = [...(el.querySelector("select[name=choice]")?.options ?? [])].map((o) => o.textContent.trim()), acts = [...el.querySelectorAll("button[data-action]")].map((b) => b.dataset.action);
+          e.dialogs.push(`${el.querySelector(".window-title")?.textContent?.trim() ?? el.id}: ${opts.length ? opts.join(" / ") : acts.join(" / ")}`);
+          // окно choose модуля — список <select name=choice> + «ok» (apply.mjs choiceHtml): e.pick — подпись варианта; иначе кнопка data-action
+          const sel = el.querySelector("select[name=choice]"), o = sel && e.pick != null ? [...sel.options].find((x) => x.textContent.includes(e.pick)) : null;
+          const b = !sel && e.pick != null ? el.querySelector(`button[data-action="${e.pick}"]`) : null;
+          if (o) { sel.value = o.value; el.querySelector("button[data-action=ok]")?.click(); } else if (b) b.click(); else foundry.applications.instances.get(el.id)?.close();
         }
         for (const app of foundry.applications.instances.values()) {
           if (seen.has(app.id) || !app.element || !/Prompt|Picker/i.test(app.constructor.name)) continue;
@@ -267,13 +270,13 @@ async () => {
     await rigTo(e, tP, tV);
     const m1 = await cardSwing(e, item, tP, tV, 1);
     t.ok(!OK_DEG.includes(outcome(m1)) && e.T(tV).x === 600 && !e.cond(e.A(tV), "prone"), `после промаха цель на месте: x=${e.T(tV).x} [${cond2(e.A(tV))}]`);
-    e.pick = "do";   // окно choose: толкнуть
+    e.pick = "Толкнуть цель";   // окно choose: толкнуть (подпись варианта)
     const m2 = await cardSwing(e, item, tP, tV, 10);
     t.ok(outcome(m2) === "success", `Удар попал не критом (${outcome(m2)})`);
     t.ok(!!(await waitFor(() => e.T(tV).x === 700 && e.T(tV).y === 500, 8000)), `«do»: толчок на 5 фт: позиция (${e.T(tV).x},${e.T(tV).y})`);
     t.ok(!!(await waitFor(() => e.cond(e.A(tV), "prone"), 6000)), `«do»: цель prone [${cond2(e.A(tV))}]`);
     await e.T(tV).update({ x: 600 }); await e.A(tV).decreaseCondition("prone", { forceRemove: true }); await wait(700);
-    e.pick = "no";   // окно choose: не толкать
+    e.pick = "Не толкать";   // окно choose: не толкать
     const m3 = await cardSwing(e, item, tP, tV, 10);
     t.ok(outcome(m3) === "success", `второй Удар попал (${outcome(m3)})`);
     t.ok(!!(await waitFor(() => e.cond(e.A(tV), "prone"), 6000)), `«no»: prone есть [${cond2(e.A(tV))}]`);

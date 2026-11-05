@@ -430,6 +430,8 @@ export class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
       a.sel = null;
       return;
     }
+    const evRo = /^(f\.ev\.\d+)\.(on|side)$/.exec(path);   // массив событий (способность фамильяра) — только чтение: смена превратила бы его в строку
+    if (evRo && Array.isArray(foundry.utils.getProperty(a, evRo[1])?.on)) return;
     // поля, которых нет в строке формы как есть: «Дополнительно» (row.keep), свойства эффекта и варианты выбора (JSON в row.text), источник эффекта, вид макроса
     const sub = [[/^(.*?)\.affl\.(.+)$/, (r, n, x) => af.afflSet(f, r, n, x, { valued: condValued })], [/^(.*)\.keep\.(.+)$/, au.keepEdit], [/^(.*)\.mods\.(\d+\.\w+)$/, (r, n, x) => { const [i, field] = n.split("."); au.modSet(r, Number(i), field, x); }], [/^(.*)\.choose\.(.+)$/, au.chooseSet], [/^(.*)\.src$/, (r, _n, x) => au.setEffectSource(r, x)]];   // недуг: правка определения уходит во все шаги его группы (сессионной)
     for (const [re, fn] of sub) { const hit = re.exec(path); if (hit) return fn(foundry.utils.getProperty(a, hit[1]), hit[2], v); }
@@ -694,9 +696,10 @@ export class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
     const evs = f.ev.map((e, i) => {
       const p = `f.ev.${i}`, c = e.ch;
       return {
-        i, title: `${i + 1}. ${t(`workshop.au.ev.on.${e.on}`)}`,
+        i, title: `${i + 1}. ${[].concat(e.on).map((k) => t(`workshop.au.ev.on.${k}`)).join(", ")}`,
         fields: [
-          F.sel(`${p}.on`, t("workshop.au.ev.onLabel"), e.on, choices(EVENT_ON, "au.ev.on")),
+          Array.isArray(e.on) ? F.sel(`${p}.on`, t("workshop.au.ev.onLabel"), "_", { _: e.on.map((k) => t(`workshop.au.ev.on.${k}`)).join(", ") })   // только чтение
+            : F.sel(`${p}.on`, t("workshop.au.ev.onLabel"), e.on, choices(EVENT_ON, "au.ev.on")),
           F.sel(`${p}.side`, t("workshop.au.ev.sideLabel"), e.side, choices(EVENT_SIDES.filter((s) => (s !== "target" || EVENT_TARGETED.has(e.on)) && (s !== "near" ? e.on !== "enter" : NEAR_ON.includes(e.on))), "au.ev.side")),
           ...(e.side === "near" ? [
             F.text(`${p}.aura`, t("workshop.au.ev.zoneAura"), e.aura, { placeholder: "frightful-aura", hint: t("workshop.au.ev.zoneAuraHint") }), F.num(`${p}.range`, t("workshop.au.ev.zoneRange"), e.range, { min: 1 }),
@@ -704,6 +707,8 @@ export class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
           ] : []),
           F.text(`${p}.when`, t("workshop.au.ev.whenLabel"), e.when, { cls: "ws-grow", placeholder: "outcome:success, target:condition:off-guard", hint: t("workshop.au.ev.whenHint") }),
           F.chk(`${p}.once`, t("workshop.au.ev.once"), e.once),
+          F.chk(`${p}.cost`, t("workshop.au.ev.cost"), e.cost),
+          ...(e.cost ? [F.text(`${p}.free`, t("workshop.au.ev.free"), e.free, { placeholder: "skill:intimidation:rank:4", hint: t("workshop.au.ev.freeHint") })] : []),
           ...(EVENT_AFTER_USE.has(e.on) && e.side === "self" ? [F.chk(`${p}.afterUse`, t("workshop.au.ev.afterUse"), e.afterUse)] : []),
           F.chk(`${p}.ch.on`, t("workshop.au.ev.challenge"), c.on),
           ...(c.on ? [

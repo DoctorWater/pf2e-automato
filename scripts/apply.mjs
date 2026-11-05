@@ -334,7 +334,7 @@ export function setRollOption(actor, spec) {
 
 /** Получатели «party» и «allies»: участники партий автора; союзники автора в радиусе range футов от его токена без преграды стен (как PA OnlyAllyWithinRange). */
 const partyOf = (actor) => [...new Map([...(actor?.parties ?? [])].flatMap((p) => [...p.members]).map((m) => [m.uuid, m])).values()];
-export function alliesIn(actor, token, range, rel = "isAllyOf", withSelf = false) {   // withSelf — сам автор тоже кандидат (если он не центр отсчёта)
+export function alliesIn(actor, token, range, rel = "isAllyOf", withSelf = false) {   // withSelf — сам автор тоже кандидат (и когда центр — он сам: «вы или союзник»)
   const src = token?.object, scene = token?.parent;
   if (!actor || !scene) return [];
   // сцена не на холсте (нет .object): расстояние по документам (центры токенов), стены проверить нечем — предупреждаем ГМа
@@ -343,7 +343,7 @@ export function alliesIn(actor, token, range, rel = "isAllyOf", withSelf = false
   const dist = (t) => (live && t.object ? src.distanceTo(t.object) : scene.grid.measurePath([center(token), center(t)]).distance);
   if (range != null && !live) notify("apply.noWalls", { name: token.name ?? "" });
   // range == null — вся сцена, без стен (выбор союзника/врага шагом choose)
-  const hit = scene.tokens.filter((t) => t.actor && (t.actor === actor ? withSelf && token.actor !== actor : rel === "any" || actor[rel](t.actor)) && (range == null || dist(t) <= range)
+  const hit = scene.tokens.filter((t) => t.actor && (t.actor === actor ? withSelf : rel === "any" || actor[rel](t.actor)) && (range == null || dist(t) <= range)
     && (rel !== "any" || (!t.hidden && (t.actor.isOfType?.("creature") ?? true) && !t.actor.isDead && (t.actor.hitPoints?.value ?? 1) > 0))   // «любое существо»: живое и не скрытое
     && !(range != null && live && t.object && CONFIG.Canvas.polygonBackends.move.testCollision(t.object.center, src.center, { type: "move", mode: "any", ...(token.level && token.parent?.levels?.get?.(token.level) && { level: token.parent.levels.get(token.level) }) }))).map((t) => t.actor);
   return [...new Map(hit.map((a) => [a.uuid, a])).values()];

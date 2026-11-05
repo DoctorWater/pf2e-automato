@@ -133,3 +133,88 @@ test("Tumble Behind: действующая запись (campaign поверх 
     }
   }
 });
+
+/* ---------- наговоры ведьмы, первая партия (docs/plan-hexes.md): действующая запись = слои pa → model → onhit → cat → campaign, ключ заменяется целиком ---------- */
+
+const layer = (n) => JSON.parse(readFileSync(new URL(`../rules/catalog${n}.json`, import.meta.url), "utf8")).bySource ?? {};
+const merged = Object.assign({}, ...[".pa", ".model", ".onhit", "", ".campaign"].map(layer));
+const SP = "Compendium.pf2e.spells-srd.Item.";
+const hex = (id) => { const r = merged[SP + id]; const v = validateRule(r); assert.equal(v.ok, true, JSON.stringify(v.errors)); return r.onUse; };
+const flat = (u) => [...(u.apply ?? []), ...Object.values(u.challenge?.byDegree ?? {}).flat()];
+const IMM = FX + "DscrnSecrImm0001";
+
+test("наговоры ведьмы: Stoke the Heart и Discern Secrets — эффект под Поддержанием, у Discern — иммунитет на минуту", () => {
+  const sth = hex("GeUbPvwdZ4B4l0up");
+  assert.deepEqual(sth.apply.map((s) => [s.effect.uuid.split(".").pop(), s.sustain]), [["TpVkVALUBrBQjULn", true]]);
+  const ds = hex("UmXhuKrYZR3W16mQ").apply;
+  assert.equal(ds[0].effect.uuid.split(".").pop(), "pzbU0cdyRvE66XBi");
+  assert.equal(ds[0].sustain, true); assert.equal(ds[0].unlessEffect, IMM);   // повтор в минуту — отказ
+  assert.equal(ds[1].effect.uuid, IMM); assert.equal(ds[1].sustain, undefined);   // иммунитет не привязан к якорю
+  assert.equal(pack("DscrnSecrImm0001").system.duration.value, 1);
+});
+
+test("наговоры ведьмы: Share Vision: replace только на первом шаге (снимает прежний у всех актёров; на втором шаге снял бы только что выданный автору); Trade Death — быстрое исцеление под Поддержанием", () => {
+  const sv = hex("TRlI5zAbNW2hDiH9").apply.filter((s) => s.effect);
+  assert.deepEqual(sv.map((s) => [s.to, s.effect.replace]), [["self", true], ["target", undefined]]);
+  const u = hex("4U2ZV1v38D0y2CRl"), by = u.challenge.byDegree;
+  assert.equal(u.challenge.basic, true);
+  assert.deepEqual(Object.keys(by).sort(), ["criticalFailure", "failure", "success"]);   // крит. успех — ничего
+  for (const steps of Object.values(by)) {
+    const e = steps.find((s) => s.to === "chosen");
+    assert.equal(e.effect.uuid.split(".").pop(), "oNAqqcxPjzPCJJmW"); assert.equal(e.sustain, true);
+  }
+});
+
+test("наговоры ведьмы: Evil Eye и Scrounger's Glee — состояние по степеням плюс минимум-эффект под Поддержанием", () => {
+  for (const [id, slug, floor] of [["f45JpY7Ph2cAJGW2", "sickened", "EvilEyeFloorEf01"], ["VNv96dJPi0WXKSFN", "frightened", "ScrngGleeFloor01"]]) {
+    const ch = hex(id).challenge, by = ch.byDegree;
+    assert.equal(ch.statistic, "will");
+    assert.deepEqual(Object.keys(by).sort(), ["criticalFailure", "failure"]);
+    for (const [deg, value] of [["failure", 1], ["criticalFailure", 2]]) {
+      const c = by[deg].find((s) => s.condition), e = by[deg].find((s) => s.effect);
+      assert.deepEqual(c.condition, { slug, value, policy: "max" });
+      assert.equal(c.sustain, undefined);   // само состояние переживает наговор; под якорь идёт только минимум
+      assert.equal(e.effect.uuid, FX + floor); assert.equal(e.sustain, true);
+    }
+    const doc = pack(floor), g = doc.system.rules[0];
+    assert.equal(doc.system.duration.sustained, true);
+    assert.equal(g.key, "GrantItem"); assert.equal(g.alterations[0].value, 1); assert.equal(g.onDeleteActions.grantee, "restrict");
+  }
+});
+
+test("наговоры ведьмы: Information Overload и Clinging Ice остаются под Поддержанием (слои не перекрывают запись)", () => {
+  for (const id of ["PesUKf0lIt5zRofj", "MraZBLJ4Be3ogmWL"]) assert.ok(flat(hex(id)).every((s) => s.sustain === true), id);
+});
+
+test("Подкидывание улик: действующая запись — Воровство против Восприятия, исходы заметкой в карточке, без автоматики предмета", () => {
+  const r = merged["Compendium.pf2e.feats-srd.Item.eww9tuiXPnZFZ3DU"], v = validateRule(r);
+  assert.equal(v.ok, true, JSON.stringify(v.errors));
+  const c = r.onUse.check;
+  assert.deepEqual([c.statistic, c.vs.defense, c.options], ["thievery", "perception", ["action:plant-evidence"]]);
+  assert.deepEqual(Object.keys(c.byDegree), ["criticalSuccess", "success", "criticalFailure"]);
+  assert.ok(Object.values(c.byDegree).flat().every((s) => s.to === "self" && s.note && !s.effect && !s.condition));
+});
+
+test("последняя партия ведьмы: Forbidding Ward под Поддержанием; Phase Familiar и Cackle — заметки к эффекту/заклинанию", () => {
+  const fw = hex("RA7VKcen3p56rVyZ").apply;
+  assert.deepEqual(fw.filter((s) => s.effect).map((s) => [s.effect.uuid.split(".").pop(), s.sustain]), [["ctMxYPGEpstvhW9C", true]]);
+  const pf = hex("rMOI8JFJ0nT2mrCF").apply;
+  assert.equal(pf.find((s) => s.effect).effect.uuid.split(".").pop(), "61Hl31nyzt63vvX9");
+  assert.match(pf.find((s) => s.note).note, /придерживает применение урона/);
+  const ck = hex("YVK3JUkPVzHIeGXQ").apply;
+  assert.ok(ck.length === 1 && /«Поддержать»/.test(ck[0].note) && !ck[0].effect && !ck[0].condition);
+});
+
+test("Толчок: подсказка Подкидывания улик — только Головорезу с чертой, на успехе и крит. успехе; bySlug совпадает", () => {
+  const shove = campaign.bySource["Compendium.pf2e.actionspf2e.Item.7blmbDrQFNfdT731"];
+  assert.deepEqual(campaign.bySlug.shove, shove);
+  const by = shove.onUse.check.byDegree;
+  for (const d of ["success", "criticalSuccess"]) {
+    const n = by[d].filter((s) => /Подкидывание улик/.test(s.note ?? ""));
+    assert.equal(n.length, 1, d);
+    assert.deepEqual(n[0].when, ["feature:ruffian", "feat:plant-evidence"]);
+    assert.equal(testPredicate(n[0].when, new Set(["feature:ruffian"])), false);
+    assert.equal(testPredicate(n[0].when, new Set(["feature:ruffian", "feat:plant-evidence"])), true);
+  }
+  for (const d of ["failure", "criticalFailure"]) assert.ok(!(by[d] ?? []).some((s) => /Подкидывание улик/.test(s.note ?? "")), d);
+});

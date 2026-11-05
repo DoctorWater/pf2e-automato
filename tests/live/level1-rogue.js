@@ -431,6 +431,67 @@ async () => {
     t.ok(dOpts.includes("target:mark:enemy-tumble-behind"), `в опциях урона есть метка цели: ${dOpts.filter((o) => o.startsWith("target:mark")).join(",") || "—"}`);
     t.ok(!!(await waitFor(() => !effs(e.A(tR), TBE).length, 6000)), `урон по помеченному снял эффект: ${showEffs(e.A(tR), TBE)}`);
   });
+  // L1-R5 (аудит R4, P2): Внезапная атака на двух одинаковых врагах, Подкидывание улик
+  sc("surprise-attack-two", "Внезапная атака: два одинаковых гоблина, 1-й раунд — не ходивший off-guard для плута, ходивший нет; Sneak Attack в уроне ровно один раз; со 2-го раунда эффекта нет и off-guard нет", async (e, t) => {
+    const r = await heroCopy(e, "Мерисиэль (плут-вор)");
+    if (!r.itemTypes.feat.some((f) => f.slug === "surprise-attack")) throw new Skip("у героя нет surprise-attack");
+    const g1 = await e.foe("гоблин"), g2 = await e.foe("гоблин");   // имена и токены намеренно одинаковые: метка различает по signature
+    const tR = await e.tok(r, 500, 500, 1), t1 = await e.tok(g1, 600, 500, -1), t2 = await e.tok(g2, 500, 600, -1);
+    await wait(700);
+    const c = await Combat.create({ scene: e.scene.id, active: true });
+    await c.createEmbeddedDocuments("Combatant", [tR, t1, t2].map((tk) => ({ tokenId: tk.id, sceneId: e.scene.id, actorId: tk.actor.id })));
+    await viewCombat(c);
+    await r.update({ "system.initiative.statistic": "deception" }); await wait(300);
+    await e.fix(10);
+    await bound("инициатива (initiative.roll)", e.A(tR).initiative.roll({ event: SHIFT() }));
+    const eff = () => e.A(tR).items.find((i) => i.type === "effect" && i.flags?.[MOD]?.meta?.key === "surprise-attack");
+    t.ok(!!(await waitFor(eff, 8000)), "эффект Внезапной атаки после инициативы Обманом");
+    const nSig = () => (eff()?.system.rules ?? []).filter((x) => (x.predicate ?? []).some((p) => String(p).startsWith("target:signature:"))).length;
+    t.ok(nSig() === 2, `метки на обоих гоблинов (одинаковые имена): ${nSig()}`);
+    const cmb = (tk) => c.combatants.find((x) => x.tokenId === tk.id);
+    await c.setInitiative(cmb(t1).id, 100); await c.setInitiative(cmb(tR).id, 50); await c.setInitiative(cmb(t2).id, -5);
+    await c.startCombat(); await wait(1200);   // ход гоблина 1
+    t.ok(!!(await waitFor(() => nSig() === 1, 8000)), `ход гоблина 1 снял только его метку: ${nSig()}`);
+    const og = (o) => o.includes("target:condition:off-guard");
+    t.ok(!og(await strikeOpts(e, tR, t1, 15)), "гоблин 1 (уже ходил) — не off-guard");
+    t.ok(og(await strikeOpts(e, tR, t2, 15)), "гоблин 2 (не ходил) — off-guard при том же имени");
+    // Sneak Attack ровно один раз: precision-кубики в формуле урона по гоблину 2
+    await e.aim(tR, t2);
+    const t0 = e.since();
+    await bound("бросок урона", e.strike(e.A(tR)).damage({ event: SHIFT() }));
+    const dm = await waitFor(() => e.msgs(t0).find((m) => m.flags?.pf2e?.context?.type === "damage-roll"), 8000);
+    const pm = (dm?.rolls[0]?.options?.damage?.modifiers ?? []).filter((m) => m.category === "precision" && m.enabled !== false && !m.ignored), prec = pm.length;
+    t.ok(prec === 1, `Sneak Attack ровно один раз: precision×${prec} [${pm.map((m) => m.label)}] ${dm?.rolls[0]?.formula}`);
+    await c.nextRound(); await wait(1500);
+    t.ok(!(await waitFor(eff, 3000)), "со 2-го раунда эффекта нет");
+    t.ok(!og(await strikeOpts(e, tR, t2, 15)), "2-й раунд: гоблин 2 не off-guard");
+  });
+  const PE = "Compendium.pf2e.feats-srd.Item.eww9tuiXPnZFZ3DU";
+  sc("plant-evidence", "Подкидывание улик: проверка Воровства против СЛ Восприятия цели; успех — в карточке «не заметила», крит. провал — «заметила»; на цели ничего", async (e, t) => {
+    const r = await heroCopy(e, "Мерисиэль (плут-вор)"), g = await e.foe("гоблин");
+    const tR = await e.tok(r, 500, 500, 1), tG = await e.tok(g, 600, 500, -1);
+    await wait(700);
+    if (!e.A(tR).items.some((i) => i.slug === "plant-evidence")) await e.catalog(e.A(tR), PE);
+    const feat = e.A(tR).items.find((i) => i.slug === "plant-evidence");
+    if (!feat) throw new Skip("черта не добавилась");
+    const per = e.A(tG).perception.dc.value, m = statMod(e.A(tR), "thievery");
+    const run = async (d20) => {
+      await e.aim(tR, tG); await e.fix(d20);
+      const t0 = e.since();
+      await bound("использование", feat.toMessage());
+      const card = await waitFor(() => e.msgs(t0).find((x) => e.use(x)), 8000);
+      await waitFor(() => Object.keys(e.use(game.messages.get(card?.id))?.state?.challenge?.results ?? {}).length, 15000); await wait(2000);
+      const res = Object.values(e.use(game.messages.get(card?.id))?.state?.challenge?.results ?? {})[0];
+      return { res, text: (e.dom(game.messages.get(card?.id))?.textContent ?? "").replace(/\s+/g, " ") };
+    };
+    const s1 = await run(Math.max(2, Math.min(19, per - m)));
+    t.ok(s1.res?.degree === 2, `успех: степень ${s1.res?.degree}, итог ${s1.res?.total} против СЛ ${s1.res?.dc} (Восприятие ${per})`);
+    t.ok(/не заметила/.test(s1.text), "в карточке «не заметила»");
+    t.ok(!e.A(tG).itemTypes.effect.length && !e.A(tG).itemTypes.condition.length, "на цели ничего не появилось");
+    if (1 + m > per - 10) { t.ok(true, `INFO крит. провал недостижим: 1 + ${m} > ${per} − 10`); return; }
+    const s2 = await run(1);
+    t.ok(s2.res?.degree === 0 && /заметила попытку/.test(s2.text), `крит. провал — «заметила»: степень ${s2.res?.degree}`);
+  });
 
   // ---------- прогон ----------
   const rows = [];

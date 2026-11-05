@@ -278,7 +278,7 @@ test("stepText: выбор, выбранный получатель, урон, �
   assert.match(stepText({ to: "allies", range: 15, condition: { slug: "frightened", policy: "reduce" } }, env, "self"), /chat\.stepReduce/);
 });
 
-test("choose from allies {of:target, withSelf}: кандидаты — союзники вокруг цели и сам автор, но не сам центр отсчёта (Защитная статуэтка)", async () => {
+test("choose from allies {of:target, withSelf}: кандидаты — союзники вокруг цели и сам автор (Защитная статуэтка); без of центр — автор, withSelf его не исключает («вы или союзник»)", async () => {
   const seen = [];
   setSocket({ executeAsUser: async (_n, _u, d) => { seen.push(d.choices.map((c) => c.value)); return d.choices[0].value; } });
   const hero = mkActor("Actor.hero", { isAllyOf: (a) => a.ally, isEnemyOf: (a) => !a.ally, testUserPermission: () => true });
@@ -294,6 +294,7 @@ test("choose from allies {of:target, withSelf}: кандидаты — союз�
   const run = (c, id) => applyOps(mkMsg(use({ token: "Scene.s.Token.h" }), { id, author: player }), "self", [{ to: "self", choose: c }, { to: "chosen", effect: { uuid: EFF } }], { scope: "apply", target: tFoe });
   await run({ from: "allies", range: 5, of: "target" }, "M1");
   await run({ from: "allies", range: 5, of: "target", withSelf: true }, "M2");
-  assert.deepEqual(seen, [["Actor.bob"], ["Actor.hero", "Actor.bob"]]);
+  await run({ from: "allies", range: 5, withSelf: true }, "M3");   // центр — сам автор: Боб в 7 фт, автор — кандидат
+  assert.deepEqual(seen, [["Actor.bob"], ["Actor.hero", "Actor.bob"], ["Actor.hero"]]);
   assert.equal(validate({ v: 1, onUse: { targets: "self", apply: [{ to: "self", choose: { from: "enemies", withSelf: true } }] } }).ok, false);   // withSelf — только у союзников
 });

@@ -1772,6 +1772,33 @@
     "unit": "rounds"
    },
    "authored": true
+  },
+  "EvilEyeFloorEf01": {
+   "name": "Spell Effect: Evil Eye (Floor)",
+   "kind": "own",
+   "dur": {
+    "value": 1,
+    "unit": "minutes"
+   },
+   "authored": true
+  },
+  "ScrngGleeFloor01": {
+   "name": "Spell Effect: Scrounger's Glee (Floor)",
+   "kind": "own",
+   "dur": {
+    "value": 1,
+    "unit": "minutes"
+   },
+   "authored": true
+  },
+  "DscrnSecrImm0001": {
+   "name": "Effect: Discern Secrets Immunity",
+   "kind": "own",
+   "dur": {
+    "value": 1,
+    "unit": "minutes"
+   },
+   "authored": true
   }
  }
 }

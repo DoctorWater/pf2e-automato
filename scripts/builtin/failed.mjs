@@ -25,8 +25,10 @@ const DEGREE_OUTCOMES = { fail: ["failure", "criticalFailure"], critFail: ["crit
 export const degreeOk = (degree, outcome) => !!outcome && (DEGREE_OUTCOMES[degree] ?? []).includes(outcome);
 
 /** Удача уже сработала на этом броске (переброс, бросок дважды с лучшим): вторую «удачу» к тому же броску не применить. */
-// roll — бросок сообщения: pf2e не даёт перебрасывать кости с kh/kl (CheckRoll.isRerollable, pf2e.mjs:19322)
-export const noLuck = (ctx, roll) => !!ctx?.isReroll || (ctx?.options ?? []).includes("check:reroll") || ctx?.rollTwice === "keep-higher" || roll?.isRerollable === false;
+// roll — бросок сообщения: pf2e не даёт перебрасывать кости с kh/kl (CheckRoll.isRerollable, pf2e.mjs:19322).
+// Подстановка (Уверенность — fortune, бросок без кубов): перебрасывать нечего, а isRerollable у неё true.
+export const noLuck = (ctx, roll) => !!ctx?.isReroll || (ctx?.options ?? []).includes("check:reroll") || ctx?.rollTwice === "keep-higher" || roll?.isRerollable === false
+  || !!ctx?.substitutions?.some?.((s) => s.selected) || (Array.isArray(roll?.dice) && roll.dice.length === 0);
 
 /** Опции проверки для `when`: опции броска pf2e и опции источника (origin:…). */
 // check:type:<ctx.type> — свой: у Удара pf2e опции check:type нет (не StatisticCheck), а when каталога (Perfect Clarity) её ждёт

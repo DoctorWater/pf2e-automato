@@ -91,6 +91,10 @@ test("typeOk / degreeOk / noLuck", () => {
   assert.equal(F.noLuck({ options: ["check:reroll"] }), true);
   assert.equal(F.noLuck({ rollTwice: "keep-higher" }), true);
   assert.equal(F.noLuck({ rollTwice: "keep-lower", options: [] }), false);
+  // Уверенность: подстановка выбрана (fortune), бросок без кубов — переброс не предлагается
+  assert.equal(F.noLuck({ options: [], substitutions: [{ slug: "assurance", selected: true }] }), true);
+  assert.equal(F.noLuck({ options: [], substitutions: [{ slug: "assurance", selected: false }] }, { dice: [{}] }), false);
+  assert.equal(F.noLuck({ options: [] }, { dice: [], isRerollable: true }), true);
   assert.equal(F.noLuck({ options: [] }), false);
 });
 

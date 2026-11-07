@@ -28,7 +28,7 @@ export async function ready() {
 }
 
 /** Статистики проверок, которых нет в CONFIG.PF2E.saves/skills/attributes (игроку — перевод pf2e, не служебное имя). */
-const STAT_KEYS = { "spell-attack": "PF2E.SpellAttackLabel", perception: "PF2E.PerceptionLabel" };
+const STAT_KEYS = { "spell-attack": "PF2E.SpellAttackLabel", perception: "PF2E.PerceptionLabel", lore: "PF2E.Lore" };
 
 /* ---------- окружение (подменяется в тестах) ---------- */
 

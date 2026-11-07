@@ -48,6 +48,9 @@
 .pf2e-automato-workshop .ws-seg { display: inline-flex; border: 1px solid #baa991; border-radius: 3px; overflow: hidden; background: #fffdf9; }
 .pf2e-automato-workshop .ws-seg button { height: 28px; padding: 0 10px; margin: 0; border: 0; border-right: 1px solid #ddd2c0; border-radius: 0; background: transparent; font-size: 12.5px; font-weight: 500; color: #5b5048; cursor: pointer; transition: background-color .15s, color .15s; }
 .pf2e-automato-workshop .ws-seg button:last-child { border-right: 0; }
+.pf2e-automato-workshop .ws-seg-wrap { flex-wrap: wrap; max-width: 100%; }   /* длинный ряд (вид правила) переносится, а не режется и не даёт прокрутку */
+.pf2e-automato-workshop .ws-fld:has(> .ws-seg-wrap) { min-width: 0; max-width: 100%; }
+.pf2e-automato-workshop .ws-seg-wrap button { min-width: 0; white-space: nowrap; border-bottom: 1px solid #ddd2c0; }
 .pf2e-automato-workshop .ws-seg button:hover { background: #efe7dc; }
 .pf2e-automato-workshop .ws-seg button[aria-pressed="true"] { background: #443730; color: #fff; }
 

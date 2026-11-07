@@ -3,10 +3,10 @@
 // Части окна у обоих режимов одни и те же (id), шаблоны подставляются по режиму в _configureRenderParts.
 import { MOD, L, errText, DEGREES, callGM, forcedReplace, forcedDelete, flagPath, damageLabel } from "../util.mjs";
 import { modeOf } from "../settings.mjs";
-import { DENY, divergedHint, dropSpec, ruleToForm, formToRule, blankRow, blankEvent, blankTrigger, blankCast, blankChoice, reportEnv, pickedTokens, ruleUuids, buildReport } from "../sheet.mjs";
-import { validateRule, resolveRule, divergedOf, slugOf, sourceOf, DAMAGE_TYPES, EVENT_ON, EVENT_SIDES, EVENT_TARGETED, EVENT_AFTER_USE, NEAR_ON, TRIGGER_ON, TRIGGER_PER, ESCAPE_STATS, REPEAT_ON, CHOICES_MIN, CHOICES_MAX } from "../rules.mjs";
+import { DENY, DAMAGED_MODES, divergedHint, dropSpec, ruleToForm, formToRule, blankRow, blankEvent, blankTrigger, blankCast, blankChoice, reportEnv, pickedTokens, ruleUuids, buildReport } from "../sheet.mjs";
+import { validateRule, resolveRule, divergedOf, slugOf, sourceOf, DAMAGE_TYPES, FAILED_CHECK, FAILED_DEGREE, EVENT_ON, EVENT_SIDES, EVENT_TARGETED, EVENT_AFTER_USE, NEAR_ON, TRIGGER_ON, TRIGGER_PER, ESCAPE_STATS, REPEAT_ON, CHOICES_MIN, CHOICES_MAX } from "../rules.mjs";
 import { automationsGroups } from "../compat.mjs";
-import { safeUuid } from "../saves.mjs";
+import { safeUuid, uuidLabel } from "../saves.mjs";
 import * as fx from "./effect.mjs";
 import * as au from "./automation.mjs";
 import * as af from "./affliction-edit.mjs";
@@ -53,7 +53,7 @@ const withCur = (opts, cur) => {
   return cur === undefined || cur === null || out.some((o) => String(o.value) === String(cur)) ? out : [...out, { value: cur, label: String(cur) }];
 };
 const F = {
-  seg: (path, label, cur, opts) => ({ path, label, seg: opts.map(([value, l]) => ({ value, label: l, on: String(cur) === value })) }),
+  seg: (path, label, cur, opts, extra = {}) => ({ path, label, ...extra, seg: opts.map(([value, l]) => ({ value, label: l, on: String(cur) === value })) }),
   num: (path, label, value, extra = {}) => ({ path, label, type: "number", value, inpCls: "ws-num", ...extra }),
   text: (path, label, value, extra = {}) => ({ path, label, type: "text", value, ...extra }),
   sel: (path, label, value, opts, extra = {}) => ({ path, label, value, options: withCur(opts, value), ...extra }),
@@ -64,6 +64,33 @@ const triSeg = (path, label, cur) => F.seg(path, label, cur, TRI.map((k) => [k, 
 
 /** Условие испытания (предикат pf2e по целям): испытание проводится только для подходящих. */
 const chWhen = (p, c) => F.text(`${p}.when`, t("workshop.au.chWhen"), c.when, { cls: "ws-full", placeholder: "target:trait:undead", hint: t("workshop.au.chWhenHint") });
+
+/** Мультивыбор сегментами: obj — {ключ: bool} по пути path; каждая кнопка переключает свой ключ. */
+const multiSeg = (path, label, obj, keys, text) => ({ path, label, seg: keys.map((k) => ({ value: k, label: text(k), on: obj[k] === true || obj[k] === "true", path: `${path}.${k}` })) });
+
+/** Условие срабатывания реакции (onDamaged/onFailed): кто, когда, что с уроном / какие проверки. Ниже — обычный onUse (шаги ответа). */
+function reactFields(f) {
+  const R = (k) => t(`workshop.au.react.${k}`), who = (kind) => (kind === "onDamaged" ? ["self", "familiar", "ally"] : ["self", "ally", "any"]).map((k) => [k, R(`whoBtn.${k}`)]);
+  const d = f.kind === "onDamaged" ? f.dm : f.fl, p = f.kind === "onDamaged" ? "f.dm" : "f.fl";
+  const out = [F.seg(`${p}.who`, R(f.kind === "onDamaged" ? "whoDamaged" : "whoFailed"), d.who, who(f.kind))];
+  if (d.who !== "self" && d.who !== "familiar") out.push(F.num(`${p}.range`, t("sheet.row.range"), d.range, { min: 5, placeholder: "30" }), F.chk(`${p}.withSelf`, R("withSelfLabel"), d.withSelf));
+  if (f.kind === "onFailed") out.push(
+    multiSeg(`${p}.check`, R("checks"), d.check, FAILED_CHECK, (k) => R(`chkBtn.${k}`)),
+    F.seg(`${p}.degree`, R("degree"), d.degree, FAILED_DEGREE.map((k) => [k, R(`degBtn.${k}`)])),
+    F.seg(`${p}.keep`, R("keepLabel"), d.keep, [["new", R("keepBtn.new")], ["higher", R("keepBtn.higher")]])
+  );
+  const wk = f.kind === "onDamaged" ? "whenDamaged" : "whenFailed";
+  out.push(F.text(`${p}.when`, R(wk), d.when, { cls: "ws-full", placeholder: R(`${wk}Ph`), hint: R(`${wk}Hint`) }),
+    F.text(`${p}.requires`, R("requires"), d.requires, { placeholder: "shield:raised", hint: R("requiresHint") }));
+  if (f.kind === "onDamaged") {
+    out.push(F.seg(`${p}.mode`, R("damage"), d.mode, DAMAGED_MODES.map((k) => [k, R(`modeBtn.${k}`)])));
+    if (d.mode === "reduce") out.push(F.text(`${p}.reduce`, R("reduceBy"), d.reduce, { inpCls: "ws-num", placeholder: "5" }));
+    if (d.mode === "resist") d.resist.forEach((r, i) => out.push(F.sel(`${p}.resist.${i}.type`, R("resistType"), r.type, { triggering: R("resistTrig"), ...choices(fx.RESIST_TYPES, "dtype") }), F.text(`${p}.resist.${i}.value`, R("resistValue"), r.value, { inpCls: "ws-num", placeholder: "5" })));
+    if (d.mode === "redirect") out.push(F.seg(`${p}.part`, R("part"), d.part, [["all", R("partAll")], ["half", R("partHalf")]]));
+    out.push(F.text(`${p}.hp`, R("cost"), d.hp, { inpCls: "ws-num", placeholder: "—" }), F.chk(`${p}.triggerOnly`, R("triggerOnly"), d.triggerOnly, { tip: R("triggerOnlyTip") }));
+  }
+  return out;
+}
 
 /** Невосприимчивость после действия (испытание и проверка): p — путь модели (f.ch.imm | f.ck.imm), m — её значение. */
 const immFields = (p, m) => [
@@ -572,7 +599,7 @@ export class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
     const a = this.#au, item = this.#item, f = a.f, mode = au.rollMode(f);
     const raw = formToRule(f), v = validateRule(raw), rule = v.ok ? v.rule : raw;
     const need = this.#typing ? [] : ruleUuids(raw).filter((u) => !this.#names.has(u));
-    await Promise.all(need.map(async (u) => this.#names.set(u, (await safeUuid(u))?.name ?? null)));
+    await Promise.all(need.map(async (u) => this.#names.set(u, await uuidLabel(u))));
     const base = await reportEnv(item, rule, Object.fromEntries(this.#names));
     const area = { shape: a.area.shape, size: au.clampSize(a.area.size) };
     const env = { ...base, uuidName: (u) => this.#names.get(u) ?? null, valued: condValued, area };
@@ -607,9 +634,10 @@ export class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
 
     const whenFields = [
       F.text("f.label", t("sheet.label"), f.label, { cls: "ws-grow" }),
-      F.seg("f.kind", t("workshop.au.event"), f.kind, ["onUse", "onAttacked", "onEvent", "cast", "none"].map((k) => [k, t(`workshop.au.kind.${k}`)])),
+      F.seg("f.kind", t("workshop.au.event"), f.kind, ["onUse", "onAttacked", "onDamaged", "onFailed", "onEvent", "cast", "none"].map((k) => [k, t(`workshop.au.kind.${k}`)]), { wrap: true }),
       F.seg("f.yield", t("sheet.yieldLabel"), f.yield, [["auto", t("sheet.yield.auto")], ["yes", t("sheet.yes")], ["no", t("sheet.yield.no")]])
     ];
+    if (au.isReaction(f)) whenFields.push(...reactFields(f));
     if (f.kind === "onAttacked") whenFields.push(
       F.sel("f.react.type", t("workshop.au.reactType"), f.react.type, choices(fx.BONUS_TYPES, "btype")), F.num("f.react.value", t("workshop.au.reactValue"), f.react.value),
       F.chk("f.react.owner", t("sheet.notifyOwner"), f.react.owner), F.chk("f.react.gm", t("sheet.notifyGM"), f.react.gm)
@@ -767,13 +795,13 @@ export class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
       };
     });
 
-    const onUse = f.kind === "onUse", R = (key, o) => ({ key, label: t(`workshop.au.row.${key}`), fold: true, open: !!a.open[key], sum: sums[key], hot: key === "outcome", ...o });
+    const onUse = f.kind === "onUse" || au.isReaction(f), R = (key, o) => ({ key, label: t(`workshop.au.row.${key}`), fold: true, open: !!a.open[key], sum: sums[key], hot: key === "outcome", ...o });
     const rows = [
       R("when", { fields: whenFields }),
       ...(f.kind === "onEvent" || f.ev.length ? [R("events", { is_events: true, evs, hot: true, edit: evSel ? edit : null })] : []),
       ...(f.kind === "cast" || f.cast.length ? [R("cast", { is_cast: true, casts, hot: true })] : []),
       ...(onUse ? [
-        R("targets", { fields: targetFields, area: areaNote }),
+        ...(au.isReaction(f) ? [] : [R("targets", { fields: targetFields, area: areaNote })]),   // у реакции цель подставляет механизм; onUse.targets в правиле остаётся как есть
         R("roll", { fields: rollFields }),
         R("outcome", { is_outcome: true, hintExcluded: a.hints?.excluded.length ? t("workshop.au.hintExcluded", { list: hintList(a.hints.excluded) }) : null, cols: mode === "none" ? null : au.COLS.map((d) => lst(`${au.degPath(mode)}.${d}`, t(`sheet.degree.${d}`), d)), imm: ((l) => ({ ...l, quiet: mode !== "none" && !l.steps.length && !l.picker }))(lst("f.apply", t(mode === "none" ? "workshop.au.immediate" : "workshop.au.immediateExtra"))), edit: evSel || trgSel ? null : edit }),
         R("zone", { fold: f.targets === "area", fields: zoneFields, ...(f.targets === "area" && z.on && { is_trig: true, trgs, edit: trgSel ? edit : null }) })
@@ -785,7 +813,7 @@ export class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
     // правая панель: связный текст, строка про режим применения, пробный запуск
     const tokens = pickedTokens();
     let probe = null;
-    if (v.ok && onUse) {
+    if (v.ok && f.kind === "onUse") {
       const rep = buildReport(v.rule, tokens, penv);
       const rows2 = mode === "none" ? [] : au.tokenOdds(v.rule, tokens, penv).map((r) => {
         const bar = r.counts ? au.bar(r.counts).map((s) => ({ ...s, label: t(`sheet.degree.${s.deg}`), show: s.pct >= 15 })) : null;
@@ -895,7 +923,7 @@ export class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
     if (field && spec.kind === field.dataset.drop) { this.#setAuto(field.dataset.a, spec.text); return this.#redraw(); }
     if (spec.kind === "spell") { a.f.cast.push({ ...blankCast(), spell: spec.text }); a.open.cast = true; return this.#redraw(); }   // заклинание мимо поля — новая активация
     if (spec.kind === "condition" && (!conditions().has(spec.text) || NOT_GRANTABLE.has(spec.text))) return ui.notifications.warn(t("workshop.dropBad"));
-    const list = ev.target.closest(".ws-dcol, .ws-dimm")?.querySelector("[data-list]")?.dataset.list ?? (au.rollMode(a.f) === "none" && a.f.kind === "onUse" ? "f.apply" : null);
+    const list = ev.target.closest(".ws-dcol, .ws-dimm")?.querySelector("[data-list]")?.dataset.list ?? (au.rollMode(a.f) === "none" && (a.f.kind === "onUse" || au.isReaction(a.f)) ? "f.apply" : null);
     if (!list) return ui.notifications.warn(t("workshop.au.dropColumn"));
     this.#addStep(list, spec);
   }

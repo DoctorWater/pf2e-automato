@@ -33,7 +33,7 @@ const put = (row, x) => { row.text = JSON.stringify(x); };
 export function stepRows(f) {
   const out = [], add = (path, rows) => (rows ?? []).forEach((r, i) => { out.push([`${path}.${i}`, r]); if (r.kind === "coat" && r.coat) degs(`${path}.${i}.coat.ch`, r.coat.ch); });   // шаг coat несёт своё испытание: его степени — тоже шаги правила
   const degs = (path, o) => { for (const d of COLS) add(`${path}.deg.${d}`, o?.deg?.[d]); };
-  if (f.kind === "onUse") {
+  if (f.kind === "onUse" || f.kind === "onDamaged" || f.kind === "onFailed") {
     add("apply", f.apply);
     if (f.ch?.on) degs("ch", f.ch);
     if (f.ck?.on) degs("ck", f.ck);

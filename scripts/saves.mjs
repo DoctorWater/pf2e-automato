@@ -20,6 +20,13 @@ export const useOf = (message) => message?.flags?.[MOD]?.use ?? null;
 /** Испытание цели (challenge) или проверка автора (check) — общий движок результатов/степеней. */
 export const challengeOf = (use) => use?.rule?.onUse?.challenge ?? use?.rule?.onUse?.check ?? null;
 export const safeUuid = async (uuid) => { try { return uuid ? await fromUuid(uuid) : null; } catch { return null; } };
+/** Имя документа для игрока: переведённое (индекс пака или документ, babele/pf2ru) предпочтительнее английского. */
+export async function uuidLabel(uuid) {
+  const doc = await safeUuid(uuid);
+  const m = /^Compendium\.([^.]+\.[^.]+)\..*?([A-Za-z0-9]{16})$/.exec(String(uuid ?? ""));
+  const idx = m ? game.packs?.get(m[1])?.index?.get(m[2])?.name : null;
+  return [doc?.name, idx].find((n) => n && /[а-яё]/i.test(n)) ?? doc?.name ?? idx ?? null;
+}
 const safeSync = (uuid) => { try { return uuid ? fromUuidSync(uuid) : null; } catch { return null; } };
 export const marker = (messageId, key) => `${MOD}:${messageId}:${key}`;
 

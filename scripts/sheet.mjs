@@ -1,10 +1,10 @@
 // K6: вкладка «Автоматизация» в листе предмета (AppV1, plan.md §6). Только ГМ.
 import { MOD, L, errText, DEGREES, callGM, forcedReplace, sluggify, damageLabel } from "./util.mjs";
 import { S } from "./settings.mjs";
-import { validateRule, activateSpells, activateUses, resolveRule, divergedOf, slugOf, sourceOf, DAMAGE_TYPES } from "./rules.mjs";
+import { validateRule, activateSpells, activateUses, resolveRule, divergedOf, slugOf, sourceOf, DAMAGE_TYPES, FAILED_CHECK, FAILED_DEGREE } from "./rules.mjs";
 import { automationsGroups } from "./compat.mjs";
 import { hintsView, hintList } from "./hints.mjs";
-import { resolveDC, safeUuid } from "./saves.mjs";
+import { resolveDC, safeUuid, uuidLabel } from "./saves.mjs";
 import { defenseDc, pickStatistic, hasImmunity } from "./checks.mjs";
 import { stepText } from "./chat.mjs";
 import { castInfo } from "./cast.mjs";
@@ -228,7 +228,40 @@ function castRule(c) {
 }
 
 /** Форма вкладки листа + то, что на вкладке не правится и едет как было (иначе сохранение потеряет: флаг перекрывает каталог). f — ruleToForm исходного правила. */
-export const carryUneditable = (form, f) => ({ ...form, ev: f.ev, cast: f.cast, pulse: f.pulse, range: f.range, failed: f.failed, damaged: f.damaged });
+export const carryUneditable = (form, f) => ({ ...form, ev: f.ev, cast: f.cast, pulse: f.pulse, range: f.range, dm: form.dm && { ...form.dm, notify: f.dm.notify }, fl: form.fl && { ...form.fl, notify: f.fl.notify } });
+
+export const DAMAGED_MODES = ["none", "reduce", "halve", "resist", "redirect"];
+const dmForm = (d) => {
+  const x = d?.damage ?? {};
+  return {
+    who: d?.who ?? "self", range: d?.range ?? "", withSelf: !!d?.withSelf, when: whenText(d?.when), requires: d?.requires ?? "",
+    mode: x.reduce != null ? "reduce" : x.halve ? "halve" : x.resist ? "resist" : x.redirect ? "redirect" : "none",
+    reduce: x.reduce ?? "", resist: x.resist?.length ? x.resist.map((r) => ({ type: r.type, value: r.value })) : [{ type: "triggering", value: "" }], part: x.part ?? "all",
+    triggerOnly: !!d?.triggerOnly, hp: d?.cost?.hp ?? "", notify: d?.notify ?? ["owner", "gm"]   // notify в интерфейсе не показывается: едет как было
+  };
+};
+const flForm = (d) => ({
+  who: d?.who ?? "self", range: d?.range ?? "", withSelf: !!d?.withSelf, check: Object.fromEntries([...(d?.check ?? FAILED_CHECK), ...FAILED_CHECK].map((c) => [c, (d?.check ?? FAILED_CHECK).includes(c)])),   // порядок как в правиле
+  degree: d?.degree ?? "fail", when: whenText(d?.when), requires: d?.requires ?? "", keep: d?.keep ?? "new", notify: d?.notify ?? ["owner", "gm"]
+});
+const trim = (s) => String(s ?? "").trim();
+function dmRule(d) {
+  const ally = d.who === "ally", r = num(d.range);
+  const dmg = { reduce: () => ({ reduce: trim(d.reduce) }), halve: () => ({ halve: true }), redirect: () => ({ redirect: "self", part: d.part }),
+    resist: () => ({ resist: Object.values(d.resist ?? {}).filter((x) => trim(x.type)).map((x) => ({ type: trim(x.type), value: trim(x.value) })) }) }[d.mode]?.();
+  return {
+    who: d.who, ...(ally && r !== undefined && { range: r }), ...(ally && d.withSelf && { withSelf: true }),
+    ...(parseWhen(d.when) !== undefined && { when: parseWhen(d.when) }), ...(trim(d.requires) && { requires: trim(d.requires) }),
+    ...(dmg && { damage: dmg }), ...(d.triggerOnly && { triggerOnly: true }), ...(trim(d.hp) && { cost: { hp: trim(d.hp) } }), ...(d.notify && { notify: d.notify })
+  };
+}
+function flRule(d) {
+  const other = d.who !== "self", r = num(d.range);
+  return {
+    who: d.who, ...(other && r !== undefined && { range: r }), ...(other && d.withSelf && { withSelf: true }), check: Object.keys(d.check ?? {}).filter((c) => d.check[c] === true || d.check[c] === "true"),
+    degree: d.degree, ...(parseWhen(d.when) !== undefined && { when: parseWhen(d.when) }), ...(trim(d.requires) && { requires: trim(d.requires) }), keep: d.keep, ...(d.notify && { notify: d.notify })
+  };
+}
 
 export function ruleToForm(rule) {
   const u = rule?.onUse, c = u?.challenge, k = u?.check, z = u?.zone, r = rule?.onAttacked;
@@ -236,9 +269,10 @@ export function ruleToForm(rule) {
   const dc = c?.dc ?? {};
   return {
     label: rule?.label ?? "", yield: tri(rule?.yield),
-    kind: u ? "onUse" : r ? "onAttacked" : rule?.onEvent?.length ? "onEvent" : rule?.activate?.length ? "cast" : "none",
-    ev: (rule?.onEvent ?? []).map(evForm), cast: (rule?.activate ?? []).map(castForm), damaged: rule?.onDamaged ?? null, failed: rule?.onFailed ?? null,
-    targets: u?.targets ?? "self", excludeSelf: tri(u?.excludeSelf), pulse: u?.pulse ?? "", range: u?.range ?? null,   // range — дальность (оверлей/правило), в форме не редактируется, правка правила её не теряет
+    kind: rule?.onDamaged ? "onDamaged" : rule?.onFailed ? "onFailed" : u ? "onUse" : r ? "onAttacked" : rule?.onEvent?.length ? "onEvent" : rule?.activate?.length ? "cast" : "none",
+    ev: (rule?.onEvent ?? []).map(evForm), cast: (rule?.activate ?? []).map(castForm),
+    dm: dmForm(rule?.onDamaged), fl: flForm(rule?.onFailed),
+    useOn: !!u, targets: u?.targets ?? "self", excludeSelf: tri(u?.excludeSelf), pulse: u?.pulse ?? "", range: u?.range ?? null,   // range — дальность (оверлей/правило), в форме не редактируется, правка правила её не теряет
     zone: { on: !!z, cond: z?.condition?.slug ?? "", condValue: z?.condition?.value ?? "", effect: z?.effect?.uuid ?? "", seconds: z?.duration?.seconds ?? "", rounds: z?.duration?.rounds ?? "", until: z?.duration?.until ?? "", sustainMax: z?.duration?.sustainMax ?? "", noFollow: z?.follow === false, enterBy: z?.enterBy ?? "end", gone: z?.onCarrierGone ?? "close", trig: (z?.triggers ?? []).map(trgForm) },
     ch: {
       on: !!c, statistic: c?.statistic ?? "reflex",
@@ -266,7 +300,8 @@ export function ruleToForm(rule) {
 export function formToRule(f) {
   const rule = { v: 1, yield: untri(f.yield), onUse: null, onAttacked: null, macros: [], onTurn: null };
   if (f.label?.trim()) rule.label = f.label.trim();
-  if (f.kind === "onUse") {
+  const reacts = f.kind === "onDamaged" || f.kind === "onFailed";   // ответ-эффект реакции — тот же onUse.apply
+  if (f.kind === "onUse" || reacts) {
     const u = { targets: f.targets, excludeSelf: untri(f.excludeSelf), zone: null, challenge: null, apply: (f.apply ?? []).map(applyOf).filter(Boolean) };
     if (f.pulse && f.targets !== "self") u.pulse = f.pulse;
     if (f.range) u.range = f.range;
@@ -308,7 +343,9 @@ export function formToRule(f) {
         ...(k.imm?.on && { immunity: immRule(k.imm) })
       };
     }
-    rule.onUse = u;
+    if (!reacts || u.apply.length || u.challenge || u.check || u.zone || u.pulse || u.range || f.useOn) rule.onUse = u;   // у реакции без ответа onUse не пишем
+    if (f.kind === "onDamaged") rule.onDamaged = dmRule(f.dm);
+    else if (f.kind === "onFailed") rule.onFailed = flRule(f.fl);
   } else if (f.kind === "onAttacked") {
     rule.onAttacked = {
       trigger: "attack-on-self", bonus: { stat: "ac", type: f.react.type, value: num(f.react.value) }, cost: "reaction",
@@ -317,8 +354,6 @@ export function formToRule(f) {
   }
   if (f.ev?.length) rule.onEvent = f.ev.map(evRule);   // события живут рядом с любым видом правила
   if (f.cast?.length) rule.activate = f.cast.map(castRule);   // и активации тоже
-  if (f.failed) rule.onFailed = f.failed;   // как damaged: в форме не редактируется
-  if (f.damaged) rule.onDamaged = f.damaged;   // реакция на урон: в форме не редактируется (Мастерская — вне объёма), правка правила её не теряет
   rule.macros = (f.macros ?? []).filter((m) => String(m.uuid ?? "").trim())
     .map((m) => ({ ...(m.form === "builtin" && m.uuid.trim().startsWith("builtin:") ? { builtin: m.uuid.trim().slice(8) } : { uuid: m.uuid.trim() }), phase: m.phase, ...(m.phase === "onDegree" && m.degree && { degree: m.degree }) }));
   return rule;
@@ -446,10 +481,10 @@ export async function reportEnv(item, rule, names = null) {
   const known = (slug) => !!CONFIG.PF2E.conditionTypes?.[slug];
   const cast = (rule.activate ?? []).map((c) => { const info = castInfo(item, c); return { dc: info.dc ?? (typeof c.dc === "number" ? c.dc : null) }; });
   // fromUuidSync бросает на вложенных UUID компендиев — разрешаем заранее асинхронно
-  names ??= Object.fromEntries(await Promise.all(ruleUuids(rule).map(async (u) => [u, (await safeUuid(u))?.name ?? null])));
+  names ??= Object.fromEntries(await Promise.all(ruleUuids(rule).map(async (u) => [u, await uuidLabel(u)])));
   return {
     t: L, dc, author, cast,
-    statLabel: (s) => { const k = CONFIG.PF2E.saves?.[s] ?? CONFIG.PF2E.skills?.[s]?.label ?? CONFIG.PF2E.attributes?.[s]; return k ? game.i18n.localize(k) : s; },
+    statLabel: (s) => { const k = CONFIG.PF2E.saves?.[s] ?? CONFIG.PF2E.skills?.[s]?.label ?? CONFIG.PF2E.attributes?.[s] ?? (s === "lore" ? "PF2E.Lore" : null); return k ? game.i18n.localize(k) : s; },
     conditionLabel: (slug) => (known(slug) ? game.i18n.localize(CONFIG.PF2E.conditionTypes[slug]) : slug),
     damageLabel, conditionKnown: known, uuidName: (uuid) => names[uuid] ?? null
   };
@@ -500,7 +535,14 @@ function buildContext(item, draft) {
     lockedFlag: !item.isOwner || !!item.compendium?.locked,
     noSource: !sourceUuid, noSlug: !slug,
     ch: {
-      kind: choices(keys("kind", ["onUse", "onAttacked", "onEvent", "cast", "none"])),
+      kind: choices({ ...keys("kind", ["onUse", "onAttacked"]), onDamaged: L("workshop.au.kind.onDamaged"), onFailed: L("workshop.au.kind.onFailed"), ...keys("kind", ["onEvent", "cast", "none"]) }),
+      dmWho: choices(Object.fromEntries(["self", "familiar", "ally"].map((k) => [k, L(`workshop.au.react.whoBtn.${k}`)]))),
+      flWho: choices(Object.fromEntries(["self", "ally", "any"].map((k) => [k, L(`workshop.au.react.whoBtn.${k}`)]))),
+      dmMode: choices(Object.fromEntries(DAMAGED_MODES.map((k) => [k, L(`workshop.au.react.modeBtn.${k}`)]))),
+      dmPart: choices({ all: L("workshop.au.react.partAll"), half: L("workshop.au.react.partHalf") }),
+      flDegree: choices(Object.fromEntries(FAILED_DEGREE.map((k) => [k, L(`workshop.au.react.degBtn.${k}`)]))),
+      flKeep: choices({ new: L("workshop.au.react.keepBtn.new"), higher: L("workshop.au.react.keepBtn.higher") }),
+      flChecks: FAILED_CHECK.map((k) => ({ key: k, label: L(`workshop.au.react.chkBtn.${k}`) })),
       yield: choices(keys("yield", ["auto", "yes", "no"])),
       targets: choices(keys("targets", ["self", "selected", "area"])),
       tri: choices({ auto: T("yield.auto"), yes: T("yes"), no: T("no") }),
@@ -549,7 +591,7 @@ async function inject(app, $html) {
 
   const sec = body.querySelector(`.tab.${TAB}`);
   const errBox = sec.querySelector(".af-errors");
-  const read = () => carryUneditable(readForm(sec), bc.f);   // события, активации, onFailed/onDamaged на вкладке не правятся — едут как были
+  const read = () => carryUneditable(readForm(sec), bc.f);   // события, активации и прочее, чего вкладка не правит, — едут как были (carryUneditable)
   const draft = () => { app._afDraft = read(); syncUi(sec); };
   const build = () => {
     const v = validateRule(formToRule(read()));

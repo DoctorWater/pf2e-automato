@@ -81,6 +81,53 @@
       <label>{{localize "PF2E_AUTOMATO.sheet.kindLabel"}} <select data-f="kind">{{selectOptions ch.kind selected=f.kind valueAttr="value" labelAttr="label"}}</select></label>
     </div>
 
+    <fieldset class="af-block" data-showif="kind=onDamaged">
+      <legend>{{localize "PF2E_AUTOMATO.workshop.au.kind.onDamaged"}}</legend>
+      <div class="af-line">
+        <label>{{localize "PF2E_AUTOMATO.workshop.au.react.whoDamaged"}} <select data-f="dm.who">{{selectOptions ch.dmWho selected=f.dm.who valueAttr="value" labelAttr="label"}}</select></label>
+        <label>{{localize "PF2E_AUTOMATO.sheet.row.range"}} <input type="number" class="af-narrow" data-f="dm.range" value="{{f.dm.range}}" placeholder="30"></label>
+        <label><input type="checkbox" data-f="dm.withSelf" {{checked f.dm.withSelf}}> {{localize "PF2E_AUTOMATO.workshop.au.react.withSelfLabel"}}</label>
+      </div>
+      <div class="af-line">
+        <label title="{{localize "PF2E_AUTOMATO.workshop.au.react.whenDamagedHint"}}">{{localize "PF2E_AUTOMATO.workshop.au.react.whenDamaged"}} <input type="text" data-f="dm.when" value="{{f.dm.when}}" placeholder="damage:type:fire"></label>
+        <label>{{localize "PF2E_AUTOMATO.workshop.au.react.requires"}} <input type="text" data-f="dm.requires" value="{{f.dm.requires}}" placeholder="shield:raised"></label>
+      </div>
+      <div class="af-line">
+        <label>{{localize "PF2E_AUTOMATO.workshop.au.react.damage"}} <select data-f="dm.mode">{{selectOptions ch.dmMode selected=f.dm.mode valueAttr="value" labelAttr="label"}}</select></label>
+        <label data-showif="dm.mode=reduce">{{localize "PF2E_AUTOMATO.workshop.au.react.reduceBy"}} <input type="text" class="af-narrow" data-f="dm.reduce" value="{{f.dm.reduce}}" placeholder="5"></label>
+        <label data-showif="dm.mode=redirect">{{localize "PF2E_AUTOMATO.workshop.au.react.part"}} <select data-f="dm.part">{{selectOptions ch.dmPart selected=f.dm.part valueAttr="value" labelAttr="label"}}</select></label>
+        <span data-showif="dm.mode=resist">{{#each f.dm.resist}}
+          <input type="text" data-f="dm.resist.{{@index}}.type" value="{{type}}" list="af-resist" title="{{localize "PF2E_AUTOMATO.workshop.au.react.resistType"}}">
+          <input type="text" class="af-narrow" data-f="dm.resist.{{@index}}.value" value="{{value}}" placeholder="5" title="{{localize "PF2E_AUTOMATO.workshop.au.react.resistValue"}}">
+        {{/each}}</span>
+        <datalist id="af-resist"><option value="triggering"><option value="physical"><option value="energy"><option value="fire"><option value="cold"><option value="electricity"><option value="acid"><option value="sonic"><option value="poison"><option value="piercing"><option value="bludgeoning"><option value="slashing"></datalist>
+      </div>
+      <div class="af-line">
+        <label>{{localize "PF2E_AUTOMATO.workshop.au.react.cost"}} <input type="text" class="af-narrow" data-f="dm.hp" value="{{f.dm.hp}}"></label>
+        <label><input type="checkbox" data-f="dm.triggerOnly" {{checked f.dm.triggerOnly}}> {{localize "PF2E_AUTOMATO.workshop.au.react.triggerOnly"}}</label>
+      </div>
+    </fieldset>
+
+    <fieldset class="af-block" data-showif="kind=onFailed">
+      <legend>{{localize "PF2E_AUTOMATO.workshop.au.kind.onFailed"}}</legend>
+      <div class="af-line">
+        <label>{{localize "PF2E_AUTOMATO.workshop.au.react.whoFailed"}} <select data-f="fl.who">{{selectOptions ch.flWho selected=f.fl.who valueAttr="value" labelAttr="label"}}</select></label>
+        <label>{{localize "PF2E_AUTOMATO.sheet.row.range"}} <input type="number" class="af-narrow" data-f="fl.range" value="{{f.fl.range}}" placeholder="30"></label>
+        <label><input type="checkbox" data-f="fl.withSelf" {{checked f.fl.withSelf}}> {{localize "PF2E_AUTOMATO.workshop.au.react.withSelfLabel"}}</label>
+      </div>
+      <div class="af-line">
+        {{#each ch.flChecks}}<label><input type="checkbox" data-f="fl.check.{{key}}" {{checked (lookup ../f.fl.check key)}}> {{label}}</label>{{/each}}
+        <label>{{localize "PF2E_AUTOMATO.workshop.au.react.degree"}} <select data-f="fl.degree">{{selectOptions ch.flDegree selected=f.fl.degree valueAttr="value" labelAttr="label"}}</select></label>
+        <label>{{localize "PF2E_AUTOMATO.workshop.au.react.keepLabel"}} <select data-f="fl.keep">{{selectOptions ch.flKeep selected=f.fl.keep valueAttr="value" labelAttr="label"}}</select></label>
+      </div>
+      <div class="af-line">
+        <label title="{{localize "PF2E_AUTOMATO.workshop.au.react.whenFailedHint"}}">{{localize "PF2E_AUTOMATO.workshop.au.react.whenFailed"}} <input type="text" data-f="fl.when" value="{{f.fl.when}}" placeholder="check:statistic:will"></label>
+        <label>{{localize "PF2E_AUTOMATO.workshop.au.react.requires"}} <input type="text" data-f="fl.requires" value="{{f.fl.requires}}" placeholder="shield:raised"></label>
+      </div>
+    </fieldset>
+
+    <input type="hidden" data-f="useOn" value="{{#if f.useOn}}1{{/if}}">
+
     <fieldset class="af-block" data-showif="kind=onUse">
       <legend>{{localize "PF2E_AUTOMATO.sheet.area"}}</legend>
       <div class="af-line">
@@ -89,7 +136,7 @@
       </div>
     </fieldset>
 
-    <fieldset class="af-block" data-showif="kind=onUse">
+    <fieldset class="af-block" data-showif="kind=onUse|onDamaged|onFailed">
       <legend>{{localize "PF2E_AUTOMATO.sheet.apply"}}</legend>
       <div class="af-rows" data-list="apply">{{#each f.apply}}{{> afRow}}{{/each}}</div>
       <button type="button" data-action="add-row" data-list="apply" data-proto="row"><i class="fa-solid fa-plus"></i> {{localize "PF2E_AUTOMATO.sheet.add"}}</button>

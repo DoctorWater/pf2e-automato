@@ -4,9 +4,9 @@ import { DEGREES, degreeFromTotal } from "../util.mjs";
 import { stepText } from "../chat.mjs";
 import { textOfMods } from "../inline-effect.mjs";
 import { modOf, keepGet, keepSet, blankCoat } from "../sheet.mjs";
-import { ESCAPE_STATS, REPEAT_END } from "../rules.mjs";
+import { ESCAPE_STATS, REPEAT_END, FAILED_CHECK } from "../rules.mjs";
 import { STEP_TARGETS } from "./effect.mjs";
-import { parseWhen, whenText } from "../predicate.mjs";
+import { parseWhen, whenText, whenHuman } from "../predicate.mjs";
 import { defenseDc, pickStatistic } from "../checks.mjs";
 import { perText } from "../cast.mjs";
 
@@ -365,12 +365,12 @@ const evSummary = (f, env) => ((f.ev ?? []).length ? f.ev.map((e) => { const l =
 
 /** Все сводки свёрнутых строк. env: {t, statLabel, conditionLabel, uuidName, valued?, dc, area:{shape,size}}. */
 export function summaries(f, env) {
-  const { t } = env, mode = rollMode(f), onUse = f.kind === "onUse";
+  const { t } = env, mode = rollMode(f), onUse = f.kind === "onUse" || isReaction(f);
   const yieldText = { yes: t("workshop.au.yieldYes"), no: t("workshop.au.yieldNo") }[f.yield];
   const when = [
     f.kind === "onAttacked" ? t("workshop.au.when.onAttacked", { value: plus(num(f.react.value) ?? 0), type: t(`workshop.btype.${f.react.type}`) })
       : t(`workshop.au.when.${f.kind}`),
-    ...(f.label?.trim() ? [`«${f.label.trim()}»`] : []), ...(yieldText ? [yieldText] : [])
+    ...(f.label?.trim() && !isReaction(f) ? [`«${f.label.trim()}»`] : []), ...(yieldText ? [yieldText] : [])
   ].join(" · ");
 
   const targets = f.targets === "area"
@@ -389,12 +389,63 @@ export function summaries(f, env) {
   const zone = f.targets !== "area" ? t("workshop.au.zoneNeedsArea") : !z.on ? t("workshop.au.zoneOff")
     : t("workshop.au.zoneOn", { what: z.cond ? `${env.conditionLabel(z.cond)}${num(z.condValue) ? ` ${z.condValue}` : ""}` : z.effect ? env.uuidName(z.effect) ?? z.effect : z.trig?.length ? t("workshop.au.zoneTrig", { n: z.trig.length }) : "?" });
   const macros = f.macros.length ? t("workshop.au.macrosN", { n: f.macros.length }) : t("workshop.au.macrosNone");
-  return { when, targets: onUse ? targets : "", roll: onUse ? roll : "", outcome: onUse ? outcome : "", zone: onUse ? zone : "", macros, events: evSummary(f, env), cast: castSummary(f, env), mode, degLists };
+  return { when, targets: onUse && !isReaction(f) ? targets : "", roll: onUse ? roll : "", outcome: onUse ? outcome : "", zone: onUse ? zone : "", macros, events: evSummary(f, env), cast: castSummary(f, env), mode, degLists };
+}
+
+export const isReaction = (f) => f.kind === "onDamaged" || f.kind === "onFailed";
+
+/** Значения `prefix:<slug>` по всему предикату (в and/or/not тоже). */
+const predSlugs = (p, prefix) => (typeof p === "string" ? (p.startsWith(prefix) && /^[a-z-]+$/.test(p.slice(prefix.length)) ? [p.slice(prefix.length)] : [])
+  : Array.isArray(p) ? p.flatMap((x) => predSlugs(x, prefix)) : p && typeof p === "object" ? Object.entries(p).flatMap(([k, x]) => (k === "not" ? [] : predSlugs(x, prefix))) : []);
+const damageTypesOf = (p) => predSlugs(p, "damage:type:");
+/** Предикат без условий, которые фраза уже показала отдельно (типы урона, статистика): атомы с prefix и группы or только из них. */
+function dropSlugs(p, prefix) {
+  const only = (x) => (typeof x === "string" ? predSlugs(x, prefix).length > 0 : Array.isArray(x?.or) && x.or.every(only));
+  if (only(p)) return undefined;
+  if (!Array.isArray(p)) return p;
+  const a = p.filter((x) => !only(x));
+  return a.length ? a : undefined;
+}
+
+/** Кто реагирует: «владелец» / «фамильяр» / «союзник в 30 фт» (+ «включая владельца»). */
+function reactWho(d, env) {
+  const { t } = env, r = num(d.range);
+  return d.who === "self" ? t("workshop.au.react.who.self") : d.who === "familiar" ? t("workshop.au.react.who.familiar")
+    : t(`workshop.au.react.who.${d.who}`, { range: r ?? 30 }) + (d.withSelf ? t("workshop.au.react.withSelf") : "");
+}
+
+/** Условие срабатывания из предиката: типы урона отдельно, остальное — читаемой строкой «если …». */
+function reactCond(d, env, prefix) {
+  const { t } = env, p = parseWhen(d.when), r = dropSlugs(p, prefix);
+  const types = [...new Set(damageTypesOf(p))].map((x) => env.damageLabel?.(x) ?? x);
+  const rest = r === undefined ? "" : typeof r === "string" ? r : whenHuman(r);
+  return { types, text: rest ? t("workshop.au.react.if", { when: rest }) : "" };
+}
+
+/** Фраза-история реакции (onDamaged/onFailed) для правой панели: на языке игрока, без служебных слов. */
+export function reactLine(f, env) {
+  const { t } = env, steps = plates(f.apply, env), req = String(f[f.kind === "onDamaged" ? "dm" : "fl"].requires ?? "").trim();
+  const tail = [req && t("workshop.au.react.requiresText", { req }), steps && t("workshop.au.react.steps", { list: steps })].filter(Boolean).join(" ");
+  if (f.kind === "onDamaged") {
+    const d = f.dm, c = reactCond(d, env, "damage:type:"), x = d.mode;
+    const mod = x === "reduce" ? t("workshop.au.react.reduce", { n: String(d.reduce ?? "").trim() || "?" })
+      : x === "halve" ? t("workshop.au.react.halve")
+      : x === "resist" ? Object.values(d.resist ?? {}).filter((r) => String(r.type ?? "").trim()).map((r) => t(r.type === "triggering" ? "workshop.au.react.resistTrigText" : "workshop.au.react.resist", { type: env.damageLabel?.(r.type) ?? r.type, n: String(r.value ?? "").trim() || "?" })).join(", ")
+      : x === "redirect" ? t(`workshop.au.react.redirect.${d.part}`) : "";
+    const hp = String(d.hp ?? "").trim();
+    const parts = [mod, hp && t("workshop.au.react.costText", { hp }), d.triggerOnly && t("workshop.au.react.triggerOnlyText")].filter(Boolean).join("; ");
+    return `${t("workshop.au.react.damaged", { who: reactWho(d, env), types: c.types.length ? t("workshop.au.react.ofTypes", { types: c.types.join(", ") }) : "", cond: c.text })}${parts ? ` — ${parts}` : ""}.${tail ? ` ${tail}` : ""}`;
+  }
+  const d = f.fl, c = reactCond(d, env, "check:statistic:"), on = FAILED_CHECK.filter((k) => d.check?.[k] === true || d.check?.[k] === "true");
+  const stat = [...new Set(predSlugs(parseWhen(d.when), "check:statistic:"))];
+  const what = on.length === FAILED_CHECK.length ? t("workshop.au.react.chk.any") : on.map((k) => t(`workshop.au.react.chk.${k}`)).join(", ");
+  return `${t("workshop.au.react.failed", { degree: t(`workshop.au.react.deg.${d.degree}`), what, stat: stat.length ? t("workshop.au.react.stat", { stat: stat.map((s) => env.statLabel(s)).join(" / ") }) : "", who: d.who === "self" ? "" : t(`workshop.au.react.whoFail.${d.who}`, { range: num(d.range) ?? 30 }) + (d.withSelf ? t("workshop.au.react.withSelf") : ""), cond: c.text, keep: t(`workshop.au.react.keep.${d.keep}`) })}${tail ? ` ${tail}` : ""}`;
 }
 
 /** Связный текст правила и строки по степеням для правой панели. */
 export function story(f, env) {
   const { t } = env, s = summaries(f, env), mode = s.mode;
+  if (isReaction(f)) return { text: reactLine(f, env), degrees: [] };
   if (f.kind === "onAttacked") return { text: t("workshop.au.story.onAttacked", { value: plus(num(f.react.value) ?? 0), type: t(`workshop.btype.${f.react.type}`) }), degrees: [] };
   if (f.kind === "none") return { text: t("workshop.au.story.none"), degrees: [] };
   if (f.kind === "cast") return { text: t("workshop.au.story.cast"), degrees: (f.cast ?? []).map((c) => { const l = castLine(c, env); return { deg: "ev", label: l.head, text: l.body }; }) };

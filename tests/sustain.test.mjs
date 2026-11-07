@@ -104,9 +104,13 @@ test("первый шаг sustain создаёт якорь один раз, п�
     assert.deepEqual(a.flags[MOD].sustain.actors, ["Actor.t1"]);
     assert.equal(bound(t1).length, 1);
     assert.deepEqual(ops.map((o) => o.op), ["created", "anchor"]);
-    assert.equal(gmWhispers().length, 1);   // шёпот с кнопками
-    assert.match(sent[0].content, /data-af-sustain="support"/);
-    assert.match(sent[0].content, /data-af-sustain="dismiss"/);
+    assert.equal(gmWhispers().length, 0);   // в бою при сотворении предложения нет
+    world.combat = { id: "c1", round: 2 };
+    await sustain.remind({ actor: author });   // начало следующего хода автора — шёпот с кнопками
+    assert.equal(gmWhispers().length, 1);
+    assert.match(sent.at(-1).content, /data-af-sustain="support"/);
+    assert.match(sent.at(-1).content, /data-af-sustain="dismiss"/);
+    world.combat = { id: "c1", round: 1 };
     // вторая цель того же сообщения и повтор первой: якорь один, привязок две, журнал без второго anchor
     const ops2 = await cast(m, "t2");
     assert.deepEqual(ops2.map((o) => o.op), ["created"]);
@@ -145,7 +149,7 @@ test("пропуск: конец хода автора без поддержан
     await sustain.onEndTurn({ actor: author }, { id: "c1", round: 2 });   // в раунде 2 поддержания не было
     assert.equal(anchors(author).length, 0);
     assert.equal(bound(t1).length + bound(t2).length, 0);
-    assert.equal(gmWhispers().length, 2);   // предложение + «закончилось»
+    assert.equal(gmWhispers().length, 1);   // только «закончилось»: в бою предложение — в начале хода, не при сотворении
     assert.match(sent.at(-1).content, /sustain\.ended\.missed/);
   } finally { teardown(); }
 });
@@ -318,4 +322,12 @@ test("разбор чата: один якорь — засчитывается,
     assert.match(sent.at(-1).content, /sustain\.pick/);
     assert.ok(anchors(author).every((a) => a.flags[MOD].sustain.last.round !== 4));
   } finally { teardown(); }
+});
+
+test("orphaned: токен удалённой сцены/токена — сирота, обычный актёр и живой токен — нет", async () => {
+  const { orphaned, removeBound } = await import("../scripts/apply.mjs");
+  const live = { isToken: true, token: { id: "t", parent: { tokens: new Map([["t", {}]]) } } };
+  const gone = { isToken: true, token: { id: "t", parent: { tokens: new Map() } }, uuid: "x", items: [] };
+  assert.deepEqual([orphaned({}), orphaned(live), orphaned(gone), orphaned(null)], [false, false, true, false]);
+  assert.deepEqual(await removeBound(gone, "k"), { op: "skipped" });
 });

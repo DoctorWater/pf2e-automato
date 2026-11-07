@@ -40,8 +40,8 @@ test("useReaction: реакция уже потрачена в этом раун
   let updated = 0;
   const hint = { flags: { "pf2e-automato": { reaction: { attack: "a1", actor: "Actor.1", item: "Item.2", bonus: 2, used: false } } }, update: async () => { updated++; } };
   const attack = msg(15, 10, 2, 15);
-  const actor = { getFlag: () => ({ combat: "c1", round: 3 }) };
-  globalThis.game = { combat: { id: "c1", round: 3 }, messages: { get: (id) => (id === "h1" ? hint : attack) }, i18n: { localize: (k) => k, format: (k) => k }, modules: { get: () => null } };
+  const actor = { uuid: "Actor.1", getFlag: () => ({ combat: "c1", round: 3 }) };
+  globalThis.game = { combats: [{ id: "c1", round: 3, active: true, scene: "s", combatants: [{ actor }] }], messages: { get: (id) => (id === "h1" ? hint : attack) }, i18n: { localize: (k) => k, format: (k) => k }, modules: { get: () => null } };
   globalThis.fromUuid = async () => actor;
   const res = await useReaction("h1");
   assert.deepEqual([res.ok, res.reason, updated], [false, "spent", 0]);

@@ -6,11 +6,11 @@
 // и нести варианты «Блок + трата слота» (channeling-block.mjs: кнопки с data-af-cb).
 import { L, MOD, queue, callGM } from "../util.mjs";
 import { modeOf } from "../settings.mjs";
-import { esc, whisper, cardButton } from "./lib.mjs";
+import { esc, whisper, cardButton, combatOf } from "./lib.mjs";
 import { guardHints, wardShield, watchShieldDamage, damageHolderShield } from "./shield-ward.mjs";
 import * as channeling from "./channeling-block.mjs";
 import * as damageLink from "./damage-link.mjs";
-import { subscribe, install } from "./apply-hook.mjs";
+import { subscribe, install, setClickSource } from "./apply-hook.mjs";
 
 export const settleLink = damageLink.settle;
 
@@ -98,6 +98,7 @@ export async function onMessage(message) {
 /** ГМ: применить урон карточки с блоком, потратить реакцию, погасить кнопку. cb — вариант Проводящего блока (id слота) или null. Очередь — на пару «урон + цель», чтобы блок за себя и за союзника не применили урон дважды. */
 export function useBlock(hintId, cb = null) {
   const h0 = hintOf(game.messages.get(hintId));
+  // ponytail: не в очереди reaction-owner (reactions/damaged): внутри наносится урон, а удержание damaged ждёт решения в той очереди — взаимная блокировка. Одновременное нажатие Блока и другой реакции одного владельца может потратить реакцию дважды.
   return queue(`shield-block:${h0?.message}:${h0?.token}`, async () => {
     const hint = game.messages.get(hintId), h = hintOf(hint);
     if (!h) return { ok: false, reason: "no-hint" };
@@ -131,8 +132,8 @@ export function useBlock(hintId, cb = null) {
     await boost?.delete();
     await dmg.update({ [`flags.${MOD}.shieldBlock.done.${token.id}`]: true, [`flags.${TB}.targetHelper.applied.${token.id}.0`]: true });   // второе гасит строку toolbelt
     await hint.update({ [`flags.${MOD}.shieldBlock.used`]: true });
-    const c = game.combat;
-    if (c?.started && c.combatants.some((x) => x.actorId === holder.id)) await holder.setFlag(MOD, "reactionSpent", { combat: c.id, round: c.round });
+    const c = combatOf(game.combats, holder);
+    if (c?.started) await holder.setFlag(MOD, "reactionSpent", { combat: c.id, round: c.round });
     return { ok: true };
   });
 }
@@ -141,6 +142,8 @@ export function useBlock(hintId, cb = null) {
 export async function markApplied(messageId, tokenUuid) {
   const m = game.messages.get(messageId), token = await fromUuid(tokenUuid);
   if (m?.flags?.pf2e?.context?.type === "damage-roll" && token?.id) await m.update({ [`flags.${MOD}.shieldBlock.done.${token.id}`]: true });
+  const { expireFor } = await import("./damaged.mjs");   // урон этой карточки по цели нанесён: подсказки реакции по ней больше не нужны
+  await expireFor(messageId, tokenUuid);
 }
 
 // «Щит» после Блока: 10 минут иммунитета к повторному сотворению (Spell Effect: Shield Immunity)
@@ -174,6 +177,8 @@ function dropShieldEffect(actorUuid, effectId, layers) {
 // Клик по штатной кнопке урона pf2e: запоминаем карточку, чтобы обёртка applyDamage знала, откуда урон.
 let clicked = null;
 const CLICK_MS = 3000;
+/** Свежий клик по кнопке урона pf2e (или null): снимок для обёртки applyDamage. */
+export const freshClick = () => (clicked && Date.now() - clicked.at < CLICK_MS ? clicked : null);
 
 /** Захват клика по штатным кнопкам применения урона в карточке. */
 export function trackApplyClicks(message, html) {
@@ -210,10 +215,12 @@ export function onDamageTaken(message) {
 }
 
 /** Подписчик обёртки Actor#applyDamage (apply-hook.mjs): после применения урона с блоком просит ГМа снять щит заклинания; Связь жизни / Кровные узы и отметка карточки. */
-async function onApply(actor, opts) {
+async function onApply(actor, opts, ctx) {
   const shield = actor.attributes?.shield ? { ...actor.attributes.shield } : null;
   const fx = modeOf("shieldBlock") !== "off" && blockHappened({ request: opts?.shieldBlockRequest, damage: opts?.damage, shield }) ? spellShieldEffect(shield, actor.items, actor.rollOptions?.all) : null;
-  const from = clicked && Date.now() - clicked.at < CLICK_MS ? clicked.id : null;
+  // источник: метка auto-нанесения basic-damage, иначе снимок клика (взят обёрткой до удержания урона damaged.mjs) — свежий клик по другой карточке не перепутать
+  const { parseMarker } = await import("./basic-damage.mjs");
+  const from = parseMarker(opts?.rollOptions)?.dmgId ?? ctx?.click?.id ?? null;
   // метку не гасим: pf2e применяет урон всем выделенным токенам в цикле; ошибочная метка лишь выключает нашу кнопку (безопасная сторона)
   const link = modeOf("macro") !== "off" ? damageLink.intercept(actor, opts) : null;   // урон цели уменьшается до применения
   if (link) opts = { ...opts, damage: link.damage };
@@ -229,6 +236,7 @@ async function onApply(actor, opts) {
 
 export function wrapApplyDamage() {
   subscribe(onApply);
+  setClickSource(freshClick);
   install();
 }
 

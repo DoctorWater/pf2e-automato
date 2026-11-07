@@ -5,6 +5,7 @@
 import { MOD, L, queue, callGM, isActiveGM, degreeFromTotal } from "./util.mjs";
 import { modeOf } from "./settings.mjs";
 import { esc, whisperDC, cardButton } from "./builtin/lib.mjs";
+import { settledDegree } from "./hold.mjs";
 
 const WB = "xdy-pf2e-workbench", WB_KEY = "decreaseFrightenedConditionEachTurn", PA = "pf2e-automations";
 
@@ -85,9 +86,11 @@ async function retch(h, dcInput) {
   const actor = await fromUuid(h.actor), dc = h.dc ?? (Number.isFinite(dcInput) ? dcInput : null);
   if (!actor?.saves?.fortitude) return;
   if (dc == null) return ui.notifications.warn(L("turn.needDC"));
-  const r = await actor.saves.fortitude.roll({ dc: { value: dc }, extraRollOptions: ["action:retch"], skipDialog: false });
-  const degree = r?.degreeOfSuccess ?? r?.options?.degreeOfSuccess ?? (r ? degreeFromTotal(r.total, dc, r.dice?.[0]?.total ?? null) : null);
-  if (degree == null) return;   // бросок отменён
+  let msg = null;
+  const r = await actor.saves.fortitude.roll({ dc: { value: dc }, extraRollOptions: ["action:retch"], skipDialog: false, callback: (_r, _o, m) => { msg = m; } });
+  const first = r?.degreeOfSuccess ?? r?.options?.degreeOfSuccess ?? (r ? degreeFromTotal(r.total, dc, r.dice?.[0]?.total ?? null) : null);
+  if (first == null) return;   // бросок отменён
+  const degree = await settledDegree(msg, first);   // удержан ради переброса (hold.mjs) — ждём итог
   const res = await callGM("applyRetch", h.actor, degree);
   if (!res?.ok || res.result?.ok === false) ui.notifications.warn(L("chat.failed", { reason: res?.result?.error ?? res?.reason }));
 }

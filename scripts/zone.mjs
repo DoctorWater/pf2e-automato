@@ -1,6 +1,7 @@
 // K1: живые зоны на RegionBehavior. Контракт — plan.md §2 zone.mjs, §3.B, §3.H.
 // Мутации — только у активного ГМа. apply.* сами берут queue("actor:"+uuid): здесь этот ключ НЕ оборачиваем.
 import { MOD, L, debug, isActiveGM } from "./util.mjs";
+import { combatOf } from "./builtin/lib.mjs";
 import { modeOf, S } from "./settings.mjs";
 import { applyCondition, applyEffect, removeByKey } from "./apply.mjs";
 import { runMacros } from "./macros.mjs";
@@ -8,9 +9,29 @@ import { resolveDC } from "./saves.mjs";
 import { emanationDefault } from "./use.mjs";
 import { pathRects, rectOf, insideAura } from "./aura.mjs";
 import { visionActive, refreshZone, dropSource } from "./vision.mjs";
+import { gapFeet } from "./aura.mjs";
+import { sustained, attach as attachSustain, anchorKey } from "./sustain.mjs";
+import { itemRange, tableRange } from "./range.mjs";
+import { rangeEntry } from "./rules.mjs";
 
 const TYPE = `${MOD}.zone`;
 const KEY = (regionUuid) => `zone:${regionUuid}`;
+
+/* ---------- срок по ходу автора («до конца вашего следующего хода») ---------- */
+
+/** Раунд, в конце хода автора которого зона кончается: ход автора (idx в порядке) ещё впереди в этом раунде — этот раунд, иначе следующий. */
+export const nextTurnEndRound = (round, turn, idx) => (turn < idx ? round : round + 1);
+/** Ход автора (раунд endRound, место idx) уже закончился: бой ушёл дальше. idx < 0 — автора из боя убрали. */
+export const turnPassed = (endRound, idx, round, turn) => idx < 0 || round > endRound || (round === endRound && turn > idx);
+/** Поддержание: ещё один «следующий ход». null — выше максимума («up to 1 minute»). */
+export const extendedEnd = (end, max) => (max == null || end + 1 <= max ? end + 1 : null);
+/** Футы от прямоугольника токена до основания области (центр круга). Центр на углу клеток — берём ближайшую из четырёх: лишних блоков нет. */
+export function baseGap(rect, shape, size, unit) {
+  const cells = (v) => (v % size === 0 ? [v / size - 1, v / size] : [Math.floor(v / size)]);
+  let best = Infinity;
+  for (const x of cells(shape.x)) for (const y of cells(shape.y)) best = Math.min(best, gapFeet(rect, { x, y, w: 1, h: 1 }, unit));
+  return best;
+}
 
 /** Чистая формула срока (§2 zone): срок по миру, счётчик раундов или ручное закрытие. */
 export const isExpired = (s, worldTime) =>
@@ -95,6 +116,10 @@ export class ZoneBehaviorType extends foundry.data.regionBehaviors.RegionBehavio
       effectUuid: new f.StringField({ blank: true }),
       expiresAt: new f.NumberField({ nullable: true, initial: null }),   // без min: worldTime может быть отрицательным
       roundsLeft: new f.NumberField({ integer: true, nullable: true, initial: null }),
+      endCombat: new f.StringField({ blank: true }),   // срок по ходу автора: бой, раунд конца его хода, участник, потолок Поддержания
+      endRound: new f.NumberField({ integer: true, nullable: true, initial: null }),
+      endCombatant: new f.StringField({ blank: true }),
+      maxRound: new f.NumberField({ integer: true, nullable: true, initial: null }),
       originUuid: new f.StringField({ blank: true }),
       originActor: new f.StringField({ blank: true }),
       messageId: new f.StringField({ blank: true }),
@@ -237,15 +262,21 @@ export async function attachZone(region, rule, originInfo = {}) {
     const dcs = await Promise.all(trg.map(async ({ challenge: ch }) => !ch ? null
       : ch.dc?.value ?? (it ? await resolveDC({ rule: { onUse: { challenge: ch } }, item: it, actor: ac }).catch(() => null) : null) ?? originInfo.dc ?? null));
     const castRank = game.messages.get(originInfo.messageId)?.flags?.pf2e?.origin?.castRank ?? null;
+    // срок по ходу автора: нет боя с автором — запасной счётчик rounds
+    const combat = d.until === "next-turn-end" && ac ? [combatOf(game.combats, ac)].find((c) => c?.started && c.round > 0) : null;
+    const cb = combat?.combatants.find((x) => x.actor?.uuid === ac.uuid);
+    const idx = cb ? combat.turns.findIndex((t) => t.id === cb.id) : -1;
+    const endRound = combat && idx >= 0 ? nextTurnEndRound(combat.round, combat.turn, idx) : null;
     [behavior] = await region.createEmbeddedDocuments("RegionBehavior", [{
       type: TYPE,
-      name: rule?.label ?? originInfo.name ?? L("zone.name"),
+      name: originInfo.name ?? it?.name ?? rule?.label ?? L("zone.name"),   // название с листа; label каталога — английский служебный
       system: {
         condition: z.condition?.slug ?? "",
         conditionValue: z.condition?.value ?? null,
         effectUuid: z.effect?.uuid ?? "",
         expiresAt: d.seconds ? game.time.worldTime + d.seconds : null,
-        roundsLeft: d.rounds ?? null,
+        roundsLeft: endRound == null ? d.rounds ?? null : null,
+        ...(endRound != null && { endCombat: combat.id, endRound, endCombatant: cb.id, maxRound: d.sustainMax ? combat.round + d.sustainMax : null }),
         originUuid: originInfo.originUuid ?? "",
         originActor: originInfo.originActor ?? "",
         messageId: originInfo.messageId ?? "",
@@ -254,6 +285,10 @@ export async function attachZone(region, rule, originInfo = {}) {
         skipOrigin: !!trg.length && !!(rule?.onUse?.excludeSelf ?? emanationDefault(region))
       }
     }]);
+    // Поддержание зоны: якорь (кнопки «Поддержать»/«Развеять»); засчитанное Поддержание продлевает срок (sustained-слушатель в init)
+    if (d.sustainMax && it && ac && originInfo.messageId) {
+      await attachSustain(ac, null, { key: anchorKey(originInfo.messageId), msg: originInfo.messageId, item: it }).catch((e) => debug("zone sustain anchor", e));
+    }
   }
   // эманация едет за токеном средствами ядра (сдвиг фигуры, членство автора, удаление вместе с токеном, hidden); follow:false — стоит на месте
   if (z.follow !== false && !region._source?.attachment?.token) {
@@ -336,12 +371,73 @@ export async function reconcileZones() {
 
 /** Бой: новый раунд вперёд -> roundsLeft-1 у зон сцены боя (переход 0->1 — начало боя, не раунд). */
 async function onUpdateCombat(combat, changes, options) {
-  if (!isActiveGM() || !("round" in changes) || options.direction !== 1 || changes.round <= 1) return;
-  for (const region of combat.scene?.regions ?? []) {
+  if (!isActiveGM() || options.direction !== 1 || !("round" in changes || "turn" in changes)) return;
+  const roundUp = "round" in changes && changes.round > 1;
+  for (const region of allRegions()) {
     const b = zoneBehavior(region);
-    if (b?.system.roundsLeft > 0) await b.update({ "system.roundsLeft": b.system.roundsLeft - 1 });
+    if (!b) continue;
+    const s = b.system;
+    if (s.endCombat === combat.id && s.endRound != null) {   // срок по ходу автора: ход автора позади — зона кончилась
+      if (turnPassed(s.endRound, combat.turns.findIndex((t) => t.id === s.endCombatant), combat.round, combat.turn)) await b.update({ "system.roundsLeft": 0 });
+    } else if (roundUp && region.parent === combat.scene && s.roundsLeft > 0) await b.update({ "system.roundsLeft": s.roundsLeft - 1 });
   }
   await expireZones();
+}
+
+/** Бой закончен: срок «до конца хода автора» потерял точку отсчёта — зона кончается. */
+async function onDeleteCombat(combat) {
+  if (!isActiveGM()) return;
+  for (const region of allRegions()) {
+    const b = zoneBehavior(region);
+    if (b?.system.endCombat === combat.id && b.system.endRound != null) await b.update({ "system.roundsLeft": 0 });
+  }
+  await expireZones();
+}
+
+/** Поддержание засчитано (sustain.count): зона этого сообщения живёт ещё до конца следующего хода автора, но не дольше maxRound. */
+export async function extendZone(messageId) {
+  if (!isActiveGM() || !messageId) return false;
+  let any = false;
+  for (const region of allRegions()) {
+    const s = zoneBehavior(region)?.system;
+    if (!s || s.messageId !== messageId || s.endRound == null || s.expired) continue;
+    const end = extendedEnd(s.endRound, s.maxRound);
+    if (end != null) { await zoneBehavior(region).update({ "system.endRound": end }); any = true; }
+  }
+  return any;
+}
+
+/** Конец якоря Поддержания (Прекращение, пропуск; не откат) закрывает зону того же сообщения, которую он поддерживал. */
+export async function closeSustainedZones(messageId) {
+  if (!isActiveGM() || !messageId) return;
+  for (const region of allRegions()) {
+    const s = zoneBehavior(region)?.system;
+    if (s?.messageId === messageId && s.maxRound != null && !s.expired) await deleteRegionOnce(region, "closed");
+  }
+}
+
+/* ---------- место области ---------- */
+
+/** {name, d, r}, если основание размещаемой области (первый круг данных региона) дальше дальности предмета от токена автора; иначе null.
+ *  Заклинание — с системной дальностью (и областью), не-заклинание — запись area:true (onUse.range правила). Нет токена/предмета/дальности — null.
+ *  ponytail: только круг (взрыв/цилиндр) на квадратной сетке; конус/линия идут от автора — дальности нет. */
+export function areaFarFor(data, scene) {
+  const pf = data?.flags?.pf2e, origin = pf?.origin, shape = data?.shapes?.find((s) => s.type === "circle");
+  if (!shape || !origin?.uuid || !scene?.grid?.isSquare) return null;
+  const item = fromUuidSync(origin.uuid);
+  if (!item) return null;
+  let max = null;
+  if (item.type === "spell") max = item.system?.area ? itemRange(item, origin.rollOptions ?? []) : null;
+  else {
+    const e = rangeEntry(item);
+    max = e?.area ? tableRange({ ...e, area: false }, item.actor?.level) : null;
+  }
+  if (!(max > 0)) return null;
+  const doc = (origin.token && fromUuidSync(origin.token)) || game.messages.get(pf.messageId)?.token
+    || (() => { const own = scene.tokens.filter((t) => t.actor?.uuid === origin.actor); return own.length === 1 ? own[0] : null; })();
+  if (!doc || doc.parent !== scene) return null;
+  const d = baseGap(rectOf(doc), shape, scene.grid.size, scene.grid.distance || 5);
+  return d > max ? { name: item.name, d, r: max } : null;
 }
 
 // Публичные хуки для pf2e-vision: из документов, поэтому срабатывают ровно раз на каждом клиенте.
@@ -378,6 +474,9 @@ export function init() {
 
   Hooks.on("updateWorldTime", () => expireZones());
   Hooks.on("updateCombat", onUpdateCombat);
+  Hooks.on("deleteCombat", onDeleteCombat);
+  sustained.add(({ anchor }) => extendZone(anchor.flags?.[MOD]?.sustain?.msg));
+  Hooks.on("deleteItem", (item, options) => { const f = item.flags?.[MOD]; if (f?.meta?.source === "sustain" && !options?.[MOD]?.undo) closeSustainedZones(f.sustain?.msg).catch((e) => debug("sustain close", e)); });
   Hooks.on("userConnected", () => { if (isActiveGM()) reconcileZones(); });
   Hooks.on("pf2e-automato.visionMarks", onMarksToggle);
   Hooks.on("moveToken", (doc, mv) => { ZoneBehaviorType.onCarrierMoved(doc, mv).catch((e) => debug("path", e)); });

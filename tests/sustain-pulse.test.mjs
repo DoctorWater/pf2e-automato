@@ -183,7 +183,7 @@ test("карточка импульса не ставит якорь; сотво
     await runUse("M1");
     const [a] = sustain.anchorsOf(author);
     assert.ok(a); assert.equal(a.flags[MOD].sustain.pulse, true);
-    assert.match(sent.at(-1)?.content ?? "", /sustain\.offer(?!Quiet)/);   // полный шёпот, привязок нет
+    assert.ok(!/sustain\.offer/.test(sent.at(-1)?.content ?? ""));   // в бою предложение — в начале следующего хода (remind), не при сотворении
     const before = author.items.length;
     mkMsg("P9", { flags: { [MOD]: { use: { v: 1, kind: "use", rule: pulseRule(RULE), actor: "Actor.a", item: { uuid: "Item.s" }, targets: [], state: { pulse: { key: "k" }, sustainKey: KEY } } } } });
     await runUse("P9");

@@ -2,6 +2,7 @@
 // ponytail: «текущий» MAP pf2e не хранит (его выбирает игрок вариантом Удара) — спрашиваем в диалоге; по умолчанию без штрафа.
 import { L, sharedDialog } from "../util.mjs";
 import { esc } from "./lib.mjs";
+import { settledDegree } from "../hold.mjs";
 
 /** Чистая: 0..3 -> попал ли Удар. */
 export const isHit = (degree) => degree >= 2;
@@ -51,8 +52,10 @@ const fresh = (actor, s) => actor.system.actions.find((a) => a.item?.id === s.it
 /** Бросок Удара вариантом i (0..2) по документу токена цели. -> { roll, degree }. */
 export async function rollStrike(actor, strike, i, target, options = []) {
   const s = fresh(actor, strike);
-  const roll = await s.variants[Math.min(i, s.variants.length - 1)].roll({ target: { document: target }, options });
-  return { roll, degree: roll?.options?.degreeOfSuccess ?? null };
+  let msg = null;
+  const roll = await s.variants[Math.min(i, s.variants.length - 1)].roll({ target: { document: target }, options, callback: (_r, _o, m) => { msg = m; } });
+  // удержанный ради переброса бросок (hold.mjs) — не итог: ждём выпуск или переброс
+  return { roll, degree: await settledDegree(msg, roll?.options?.degreeOfSuccess ?? null) };
 }
 
 /** Бросок урона Удара (крит — critical). createMessage false — вернуть бросок без сообщения. */

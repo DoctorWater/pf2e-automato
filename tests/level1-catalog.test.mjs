@@ -85,15 +85,18 @@ test("Финт: обычный исход, Пройдоха и Вовлекаю�
   assert.deepEqual(kinds(live("success", [])), ["cond:0"]);
   assert.deepEqual(kinds(live("criticalSuccess", [])), ["cond:1"]);
   assert.deepEqual(live("failure", []), []);
-  // Пройдоха: успех — эффект с меткой вместо состояния на ход; Шаг — подсказкой при любом исходе
-  assert.deepEqual(kinds(live("success", ["feature:scoundrel"])), ["ScndrlOffGuard01", "note"]);
-  assert.equal(live("success", ["feature:scoundrel"])[0].mark, "enemy");
-  for (const d of ["criticalSuccess", "failure", "criticalFailure"]) assert.ok(live(d, ["feature:scoundrel"]).some((s) => s.to === "self" && /Шагнуть/.test(s.note ?? "")), d);
+  // Пройдоха: успех — эффект с меткой вместо состояния на ход; Шаг — подсказкой при любом исходе, только с ловким/точным ближним оружием в руке
+  const agile = ["feature:scoundrel", "self:held:melee", "self:held:melee:trait:agile"];
+  assert.deepEqual(kinds(live("success", agile)), ["ScndrlOffGuard01", "note"]);
+  assert.equal(live("success", agile)[0].mark, "enemy");
+  for (const d of ["criticalSuccess", "failure", "criticalFailure"]) assert.ok(live(d, agile).some((s) => s.to === "self" && /Шагнуть/.test(s.note ?? "")), d);
+  for (const d of ["success", "failure"]) assert.ok(!live(d, ["feature:scoundrel", "self:held:melee"]).some((s) => /Шагнуть/.test(s.note ?? "")), `${d}: без ловкого/точного — без Шага`);
+  assert.ok(live("success", ["feature:scoundrel", "self:held:melee:trait:finesse"]).some((s) => /Шагнуть/.test(s.note ?? "")), "точное — Шаг есть");
   // Вовлекающий финт: выбор; «overextend» — только штраф, «feint» — обычный исход
   assert.deepEqual(kinds(live("success", ["feat:overextending-feint", "choice:overextend"])), ["choose", "OvrxtFeintNext01"]);
   assert.deepEqual(kinds(live("criticalSuccess", ["feat:overextending-feint", "choice:overextend"])), ["choose", "OvrxtFeintCrit01"]);
   assert.deepEqual(kinds(live("success", ["feat:overextending-feint", "choice:feint"])), ["choose", "cond:0"]);
-  assert.deepEqual(kinds(live("success", ["feat:overextending-feint", "feature:scoundrel", "choice:overextend"])), ["choose", "OvrxtFeintNext01", "note"]);
+  assert.deepEqual(kinds(live("success", ["feat:overextending-feint", ...agile, "choice:overextend"])), ["choose", "OvrxtFeintNext01", "note"]);
 });
 
 test("Вовлекающий финт: штраф −2 только против автора; обычный успех снимается первой атакой по плуту", () => {
@@ -200,7 +203,7 @@ test("последняя партия ведьмы: Forbidding Ward под По�
   assert.deepEqual(fw.filter((s) => s.effect).map((s) => [s.effect.uuid.split(".").pop(), s.sustain]), [["ctMxYPGEpstvhW9C", true]]);
   const pf = hex("rMOI8JFJ0nT2mrCF").apply;
   assert.equal(pf.find((s) => s.effect).effect.uuid.split(".").pop(), "61Hl31nyzt63vvX9");
-  assert.match(pf.find((s) => s.note).note, /придерживает применение урона/);
+  assert.ok(pf.every((s) => !/придерживает/.test(s.note ?? "")));   // удержание урона — механизм onDamaged, не заметка
   const ck = hex("YVK3JUkPVzHIeGXQ").apply;
   assert.ok(ck.length === 1 && /«Поддержать»/.test(ck[0].note) && !ck[0].effect && !ck[0].condition);
 });

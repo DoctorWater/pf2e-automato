@@ -12,7 +12,8 @@ globalThis.game = {
   modules: { get: () => null },
   messages: { get: (id) => msgs.get(id), get contents() { return [...msgs.values()]; } },
   pf2e: { ConditionManager: { conditions: new Map() } },
-  combat: null
+  combat: null,
+  get combats() { return this.combat ? [this.combat] : []; }
 };
 globalThis.ui = { notifications: { warn() {}, info() {} } };
 globalThis.fromUuid = async (u) => uuids.get(u) ?? null;
@@ -69,7 +70,7 @@ function world(entry = ENTRY, { legendary = false } = {}) {
   const near = mkActor("near", { x: 2 }), dead = mkActor("dead", { hp: 0, x: 3 }), far = mkActor("far", { x: 50 }), friend = mkActor("friend", { side: "pc", x: 2 });
   return { rogue, victim, near, dead, far, friend };
 }
-const startCombat = (...actors) => { globalThis.game.combat = { id: "c1", round: 1, started: true, combatants: actors.map((a) => ({ actorId: a.id })) }; };
+const startCombat = (...actors) => { globalThis.game.combat = { id: "c1", round: 1, started: true, active: true, scene: "s", combatants: actors.map((a) => ({ actorId: a.id, actor: a })) }; };
 let msgN = 0;
 // сообщение damage-taken: урон дошёл до ОЗ жертвы (hitPoints выставлены в world), автор — rogue
 const dmgMsg = (w, { origin = "Item.sword", applied = { updates: [{ path: "system.attributes.hp.value", value: 5 }] }, options = ["origin:enemy"], actor = w.victim, id = `D${++msgN}` } = {}) => {

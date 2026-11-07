@@ -24,7 +24,7 @@
     {{#if vm.zone.vis}}<p class="paf-note">{{vm.zone.vis}}</p>{{/if}}
   {{/if}}
   {{#if vm.challenge}}
-    <details class="paf-challenge{{#if vm.challenge.settled}} paf-settled{{/if}}" open>
+    <details class="paf-challenge{{#if vm.challenge.settled}} paf-settled{{/if}}" data-resolved="{{vm.challenge.resolved}}" open>
       {{#if vm.challenge.summary}}<summary class="paf-summary">{{vm.challenge.summary}}</summary>{{/if}}
       {{#if vm.challenge.toolbelt}}<p class="paf-note">{{vm.challenge.toolbelt}}</p>{{/if}}
       {{#if vm.challenge.rows.length}}

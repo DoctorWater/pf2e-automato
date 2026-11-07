@@ -19,7 +19,7 @@
 | Элемент | pf2e (RE) | Модуль | Тест / живой | Вердикт · объём |
 |---|---|---|---|---|
 | `patron` | ChoiceSet, GrantItem | Нет записи | — | нативно |
-| `the-resentment` | ActiveEffectLike, ItemAlteration (традиция, навык, Evil Eye + Enfeeble фамильяру) | Нет записи. Способность фамильяра от покровителя — Familiar of Ongoing Misery (WF11) | — | нативно; **WF11 SOURCE-BLOCKED** (конфликт текста Горечи и WF11, ждёт сверки источника, `level1-witch-tasks.md` L1-WSOURCE) |
+| `the-resentment` | ActiveEffectLike, ItemAlteration (традиция, навык, Evil Eye + Enfeeble фамильяру) | Нет записи. Способность фамильяра от покровителя — Familiar of Ongoing Misery (WF11) | — | нативно; WF11 сделана 2026-11-06 (`docs/plan-rustyspirit.md` P1) |
 | `familiar-witch` | ActiveEffectLike, GrantItem | `events.runFamiliar`: способность фамильяра запускается при cast/Sustain hex (`side:"familiar"`), первая партия WF01/06/07/09/10 | `tests/familiar.test.mjs`, живой `level1-familiar` | готово для WF01/06/07/09/10; остальные WF — не относятся к этой сборке, пока нет выбора способности |
 | `hex-spells` | RE нет (фокус-пул, «один наговор за ход» — текст) | Фокус считает система. «Один hex за ход» не блокируется | — | нативно + **долг W03** (нет pre-use точки, см. §4) |
 | `witch-spellcasting` | RE нет | — | — | нативно |
@@ -132,7 +132,7 @@
 | W03 «один hex за ход» не блокируется | Нет подтверждённой pre-use точки; `spell-cast` — пост-событие, ложная блокировка хуже честного предупреждения |
 | Pre-damage реакция Phase Familiar (подписчик `apply-hook` + шёпот + учёт реакции) | L, один потребитель в сборке, группа не подтверждена; ручной порядок работает |
 | Авто-Поддержание «выбранного якоря» при Cackle | ≈3–5 документов ≪ 30; кнопка якоря даёт то же вручную |
-| WF11 Ongoing Misery (способность Горечи у Фейи) | SOURCE-BLOCKED: сверка конфликта текста, внешняя сверка — только по подтверждению пользователя |
+| WF11 Ongoing Misery (способность Горечи у Фейи) | сделано 2026-11-06, `docs/plan-rustyspirit.md` P1 |
 | «Ведьма видит цель» у Evil Eye, чтение auras, +4 к Charm, отношение Charm | Сюжетное/решение ГМа: правило из одних заметок, автоматизировать нечего |
 | Detect Magic, Sigil, Pet Cache, Prestidigitation | Нет автоматизируемой части (ответы ГМа, свободное применение) |
 | Cat Fall, Experienced Smuggler, Trap Finder (тайное обнаружение) | Падение и скрытые броски ГМа; автоматики нет ни в pf2e, ни в модуле |

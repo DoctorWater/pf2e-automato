@@ -217,7 +217,8 @@ async () => {
 
   const FX = (id) => `Compendium.pf2e-automato.effects.Item.${id}`;
   const MM = FX("MstrmindOffGrd01"), SCN = FX("ScndrlOffGuard01"), OXN = FX("OvrxtFeintNext01");
-  const HERO = (name) => game.actors.find((a) => a.name === name && a.folder?.name === "Герои 1 ур. (автоматизация)");
+  // opts.heroes = { "<имя героя сценария>": "<id актёра>" } — герой другого мира (RustySpirit: Меллик) вместо папки «Герои 1 ур.»
+  const HERO = (name) => (opts.heroes?.[name] ? game.actors.get(opts.heroes[name]) : null) ?? game.actors.find((a) => a.name === name && a.folder?.name === "Герои 1 ур. (автоматизация)");
   /** Временная копия героя из папки «Герои 1 ур.» (сам герой не трогается). */
   const heroCopy = async (e, name) => {
     const h = HERO(name);

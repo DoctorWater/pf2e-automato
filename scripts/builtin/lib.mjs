@@ -1,5 +1,5 @@
 // Общие помощники встроенных обработчиков. Чистые функции не трогают foundry (юнит-тесты, tests/builtin.test.mjs).
-import { L, MOD, queue, sharedDialog, sluggify, socket } from "../util.mjs";
+import { L, MOD, queue, sharedDialog, sluggify, socket, callGM, useTargetOverride } from "../util.mjs";
 import { card, HEADS } from "../card.mjs";
 import { shouldYield } from "../compat.mjs";
 export { card, cardButton } from "../card.mjs";
@@ -106,7 +106,11 @@ const sluggifyName = (s) => (typeof s === "string" ? s.toLowerCase().trim().repl
 export const offGuardRule = (predicate) => ({ key: "EphemeralEffect", affects: "target", selectors: ["strike-attack-roll", "spell-attack-roll", "strike-damage", "attack-spell-damage"], uuid: COND.offGuard, predicate });
 
 /** Чистая: бой, в котором участвует актёр (по uuid; у токенов без связи actor — свой). */
-export const combatOf = (combats, actor) => combats.find((c) => c.combatants.some((x) => x.actor?.uuid === actor.uuid)) ?? null;
+export const combatOf = (combats, actor) => {
+  const mine = [...combats].filter((c) => c.combatants.some((x) => x.actor?.uuid === actor.uuid));
+  // активный бой со сценой важнее забытых (сцена удалена, незакрытый бой на другой сцене)
+  return mine.find((c) => c.active && c.scene) ?? mine.find((c) => c.started && c.scene) ?? mine[0] ?? null;
+};
 
 /** Чистая: эффект боя «повис» — боя нет или актёра в нём нет. combats — коллекция с get(id). */
 export const isStale = (combatId, actorUuid, combats) => {
@@ -156,3 +160,87 @@ export async function askOwner(actor, bid, packed, local) {
 
 /** Актёры мира и актёры несвязанных токенов всех сцен. */
 export const worldActors = () => [...game.actors, ...game.scenes.contents.flatMap((s) => s.tokens.filter((t) => !t.actorLink).map((t) => t.actor))].filter(Boolean);
+
+/* ---------- общее у реакций на событие (damaged.mjs, failed.mjs): шёпот-подсказка, очередь владельца, предметы с веткой правила ---------- */
+
+/** Пользователи-адресаты подсказки: ГМ и/или владельцы-игроки актёра по notify. */
+export const recipients = (actor, notify) => game.users.filter((u) => (notify.includes("gm") && u.isGM) || (notify.includes("owner") && !u.isGM && actor.testUserPermission(u, "OWNER"))).map((u) => u.id);
+
+/** Расстояние между токенами; NaN, если нет холста (не штрафуем, как rangeOk). */
+export const distanceOf = (a, b) => { try { const x = a?.object, y = b?.object; return x && y ? x.distanceTo(y) : NaN; } catch { return NaN; } };
+
+/** Одна реакция на раунд у владельца: использование, пропуск и срок — по очереди. */
+export const ownerQueue = (actor, fn) => queue(`reaction-owner:${actor}`, fn);
+
+/** Актёры сцены токена, которые могут реагировать за него (токены сцены + мастер фамильяра). -> [{actor, token}] */
+export function reactorsOf(token) {
+  const out = new Map();
+  for (const t of token.parent?.tokens ?? []) if (t.actor) out.set(t.actor.uuid, { actor: t.actor, token: t });
+  const master = token.actor?.type === "familiar" ? game.actors.get(token.actor.system?.master?.id) : null;
+  if (master && !out.has(master.uuid)) out.set(master.uuid, { actor: master, token: null });
+  return [...out.values()];
+}
+
+/** Предметы актёра с веткой правила `branch` (onDamaged / onFailed): дубли способности на листе — одна запись. -> [{item, d, rule}] */
+export async function itemsOf(actor, branch) {
+  const { ruleOfItem } = await import("../reactions.mjs"), { slugOf } = await import("../rules.mjs");
+  return itemsWith(actor, branch, ruleOfItem, slugOf);
+}
+/** Синхронная форма itemsOf с готовыми ruleOfItem/slugOf (preCreateChatMessage не может ждать импорта). */
+export function itemsWith(actor, branch, ruleOfItem, slugOf) {
+  const seen = new Set(), out = [];
+  for (const item of actor.items) {
+    const rule = ruleOfItem(item), key = slugOf(null, item) || item.name;
+    if (rule?.[branch] && !seen.has(key)) { seen.add(key); out.push({ item, d: rule[branch], rule }); }
+  }
+  return out;
+}
+
+/**
+ * Один раз использовать предмет: заклинание — сотворение с тратой ячейки/фокуса (pf2e), иначе карточка предмета. unchecked — лимиты модуля не блокируют своё же действие.
+ * Цели использования — защищаемый токен: подмена только для liveTargets этого актёра (useTargetOverride), game.user.targets ГМа не трогаем.
+ */
+export async function useOnce(owner, item, token) {
+  const { unchecked } = await import("./impulse-gate.mjs");
+  const run = item.isOfType?.("spell") && item.spellcasting?.cast ? () => item.spellcasting.cast(item, { rank: item.rank }) : () => item.toMessage();
+  const last = () => game.messages.contents.at(-1)?.id, before = last();
+  useTargetOverride.set(owner.uuid, [token]);
+  try { await unchecked(owner, item, run); } finally { useTargetOverride.delete(owner.uuid); }
+  const used = last() !== before;
+  // частоту pf2e списывает только в createUseActionMessage (pf2e.mjs:54101), не в toMessage — повторяем его
+  const f = item.system?.frequency;
+  if (used && !item.isOfType?.("spell") && f && f.value > 0) await item.update({ "system.frequency.value": f.value - 1 });
+  return used;
+}
+
+/**
+ * Погасить подсказки (pending), подходящие под test(h): каждая — под очередью владельца, состояние перепроверяется.
+ * hintOf(m) -> данные подсказки сообщения; close(m, "expired") закрывает.
+ */
+export async function expireWhere(test, { hintOf, close, state = "pending" }) {
+  for (const m of [...game.messages.contents]) {
+    const h = hintOf(m);
+    if (!h || h.state !== state || !test(h)) continue;
+    await ownerQueue(h.actor, async () => {
+      const fresh = game.messages.get(m.id);
+      if (hintOf(fresh)?.state === state) await close(fresh, "expired");
+    });
+  }
+}
+
+/** renderChatMessageHTML: кнопки подсказки с атрибутом `attr` (data-af-…) -> callGM(use|skip, id). Решённая подсказка — кнопки неактивны. */
+export function bindHint(message, html, { hint, attr, use, skip }) {
+  const h = hint(message), root = html instanceof HTMLElement ? html : html?.[0];
+  const btns = [...(root?.querySelectorAll?.(`[${attr}]`) ?? [])], key = attr.replace(/^data-/, "").replace(/-(\w)/g, (_, c) => c.toUpperCase());
+  if (!h || !btns.length) return;
+  if (h.state !== "pending") { btns.forEach((b) => { b.disabled = true; }); return; }
+  for (const btn of btns) btn.addEventListener("click", async () => {
+    btns.forEach((b) => { b.disabled = true; });
+    const res = await callGM(btn.dataset[key] === "use" ? use : skip, message.id);
+    const r = res?.result ?? res;
+    if (!res?.ok || r?.ok === false) {
+      btns.forEach((b) => { b.disabled = false; });
+      if (res?.reason !== "no-gm") ui.notifications.warn(L("chat.failed", { reason: r?.error ?? r?.reason }));
+    }
+  });
+}

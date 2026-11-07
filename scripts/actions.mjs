@@ -42,11 +42,18 @@ export function parseActionRoll(message) {
   };
 }
 
-/** Первое правило с onUse.check среди slug-ов (каталоги/мировой/без предмета). */
-export function ruleFor(slugs, resolve = rules.resolveRule) {
+/**
+ * Первое правило с onUse.check среди slug-ов. ctx {origin, item} — origin/предмет сообщения: resolveRule идёт в своём порядке
+ * (флаг предмета → мировой → встроенный bySource → bySlug), записи по источнику (атака заклинанием) достижимы.
+ * Если с контекстом проверки нет (запись по источнику/флаг без onUse.check), повторяем только по slug: она не перекрывает slug-правило.
+ */
+export function ruleFor(slugs, resolve = rules.resolveRule, ctx = {}) {
+  const has = (r) => r?.rule?.onUse?.check;
   for (const slug of slugs) {
-    const r = resolve({ origin: { slug } });
-    if (r?.rule?.onUse?.check) return { ...r, slug };
+    const c = ctx.origin || ctx.item ? resolve({ origin: { ...ctx.origin, slug }, item: ctx.item }) : null;
+    // с контекстом предмета — только правило «бросок системы»: проверку черты (Terrifying Howl) модуль бросает сам по карточке, второй снимок не нужен
+    const r = c?.rule?.onUse?.check?.roll === "system" ? c : resolve({ origin: { slug } });
+    if (has(r)) return { ...r, slug };
   }
   return null;
 }
@@ -96,8 +103,9 @@ export async function onRollMessage(message) {
   const p = parseActionRoll(message);
   if (!p) return null;
   const a = message.actor;
-  const found = ruleFor(aliasSlugs(p.slugs, { inCombat: !!game.combats?.active?.started, hasBattleMedicine: !!a?.itemTypes?.feat?.some((f) => f.slug === "battle-medicine") }));
-  if (!found || compat.shouldYield(found.rule, { slug: found.slug, sourceUuid: null })) return null;
+  const origin = message.flags.pf2e.origin;
+  const found = ruleFor(aliasSlugs(p.slugs, { inCombat: !!game.combats?.active?.started, hasBattleMedicine: !!a?.itemTypes?.feat?.some((f) => f.slug === "battle-medicine") }), rules.resolveRule, origin?.type === "spell" ? { origin, item: message.item } : {});   // контекст — только заклинаниям-атакам (запись bySource); Удар не выводит правило из описания оружия
+  if (!found || compat.shouldYield(found.rule, { slug: found.slug, sourceUuid: found.sourceUuid })) return null;
   const actor = p.actor ?? message.actor?.uuid, token = p.token ?? message.token?.uuid ?? null;
   if (!actor) return null;
 
@@ -113,7 +121,7 @@ export async function onRollMessage(message) {
   const prev = p.isReroll ? stash.get(rerollKey(actor, tdoc?.id, found.slug)) : null;
   stash.delete(rerollKey(actor, tdoc?.id, found.slug));
   const snapshot = prev?.use ?? buildSnapshot({
-    kind: "roll", resolved: { rule: found.rule, source: found.source, slug: found.slug, sourceUuid: null, confidence: found.confidence },
+    kind: "roll", resolved: { rule: found.rule, source: found.source, slug: found.slug, sourceUuid: found.sourceUuid, confidence: found.confidence },
     item: message.flags.pf2e.origin?.type === "spell"
       ? { uuid: message.flags.pf2e.origin.uuid ?? null, name: found.rule.label ?? found.slug, type: "spell", sourceId: null }
       : { uuid: null, name: found.rule.label ?? found.slug, type: "action", sourceId: null },

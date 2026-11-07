@@ -336,7 +336,7 @@ const anchorsOf = (a) => sustain.anchorsOf(a);
 const wait = () => new Promise((r) => setTimeout(r, 20));
 const tick = (w, round) => { world.combat = { id: "c1", round }; const a = anchorsOf(w.witch)[0]; return sustain.run(w.witch.uuid, a.flags[MOD].meta.key); };
 
-test("автоякорь hex с Поддержанием: ключ anchorKey(message.id), без привязок, offer не уходит ГМу, повтор — один якорь; не-hex и без Поддержания — нет", async () => {
+test("автоякорь hex с Поддержанием: ключ anchorKey(message.id), без привязок, offer не уходит ГМу, повтор — один якорь; не-hex с Поддержанием — тоже якорь, без Поддержания — нет", async () => {
   const w = world1("WF10");
   dialogs.pick = null;
   const m = cast(w);
@@ -345,20 +345,28 @@ test("автоякорь hex с Поддержанием: ключ anchorKey(mes
   assert.equal(anchorsOf(w.witch).length, 1);
   assert.equal(a.flags[MOD].meta.key, sustain.anchorKey(m.id));
   assert.deepEqual(a.flags[MOD].sustain.actors, []);
-  const offers = created.filter((c) => c.flags?.[MOD]?.builtin === "sustain");
+  const isOffer = (c) => c.flags?.[MOD]?.builtin === "sustain";
+  assert.equal(created.filter(isOffer).length, 0);   // в бою при сотворении предложения нет — в ход сотворения Поддерживать нечего
+  world.combat = { id: "c1", round: 2 };
+  await sustain.remind({ actor: w.witch });   // начало следующего хода ведьмы
+  const offers = created.filter(isOffer);
   assert.equal(offers.length, 1);   // владельца-игрока нет — короткое предложение ГМу, один раз
   assert.match(offers[0].content, /sustain.offerQuiet/);
   game.users.push({ id: "p1", isGM: false }); w.witch.testUserPermission = () => true;   // есть игрок-владелец: предложение только ему
-  const m3 = cast(w); await run(m3);
+  world.combat = { id: "c1", round: 3 };
+  await sustain.remind({ actor: w.witch });
   game.users.pop();
-  const o2 = created.filter((c) => c.flags?.[MOD]?.builtin === "sustain").at(-1);
+  const o2 = created.filter(isOffer).at(-1);
   assert.deepEqual(o2.whisper, ["p1"]);
+  world.combat = { id: "c1", round: 1 };
+  const m3 = cast(w); await run(m3);
   await run(m);
   assert.equal(anchorsOf(w.witch).length, 2);   // m и m3 — по якорю на сообщение; повтор m второго не создал
   const w2 = world1("WF10");
   await run(cast(w2, { hex: false }));
+  assert.equal(anchorsOf(w2.witch).length, 1);   // любое заклинание с Поддержанием — якорь (пак D)
   await run(cast(w2, { spell: SPELL({ uuid: "Item.nosustain", system: { duration: { value: "", sustained: false }, range: { value: "30 feet" } } }) }));
-  assert.equal(anchorsOf(w2.witch).length, 0);
+  assert.equal(anchorsOf(w2.witch).length, 1);
 });
 
 test("автоякорь без привязок: пропуск Поддержания якорь снимает, но «пропущено» не шлёт", async () => {

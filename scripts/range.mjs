@@ -19,10 +19,25 @@ export function maxRange(range, touch, opts) {
 /** Чистая: {d, r} если цель дальше дальности, иначе null. NaN (нет холста/токена) — не штрафуем. */
 export const farFrom = (dist, max) => (max != null && Number.isFinite(dist) && dist > max ? { d: dist, r: max } : null);
 
-/** Дальность предмета-заклинания в футах с учётом метамагии; null — не проверять. */
+/** Чистая: запись rules/ranges.json {ft, area?, grow?} -> футы для актёра уровня level. area (место области) здесь не проверяется — null. */
+export function tableRange(entry, level) {
+  if (!entry || entry.area || !(entry.ft > 0)) return null;
+  const g = entry.grow;
+  return entry.ft + (g && level > 1 ? g.add * Math.floor((level - 1) / g.every) : 0);
+}
+
+/** Чистая: запись по uuid источника, иначе по slug (в bySlug попадают только slug, где все документы согласны — tools/ranges.mjs). */
+export const lookupRange = (table, sourceId, slug) => (sourceId && table?.bySource?.[sourceId]) || (slug && table?.bySlug?.[slug]) || null;
+
+let source = null;
+/** rules.mjs регистрирует поставщика записи дальности предмета (каскад resolveRule с оверлеем ranges.json); без него дальность не проверяется. */
+export const setRangeSource = (fn) => { source = fn; };
+
+/** Дальность предмета в футах: заклинание — с учётом метамагии, черта/действие — onUse.range правила (в т.ч. оверлей rules/ranges.json); null — не проверять. */
 export function itemRange(item, opts) {
-  if (item?.type !== "spell") return null;
-  return maxRange(item.range, !!item.isMelee, opts);
+  if (item?.type === "spell") return maxRange(item.range, !!item.isMelee, opts);
+  if (item?.type !== "feat" && item?.type !== "action") return null;
+  return tableRange(source?.(item) ?? null, item.actor?.level);
 }
 
 /** Для целей снимка: добавляет `far:{d,r}` тем, кто вне дальности (токен заклинателя -> токен цели).

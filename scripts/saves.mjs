@@ -1,6 +1,6 @@
 // Испытания: бросок, приём результата (любой saving-throw), применение по степеням. plan.md §2 saves, §3.C, §3.F.
 import { MOD, L, DEGREES, flagPath, queue, degreeFromTotal, debug, callGM, isActiveGM } from "./util.mjs";
-import { S, modeOf } from "./settings.mjs";
+import { S, modeOf, effectiveMode } from "./settings.mjs";
 import { card } from "./card.mjs";
 import { headOf } from "./builtin/lib.mjs";
 import { inRange } from "./range.mjs";
@@ -10,6 +10,7 @@ import { moveOrder, areaPoint } from "./move.mjs";
 import { challengeWho } from "./rules.mjs";
 import { testPredicate } from "./predicate.mjs";
 import { runMacros } from "./macros.mjs";
+import { isHeld } from "./hold.mjs";
 import { runCheck, findCheckByOrigin, applyImmunity, isCheck, isImmune, recordOneRoll } from "./checks.mjs";
 
 const MARKER = new RegExp(`^${MOD}:([^:]+):([^:]+)$`);
@@ -210,6 +211,9 @@ export async function runChallenge(message, { only } = {}) {
     try {
       const r = await rollSave(actor, ch, { message, tokenKey: key, token, dc, skipDialog: true, messageMode: S.get("challenge.messageMode") });
       if (!r) { if (!only) await markTried(message.id, "rollTried", key); continue; }
+      // бросок удержан ради переброски (hold.mjs): исход пишет replay после решения (acceptSavingThrow по маркеру), иначе записали бы провал до переброса.
+      // rollTried не ставим: он возвращает ГМу кнопку «Бросить» (chat.mjs), а бросок уже есть — до выпуска второй не нужен
+      if (isHeld(r.rollMessage)) continue;
       await recordResult(message.id, key, { degree: r.degree, total: r.total, by: game.user.id, rollMessageId: r.rollMessage?.id ?? null, src: "own" });
       done.push(key);
     } catch (e) { console.error(`${MOD} | runChallenge ${key}`, e); if (!only) await markTried(message.id, "rollTried", key); }
@@ -321,29 +325,32 @@ export async function recordResult(messageId, tokenKey, result) {
     }
     return { ok: true, changed };
   });
-  if (res.ok && !res.changed) await afterRecord(messageId, tokenKey);
+  if (res.ok) await afterRecord(messageId, tokenKey, res.changed);
   return res;
 }
 
-async function afterRecord(messageId, tokenKey) {
+async function afterRecord(messageId, tokenKey, changed = false) {
+  // урон по итогам basic-спасброска: поздний результат или переброс (в button наносит только кнопка)
+  try { await (await import("./builtin/basic-damage.mjs")).onResult(messageId); } catch (e) { console.error(`${MOD} | basic-damage`, e); }
+  if (changed) return;   // переброс после применения по степеням: шаги не повторяем
   let batch = false, deferred = false;
   try {
     const message = game.messages.get(messageId), ch = challengeOf(useOf(message));
     const by = ch.byDegree ?? {};
     const hasSteps = DEGREES.some((d) => by[d]?.length) || !!ch.immunity;
     const hasMacros = useOf(message).rule.macros?.some((m) => m.phase === "onDegree");
-    const apply = modeOf("apply");
+    const apply = effectiveMode("apply", useOf(message));
     // шаг move: в auto ждём результаты всех целей и применяем разом (дальние первыми); applyByDegree("all") сам зовёт afterChallenge
     const hasMove = Object.values(by).flat().some((s) => s?.move);
     // autoAll — пакет уже отработал: дальше (переброс, откат ГМа) только своя цель, откатанные чужие заново не применяются
-    if (apply === "auto" && useOf(message).confidence !== "low" && (hasSteps || hasMacros)) {
+    if (apply === "auto" && (hasSteps || hasMacros)) {
       if (!hasMove || useOf(message).state?.challenge?.autoAll) await applyByDegree(messageId, tokenKey);
       else if (await allResolved(message)) { await applyByDegree(messageId, "all", { auto: true }); batch = true; }
       else deferred = true;
     }
     if (!batch && await allResolved(message)) await afterChallenge(message);
   } catch (e) { console.error(`${MOD} | afterRecord`, e); }
-  if (modeOf("apply") !== "auto" || useOf(game.messages.get(messageId))?.confidence === "low") return;
+  if (effectiveMode("apply", useOf(game.messages.get(messageId))) !== "auto") return;
   // пакет закрыл всех бросивших; в ожидании «попытки» нет — кнопка «Применить» у них и так есть (chat.mjs)
   if (batch) for (const k of Object.keys(useOf(game.messages.get(messageId))?.state?.challenge?.results ?? {})) await markTried(messageId, "autoTried", k);
   else if (!deferred) await markTried(messageId, "autoTried", tokenKey);

@@ -6,6 +6,7 @@
 // Воздух кончился: pf2e (_preUpdate эффекта) на счётчике ниже минимума (min ?? 1) удаляет эффект и отменяет обновление, поэтому updateItem со значением 0
 // не приходит. Признак — удаление эффекта со счётчиком 1, пока хозяин ещё на актёре; при Освобождении хозяин уходит вместе с ним (один пакет удаления).
 import { L, MOD, queue, degreeFromTotal } from "../util.mjs";
+import { settledDegree } from "../hold.mjs";
 import { addEffect, addCondition, effectSource, whisper, whisperDC, esc, paHas } from "./lib.mjs";
 
 export const AIR_SLUG = "effect-remaining-air", SUFFOCATING_SLUG = "effect-suffocating", KEY = "suffocating";
@@ -60,9 +61,12 @@ export async function onEndTurn(combatant) {
     const eff = actor.itemTypes.effect.find((e) => e.slug === SUFFOCATING_SLUG);
     if (!eff) return;
     const n = eff.system.badge?.value ?? 1, dc = suffocationDC(n), token = combatant.token ?? actor.getActiveTokens(true, true)[0];
-    const roll = await actor.saves.fortitude.check.roll({ dc: { value: dc }, token, extraRollOptions: ["suffocating"], skipDialog: true });
+    let msg = null;
+    const roll = await actor.saves.fortitude.check.roll({ dc: { value: dc }, token, extraRollOptions: ["suffocating"], skipDialog: true, callback: (_r, _o, m) => { msg = m; } });
     if (!roll) return;   // бросок отменён — проверка не засчитана
-    const out = suffocationOutcome(roll.degreeOfSuccess ?? degreeFromTotal(roll.total, dc, roll.dice?.[0]?.results?.find((r) => r.active && !r.discarded)?.result ?? null), n);
+    const first = roll.degreeOfSuccess ?? degreeFromTotal(roll.total, dc, roll.dice?.[0]?.results?.find((r) => r.active && !r.discarded)?.result ?? null);
+    // удержан ради переброса (hold.mjs) — ждём итог; очередь актёра на это время занята (до HOLD_WAIT_MS), другого пути применения нет
+    const out = suffocationOutcome(await settledDegree(msg, first), n);
     if (out.dead) {
       await eff.delete();   // проверок больше нет; «Без сознания» — отдельное состояние и остаётся
       return void await whisper(actor, L("builtin.suffocation.dead", { name: esc(actor.name) }), "suffocation");

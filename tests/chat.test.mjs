@@ -204,6 +204,7 @@ test("метаигра: СЛ check скрыта у игрока (в шапке �
 test("заголовок равный названию предмета не выводится", () => {
   assert.equal(buildViewModel(mkMsg({}), gm, mkEnv()).title, null);
   assert.equal(buildViewModel(mkMsg({ rule: { ...fear, label: "Boo" } }), gm, mkEnv()).title, "Boo");
+  assert.equal(buildViewModel(mkMsg({ rule: { ...fear, label: "Scorching Column" }, slug: "scorching-column", item: { name: "Пылающая колонна" } }), gm, mkEnv()).title, null);   // английское имя правила игроку не показываем
 });
 
 test("окно реакции: только получателям шёпота, не после used; метаигра прячет степени игроку, ГМу нет", () => {

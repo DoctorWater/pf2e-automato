@@ -1,5 +1,5 @@
 // K2: конвейер использования. Контракт — plan.md §2 use.mjs, §3.A–C, §3.H, §1.4.
-import { MOD, L, flagPath, guardActiveGM, queue, debug, forcedDelete } from "./util.mjs";
+import { MOD, L, flagPath, guardActiveGM, queue, debug, forcedDelete, useTargetOverride } from "./util.mjs";
 import { S, modeOf } from "./settings.mjs";
 import * as compat from "./compat.mjs";
 import * as rules from "./rules.mjs";
@@ -54,7 +54,7 @@ export function itemUseKind(item) {
  * actor, token, dc, targets, yielded, consume, now }.
  */
 /** Бой и раунд сотворения (бой, где актёр участвует) — для Поддержания: «сотворено в этом раунде = поддержано». null — вне боя. */
-const castAt = (actorUuid) => { const c = globalThis.game?.combats?.find?.((x) => x.round > 0 && x.combatants.some((k) => k.actor?.uuid === actorUuid)); return c ? { combat: c.id, round: c.round } : null; };
+const castAt = (actorUuid) => { const p = globalThis.game?.combats ? sustain.posOfActor({ uuid: actorUuid }) : null; return p?.combat ? p : null; };   // тот же бой, что у Поддержания и лимитов (combatOf)
 export function buildSnapshot(i) {
   const rule = JSON.parse(JSON.stringify(i.resolved.rule));
   const state = {};
@@ -142,7 +142,8 @@ export const speakerToken = (sp) => (sp?.scene && sp.token ? game.scenes.get(sp.
 /** Цели нажавшего в снимок; для шагов по цели вне дальности — пометка far и предупреждение (область цели не берёт). */
 export function liveTargets(onUse, sp, item, rollOptions = []) {
   const tokenDoc = speakerToken(sp);
-  const targets = [...(game.user.targets ?? [])].map((t) => t.document ?? t).map((d) => ({
+  const forced = useTargetOverride.get(item?.actor?.uuid ?? tokenDoc?.actor?.uuid);
+  const targets = [...(forced ?? game.user.targets ?? [])].map((t) => t.document ?? t).map((d) => ({
     key: d.id, uuid: d.uuid, name: d.name, pc: !!d.actor?.hasPlayerOwner
   }));
   if (onUse?.targets !== "area" && targets.length && (onUse?.challenge || onUse?.check || onUse?.apply?.some((a) => a.to === "target"))) {
@@ -181,6 +182,11 @@ function onPreCreateRegion(region, data, options, userId) {
   if (userId !== game.user.id) return;
   const pf = data?.flags?.pf2e;
   if (!pf) return;
+  // место области дальше дальности: блок + предупреждение, обход — Alt при размещении (как у целей вне дальности, решение ГМа)
+  if (!game.keyboard?.isModifierActive?.("Alt")) {
+    const far = zone.areaFarFor(data, region.parent);
+    if (far) { ui.notifications?.warn(L("zone.areaFar", far)); return false; }
+  }
   const useFlag = pf.messageId ? game.messages.get(pf.messageId)?.flags?.[MOD]?.use : null;
   let rule = useFlag?.rule, yielded = useFlag?.state?.yielded;
   if (!useFlag && pf.origin) {
@@ -189,7 +195,7 @@ function onPreCreateRegion(region, data, options, userId) {
     yielded = r && compat.shouldYield(r.rule, { slug: r.slug, sourceUuid: r.sourceUuid });
   }
   if (rule?.onUse?.zone && modeOf("zone") !== "off" && !yielded) {
-    region.updateSource({ "flags.pf2e-toolbelt.targetHelper.skip": true });   // Template Helper на зонах не нужен (§3.B-2)
+    region.updateSource({ [compat.EXTERNAL.flags.tbSkip]: true });   // Template Helper на зонах не нужен (§3.B-2)
   }
 }
 

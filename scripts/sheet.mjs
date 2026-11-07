@@ -66,7 +66,7 @@ function rowCore(a) {
   if (a.removeCondition) return { to: a.to, kind: "remove", text: a.removeCondition.slug, value: "", policy: "max", keep, ...DUR_BLANK, ...VIS_BLANK, ...PERS_BLANK };
   const plain = (kind, text, value = "") => ({ to: a.to, kind, text, value, policy: "max", keep, ...DUR_BLANK, ...VIS_BLANK, ...PERS_BLANK });
   if (a.removeEffect) return plain("removeEffect", a.removeEffect.slug ?? a.removeEffect.uuid);
-  if (a.extendEffect) return plain("extendEffect", a.extendEffect.cast ? "*" : a.extendEffect.slug, a.extendEffect.rounds);   // «*» вместо slug — cast:true (эффекты этого же сотворения)
+  if (a.extendEffect) return plain("extendEffect", a.extendEffect.cast ? "*" : a.extendEffect.chosen ? "~" : a.extendEffect.slug, a.extendEffect.rounds);   // «*» вместо slug — cast:true (эффекты этого же сотворения), «~» — chosen:true (эффект, выбранный шагом выше)
   if (a.refundFocus) return plain("refundFocus", "");
   if (a.hold) return plain("hold", a.hold);
   if (a.rollOption) return plain("rollOption", a.rollOption.option);
@@ -129,7 +129,7 @@ function applyCore(r) {
   }
   if (r.kind === "hold") return { to, hold: text };
   if (r.kind === "removeEffect") return { to, removeEffect: { ...(/^[a-z0-9-]+$/.test(text) ? { slug: text } : { uuid: text }), ...(r.ofOrigin && { of: "origin" }) } };
-  if (r.kind === "extendEffect") return { to, extendEffect: { ...(text === "*" ? { cast: true } : { slug: text }), rounds: num(r.value) } };
+  if (r.kind === "extendEffect") return { to, extendEffect: { ...(text === "*" ? { cast: true } : text === "~" ? { chosen: true } : { slug: text }), rounds: num(r.value) } };
   if (r.kind === "rollOption") return { to, rollOption: { domain: String(r.domain ?? "").trim() || "all", option: text, ...(r.optOff && { value: false }) } };
   if (r.kind === "remove") return { to, removeCondition: { slug: text } };
   if (r.kind === "persistent") { const dc = num(r.value); return { to, persistent: { formula: text, damageType: r.pType, ...(dc !== undefined && { dc }) } }; }
@@ -227,6 +227,9 @@ function castRule(c) {
   };
 }
 
+/** Форма вкладки листа + то, что на вкладке не правится и едет как было (иначе сохранение потеряет: флаг перекрывает каталог). f — ruleToForm исходного правила. */
+export const carryUneditable = (form, f) => ({ ...form, ev: f.ev, cast: f.cast, pulse: f.pulse, range: f.range, failed: f.failed, damaged: f.damaged });
+
 export function ruleToForm(rule) {
   const u = rule?.onUse, c = u?.challenge, k = u?.check, z = u?.zone, r = rule?.onAttacked;
   const vs = k?.vs ?? {};
@@ -234,14 +237,15 @@ export function ruleToForm(rule) {
   return {
     label: rule?.label ?? "", yield: tri(rule?.yield),
     kind: u ? "onUse" : r ? "onAttacked" : rule?.onEvent?.length ? "onEvent" : rule?.activate?.length ? "cast" : "none",
-    ev: (rule?.onEvent ?? []).map(evForm), cast: (rule?.activate ?? []).map(castForm),
-    targets: u?.targets ?? "self", excludeSelf: tri(u?.excludeSelf), pulse: u?.pulse ?? "",
-    zone: { on: !!z, cond: z?.condition?.slug ?? "", condValue: z?.condition?.value ?? "", effect: z?.effect?.uuid ?? "", seconds: z?.duration?.seconds ?? "", rounds: z?.duration?.rounds ?? "", noFollow: z?.follow === false, enterBy: z?.enterBy ?? "end", gone: z?.onCarrierGone ?? "close", trig: (z?.triggers ?? []).map(trgForm) },
+    ev: (rule?.onEvent ?? []).map(evForm), cast: (rule?.activate ?? []).map(castForm), damaged: rule?.onDamaged ?? null, failed: rule?.onFailed ?? null,
+    targets: u?.targets ?? "self", excludeSelf: tri(u?.excludeSelf), pulse: u?.pulse ?? "", range: u?.range ?? null,   // range — дальность (оверлей/правило), в форме не редактируется, правка правила её не теряет
+    zone: { on: !!z, cond: z?.condition?.slug ?? "", condValue: z?.condition?.value ?? "", effect: z?.effect?.uuid ?? "", seconds: z?.duration?.seconds ?? "", rounds: z?.duration?.rounds ?? "", until: z?.duration?.until ?? "", sustainMax: z?.duration?.sustainMax ?? "", noFollow: z?.follow === false, enterBy: z?.enterBy ?? "end", gone: z?.onCarrierGone ?? "close", trig: (z?.triggers ?? []).map(trgForm) },
     ch: {
       on: !!c, statistic: c?.statistic ?? "reflex",
       dcType: dc.expr === "markup" ? "markup" : dc.source ? "source" : dc.against != null ? "against" : dc.expr != null ? "expr" : "value",
       dcText: dc.value ?? (dc.expr === "markup" ? "" : dc.expr ?? dc.against ?? ""),
       basic: !!c?.basic, traits: (c?.traits ?? []).join(", "), options: (c?.options ?? []).join(", "), when: whenText(c?.when),
+      dmgDeg: c?.damageByDegree ?? null,   // множители урона по степеням (не-basic): в форме не редактируются, но правка правила их не теряет
       imm: immForm(c?.immunity),
       deg: degRows(c?.byDegree)
     },
@@ -265,13 +269,14 @@ export function formToRule(f) {
   if (f.kind === "onUse") {
     const u = { targets: f.targets, excludeSelf: untri(f.excludeSelf), zone: null, challenge: null, apply: (f.apply ?? []).map(applyOf).filter(Boolean) };
     if (f.pulse && f.targets !== "self") u.pulse = f.pulse;
+    if (f.range) u.range = f.range;
     const z = f.zone ?? {};
     if (f.targets === "area" && z.on) {
-      const cv = num(z.condValue), s = num(z.seconds), r = num(z.rounds);
+      const cv = num(z.condValue), s = num(z.seconds), r = num(z.rounds), sm = num(z.sustainMax), until = z.until?.trim?.() || undefined;   // until/sustainMax — проброс (срок по ходу автора, zone.mjs), в форме не редактируются
       u.zone = {
         condition: z.cond?.trim() ? { slug: z.cond.trim(), ...(cv !== undefined && { value: cv }) } : null,
         effect: z.effect?.trim() ? { uuid: z.effect.trim() } : null,
-        duration: s !== undefined || r !== undefined ? { ...(s !== undefined && { seconds: s }), ...(r !== undefined && { rounds: r }) } : null,
+        duration: s !== undefined || r !== undefined || until ? { ...(until && { until }), ...(s !== undefined && { seconds: s }), ...(r !== undefined && { rounds: r }), ...(until && sm !== undefined && { sustainMax: sm }) } : null,
         events: null
       };
       if (z.noFollow) u.zone.follow = false;
@@ -284,7 +289,7 @@ export function formToRule(f) {
       const t = String(c.dcText ?? "").trim();
       const dc = { value: () => ({ value: num(t) }), expr: () => ({ expr: t }), against: () => ({ against: t }), markup: () => ({ expr: "markup" }), source: () => ({ source: "spell" }) }[c.dcType]?.() ?? {};
       u.challenge = {
-        statistic: c.statistic, dc, basic: !!c.basic, rollerRole: "target", byDegree: degSteps(c.deg),
+        statistic: c.statistic, dc, basic: !!c.basic, rollerRole: "target", byDegree: degSteps(c.deg), ...(c.dmgDeg && !c.basic && { damageByDegree: c.dmgDeg }),
         ...(csv(c.traits).length && { traits: csv(c.traits) }), ...(csv(c.options).length && { options: csv(c.options) }),
         ...(parseWhen(c.when) !== undefined && { when: parseWhen(c.when) }),
         ...(c.imm?.on && { immunity: immRule(c.imm) })
@@ -312,6 +317,8 @@ export function formToRule(f) {
   }
   if (f.ev?.length) rule.onEvent = f.ev.map(evRule);   // события живут рядом с любым видом правила
   if (f.cast?.length) rule.activate = f.cast.map(castRule);   // и активации тоже
+  if (f.failed) rule.onFailed = f.failed;   // как damaged: в форме не редактируется
+  if (f.damaged) rule.onDamaged = f.damaged;   // реакция на урон: в форме не редактируется (Мастерская — вне объёма), правка правила её не теряет
   rule.macros = (f.macros ?? []).filter((m) => String(m.uuid ?? "").trim())
     .map((m) => ({ ...(m.form === "builtin" && m.uuid.trim().startsWith("builtin:") ? { builtin: m.uuid.trim().slice(8) } : { uuid: m.uuid.trim() }), phase: m.phase, ...(m.phase === "onDegree" && m.degree && { degree: m.degree }) }));
   return rule;
@@ -542,7 +549,7 @@ async function inject(app, $html) {
 
   const sec = body.querySelector(`.tab.${TAB}`);
   const errBox = sec.querySelector(".af-errors");
-  const read = () => ({ ...readForm(sec), ev: bc.f.ev, cast: bc.f.cast, pulse: bc.f.pulse });   // события и активации на вкладке не правятся (Мастерская) — едут как были, иначе сохранение их потеряет
+  const read = () => carryUneditable(readForm(sec), bc.f);   // события, активации, onFailed/onDamaged на вкладке не правятся — едут как были
   const draft = () => { app._afDraft = read(); syncUi(sec); };
   const build = () => {
     const v = validateRule(formToRule(read()));

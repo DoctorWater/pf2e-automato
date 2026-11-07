@@ -1,0 +1,5019 @@
+{
+ "v": 1,
+ "bySource": {
+  "Compendium.pf2e.actionspf2e.Item.c40APnn4a7bWhtcZ": {
+   "ft": 60
+  },
+  "Compendium.pf2e.pathfinder-npc-core.Actor.JfAyvn0mKWptD9xr.Item.hkMVYwUs86ro24qA": {
+   "ft": 100
+  },
+  "Compendium.pf2e.feats-srd.Item.wKHlsN1QpjehQrRC": {
+   "ft": 30
+  },
+  "Compendium.pf2e.pathfinder-monster-core-2.Actor.KTLPENmqBoOpdkAt.Item.w8F8nbp4IWZUSgyW": {
+   "ft": 30
+  },
+  "Compendium.pf2e.season-of-ghosts-bestiary.Actor.BQvtFFZIfICblybJ.Item.KDUeQyj1J71Vb3Q1": {
+   "ft": 100
+  },
+  "Compendium.pf2e.pfs-season-2-bestiary.Actor.E0V3aKLWuXyWrY8C.Item.deohz0twkhfh85sb": {
+   "ft": 60
+  },
+  "Compendium.pf2e.pfs-season-2-bestiary.Actor.EK8DKarizcVrLG5E.Item.wbfdtdnqgg8vspks": {
+   "ft": 60
+  },
+  "Compendium.pf2e.pfs-season-3-bestiary.Actor.LG2pZMbLXZKtcWZh.Item.CPA8ExaPOUENzjZ7": {
+   "ft": 10
+  },
+  "Compendium.pf2e.book-of-the-dead-bestiary.Actor.j88xR2MqqZrmF5Wz.Item.53r0jhgz2tlvtcn9": {
+   "ft": 100
+  },
+  "Compendium.pf2e.battlecry-bestiary.Actor.mKQXrEpheSCjgJt8.Item.yhqrLAWULs5GIiU6": {
+   "ft": 30,
+   "area": true
+  },
+  "Compendium.pf2e.battlecry-bestiary.Actor.xEWRFIUNr52EmwVM.Item.AhZyxStzEuZNYrN6": {
+   "ft": 60
+  },
+  "Compendium.pf2e.revenge-of-the-runelords-bestiary.Actor.sUGjEmOq1cW5hK4D.Item.UmjP1aHWQqM8kwpY": {
+   "ft": 10
+  },
+  "Compendium.pf2e.the-dead-gods-hand-bestiary.Actor.O7dYMUmjENgExuFr.Item.BO6DKXRuOYH8iiGE": {
+   "ft": 30
+  },
+  "Compendium.pf2e.battlecry-bestiary.Actor.p8sGnipPHZuoyg9F.Item.7GGKYj0XvXO8RIX5": {
+   "ft": 90,
+   "area": true
+  },
+  "Compendium.pf2e.the-dead-gods-hand-bestiary.Actor.csFQUqdby85fNSg6.Item.DnSc3YXaQYa542VJ": {
+   "ft": 120,
+   "area": true
+  },
+  "Compendium.pf2e.the-dead-gods-hand-bestiary.Actor.viafxrsGsWJEBRTM.Item.DnSc3YXaQYa542VJ": {
+   "ft": 120,
+   "area": true
+  },
+  "Compendium.pf2e.the-dead-gods-hand-bestiary.Actor.vP8x4oN80AWooZ0Y.Item.p52lQS3VKK447diy": {
+   "ft": 120
+  },
+  "Compendium.pf2e.pathfinder-monster-core-2.Actor.m5RPM69TunmznsUq.Item.rn98FxtONFSjUuOQ": {
+   "ft": 20
+  },
+  "Compendium.pf2e.feats-srd.Item.ifSICnbInp90gcf3": {
+   "ft": 60,
+   "area": true
+  },
+  "Compendium.pf2e.kingmaker-bestiary.Actor.rnFjLc6xYYPtXS6a.Item.AFz5oCbdGYZQVrDD": {
+   "ft": 60
+  },
+  "Compendium.pf2e.agents-of-edgewatch-bestiary.Actor.fvOjtzuRNpmpEHXA.Item.Zc0ocF6ln2ziU1iE": {
+   "ft": 30
+  },
+  "Compendium.pf2e.fists-of-the-ruby-phoenix-bestiary.Actor.vjE1lUpklp4slNbd.Item.OgFZ82Cgk6qKkD9l": {
+   "ft": 100,
+   "area": true
+  },
+  "Compendium.pf2e.pathfinder-bestiary-3.Actor.QLxcPfaHfc1vmF1Y.Item.OgFZ82Cgk6qKkD9l": {
+   "ft": 100,
+   "area": true
+  },
+  "Compendium.pf2e.shades-of-blood-bestiary.Actor.DIJlAQAUQ6N5PwRO.Item.Q7WGjFfPximtfu8p": {
+   "ft": 30
+  },
+  "Compendium.pf2e.lost-omens-bestiary.Actor.O65PlKiIRpj50sXu.Item.qg1YTpzUg6KvMuWQ": {
+   "ft": 60
+  },
+  "Compendium.pf2e.pathfinder-monster-core-2.Actor.ZpI0J6giV6hacfTw.Item.qg1YTpzUg6KvMuWQ": {
+   "ft": 60
+  },
+  "Compendium.pf2e.pathfinder-monster-core-2.Actor.iOYLNPBikuBfVBDu.Item.f3zHkq2zmnlBI36y": {
+   "ft": 60
+  },
+  "Compendium.pf2e.feats-srd.Item.tinTdUGzxWStlf44": {
+   "ft": 500,
+   "area": true
+  },
+  "Compendium.pf2e.feats-srd.Item.R3nv6GqV8K6SjGoV": {
+   "ft": 30
+  },
+  "Compendium.pf2e.feats-srd.Item.BXrnQ8qKf09f3spc": {
+   "ft": 30
+  },
+  "Compendium.pf2e.pfs-season-6-bestiary.Actor.nED8QjH3NCWn6qnZ.Item.mKVFCAPdTAuf1a3Y": {
+   "ft": 20
+  },
+  "Compendium.pf2e.sky-kings-tomb-bestiary.Actor.xuKlDtvqQvbpGWt4.Item.CEfswh5tNUyZKkgV": {
+   "ft": 30
+  },
+  "Compendium.pf2e.age-of-ashes-bestiary.Actor.HI2xA7LCpNPkpV03.Item.whQM5kvewGUXnnLe": {
+   "ft": 20
+  },
+  "Compendium.pf2e.pathfinder-monster-core-2.Actor.vgM18Dm3ur29KJjA.Item.qbm10J9qDUiFCQDn": {
+   "ft": 100
+  },
+  "Compendium.pf2e.battlecry-bestiary.Actor.C3WZzBOvaQ5LrlZ9.Item.CEKjsBaoB9qScWqZ": {
+   "ft": 200,
+   "area": true
+  },
+  "Compendium.pf2e.feats-srd.Item.cg6iASOmkTadIYCd": {
+   "ft": 120
+  },
+  "Compendium.pf2e.agents-of-edgewatch-bestiary.Actor.1eMDYXXf2leLTYHV.Item.vvMB5rLp5hejSAmy": {
+   "ft": 30
+  },
+  "Compendium.pf2e.hells-destiny-bestiary.Actor.02AGznZTv5jjcnOg.Item.tAmUn1fmHBzAZrMX": {
+   "ft": 100,
+   "area": true
+  },
+  "Compendium.pf2e.hells-destiny-bestiary.Actor.zBLBcf920EzpZve3.Item.UcAL6U3amw64JFv3": {
+   "ft": 80,
+   "area": true
+  },
+  "Compendium.pf2e.pathfinder-npc-core.Actor.02AGznZTv5jjcnOg.Item.tAmUn1fmHBzAZrMX": {
+   "ft": 100,
+   "area": true
+  },
+  "Compendium.pf2e.feats-srd.Item.sM3nmDi3PHWI64SH": {
+   "ft": 60
+  },
+  "Compendium.pf2e.abomination-vaults-bestiary.Actor.bif3iQcDPi27rx6x.Item.nvaQh9xjojojnL27": {
+   "ft": 30
+  },
+  "Compendium.pf2e.fists-of-the-ruby-phoenix-bestiary.Actor.FwIJpQn1FIpGgvIY.Item.k24P6PGDrlTJbz5h": {
+   "ft": 10
+  },
+  "Compendium.pf2e.quest-for-the-frozen-flame-bestiary.Actor.OpPfAFkJ1ctWAWdq.Item.o62LCgpDL6DMAzcC": {
+   "ft": 60
+  },
+  "Compendium.pf2e.pathfinder-monster-core.Actor.z2l8K7woKYPkm0qz.Item.9ROgeFg0LqFYjWto": {
+   "ft": 180
+  },
+  "Compendium.pf2e.quest-for-the-frozen-flame-bestiary.Actor.haLAebehr7ppMlPn.Item.9ROgeFg0LqFYjWto": {
+   "ft": 180
+  },
+  "Compendium.pf2e.battlecry-bestiary.Actor.K6PtvumX6CbtYaQg.Item.q3zI9N0p1dOqMF4D": {
+   "ft": 60
+  },
+  "Compendium.pf2e.pathfinder-monster-core-2.Actor.SjTv1ayVrguLsnTX.Item.4Uoy7JHv0Ea9SrCr": {
+   "ft": 30
+  },
+  "Compendium.pf2e.pathfinder-bestiary-2.Actor.tIDbOvltrFsgnwgf.Item.hTuKXeGWvUSUobx7": {
+   "ft": 100
+  },
+  "Compendium.pf2e.pfs-season-2-bestiary.Actor.ckvfamrYKeUYX7Cl.Item.hTuKXeGWvUSUobx7": {
+   "ft": 100
+  },
+  "Compendium.pf2e.feats-srd.Item.Rp8h8cmFIsfDlw7q": {
+   "ft": 30
+  },
+  "Compendium.pf2e.hells-destiny-bestiary.Actor.GuiX0E1byR2pt7K4.Item.HOIGg1GjZy5R358W": {
+   "ft": 30,
+   "area": true
+  },
+  "Compendium.pf2e.triumph-of-the-tusk-bestiary.Actor.OsTGE1vwaCTo23Gl.Item.YWyQit82EKTwWaPD": {
+   "ft": 60
+  },
+  "Compendium.pf2e.kingmaker-bestiary.Actor.5npzwOJSQLSPhmx2.Item.wSYY3PhHktTGw8ua": {
+   "ft": 100
+  },
+  "Compendium.pf2e.battlecry-bestiary.Actor.tKPZ1iDZukJDvzAK.Item.298SOrPtZWcvtOhq": {
+   "ft": 120,
+   "area": true
+  },
+  "Compendium.pf2e.actionspf2e.Item.nTBrvt2b9wngyr0i": {
+   "ft": 30,
+   "grow": {
+    "every": 4,
+    "add": 15
+   }
+  },
+  "Compendium.pf2e.pathfinder-npc-core.Actor.mD4gjp3Yus8TXGUs.Item.bebHn8ZDmnBLO13f": {
+   "ft": 15
+  },
+  "Compendium.pf2e.iconics.Actor.XaBCp3DygrjJaqR7.Item.KyrJHddtmPBXdDnt": {
+   "ft": 30,
+   "grow": {
+    "every": 4,
+    "add": 15
+   }
+  },
+  "Compendium.pf2e.menace-under-otari-bestiary.Actor.PLZk6zY5iwccPTPS.Item.yeHohyJSYfiTwghO": {
+   "ft": 60
+  },
+  "Compendium.pf2e.strength-of-thousands-bestiary.Actor.zfo1oFWRg3A2BxTQ.Item.5fcubhgvrgux06na": {
+   "ft": 60
+  },
+  "Compendium.pf2e.feats-srd.Item.nBlzWZnmYuFHrMyV": {
+   "ft": 30
+  },
+  "Compendium.pf2e.feats-srd.Item.ANOXSBs2lm11vsWO": {
+   "ft": 30
+  },
+  "Compendium.pf2e.feats-srd.Item.e1Dc8fxK8NoSvYdT": {
+   "ft": 60
+  },
+  "Compendium.pf2e.extinction-curse-bestiary.Actor.QMFlW9qrUKWBOF1Q.Item.JXwGkvpYAsrmdfj9": {
+   "ft": 60
+  },
+  "Compendium.pf2e.extinction-curse-bestiary.Actor.TdqGpBasgDOUqmNp.Item.p7TxyyKhv9w7s5Xp": {
+   "ft": 30
+  },
+  "Compendium.pf2e.season-of-ghosts-bestiary.Actor.2FOiW8VcaDyd8EIz.Item.8c65aVAQlagz2Ix5": {
+   "ft": 60
+  },
+  "Compendium.pf2e.age-of-ashes-bestiary.Actor.NrMgYvnIHFxeFEhX.Item.bbL3QbriTw1sy7so": {
+   "ft": 120,
+   "area": true
+  },
+  "Compendium.pf2e.triumph-of-the-tusk-bestiary.Actor.Yqv9J9FXRolHhGZ4.Item.IPhN7eq8covAwb4n": {
+   "ft": 30
+  },
+  "Compendium.pf2e.lost-omens-bestiary.Actor.9DwBxIoHnUShWw1Q.Item.RKz5iqiz10TiodA6": {
+   "ft": 60,
+   "area": true
+  },
+  "Compendium.pf2e.lost-omens-bestiary.Actor.KZi4BkWZhGXR3lt3.Item.RKz5iqiz10TiodA6": {
+   "ft": 80,
+   "area": true
+  },
+  "Compendium.pf2e.lost-omens-bestiary.Actor.PoL0b0ro9SES3N3t.Item.Mn6J9sGKxgEPsSFM": {
+   "ft": 40,
+   "area": true
+  },
+  "Compendium.pf2e.lost-omens-bestiary.Actor.Q2RKuEDXFh2uezrF.Item.N9uynDS2jAyjfbwR": {
+   "ft": 50,
+   "area": true
+  },
+  "Compendium.pf2e.bestiary-family-ability-glossary.Item.hEeHuM3OVzJADsSa": {
+   "ft": 60
+  },
+  "Compendium.pf2e.troubles-in-grayce-bestiary.Actor.65OzVr2FfL0mX3Qy.Item.tNWOyHfH3aDWO5Ej": {
+   "ft": 60
+  },
+  "Compendium.pf2e.agents-of-edgewatch-bestiary.Actor.SgkV5RtcK72d0HwI.Item.qCVeUkgwYXq7lu8z": {
+   "ft": 60,
+   "area": true
+  },
+  "Compendium.pf2e.book-of-the-dead-bestiary.Actor.KhHVStbsPSuPElFI.Item.bpw486wu7j66tqyz": {
+   "ft": 60,
+   "area": true
+  },
+  "Compendium.pf2e.shades-of-blood-bestiary.Actor.2CTbUmwKQUL2Wlqm.Item.NSJfJ8LJDfLasQQF": {
+   "ft": 30
+  },
+  "Compendium.pf2e.hellbreakers-bestiary.Actor.c7Q4geXnB0FD8D8E.Item.16ZFULnotAOQsWlX": {
+   "ft": 50
+  },
+  "Compendium.pf2e.pfs-season-3-bestiary.Actor.phgXSggQiGRNn4Yr.Item.LtLpVRWe7Qsb7Y8A": {
+   "ft": 30
+  },
+  "Compendium.pf2e.pfs-season-6-bestiary.Actor.Rp8njnRbTcxIL1EQ.Item.vKHq35aOubDlbfbC": {
+   "ft": 30
+  },
+  "Compendium.pf2e.pfs-season-6-bestiary.Actor.yK21Z5gW12GLJmvZ.Item.vKHq35aOubDlbfbC": {
+   "ft": 30
+  },
+  "Compendium.pf2e.sky-kings-tomb-bestiary.Actor.iAuDqIBSYHYOnkZD.Item.luXDrTUUoPKFlTCR": {
+   "ft": 120,
+   "area": true
+  },
+  "Compendium.pf2e.battlecry-bestiary.Actor.7IqiSn10q9ctmzys.Item.bDE87FD5U7tvqvaA": {
+   "ft": 120,
+   "area": true
+  },
+  "Compendium.pf2e.hells-destiny-bestiary.Actor.6P4BDBCf2590YTrQ.Item.bDE87FD5U7tvqvaA": {
+   "ft": 120,
+   "area": true
+  },
+  "Compendium.pf2e.hells-destiny-bestiary.Actor.7IqiSn10q5ctmzys.Item.bDE87FD5U7tvqvaA": {
+   "ft": 120,
+   "area": true
+  },
+  "Compendium.pf2e.hells-destiny-bestiary.Actor.7IqiSn10q9ctmzys.Item.bDE87FD5U7tvqvaA": {
+   "ft": 120,
+   "area": true
+  },
+  "Compendium.pf2e.hells-destiny-bestiary.Actor.oRSpgjem7NFCsxPt.Item.bDE87FD5U7tvqvaA": {
+   "ft": 120,
+   "area": true
+  },
+  "Compendium.pf2e.pathfinder-npc-core.Actor.iYGdNF9BarBiJUJJ.Item.ZPXu4TvscTOjN44e": {
+   "ft": 120,
+   "area": true
+  },
+  "Compendium.pf2e.battlecry-bestiary.Actor.6miTTZwtCs2ouJbv.Item.EONX1OgwRhf35gSm": {
+   "ft": 120,
+   "area": true
+  },
+  "Compendium.pf2e.lost-omens-bestiary.Actor.qmw82W0WhPkn9UTW.Item.FkfXWMpE0nsQUZOW": {
+   "ft": 200,
+   "area": true
+  },
+  "Compendium.pf2e.pathfinder-npc-core.Actor.xnHaTClGCleGFoLP.Item.HK3El8JaNgkSuAIQ": {
+   "ft": 60,
+   "area": true
+  },
+  "Compendium.pf2e.feats-srd.Item.0GF2j54roPFIDmXf": {
+   "ft": 30
+  },
+  "Compendium.pf2e.iconics.Actor.MN9BqArrzWL3u0AT.Item.rl4erNoV2YFZZ3yD": {
+   "ft": 30
+  },
+  "Compendium.pf2e.feats-srd.Item.6dpBiQ9lhgrAQzCd": {
+   "ft": 30
+  },
+  "Compendium.pf2e.pathfinder-npc-core.Actor.bQsdRYWGcUvXdp5G.Item.KDWPCHtHzOmFyl27": {
+   "ft": 30
+  },
+  "Compendium.pf2e.feats-srd.Item.zQeglKcmBXvqfABR": {
+   "ft": 30
+  },
+  "Compendium.pf2e.malevolence-bestiary.Actor.JMXNSC7M2SRGZbhy.Item.CDTtHeFOvz7H1Jqo": {
+   "ft": 30
+  },
+  "Compendium.pf2e.menace-under-otari-bestiary.Actor.6T8gVU03wdpYdPgg.Item.1abnSJGdHEvG6Lyl": {
+   "ft": 60,
+   "area": true
+  },
+  "Compendium.pf2e.feats-srd.Item.nkYBSuqCWcIgqjj0": {
+   "ft": 30
+  },
+  "Compendium.pf2e.agents-of-edgewatch-bestiary.Actor.2uxm1SxZXaG0ynCp.Item.HkUjt1e6CiwdfHoy": {
+   "ft": 10
+  },
+  "Compendium.pf2e.battlecry-bestiary.Actor.zy9mm8SibtzghVUP.Item.vTdnKvhxzs5uAmUE": {
+   "ft": 120
+  },
+  "Compendium.pf2e.battlecry-bestiary.Actor.zy9mm8SibtzghVUP.Item.EONX1OgwRhf35gSm": {
+   "ft": 120,
+   "area": true
+  },
+  "Compendium.pf2e.stolen-fate-bestiary.Actor.KgwkUtJ8czIC0KFj.Item.IZVxmKtbXiti9BZx": {
+   "ft": 100
+  },
+  "Compendium.pf2e.revenge-of-the-runelords-bestiary.Actor.jcWh8ro0ZSDmVw3N.Item.q1fqaxiO1N044hVt": {
+   "ft": 30
+  },
+  "Compendium.pf2e.battlecry-bestiary.Actor.V2vFgzymDp2wKRwh.Item.eVKtrWe3AVnZoOrz": {
+   "ft": 80,
+   "area": true
+  },
+  "Compendium.pf2e.pathfinder-npc-core.Actor.fadWrz7SnifBx4yz.Item.ZuDGBQWUf1cSV69U": {
+   "ft": 60
+  },
+  "Compendium.pf2e.pathfinder-bestiary-2.Actor.cijMuXBk8YUw2RoB.Item.s7GGq81IzCx73D2B": {
+   "ft": 30
+  },
+  "Compendium.pf2e.extinction-curse-bestiary.Actor.oYstle5FAR800UQT.Item.jajMdZuaov0LtkBl": {
+   "ft": 30
+  },
+  "Compendium.pf2e.feats-srd.Item.pBlmJIHlSyt4zpHv": {
+   "ft": 10
+  },
+  "Compendium.pf2e.actionspf2e.Item.jTfJzj1yfmPLsxmj": {
+   "ft": 30
+  },
+  "Compendium.pf2e.pathfinder-monster-core-2.Actor.QAa0xdLT9cBxw2zh.Item.ETNgNhnYD6MkhTVc": {
+   "ft": 60
+  },
+  "Compendium.pf2e.pathfinder-monster-core.Actor.nMC9d7ORMz3cdaHa.Item.xheziaVMnj1iAjP5": {
+   "ft": 50,
+   "area": true
+  },
+  "Compendium.pf2e.pfs-season-1-bestiary.Actor.js2sA6P939oTuLuI.Item.OsTExLtsjB0OOmeN": {
+   "ft": 50,
+   "area": true
+  },
+  "Compendium.pf2e.pfs-season-1-bestiary.Actor.vV6a488IlsKsHpL8.Item.OsTExLtsjB0OOmeN": {
+   "ft": 50,
+   "area": true
+  },
+  "Compendium.pf2e.pfs-season-6-bestiary.Actor.wcgXXXDuc8RzUl3P.Item.xheziaVMnj1iAjP5": {
+   "ft": 50,
+   "area": true
+  },
+  "Compendium.pf2e.bastion-of-blasphemies-bestiary.Actor.aEuFu2OCViPxG08f.Item.KOfcz82i7M0Ovx85": {
+   "ft": 60
+  },
+  "Compendium.pf2e.feats-srd.Item.m8g005RYjH7BAoyT": {
+   "ft": 30
+  },
+  "Compendium.pf2e.pathfinder-npc-core.Actor.g4SvRClK7ftg3kSD.Item.TsIMe0two808SLOk": {
+   "ft": 30
+  },
+  "Compendium.pf2e.pfs-season-6-bestiary.Actor.l2hVUFGqqmGPzPIy.Item.UvJdT9nuDSWWQ7kb": {
+   "ft": 30
+  },
+  "Compendium.pf2e.pfs-season-6-bestiary.Actor.pHKWW2XeJ2MwGQnJ.Item.UvJdT9nuDSWWQ7kb": {
+   "ft": 30
+  },
+  "Compendium.pf2e.the-dead-gods-hand-bestiary.Actor.2OnNb1mf2eqYFVtS.Item.065G2HYp4XesZF5h": {
+   "ft": 30
+  },
+  "Compendium.pf2e.battlecry-bestiary.Actor.1erSkftJQkpxYziy.Item.oJPw0n4DdxpkVNlK": {
+   "ft": 30
+  },
+  "Compendium.pf2e.battlecry-bestiary.Actor.5JQ5nf7LZt05EYiF.Item.6n1YNpA9sckKPpwJ": {
+   "ft": 30
+  },
+  "Compendium.pf2e.pfs-season-6-bestiary.Actor.dCIHriuIvqhS1SDB.Item.xheziaVMnj1iAjP5": {
+   "ft": 30,
+   "area": true
+  },
+  "Compendium.pf2e.pfs-season-6-bestiary.Actor.vcFcMU2RSaYdnbo0.Item.xheziaVMnj1iAjP5": {
+   "ft": 50,
+   "area": true
+  },
+  "Compendium.pf2e.triumph-of-the-tusk-bestiary.Actor.79GS1x0EcQ8CKfoE.Item.icBZdOrWFrrLWlUV": {
+   "ft": 30
+  },
+  "Compendium.pf2e.pfs-season-1-bestiary.Actor.pxDyzHzkEQTz3R1K.Item.HBUzBG6pRbx2Oh3I": {
+   "ft": 30,
+   "area": true
+  },
+  "Compendium.pf2e.pfs-season-1-bestiary.Actor.whbIBJJxlv5oVm6c.Item.88mycrSkjCeAndzB": {
+   "ft": 30,
+   "area": true
+  },
+  "Compendium.pf2e.outlaws-of-alkenstar-bestiary.Actor.GmK9VzDtB1i7pmGI.Item.7iwtezAN9Z74j1kA": {
+   "ft": 100,
+   "area": true
+  },
+  "Compendium.pf2e.pathfinder-monster-core-2.Actor.Iy3DchRS4K7yEBDT.Item.UGRi6jtanncjgKZK": {
+   "ft": 60
+  },
+  "Compendium.pf2e.hells-destiny-bestiary.Actor.RkRec3jq3kVw3Sbt.Item.9TL1iTBEfy4ehCEZ": {
+   "ft": 60
+  },
+  "Compendium.pf2e.feats-srd.Item.7G773pjnePFgnYxw": {
+   "ft": 30
+  },
+  "Compendium.pf2e.book-of-the-dead-bestiary.Actor.8o27tdIZFp0eTs5N.Item.jjm9aum1hxm0xf4c": {
+   "ft": 100
+  },
+  "Compendium.pf2e.book-of-the-dead-bestiary.Actor.Wv9iS7JacYjymqlY.Item.gDkkvEZZSC6HPnDm": {
+   "ft": 100
+  },
+  "Compendium.pf2e.the-slithering-bestiary.Actor.6U8P0ITf4gkJfeKD.Item.4maY1JQ0qP66nbU1": {
+   "ft": 30
+  },
+  "Compendium.pf2e.feats-srd.Item.TMwqXqqggiblvEGZ": {
+   "ft": 30
+  },
+  "Compendium.pf2e.feats-srd.Item.gCUJYnWPQ9VM8eXk": {
+   "ft": 30
+  },
+  "Compendium.pf2e.malevolence-bestiary.Actor.sdpB7n2LbzVRqrnv.Item.45tIfcu3EgUSitRf": {
+   "ft": 30
+  },
+  "Compendium.pf2e.pathfinder-monster-core-2.Actor.QgHtsAbVYswHzMC2.Item.zrrnfOeDLg5Dfw5r": {
+   "ft": 30
+  },
+  "Compendium.pf2e.feats-srd.Item.UVfNMSVC2ZKTDlgf": {
+   "ft": 30
+  },
+  "Compendium.pf2e.howl-of-the-wild-bestiary.Actor.bH0T5d1uXWVRCvbo.Item.8t5Ell1WdxVDU0DO": {
+   "ft": 60
+  },
+  "Compendium.pf2e.pathfinder-npc-core.Actor.kbZstaIc8R4Ce9A3.Item.GApt2iz68EEP5A7N": {
+   "ft": 60
+  },
+  "Compendium.pf2e.feats-srd.Item.BmngPSf3ZrzcmXcW": {
+   "ft": 30,
+   "area": true
+  },
+  "Compendium.pf2e.hells-destiny-bestiary.Actor.TB2tEOhonITJWcM0.Item.1BwV9TFJ4LsBz1jc": {
+   "ft": 10,
+   "area": true
+  },
+  "Compendium.pf2e.pathfinder-bestiary-2.Actor.jQ7zBVDCEhuMOOTl.Item.gS1EUP1J8sgiDyR1": {
+   "ft": 30
+  },
+  "Compendium.pf2e.pathfinder-monster-core.Actor.iy5XBb2u4BOVxjtz.Item.Nl0sqXtr54YzMawN": {
+   "ft": 30
+  },
+  "Compendium.pf2e.strength-of-thousands-bestiary.Actor.tvDUeXGTZWKUHr3V.Item.mq9s4yu5bx9phcyh": {
+   "ft": 60
+  },
+  "Compendium.pf2e.extinction-curse-bestiary.Actor.2bu9oGbB7UUTq2sR.Item.yTuD5OYd94nyf8YO": {
+   "ft": 100
+  },
+  "Compendium.pf2e.extinction-curse-bestiary.Actor.5tlPKUZroqzycuzD.Item.1329nZKSKvV6X654": {
+   "ft": 100
+  },
+  "Compendium.pf2e.extinction-curse-bestiary.Actor.YaKW9i3v9nn8Blij.Item.1329nZKSKvV6X654": {
+   "ft": 100
+  },
+  "Compendium.pf2e.feats-srd.Item.KYF9e4oeSjHKgbwM": {
+   "ft": 60
+  },
+  "Compendium.pf2e.bestiary-family-ability-glossary.Item.rviye8dQX9vCsVm8": {
+   "ft": 30,
+   "area": true
+  },
+  "Compendium.pf2e.gatewalkers-bestiary.Actor.RwdczmexMQkSckwL.Item.H8ALnnlrmPiHuuCz": {
+   "ft": 60,
+   "area": true
+  },
+  "Compendium.pf2e.quest-for-the-frozen-flame-bestiary.Actor.TbVMaYNvcXUI5aY8.Item.wrq2ffxoouebysd4": {
+   "ft": 30
+  },
+  "Compendium.pf2e.abomination-vaults-bestiary.Actor.DDJGNAh3rfyIupAb.Item.QSEVW6fObs2AVajU": {
+   "ft": 30
+  },
+  "Compendium.pf2e.strength-of-thousands-bestiary.Actor.5tqXmxNn2WgtZgV4.Item.0ttw26ibf97lzwbw": {
+   "ft": 20,
+   "area": true
+  },
+  "Compendium.pf2e.hellbreakers-bestiary.Actor.0HqkraclIhcufOKV.Item.dZhdS0NIUFbQffp2": {
+   "ft": 60
+  },
+  "Compendium.pf2e.lost-omens-bestiary.Actor.j3NhCEMLVm4HSsgr.Item.ZJFGBeTiZ93ng9Uy": {
+   "ft": 100
+  },
+  "Compendium.pf2e.feats-srd.Item.rpBHUvBKodPCHaET": {
+   "ft": 30,
+   "area": true
+  },
+  "Compendium.pf2e.claws-of-the-tyrant-bestiary.Actor.OlBw2JqWcb3aBfKf.Item.EwPpx9qt7yiACenv": {
+   "ft": 40,
+   "area": true
+  },
+  "Compendium.pf2e.hells-destiny-bestiary.Actor.TW3yT4azbVM6GV18.Item.vflRjjd5NHRkgg3m": {
+   "ft": 100,
+   "area": true
+  },
+  "Compendium.pf2e.lost-omens-bestiary.Actor.bw0goZdFy50v5h7G.Item.Zuezb3juqCpTStBu": {
+   "ft": 60,
+   "area": true
+  },
+  "Compendium.pf2e.lost-omens-bestiary.Actor.LMXBGYOXgqorTvYf.Item.g0ZkjICoW8HgQuyu": {
+   "ft": 60,
+   "area": true
+  },
+  "Compendium.pf2e.book-of-the-dead-bestiary.Actor.cEJh8SY1YDULyhI9.Item.xt70n62im3owz0y2": {
+   "ft": 30
+  },
+  "Compendium.pf2e.claws-of-the-tyrant-bestiary.Actor.Q0ASK7LvvRXfJe7v.Item.aLtyJgHpWoazCXtA": {
+   "ft": 30,
+   "area": true
+  },
+  "Compendium.pf2e.rage-of-elements-bestiary.Actor.g9hnlCy2R4uspfAI.Item.jLxHgJbqySWEesMi": {
+   "ft": 120,
+   "area": true
+  },
+  "Compendium.pf2e.rage-of-elements-bestiary.Actor.m6lUcyekHwJxTLzo.Item.jLxHgJbqySWEesMi": {
+   "ft": 120,
+   "area": true
+  },
+  "Compendium.pf2e.extinction-curse-bestiary.Actor.1vOre5O8t3pQPUp6.Item.luzb0P0GAIgFEHxS": {
+   "ft": 30
+  },
+  "Compendium.pf2e.blood-lords-bestiary.Actor.O0jtf0qQnuSTrNUp.Item.tt9zjjDEJVENUiuV": {
+   "ft": 30
+  },
+  "Compendium.pf2e.pfs-season-4-bestiary.Actor.woCCr4BBVOjc3x92.Item.tt9zjjDEJVENUiuV": {
+   "ft": 30
+  },
+  "Compendium.pf2e.pathfinder-monster-core-2.Actor.2Uz8i4Q3xaECmemr.Item.4SUjs1Fnnil2m2Qt": {
+   "ft": 20
+  },
+  "Compendium.pf2e.pfs-season-2-bestiary.Actor.VbRX9bK5kLIJWnXH.Item.RltonTctqXIM2FmD": {
+   "ft": 20
+  },
+  "Compendium.pf2e.pfs-season-2-bestiary.Actor.sm6SKZaGvDSAAwde.Item.RltonTctqXIM2FmD": {
+   "ft": 20
+  },
+  "Compendium.pf2e.pfs-season-5-bestiary.Actor.8PWnKKHdqNP1oByv.Item.4SUjs1Fnnil2m2Qt": {
+   "ft": 20
+  },
+  "Compendium.pf2e.pfs-season-5-bestiary.Actor.sojCHh1TezXP7JhA.Item.4SUjs1Fnnil2m2Qt": {
+   "ft": 20
+  },
+  "Compendium.pf2e.pathfinder-bestiary.Actor.4cPw8hZwW6uvyzvh.Item.pSi2yAlBjhVTBwq8": {
+   "ft": 30
+  },
+  "Compendium.pf2e.feats-srd.Item.ycmxU7gySnfsO1Se": {
+   "ft": 30
+  },
+  "Compendium.pf2e.feats-srd.Item.1sojLNzisrsw0dhW": {
+   "ft": 30
+  },
+  "Compendium.pf2e.age-of-ashes-bestiary.Actor.SVh7cPwyGgmZORVz.Item.n327lTMbR7EaIPxV": {
+   "ft": 30
+  },
+  "Compendium.pf2e.feats-srd.Item.azyp4nQgAPDI6nKv": {
+   "ft": 30
+  },
+  "Compendium.pf2e.feats-srd.Item.lk80TBn933RECRD7": {
+   "ft": 30
+  },
+  "Compendium.pf2e.adventure-specific-actions.Item.rKWfjflS15KEB3Yt": {
+   "ft": 30
+  },
+  "Compendium.pf2e.adventure-specific-actions.Item.rR8UYHHpo2Rffi1p": {
+   "ft": 30
+  },
+  "Compendium.pf2e.myth-speaker-bestiary.Actor.uAEbmbXpPckpuz0N.Item.1lAKybVH2VlPilSW": {
+   "ft": 30
+  },
+  "Compendium.pf2e.pathfinder-bestiary-2.Actor.jCJUvzs1FaL6PAkq.Item.Sg3CFomZepZdIWcH": {
+   "ft": 30
+  },
+  "Compendium.pf2e.pathfinder-bestiary-3.Actor.uP6dE5adlWJ9DrFY.Item.56iLpxxqpM1gYATc": {
+   "ft": 30
+  },
+  "Compendium.pf2e.pfs-season-2-bestiary.Actor.o13KISidrNovd4jp.Item.ZgCTtYIP3bHhvsfZ": {
+   "ft": 30
+  },
+  "Compendium.pf2e.pfs-season-3-bestiary.Actor.P0Y86CC9ULe0D4x7.Item.56iLpxxqpM1gYATc": {
+   "ft": 30
+  },
+  "Compendium.pf2e.feats-srd.Item.iy9XKih5jIAdv67c": {
+   "ft": 30
+  },
+  "Compendium.pf2e.stolen-fate-bestiary.Actor.TQXPhj5Adm4pfX31.Item.SFUx74wChUCYyN09": {
+   "ft": 60
+  },
+  "Compendium.pf2e.feats-srd.Item.2mxg4JxPE8k9jSkr": {
+   "ft": 60
+  },
+  "Compendium.pf2e.feats-srd.Item.jNzjecRGyyAqkkrm": {
+   "ft": 60
+  },
+  "Compendium.pf2e.feats-srd.Item.UFVw57jWNC4UCfyN": {
+   "ft": 30
+  },
+  "Compendium.pf2e.agents-of-edgewatch-bestiary.Actor.8eBXEszbl4gOHGdU.Item.VVMmL1VxeAzF1IBI": {
+   "ft": 120
+  },
+  "Compendium.pf2e.pathfinder-monster-core.Actor.mEjCLVRt7iDiNZL6.Item.0dNqhk5KI3nAaTlu": {
+   "ft": 30
+  },
+  "Compendium.pf2e.actionspf2e.Item.2u915NdUyQan6uKF": {
+   "ft": 30
+  },
+  "Compendium.pf2e.iconics.Actor.3HEoe8SqQ0mhL4pv.Item.pxvCl8tBNUitmga1": {
+   "ft": 30
+  },
+  "Compendium.pf2e.iconics.Actor.XaBCp3DygrjJaqR7.Item.mMT0wHAtGQsBpVMh": {
+   "ft": 30
+  },
+  "Compendium.pf2e.hellbreakers-bestiary.Actor.8AhnhoXS2sLBTuhQ.Item.oOE6UU4R12ilWWnP": {
+   "ft": 30
+  },
+  "Compendium.pf2e.agents-of-edgewatch-bestiary.Actor.BCMkxoQB4xK4BniG.Item.FXTugA9GorPxMpXh": {
+   "ft": 30
+  },
+  "Compendium.pf2e.age-of-ashes-bestiary.Actor.tGyPrTGSpndXKU88.Item.Nu8j6VpdlorVM75S": {
+   "ft": 30
+  },
+  "Compendium.pf2e.kingmaker-bestiary.Actor.vrZrha0Gz14Zd4tA.Item.lLQgAigQauz0Z3sx": {
+   "ft": 30
+  },
+  "Compendium.pf2e.feats-srd.Item.Cs0hRKBfWn2gOYzK": {
+   "ft": 30
+  },
+  "Compendium.pf2e.extinction-curse-bestiary.Actor.4lJiW36oO2iG7jCB.Item.2dOTpPLMKccRRnjc": {
+   "ft": 120
+  },
+  "Compendium.pf2e.feats-srd.Item.g3J3kSfnlYjq34Md": {
+   "ft": 60
+  },
+  "Compendium.pf2e.lost-omens-bestiary.Actor.DN0kbSCNacBEm9RP.Item.vUZ5gWFlcQncu9SL": {
+   "ft": 90,
+   "area": true
+  },
+  "Compendium.pf2e.battlecry-bestiary.Actor.C3WZzBOvaQ5LrlZ9.Item.yKejA13gzals79JS": {
+   "ft": 60
+  },
+  "Compendium.pf2e.outlaws-of-alkenstar-bestiary.Actor.34HKPYSau0ugfMTv.Item.gkpic3nzrnqhlf9m": {
+   "ft": 30,
+   "area": true
+  },
+  "Compendium.pf2e.lost-omens-bestiary.Actor.RqdL0YzNF1dG163i.Item.sqzouoq610rytyzk": {
+   "ft": 240
+  },
+  "Compendium.pf2e.fists-of-the-ruby-phoenix-bestiary.Actor.ofYZYIZTkakVj2R0.Item.xdrqco4SvUVM2x5s": {
+   "ft": 60
+  },
+  "Compendium.pf2e.wardens-of-wildwood-bestiary.Actor.EdZm8SanOd6pJXUs.Item.PHGkx9K4njhpuhQI": {
+   "ft": 10
+  },
+  "Compendium.pf2e.pathfinder-monster-core-2.Actor.nLlS3MBFCO3DKwBX.Item.7gF0VRYAU4eYVJty": {
+   "ft": 30
+  },
+  "Compendium.pf2e.pathfinder-npc-core.Actor.UWBT8xEvGfHaAj0U.Item.CJKAoBjH9Svql2g0": {
+   "ft": 30
+  },
+  "Compendium.pf2e.feats-srd.Item.lGuoGim7J8Z97kor": {
+   "ft": 30
+  },
+  "Compendium.pf2e.myth-speaker-bestiary.Actor.CxAfUQklaPHoi9h2.Item.oDlnUYRNJcOhEpyW": {
+   "ft": 90
+  },
+  "Compendium.pf2e.stolen-fate-bestiary.Actor.EkPs0okirh66YKa0.Item.Lq2keiligVcCSAA2": {
+   "ft": 30
+  },
+  "Compendium.pf2e.feats-srd.Item.hkSuxXOc9qBleJbd": {
+   "ft": 30
+  },
+  "Compendium.pf2e.pathfinder-monster-core-2.Actor.NMQwjsdBYJEYvtgu.Item.9vQ8kxdh4UHbizus": {
+   "ft": 60
+  },
+  "Compendium.pf2e.feats-srd.Item.fUR72e3t7p2IcqqG": {
+   "ft": 60
+  },
+  "Compendium.pf2e.hells-destiny-bestiary.Actor.HvshmY1KE8p6a2ry.Item.mHyFvBA0oqCdecfW": {
+   "ft": 60,
+   "area": true
+  },
+  "Compendium.pf2e.hells-destiny-bestiary.Actor.cBX661jAttv6WWBL.Item.anYe0Rfu4UuxyNt2": {
+   "ft": 60,
+   "area": true
+  },
+  "Compendium.pf2e.pathfinder-monster-core.Actor.9XccneFB5DmMHig0.Item.lpn1X46g2bCqCbd3": {
+   "ft": 30
+  },
+  "Compendium.pf2e.pfs-season-6-bestiary.Actor.pRGyImVHPn1l2zZI.Item.XT0y11wxiGBpVoRU": {
+   "ft": 30
+  },
+  "Compendium.pf2e.triumph-of-the-tusk-bestiary.Actor.IHtnqHDC2rlfnv0n.Item.FJ48CGlTQY7Sae3B": {
+   "ft": 30
+  },
+  "Compendium.pf2e.pfs-season-6-bestiary.Actor.JEaWYZM9W9wH0jLj.Item.6nmHe20KIytqxeJS": {
+   "ft": 15
+  },
+  "Compendium.pf2e.pfs-season-6-bestiary.Actor.RoesKKe7w12AF0oA.Item.6nmHe20KIytqxeJS": {
+   "ft": 15
+  },
+  "Compendium.pf2e.pfs-season-6-bestiary.Actor.d38YKJUIBaZCPUsx.Item.6nmHe20KIytqxeJS": {
+   "ft": 15
+  },
+  "Compendium.pf2e.strength-of-thousands-bestiary.Actor.JajzgeWF1H0Ks6ON.Item.7ct4x0w3t5hh7rl2": {
+   "ft": 30
+  },
+  "Compendium.pf2e.lost-omens-bestiary.Actor.9VOsTzaJmSzJEDnL.Item.ygVSYnhkx1JQmn9G": {
+   "ft": 120,
+   "area": true
+  },
+  "Compendium.pf2e.lost-omens-bestiary.Actor.HJ7WibzPwKQMqgeF.Item.ygVSYnhkx1JQmn9G": {
+   "ft": 500,
+   "area": true
+  },
+  "Compendium.pf2e.lost-omens-bestiary.Actor.HtaWKsUKKwW6CaLG.Item.ygVSYnhkx1JQmn9G": {
+   "ft": 120,
+   "area": true
+  },
+  "Compendium.pf2e.lost-omens-bestiary.Actor.WqZ25wiUIuDAu8xT.Item.ygVSYnhkx1JQmn9G": {
+   "ft": 120,
+   "area": true
+  },
+  "Compendium.pf2e.season-of-ghosts-bestiary.Actor.OoTnmIkunSTCPet3.Item.FmFiov7exM5KUf2k": {
+   "ft": 30
+  },
+  "Compendium.pf2e.battlecry-bestiary.Actor.2CfSF5X4YlLPNKgh.Item.FUmBqO0V8PxJ39YL": {
+   "ft": 120,
+   "area": true
+  },
+  "Compendium.pf2e.bastion-of-blasphemies-bestiary.Actor.ZNSDataoZlnuv8eP.Item.GUmXcN197bEojqp6": {
+   "ft": 60
+  },
+  "Compendium.pf2e.pfs-season-4-bestiary.Actor.UCLaNgaKG3vXzXiB.Item.8GBQQQxNAWNNzaGQ": {
+   "ft": 30
+  },
+  "Compendium.pf2e.pfs-season-4-bestiary.Actor.XSOh2n1QPwfSdejr.Item.8GBQQQxNAWNNzaGQ": {
+   "ft": 30
+  },
+  "Compendium.pf2e.gatewalkers-bestiary.Actor.8typuC7n5nE01Gzu.Item.fTjcZIXMMs5TXaqa": {
+   "ft": 60
+  },
+  "Compendium.pf2e.menace-under-otari-bestiary.Actor.QN9Zv9l71Q1E9bCR.Item.MgYNmBiC9vvffD1M": {
+   "ft": 5
+  },
+  "Compendium.pf2e.feats-srd.Item.itn27nKYb8FRsdl3": {
+   "ft": 120,
+   "area": true
+  },
+  "Compendium.pf2e.abomination-vaults-bestiary.Actor.To0MLA0arpkiE6Cz.Item.nBbFutvNlcdf1cgZ": {
+   "ft": 30
+  },
+  "Compendium.pf2e.adventure-specific-actions.Item.ekiKKfsBDFEeVmun": {
+   "ft": 30
+  },
+  "Compendium.pf2e.claws-of-the-tyrant-bestiary.Actor.ZUkMXxPyOJ9sPRvN.Item.JiX8vgEMuht5BQRe": {
+   "ft": 40
+  },
+  "Compendium.pf2e.kingmaker-bestiary.Actor.gXbDaY9ci2u22ptT.Item.qQD7sRQC5iCPloAd": {
+   "ft": 15
+  },
+  "Compendium.pf2e.feats-srd.Item.pYYSLNUWGMYxYNkG": {
+   "ft": 60
+  },
+  "Compendium.pf2e.adventure-specific-actions.Item.6U04OKtvRURExkli": {
+   "ft": 60
+  },
+  "Compendium.pf2e.actionspf2e.Item.V4HToYPQlkw8AW50": {
+   "ft": 20
+  },
+  "Compendium.pf2e.curtain-call-bestiary.Actor.DBr25IAKQHwz69YD.Item.JPYI39lr7wIqvXAH": {
+   "ft": 30
+  },
+  "Compendium.pf2e.feats-srd.Item.XbJyPlNflVVKGPa1": {
+   "ft": 30
+  },
+  "Compendium.pf2e.pfs-season-5-bestiary.Actor.UJrYlFe8jydcY42U.Item.aO7x4vt7Pe9o3zNp": {
+   "ft": 60
+  },
+  "Compendium.pf2e.age-of-ashes-bestiary.Actor.KzKQYgiUZ3hJo473.Item.abiEy2lj68FImtR8": {
+   "ft": 60
+  },
+  "Compendium.pf2e.blood-lords-bestiary.Actor.sySkOlAi825RpRrj.Item.RRtEbi7LCsYVcq0p": {
+   "ft": 30
+  },
+  "Compendium.pf2e.lost-omens-bestiary.Actor.K3jY2g1WUk17Of8U.Item.DYsAQWK06hC13mD4": {
+   "ft": 60,
+   "area": true
+  },
+  "Compendium.pf2e.pathfinder-monster-core-2.Actor.BV71Dm2SSAObPp0W.Item.DYsAQWK06hC13mD4": {
+   "ft": 60,
+   "area": true
+  },
+  "Compendium.pf2e.pathfinder-monster-core-2.Actor.VK5OKW5viAEWQVzU.Item.DYsAQWK06hC13mD4": {
+   "ft": 60,
+   "area": true
+  },
+  "Compendium.pf2e.strength-of-thousands-bestiary.Actor.eY9eS7CIFXKxyq3q.Item.48no5g4pib3t3ozt": {
+   "ft": 30
+  },
+  "Compendium.pf2e.pathfinder-monster-core-2.Actor.dl5JB5ZgKPcbKEMw.Item.bnU4poD2v5S9mLDT": {
+   "ft": 100
+  },
+  "Compendium.pf2e.feats-srd.Item.MRT8BGiIiVYfVcXh": {
+   "ft": 120
+  },
+  "Compendium.pf2e.iconics.Actor.XaBCp3DygrjJaqR7.Item.3BA8BSKHSrPvBPaI": {
+   "ft": 120
+  },
+  "Compendium.pf2e.pathfinder-monster-core-2.Actor.TFRt64nosuS3PzmH.Item.rqRBCmLujReJF0Hl": {
+   "ft": 60
+  },
+  "Compendium.pf2e.hellbreakers-bestiary.Actor.2M4b3A4z8pFhv3Yo.Item.oevM04CfrfemcXfk": {
+   "ft": 30
+  },
+  "Compendium.pf2e.lost-omens-bestiary.Actor.KNIERp5VGv97HBTN.Item.CHGOQ3aFIPecxhg4": {
+   "ft": 75,
+   "area": true
+  },
+  "Compendium.pf2e.lost-omens-bestiary.Actor.L4a9tb4s7FmwWi6J.Item.CHGOQ3aFIPecxhg4": {
+   "ft": 50,
+   "area": true
+  },
+  "Compendium.pf2e.lost-omens-bestiary.Actor.cdvuNbNQ1sPCjG9S.Item.CHGOQ3aFIPecxhg4": {
+   "ft": 60,
+   "area": true
+  },
+  "Compendium.pf2e.lost-omens-bestiary.Actor.dr20tOnX7F7sIXF9.Item.CHGOQ3aFIPecxhg4": {
+   "ft": 40,
+   "area": true
+  },
+  "Compendium.pf2e.hells-destiny-bestiary.Actor.xUcXP3LZPFwYQwR1.Item.0uLo1QRGl25r23bI": {
+   "ft": 30
+  },
+  "Compendium.pf2e.actionspf2e.Item.low5ORd87QeA9Oug": {
+   "ft": 30
+  },
+  "Compendium.pf2e.iconics.Actor.XaBCp3DygrjJaqR7.Item.Zok4sS4KbFzew0uJ": {
+   "ft": 30
+  },
+  "Compendium.pf2e.seven-dooms-for-sandpoint-bestiary.Actor.M0hm5JzkOkUCVSFL.Item.Wm8dymSLkG00xtyc": {
+   "ft": 30
+  },
+  "Compendium.pf2e.feats-srd.Item.6YXQT1a2C03u75zW": {
+   "ft": 60
+  },
+  "Compendium.pf2e.pfs-season-6-bestiary.Actor.Hz8jN6d6Xw6mXvNk.Item.KBXx2BWUqjJrkwhL": {
+   "ft": 60
+  },
+  "Compendium.pf2e.feats-srd.Item.p2McwseYbPZrL5G3": {
+   "ft": 30
+  },
+  "Compendium.pf2e.pathfinder-monster-core.Actor.CIQgNHkiUtBQR2NJ.Item.P2GEVOd1ZhUm32jc": {
+   "ft": 60,
+   "area": true
+  },
+  "Compendium.pf2e.revenge-of-the-runelords-bestiary.Actor.EsCu5ehBgpwRHKGZ.Item.9JLmJEt9BAzZKueL": {
+   "ft": 30
+  },
+  "Compendium.pf2e.pfs-season-4-bestiary.Actor.xY95sdnK1MMIyeee.Item.3C3zNfr23ZOfVvUr": {
+   "ft": 800
+  },
+  "Compendium.pf2e.feats-srd.Item.BQ50m0Jb9qyoPchi": {
+   "ft": 30
+  },
+  "Compendium.pf2e.hells-destiny-bestiary.Actor.GCaffz5WyKsrVPpo.Item.LkJT4oMqawnKQoeF": {
+   "ft": 30
+  },
+  "Compendium.pf2e.pathfinder-npc-core.Actor.HVUlGw83Hf4YmW0p.Item.wCoFNEnJtvR9H0ie": {
+   "ft": 30
+  },
+  "Compendium.pf2e.lost-omens-bestiary.Actor.ycDOqqKnRqKLL9D4.Item.lONhrw3f4YDLfwp5": {
+   "ft": 15
+  },
+  "Compendium.pf2e.actionspf2e.Item.PdEJEiPUP0FDaBki": {
+   "ft": 60
+  },
+  "Compendium.pf2e.pathfinder-monster-core.Actor.mOr6eIUhNuggjCKH.Item.piNqHqiUolep42HJ": {
+   "ft": 100
+  },
+  "Compendium.pf2e.the-slithering-bestiary.Actor.MQI0uQKurpprJQtT.Item.decwwZMuI2AIpvW4": {
+   "ft": 10
+  },
+  "Compendium.pf2e.feats-srd.Item.UhyoBNQbGP6lKjwE": {
+   "ft": 60
+  },
+  "Compendium.pf2e.abomination-vaults-bestiary.Actor.zsgW8hHm3JfZUgwF.Item.T9tAbwnyo4ZmiWkk": {
+   "ft": 30
+  },
+  "Compendium.pf2e.pathfinder-npc-core.Actor.HVUlGw83Hf4YmW0p.Item.Pc6es0QVJaQWs9wP": {
+   "ft": 30,
+   "area": true
+  },
+  "Compendium.pf2e.claws-of-the-tyrant-bestiary.Actor.ZUkMXxPyOJ9sPRvN.Item.WDurhA3bbS4FZJLx": {
+   "ft": 40
+  },
+  "Compendium.pf2e.battlecry-bestiary.Actor.BYh3tkAX9SgGFuXD.Item.Hh1zN6n8JRhOzsdT": {
+   "ft": 120,
+   "area": true
+  },
+  "Compendium.pf2e.pfs-season-5-bestiary.Actor.WoITmnqltzfUlvry.Item.sgn97FWn1ncH55JV": {
+   "ft": 80,
+   "area": true
+  },
+  "Compendium.pf2e.pfs-season-5-bestiary.Actor.l4fXYWBhDNM5FAyT.Item.sgn97FWn1ncH55JV": {
+   "ft": 80,
+   "area": true
+  },
+  "Compendium.pf2e.prey-for-death-bestiary.Actor.VUnzeDyz7gkJbS15.Item.cLFteTTZ1b4O3AoI": {
+   "ft": 120,
+   "area": true
+  },
+  "Compendium.pf2e.lost-omens-bestiary.Actor.kMro0cyhzzOvXvyc.Item.ggUv7iFTd2uOCz2q": {
+   "ft": 30,
+   "area": true
+  },
+  "Compendium.pf2e.pathfinder-npc-core.Actor.7AQj3Tbx5O2mlwgS.Item.bRiKeKsEQaZtQcG0": {
+   "ft": 150,
+   "area": true
+  },
+  "Compendium.pf2e.adventure-specific-actions.Item.aw2JzLBAsmO8dD3r": {
+   "ft": 100
+  },
+  "Compendium.pf2e.adventure-specific-actions.Item.0z53rJzCIGysXGTy": {
+   "ft": 100
+  },
+  "Compendium.pf2e.kingmaker-bestiary.Actor.AA3hdVlJhALthghl.Item.KhgTIBtP3uB7Ls0w": {
+   "ft": 180,
+   "area": true
+  },
+  "Compendium.pf2e.pathfinder-monster-core.Actor.qlxVPpwVFw5qIVQM.Item.KhgTIBtP3uB7Ls0w": {
+   "ft": 180,
+   "area": true
+  },
+  "Compendium.pf2e.pathfinder-monster-core-2.Actor.RGxxXsAMHngLOsCk.Item.cMO5vpQo4srBY5Gv": {
+   "ft": 30
+  },
+  "Compendium.pf2e.feats-srd.Item.S3NFO9meH9b08oiN": {
+   "ft": 30
+  },
+  "Compendium.pf2e.lost-omens-bestiary.Actor.mbu0D45HPRNAwgEU.Item.88a6l4wOhZKuqey0": {
+   "ft": 30
+  },
+  "Compendium.pf2e.feats-srd.Item.lmo55Y5NS5iZa56o": {
+   "ft": 30
+  },
+  "Compendium.pf2e.feats-srd.Item.RKh9lvo0PdE2Yto4": {
+   "ft": 60
+  },
+  "Compendium.pf2e.feats-srd.Item.rgmX9TTthBYo508T": {
+   "ft": 30
+  },
+  "Compendium.pf2e.feats-srd.Item.1SbwsBbuCkkpgeYN": {
+   "ft": 30
+  },
+  "Compendium.pf2e.iconics.Actor.XaBCp3DygrjJaqR7.Item.52wtCHEBHSmZ6s3f": {
+   "ft": 30
+  },
+  "Compendium.pf2e.abomination-vaults-bestiary.Actor.9Tr4aUNr2wxxMDcg.Item.EHjIsHVK3BSAzKZW": {
+   "ft": 30
+  },
+  "Compendium.pf2e.age-of-ashes-bestiary.Actor.CmbcgWZgOSDmo2Pm.Item.DPwtg3OqirDYbsrI": {
+   "ft": 30
+  },
+  "Compendium.pf2e.blood-lords-bestiary.Actor.FzEwUkw6SCgQ1YJg.Item.fVHRATRLRiaVwvEi": {
+   "ft": 30
+  },
+  "Compendium.pf2e.blood-lords-bestiary.Actor.cUUyIZ3Y8VAbfI9P.Item.KYGkXasFEDSHzvXF": {
+   "ft": 30
+  },
+  "Compendium.pf2e.blog-bestiary.Actor.Nd54wB2wWnpPbHCc.Item.2lGYb3ZO8pwxgMhD": {
+   "ft": 30
+  },
+  "Compendium.pf2e.lost-omens-bestiary.Actor.AwjII9OV7U9Lx5oz.Item.eIQDjo3PV2esYG9K": {
+   "ft": 30
+  },
+  "Compendium.pf2e.lost-omens-bestiary.Actor.qjDJBJGntdOdyGxq.Item.hsbjeoxynGVGHTFo": {
+   "ft": 30
+  },
+  "Compendium.pf2e.outlaws-of-alkenstar-bestiary.Actor.KCnloN7xxY0UOhML.Item.2lGYb3ZO8pwxgMhD": {
+   "ft": 30
+  },
+  "Compendium.pf2e.kingmaker-bestiary.Actor.3gtQv6Mkr7CUlG7W.Item.KNywleLC7uqltyig": {
+   "ft": 30
+  },
+  "Compendium.pf2e.kingmaker-bestiary.Actor.7os3GIj69tIqXTGl.Item.KNywleLC7uqltyig": {
+   "ft": 30
+  },
+  "Compendium.pf2e.kingmaker-bestiary.Actor.OnHIutiVLt1czwWL.Item.KNywleLC7uqltyig": {
+   "ft": 30
+  },
+  "Compendium.pf2e.kingmaker-bestiary.Actor.S4oIMaVPzQuRaTpK.Item.2lGYb3ZO8pwxgMhD": {
+   "ft": 30
+  },
+  "Compendium.pf2e.kingmaker-bestiary.Actor.fQ9FuovHuRt6vtcq.Item.KNywleLC7uqltyig": {
+   "ft": 30
+  },
+  "Compendium.pf2e.kingmaker-bestiary.Actor.fs1iFoZmJF1iUWwX.Item.apQdVdQWSEbQzCw2": {
+   "ft": 30
+  },
+  "Compendium.pf2e.kingmaker-bestiary.Actor.hLBHFloWuXLjCQYH.Item.kfdzBPs02IvVMabf": {
+   "ft": 30
+  },
+  "Compendium.pf2e.kingmaker-bestiary.Actor.pZosztihhMtCLinT.Item.KNywleLC7uqltyig": {
+   "ft": 30
+  },
+  "Compendium.pf2e.pathfinder-bestiary-3.Actor.L5cNazEKC5gASp41.Item.iommO8SU4yNamwC1": {
+   "ft": 30
+  },
+  "Compendium.pf2e.pathfinder-monster-core.Actor.GmKNb1UIjAkTMDOt.Item.1vPMh16Kx98sAgCw": {
+   "ft": 30
+  },
+  "Compendium.pf2e.pathfinder-monster-core.Actor.QCPpQya5TEUuIxQn.Item.2lGYb3ZO8pwxgMhD": {
+   "ft": 30
+  },
+  "Compendium.pf2e.pathfinder-monster-core.Actor.fgZx6VJkVZ26GFyI.Item.kfdzBPs02IvVMabf": {
+   "ft": 20
+  },
+  "Compendium.pf2e.pathfinder-monster-core-2.Actor.2qAd4TmEu5wexX7U.Item.PrwUXoaZ6KDeiZiG": {
+   "ft": 30
+  },
+  "Compendium.pf2e.pathfinder-monster-core-2.Actor.66MUUmu8950MEXFf.Item.flwuBDP79nXatHeG": {
+   "ft": 30
+  },
+  "Compendium.pf2e.pathfinder-monster-core-2.Actor.Tf1eWEQJmFEtcCps.Item.nQIrdCTbXnv5ETLT": {
+   "ft": 30
+  },
+  "Compendium.pf2e.pathfinder-monster-core-2.Actor.YMiDUjk65e52z1mU.Item.e7rgKN11dqX1fsSq": {
+   "ft": 30
+  },
+  "Compendium.pf2e.pathfinder-monster-core-2.Actor.coq1W1ZQul6DtH0b.Item.uimm7EPXXyXrgSKw": {
+   "ft": 30
+  },
+  "Compendium.pf2e.pathfinder-monster-core-2.Actor.hfA1xQSk1dPVwt00.Item.4Rr2z9fo2EFMUZvt": {
+   "ft": 30
+  },
+  "Compendium.pf2e.pathfinder-monster-core-2.Actor.zYVxMOCM8Yqnjn6T.Item.MiOeL8gu2oDPwjX8": {
+   "ft": 30
+  },
+  "Compendium.pf2e.pfs-season-3-bestiary.Actor.fiwIeiExpZ1CQKAj.Item.t3cnDaUX26zIroa8": {
+   "ft": 30
+  },
+  "Compendium.pf2e.prey-for-death-bestiary.Actor.x96ZPVfaaamn0gjg.Item.wnfmu5GVCsHatUbm": {
+   "ft": 30
+  },
+  "Compendium.pf2e.seven-dooms-for-sandpoint-bestiary.Actor.M0hm5JzkOkUCVSFL.Item.iommO8SU4yNamwC1": {
+   "ft": 30
+  },
+  "Compendium.pf2e.myth-speaker-bestiary.Actor.YsPt2EAK2zbzEhVD.Item.2lGYb3ZO8pwxgMhD": {
+   "ft": 30
+  },
+  "Compendium.pf2e.shades-of-blood-bestiary.Actor.Y1uFZHLnPjMyLvHS.Item.hwIQPwhl4ZPBpOCt": {
+   "ft": 30
+  },
+  "Compendium.pf2e.stolen-fate-bestiary.Actor.334vtiUd5J507PsX.Item.sJ4R7zljHrMJxTWG": {
+   "ft": 30
+  },
+  "Compendium.pf2e.stolen-fate-bestiary.Actor.9CR1pTY23jFPi5Xn.Item.DPwtg3OqirDYbsrI": {
+   "ft": 30
+  },
+  "Compendium.pf2e.stolen-fate-bestiary.Actor.Cj0oleWD4YOmT1Mn.Item.sjk7gsZB7YAEVqjS": {
+   "ft": 30
+  },
+  "Compendium.pf2e.stolen-fate-bestiary.Actor.fcMf5NrHPZS54Hkd.Item.D2yiMAqk1FllVEl4": {
+   "ft": 30
+  },
+  "Compendium.pf2e.kingmaker-bestiary.Actor.k9eR5UwCSrfpPPAv.Item.Ag07kBthiVumPkcV": {
+   "ft": 30
+  },
+  "Compendium.pf2e.agents-of-edgewatch-bestiary.Actor.tt5eaS28C4PrHmZD.Item.aqwHyoUR6cj9y6s8": {
+   "ft": 30
+  },
+  "Compendium.pf2e.pathfinder-monster-core.Actor.3vkQLclK0z4LhAh7.Item.aqwHyoUR6cj9y6s8": {
+   "ft": 30
+  },
+  "Compendium.pf2e.pathfinder-monster-core-2.Actor.oLfyxHNz8IX06ZcU.Item.WPlqW6SIzbL8jscs": {
+   "ft": 30
+  },
+  "Compendium.pf2e.pfs-season-6-bestiary.Actor.UjJWeKnLso56k10X.Item.aqwHyoUR6cj9y6s8": {
+   "ft": 30
+  },
+  "Compendium.pf2e.pathfinder-npc-core.Actor.GZxDz6PKbHs9f2WN.Item.cEC3FjTPb84L7Any": {
+   "ft": 120,
+   "area": true
+  },
+  "Compendium.pf2e.strength-of-thousands-bestiary.Actor.UOXavVdqiOPyB6xa.Item.y6osuhdlhe81ylrs": {
+   "ft": 30
+  },
+  "Compendium.pf2e.pathfinder-npc-core.Actor.f6NqtcB94r3S7LCn.Item.QlkPRh3XNHPzuE3A": {
+   "ft": 30
+  },
+  "Compendium.pf2e.feats-srd.Item.iySa8O4NaTdLPKQl": {
+   "ft": 30
+  },
+  "Compendium.pf2e.pfs-season-3-bestiary.Actor.986YKe07u2538RcF.Item.VgbKhZurZd89uLHJ": {
+   "ft": 30
+  },
+  "Compendium.pf2e.pfs-season-3-bestiary.Actor.OOHNMq2uOfnp8QCg.Item.VgbKhZurZd89uLHJ": {
+   "ft": 30
+  },
+  "Compendium.pf2e.pfs-season-4-bestiary.Actor.p1ip40AhsO1fwy4M.Item.VgbKhZurZd89uLHJ": {
+   "ft": 30
+  },
+  "Compendium.pf2e.kingmaker-bestiary.Actor.pcct13qdrriJf3OL.Item.otVXldOceOZtEV2x": {
+   "ft": 30
+  },
+  "Compendium.pf2e.hellbreakers-bestiary.Actor.0x0fDMdBkHKMy5lc.Item.VMXkzlTFynhqIrxo": {
+   "ft": 30
+  },
+  "Compendium.pf2e.troubles-in-grayce-bestiary.Actor.gHEJR7R7CYBmG315.Item.GPSIIphSLmhgakBd": {
+   "ft": 30
+  },
+  "Compendium.pf2e.fists-of-the-ruby-phoenix-bestiary.Actor.d7fBEPfzXSeCZZXE.Item.OMOLhCqLoPJemrk0": {
+   "ft": 80
+  },
+  "Compendium.pf2e.pathfinder-npc-core.Actor.DPSvIsPlVrlx7Q8V.Item.MmlQuNf8g01gtJip": {
+   "ft": 30
+  },
+  "Compendium.pf2e.lost-omens-bestiary.Actor.CgNC8uWPrJbGDklJ.Item.2f2g86bai8nnc1mg": {
+   "ft": 60
+  },
+  "Compendium.pf2e.lost-omens-bestiary.Actor.CyP7GlQ1YQdghroI.Item.iOsrdTL63Snv2i3X": {
+   "ft": 100
+  },
+  "Compendium.pf2e.lost-omens-bestiary.Actor.G8SJadHan9OctTZq.Item.iOsrdTL63Snv2i3X": {
+   "ft": 100
+  },
+  "Compendium.pf2e.lost-omens-bestiary.Actor.J4Q5ocIVBGsCi7nV.Item.iOsrdTL63Snv2i3X": {
+   "ft": 100
+  },
+  "Compendium.pf2e.lost-omens-bestiary.Actor.Yj1WiNHrtwI09LqX.Item.iOsrdTL63Snv2i3X": {
+   "ft": 100
+  },
+  "Compendium.pf2e.pathfinder-monster-core-2.Actor.7kiT6lveGXWzNo23.Item.dTQVBPtfF9T9IMJp": {
+   "ft": 30
+  },
+  "Compendium.pf2e.quest-for-the-frozen-flame-bestiary.Actor.kxO7gXbpcmY1pi7p.Item.t7cp6na0bsxgvlm8": {
+   "ft": 30
+  },
+  "Compendium.pf2e.wardens-of-wildwood-bestiary.Actor.TJ7fH93NWXXMyM8m.Item.u8K2XMMaOeWxR8PE": {
+   "ft": 30
+  },
+  "Compendium.pf2e.bestiary-family-ability-glossary.Item.ga0Oj7mmjSwWQgmR": {
+   "ft": 30
+  },
+  "Compendium.pf2e.fists-of-the-ruby-phoenix-bestiary.Actor.Lsa0Q8aU8aPWjFYv.Item.LMgsbMlanLCeD5ND": {
+   "ft": 30
+  },
+  "Compendium.pf2e.kingmaker-bestiary.Actor.ovjnD3aiPgRi2C7u.Item.7s2ezouHGaqFCuhW": {
+   "ft": 30
+  },
+  "Compendium.pf2e.triumph-of-the-tusk-bestiary.Actor.QgBvV33i9waJx11D.Item.FO9PaEKqK1Cs4oDT": {
+   "ft": 30
+  },
+  "Compendium.pf2e.triumph-of-the-tusk-bestiary.Actor.qWluB0kAHf4hYfew.Item.rOHukQcsqGqT6TSe": {
+   "ft": 30
+  },
+  "Compendium.pf2e.wardens-of-wildwood-bestiary.Actor.ec7JXhGV8mqrS4tn.Item.QvBP4TCkLURgGZ21": {
+   "ft": 30
+  },
+  "Compendium.pf2e.bestiary-family-ability-glossary.Item.JSBmboE6bYVxDT9d": {
+   "ft": 20
+  },
+  "Compendium.pf2e.extinction-curse-bestiary.Actor.wBlnbLj8FfgxArQm.Item.Pp1p9fNkgDG02dcL": {
+   "ft": 20
+  },
+  "Compendium.pf2e.pfs-season-6-bestiary.Actor.R508fb5fUA5CIMHd.Item.U405VDoNIkMc9Zva": {
+   "ft": 20
+  },
+  "Compendium.pf2e.myth-speaker-bestiary.Actor.sA9LeJ1wDJr9lEeo.Item.aRFQAlJaH4hxYqWB": {
+   "ft": 20
+  },
+  "Compendium.pf2e.bestiary-family-ability-glossary.Item.nF7RKPONY5H9kEIo": {
+   "ft": 30
+  },
+  "Compendium.pf2e.bestiary-family-ability-glossary.Item.5lv9r2ubDCov4dFn": {
+   "ft": 30,
+   "area": true
+  },
+  "Compendium.pf2e.actionspf2e.Item.tzuYnmYCvA3zrj6w": {
+   "ft": 60,
+   "area": true
+  },
+  "Compendium.pf2e.feats-srd.Item.QfyCxRwvOZfstbj7": {
+   "ft": 120
+  },
+  "Compendium.pf2e.age-of-ashes-bestiary.Actor.scPhFbBqlmD2fQHa.Item.KOEGii7EkPZsq9Iz": {
+   "ft": 30
+  },
+  "Compendium.pf2e.sky-kings-tomb-bestiary.Actor.8cV7dqtctcMuKAZN.Item.omq9XOuhWeV7EcuZ": {
+   "ft": 30
+  },
+  "Compendium.pf2e.bastion-of-blasphemies-bestiary.Actor.NUDYN5z3klNDlkfS.Item.7oMtnBjLtw3PBX90": {
+   "ft": 30
+  },
+  "Compendium.pf2e.actionspf2e.Item.izvfZ561JTdeyh6i": {
+   "ft": 120,
+   "area": true
+  },
+  "Compendium.pf2e.feats-srd.Item.QZb0Utg0WFPf2Qg0": {
+   "ft": 30
+  },
+  "Compendium.pf2e.kingmaker-bestiary.Actor.LF67gTrSqSb7h4KZ.Item.z8bl09rqF4yCJDy4": {
+   "ft": 30
+  },
+  "Compendium.pf2e.pathfinder-monster-core.Actor.L39Fr3dewrvIK2LE.Item.upfgXZWcGklPhe0Z": {
+   "ft": 30
+  },
+  "Compendium.pf2e.age-of-ashes-bestiary.Actor.5dSVk2y88SLsPPON.Item.aTXAOXeP9oRRcBfj": {
+   "ft": 10
+  },
+  "Compendium.pf2e.pfs-season-2-bestiary.Actor.c7uwPrgkjqSKRXQG.Item.WmUvsISFLTWBCvzx": {
+   "ft": 60
+  },
+  "Compendium.pf2e.blood-lords-bestiary.Actor.O0jtf0qQnuSTrNUp.Item.fozyxX1F74KCYZ6U": {
+   "ft": 30
+  },
+  "Compendium.pf2e.pfs-season-4-bestiary.Actor.woCCr4BBVOjc3x92.Item.fozyxX1F74KCYZ6U": {
+   "ft": 30
+  },
+  "Compendium.pf2e.feats-srd.Item.gS9FYlD0Vt8yyZkP": {
+   "ft": 30
+  },
+  "Compendium.pf2e.paizo-pregens.Actor.UCrQbCrBrKBbNAEv.Item.Chtjhys7V0R8aL35": {
+   "ft": 30
+  },
+  "Compendium.pf2e.seven-dooms-for-sandpoint-bestiary.Actor.nUnZtlm7PneSF8ww.Item.zTUk285orSz8VuBR": {
+   "ft": 60,
+   "area": true
+  },
+  "Compendium.pf2e.spore-war-bestiary.Actor.rdh4wcn2nAKGGQIc.Item.zTUk285orSz8VuBR": {
+   "ft": 60,
+   "area": true
+  },
+  "Compendium.pf2e.adventure-specific-actions.Item.3yYlHV7GBrafsDwE": {
+   "ft": 30
+  },
+  "Compendium.pf2e.strength-of-thousands-bestiary.Actor.np82jquWwQRzRdEp.Item.jkhwxgqejbao0fio": {
+   "ft": 30
+  },
+  "Compendium.pf2e.pathfinder-npc-core.Actor.ndCqM6yNTg2QPZwK.Item.aMJGSTnE6Wgp9MBr": {
+   "ft": 30
+  },
+  "Compendium.pf2e.pfs-season-2-bestiary.Actor.16NjM1igmVpNcleL.Item.K9DEiC1oIoqDWUwg": {
+   "ft": 30
+  },
+  "Compendium.pf2e.pfs-season-2-bestiary.Actor.zNN1Af6Xx5Tmglcu.Item.qtPv8bpDrUyqkNvi": {
+   "ft": 30
+  },
+  "Compendium.pf2e.quest-for-the-frozen-flame-bestiary.Actor.KeOKPlxxBw5m2wly.Item.mcipuwao7ju2gyi0": {
+   "ft": 30
+  },
+  "Compendium.pf2e.claws-of-the-tyrant-bestiary.Actor.vdywUTHF4uhA7cyh.Item.ww1W9rSOdSFUuQ5r": {
+   "ft": 60,
+   "area": true
+  },
+  "Compendium.pf2e.battlecry-bestiary.Actor.6miTTZwtCs2ouJbv.Item.se3I5XIArIcKZkGt": {
+   "ft": 120,
+   "area": true
+  },
+  "Compendium.pf2e.hellbreakers-bestiary.Actor.L3iKGwRinPeljMM2.Item.TL0WviWoCX05NGwo": {
+   "ft": 30
+  },
+  "Compendium.pf2e.hellbreakers-bestiary.Actor.ZbG4M5osQ9sY607a.Item.JMgpnInPnncRJeUq": {
+   "ft": 30
+  },
+  "Compendium.pf2e.hellbreakers-bestiary.Actor.LKRWhSZqkrNfMnqq.Item.5hZxx4bVaqMR8rps": {
+   "ft": 30,
+   "area": true
+  },
+  "Compendium.pf2e.pathfinder-npc-core.Actor.7qpH6PeW97Bjrxox.Item.QsjbLeDKamnD8lfk": {
+   "ft": 30
+  },
+  "Compendium.pf2e.howl-of-the-wild-bestiary.Actor.y4Sh40MIaLp0JH7q.Item.beRBWWg6xwZiT840": {
+   "ft": 10
+  },
+  "Compendium.pf2e.gatewalkers-bestiary.Actor.X7ScCatwncmk5P9o.Item.eoErhHWmmjkbNflI": {
+   "ft": 30
+  },
+  "Compendium.pf2e.actionspf2e.Item.CJnA1wEg2kA5BXfe": {
+   "ft": 60,
+   "area": true
+  },
+  "Compendium.pf2e.feats-srd.Item.m2Gz9y8VhGi0EpFC": {
+   "ft": 120,
+   "area": true
+  },
+  "Compendium.pf2e.feats-srd.Item.mGGnDgk4wWpCMon8": {
+   "ft": 500
+  },
+  "Compendium.pf2e.hells-destiny-bestiary.Actor.U0pKGj1yJemGAXyc.Item.ekEhxxOdLwJptDnc": {
+   "ft": 100
+  },
+  "Compendium.pf2e.pathfinder-monster-core-2.Actor.U0pKGj1yJemGAXyc.Item.ekEhxxOdLwJptDnc": {
+   "ft": 100
+  },
+  "Compendium.pf2e.lost-omens-bestiary.Actor.IJNmrR6Xl5OWvkGp.Item.rmu2eBxuxmifNw7C": {
+   "ft": 30
+  },
+  "Compendium.pf2e.feats-srd.Item.Ilh66megcbP7ahMN": {
+   "ft": 30
+  },
+  "Compendium.pf2e.lost-omens-bestiary.Actor.3sbe5lTQfIZkPquh.Item.582r234pTMtgRy31": {
+   "ft": 60
+  },
+  "Compendium.pf2e.lost-omens-bestiary.Actor.9nlzGyizQI7E5fwg.Item.582r234pTMtgRy31": {
+   "ft": 60
+  },
+  "Compendium.pf2e.lost-omens-bestiary.Actor.DSxF9af8K2xWvTbn.Item.582r234pTMtgRy31": {
+   "ft": 60
+  },
+  "Compendium.pf2e.lost-omens-bestiary.Actor.rc2BbhcVloC7MG58.Item.582r234pTMtgRy31": {
+   "ft": 60
+  },
+  "Compendium.pf2e.sky-kings-tomb-bestiary.Actor.g1tWmlBEnltpFK6m.Item.ElXFcvmSI1WnHNqV": {
+   "ft": 30
+  },
+  "Compendium.pf2e.gatewalkers-bestiary.Actor.AeM32zT3kFOOAugS.Item.13nNdVJ277PJ6YT3": {
+   "ft": 30
+  },
+  "Compendium.pf2e.war-of-immortals-bestiary.Actor.Om9ruhbwPNISjwDr.Item.7WPZ3eJbHVEV27Sn": {
+   "ft": 60
+  },
+  "Compendium.pf2e.menace-under-otari-bestiary.Actor.uBNm3R9wbLTPrM9i.Item.IqOAXLLKjSYmNd2w": {
+   "ft": 20
+  },
+  "Compendium.pf2e.pathfinder-monster-core.Actor.uBNm3R9wbLTPrM9i.Item.YqOXI5e96og3s7to": {
+   "ft": 20
+  },
+  "Compendium.pf2e.spore-war-bestiary.Actor.cHOXZyToRuM6gmGE.Item.YqOXI5e96og3s7to": {
+   "ft": 20
+  },
+  "Compendium.pf2e.claws-of-the-tyrant-bestiary.Actor.hXEFhS8iL5d6MqdD.Item.Pp6Aft51KPdm0dni": {
+   "ft": 120
+  },
+  "Compendium.pf2e.pathfinder-monster-core.Actor.vN2alMciNlKpBpKN.Item.NoNrnnXaKdOmoBx6": {
+   "ft": 60
+  },
+  "Compendium.pf2e.pfs-season-7-bestiary.Actor.4e3nTysxN8Yz27ZH.Item.JDeq2RIvsQCT4hQm": {
+   "ft": 60
+  },
+  "Compendium.pf2e.wardens-of-wildwood-bestiary.Actor.pO47dwHY2ulSpg7F.Item.DCAHmNtG0hWB0FHQ": {
+   "ft": 120,
+   "area": true
+  },
+  "Compendium.pf2e.prey-for-death-bestiary.Actor.hsfuajOsakdZrZFZ.Item.VmbUFfyz2JFBZda2": {
+   "ft": 120
+  },
+  "Compendium.pf2e.fists-of-the-ruby-phoenix-bestiary.Actor.lqHn5wSzxvdllGgH.Item.Pza0QFJJRY1ESj1Y": {
+   "ft": 60,
+   "area": true
+  },
+  "Compendium.pf2e.pathfinder-monster-core-2.Actor.Yei6zuiycFTzNMvN.Item.qyO3tN9tRhSMOM2Y": {
+   "ft": 30
+  },
+  "Compendium.pf2e.troubles-in-otari-bestiary.Actor.4GZsTkvuYADpcdmV.Item.73fsCGNUERkE3I1S": {
+   "ft": 30
+  },
+  "Compendium.pf2e.malevolence-bestiary.Actor.YSL27Oq2xFIzrq9u.Item.k5hfsPhHrFe43moo": {
+   "ft": 30
+  },
+  "Compendium.pf2e.hells-destiny-bestiary.Actor.RHgSOud92ADrlg04.Item.ks8skGnYYOGHBixh": {
+   "ft": 30
+  },
+  "Compendium.pf2e.feats-srd.Item.uKeUPPqV1cNnIy0h": {
+   "ft": 500,
+   "area": true
+  },
+  "Compendium.pf2e.battlecry-bestiary.Actor.rdS6HBEtST3WKnSA.Item.1xgyAsJKi4uaGNXT": {
+   "ft": 40,
+   "area": true
+  },
+  "Compendium.pf2e.feats-srd.Item.KdKkLGcUYOpI0deP": {
+   "ft": 120,
+   "area": true
+  },
+  "Compendium.pf2e.gatewalkers-bestiary.Actor.5kcL1xtNY0apAwhO.Item.ExhX7F9uu4cgrfBP": {
+   "ft": 60
+  },
+  "Compendium.pf2e.feats-srd.Item.XbMfMJq2sCQHdo1w": {
+   "ft": 30
+  },
+  "Compendium.pf2e.book-of-the-dead-bestiary.Actor.Ur3dzfmvtN7lyPNG.Item.je6z12w9bwlsz6kk": {
+   "ft": 60
+  },
+  "Compendium.pf2e.pfs-season-6-bestiary.Actor.DS1eimATKlj0Z2H5.Item.je6z12w9bwlsz6kk": {
+   "ft": 60
+  },
+  "Compendium.pf2e.pfs-season-4-bestiary.Actor.7Bon2mCIl8psUpUR.Item.or225f5ibefcz90w": {
+   "ft": 30
+  },
+  "Compendium.pf2e.pfs-season-4-bestiary.Actor.PIxgIqgDs3he4VV6.Item.or225f5ibefcz90w": {
+   "ft": 30
+  },
+  "Compendium.pf2e.quest-for-the-frozen-flame-bestiary.Actor.ovrQ2R9HJJhC1Yij.Item.or225f5ibefcz90w": {
+   "ft": 30
+  },
+  "Compendium.pf2e.feats-srd.Item.pBm5vej9divuL6dG": {
+   "ft": 60
+  },
+  "Compendium.pf2e.bastion-of-blasphemies-bestiary.Actor.69ZMdRQKHRbPtTnM.Item.DizgIQWDiExoFfGl": {
+   "ft": 30
+  },
+  "Compendium.pf2e.agents-of-edgewatch-bestiary.Actor.gIcReNQOZceZBBlw.Item.Ikix1zKqDpYhzRYA": {
+   "ft": 30
+  },
+  "Compendium.pf2e.agents-of-edgewatch-bestiary.Actor.gkRxUi9VrbPWOPGC.Item.Ez5LQ3xID56lShet": {
+   "ft": 30
+  },
+  "Compendium.pf2e.curtain-call-bestiary.Actor.8L1GpUj3eJgaeFUk.Item.xoJURAYjMC9BpEk2": {
+   "ft": 30
+  },
+  "Compendium.pf2e.abomination-vaults-bestiary.Actor.R0EEgMDKcynpAWoa.Item.tJRkLCUMgqynhzQ9": {
+   "ft": 30
+  },
+  "Compendium.pf2e.feats-srd.Item.fklx5lSy6ZEI3sID": {
+   "ft": 100,
+   "area": true
+  },
+  "Compendium.pf2e.pfs-season-3-bestiary.Actor.tVsrWl9kfVIGG5OW.Item.q36nSnzcaSWmF3UH": {
+   "ft": 30
+  },
+  "Compendium.pf2e.pfs-season-3-bestiary.Actor.vQjnfmvUzZwaUoBd.Item.q36nSnzcaSWmF3UH": {
+   "ft": 30
+  },
+  "Compendium.pf2e.agents-of-edgewatch-bestiary.Actor.qSL6PtsHPekEEEjx.Item.O97E3bY0dRr5pLCH": {
+   "ft": 100
+  },
+  "Compendium.pf2e.curtain-call-bestiary.Actor.aMPcSiJMjxnqqvgT.Item.IukwgU6DfXFrQy49": {
+   "ft": 100
+  },
+  "Compendium.pf2e.pathfinder-bestiary.Actor.bkaDwBD3mIBgvULs.Item.7DB79rjng9ShAwNU": {
+   "ft": 30
+  },
+  "Compendium.pf2e.myth-speaker-bestiary.Actor.VfL5YJzRiUxldUTg.Item.Ak4i5OqahkxZNFZw": {
+   "ft": 30
+  },
+  "Compendium.pf2e.myth-speaker-bestiary.Actor.KTG7qtxnTG81QQ2W.Item.Q6fEOr6gGayZ34K5": {
+   "ft": 40
+  },
+  "Compendium.pf2e.lost-omens-bestiary.Actor.n73ZDMFaAHD5y4KO.Item.kvK3JPk1Bv0I123d": {
+   "ft": 90
+  },
+  "Compendium.pf2e.feats-srd.Item.9zH7IOsmhRBEqXAV": {
+   "ft": 30
+  },
+  "Compendium.pf2e.night-of-the-gray-death-bestiary.Actor.7jALXqInrmh428DW.Item.tqtwsr6iftva2t2h": {
+   "ft": 30
+  },
+  "Compendium.pf2e.actionspf2e.Item.gP5oTU1Mh6GkuseX": {
+   "ft": 30
+  },
+  "Compendium.pf2e.battlecry-bestiary.Actor.pC7oMxW93OArImq9.Item.RfgBo9ONJcGFGDAH": {
+   "ft": 30,
+   "area": true
+  },
+  "Compendium.pf2e.pathfinder-monster-core.Actor.sPFQOP6asxC8Ga0O.Item.EaavbUg3YVjlCshj": {
+   "ft": 30
+  },
+  "Compendium.pf2e.gatewalkers-bestiary.Actor.qsRrYCsKLiMwZ1I9.Item.TlR0lKJzoCsqWCDA": {
+   "ft": 60
+  },
+  "Compendium.pf2e.lost-omens-bestiary.Actor.XCW1WzJqwGUS1cGi.Item.oxpacd87ogbbbiq7": {
+   "ft": 30
+  },
+  "Compendium.pf2e.feats-srd.Item.9L6c9sxweM4IdOse": {
+   "ft": 120,
+   "area": true
+  },
+  "Compendium.pf2e.kingmaker-bestiary.Actor.jUNnWUuiVueOTvHt.Item.9VA9Qjcx5YJxs4P1": {
+   "ft": 30
+  },
+  "Compendium.pf2e.battlecry-bestiary.Actor.1erSkftJQkpxYziy.Item.P7BbgkbC8XZ9bU1X": {
+   "ft": 30,
+   "area": true
+  },
+  "Compendium.pf2e.battlecry-bestiary.Actor.MvWzD22qi92ZF6q0.Item.sh7iK8xqS8cHsays": {
+   "ft": 30,
+   "area": true
+  },
+  "Compendium.pf2e.battlecry-bestiary.Actor.XZcLHaZP7yt2XU8Q.Item.dFtKZ94VZwUVZGqM": {
+   "ft": 30,
+   "area": true
+  },
+  "Compendium.pf2e.bastion-of-blasphemies-bestiary.Actor.ZaC0d2uDojDe1x49.Item.Sr8tyyvrMsNOkx4O": {
+   "ft": 30
+  },
+  "Compendium.pf2e.outlaws-of-alkenstar-bestiary.Actor.irkdc3CACxbhd2MN.Item.G2MHcR67aZiGIBIl": {
+   "ft": 100,
+   "area": true
+  },
+  "Compendium.pf2e.myth-speaker-bestiary.Actor.uAEbmbXpPckpuz0N.Item.4MK6OOGRrigHJBeb": {
+   "ft": 30
+  },
+  "Compendium.pf2e.actionspf2e.Item.wt6jdjjje16Nx34f": {
+   "ft": 60
+  },
+  "Compendium.pf2e.myth-speaker-bestiary.Actor.I8RBVY3fsLsBDljf.Item.XxDH5I0nVbJRd6dD": {
+   "ft": 60,
+   "area": true
+  },
+  "Compendium.pf2e.howl-of-the-wild-bestiary.Actor.3SNjewODzhPcxx9y.Item.iUhS0qcMQrvdqAug": {
+   "ft": 30
+  },
+  "Compendium.pf2e.feats-srd.Item.h0gwBDI61MxkvVPC": {
+   "ft": 40
+  },
+  "Compendium.pf2e.pathfinder-monster-core.Actor.yj2nhIS8ZsAJh2l5.Item.JCVCYsMSue62ekID": {
+   "ft": 100
+  },
+  "Compendium.pf2e.pathfinder-npc-core.Actor.aq5spzk2UZrI0ZwK.Item.KZA9FGpOR8xg53mX": {
+   "ft": 20
+  },
+  "Compendium.pf2e.pathfinder-npc-core.Actor.sEbc0YrpxVZ9kn1W.Item.GaNuN6hXeQKNOEPh": {
+   "ft": 50,
+   "area": true
+  },
+  "Compendium.pf2e.pathfinder-monster-core-2.Actor.9Gex7SavD3YJDPBs.Item.tAtaZY5U93gi2tUw": {
+   "ft": 50
+  },
+  "Compendium.pf2e.bastion-of-blasphemies-bestiary.Actor.GRKuCXILfcrpzZDX.Item.m0FEU5ngCaCMuGJ3": {
+   "ft": 30
+  },
+  "Compendium.pf2e.feats-srd.Item.CyvXimmSlpbOlBhX": {
+   "ft": 60
+  },
+  "Compendium.pf2e.bestiary-family-ability-glossary.Item.3VN2BLNE5zakeDCM": {
+   "ft": 30
+  },
+  "Compendium.pf2e.pathfinder-monster-core-2.Actor.9FaVwxdsH5w0e114.Item.j1ejW1HNjLpzBrmh": {
+   "ft": 60
+  },
+  "Compendium.pf2e.howl-of-the-wild-bestiary.Actor.Im1rZmVvTuMtKjTD.Item.I7QrAlBGtdUJLHWm": {
+   "ft": 20
+  },
+  "Compendium.pf2e.feats-srd.Item.qzalwa2Ze3dIqIrA": {
+   "ft": 10
+  },
+  "Compendium.pf2e.feats-srd.Item.nvahDuuKRE0T8Sh9": {
+   "ft": 30,
+   "area": true
+  },
+  "Compendium.pf2e.gatewalkers-bestiary.Actor.7VoxPNp1BMlhGrss.Item.dTqqc1JtTXpu8ouF": {
+   "ft": 40
+  },
+  "Compendium.pf2e.pathfinder-npc-core.Actor.IYEVUYP6fXJCleTQ.Item.cwnXsW9qJWhtOoS5": {
+   "ft": 100,
+   "area": true
+  },
+  "Compendium.pf2e.hellbreakers-bestiary.Actor.KxFEwqWX9FFGobeC.Item.2WyuFPxG4SdahXgx": {
+   "ft": 60,
+   "area": true
+  },
+  "Compendium.pf2e.gatewalkers-bestiary.Actor.9pu5FhW9oW1mZaaC.Item.Ck1UyqRp2PEJbzaZ": {
+   "ft": 10
+  },
+  "Compendium.pf2e.feats-srd.Item.P8P5PwLgxk84bRQw": {
+   "ft": 30
+  },
+  "Compendium.pf2e.lost-omens-bestiary.Actor.34t48adpGuEM9lIn.Item.fz7KtwK6Jr91CB04": {
+   "ft": 120
+  },
+  "Compendium.pf2e.lost-omens-bestiary.Actor.7QxDDSEmJaohqaXh.Item.fz7KtwK6Jr91CB04": {
+   "ft": 120
+  },
+  "Compendium.pf2e.feats-srd.Item.IAo6UeLgWqG7KK1x": {
+   "ft": 60
+  },
+  "Compendium.pf2e.pathfinder-npc-core.Actor.gJBsgTZnZnImelP2.Item.edM39Zg5GPyFAlWB": {
+   "ft": 30
+  },
+  "Compendium.pf2e.age-of-ashes-bestiary.Actor.N8vOjTD2SqS2b9Sy.Item.HEnPvo9LJho9qb75": {
+   "ft": 100
+  },
+  "Compendium.pf2e.pathfinder-bestiary.Actor.2T2cN4j4EzfDAIEe.Item.zxL9Jy3Yap38BQBi": {
+   "ft": 100
+  },
+  "Compendium.pf2e.pathfinder-monster-core-2.Actor.iOYLNPBikuBfVBDu.Item.rErZsPXNuFbptayx": {
+   "ft": 60
+  },
+  "Compendium.pf2e.pathfinder-npc-core.Actor.1GVm2vOnSKHTIvGA.Item.SoFniGftxKGmhTco": {
+   "ft": 30
+  },
+  "Compendium.pf2e.pathfinder-monster-core-2.Actor.QkjZNv3kb7BErPHR.Item.7WwNWH2C1Ll2Q3vZ": {
+   "ft": 60
+  },
+  "Compendium.pf2e.pathfinder-monster-core-2.Actor.Maj1QnVcPU84O55X.Item.WtqnAfh8oixobBWI": {
+   "ft": 60
+  },
+  "Compendium.pf2e.wardens-of-wildwood-bestiary.Actor.yW6weKrIkjL3UIqD.Item.iCah4GNKMRU17hti": {
+   "ft": 60,
+   "area": true
+  },
+  "Compendium.pf2e.sky-kings-tomb-bestiary.Actor.f9LUTY5IXXZorYZG.Item.ONrwFvyv9DsatjWc": {
+   "ft": 60
+  },
+  "Compendium.pf2e.troubles-in-grayce-bestiary.Actor.5UN8SqEfnzVY6P2P.Item.C4Y53V3IuGd3pBho": {
+   "ft": 60
+  },
+  "Compendium.pf2e.pathfinder-npc-core.Actor.oaqt9bociCp9e3Yr.Item.Q95qJwP5SCa0IlGu": {
+   "ft": 60
+  },
+  "Compendium.pf2e.bestiary-family-ability-glossary.Item.G4yIjHMzD0KVpaCm": {
+   "ft": 10
+  },
+  "Compendium.pf2e.bestiary-family-ability-glossary.Item.i4WBOAb7CmY53doM": {
+   "ft": 60
+  },
+  "Compendium.pf2e.feats-srd.Item.4F7suRtLfcurHqFI": {
+   "ft": 30
+  },
+  "Compendium.pf2e.hells-destiny-bestiary.Actor.U0pKGj1yJemGAXyc.Item.MQq8mozf2GsgGMaD": {
+   "ft": 30
+  },
+  "Compendium.pf2e.pathfinder-monster-core-2.Actor.U0pKGj1yJemGAXyc.Item.MQq8mozf2GsgGMaD": {
+   "ft": 30
+  },
+  "Compendium.pf2e.pathfinder-monster-core.Actor.TwFcW5O5J1SdsYv3.Item.pTowxMM6c9JCvVGF": {
+   "ft": 60
+  },
+  "Compendium.pf2e.seven-dooms-for-sandpoint-bestiary.Actor.m221Ars4KPC1j7VT.Item.pTowxMM6c9JCvVGF": {
+   "ft": 60
+  },
+  "Compendium.pf2e.menace-under-otari-bestiary.Actor.AdQVjlOWB6rmBRVp.Item.fIAhNhYo8hJML5xU": {
+   "ft": 30
+  },
+  "Compendium.pf2e.bastion-of-blasphemies-bestiary.Actor.Yztj3ptEzuC35z1u.Item.VB1EtbtqicffYgiZ": {
+   "ft": 30
+  },
+  "Compendium.pf2e.pfs-season-4-bestiary.Actor.XSOh2n1QPwfSdejr.Item.DIQp8sq3PKsnRMuE": {
+   "ft": 500
+  },
+  "Compendium.pf2e.pathfinder-bestiary-3.Actor.xswHz64371Sb9Let.Item.3gpkwgTnI0kfqxxS": {
+   "ft": 20,
+   "area": true
+  },
+  "Compendium.pf2e.lost-omens-bestiary.Actor.hbvxQn0T0m4WoAmZ.Item.efUGr9NzEDDkHLgh": {
+   "ft": 30
+  },
+  "Compendium.pf2e.strength-of-thousands-bestiary.Actor.rJQx7C5BGqslgr4x.Item.m16ky4ctpaioader": {
+   "ft": 30
+  },
+  "Compendium.pf2e.feats-srd.Item.pyaPfKPAN4H7hkLM": {
+   "ft": 15
+  },
+  "Compendium.pf2e.pathfinder-monster-core-2.Actor.7ZCO51Bt6ulKHaSr.Item.XV0PY92iVlMP2U2D": {
+   "ft": 60,
+   "area": true
+  },
+  "Compendium.pf2e.lost-omens-bestiary.Actor.9jvXTVcMNTx3kGfU.Item.4LPLJgV2vXAU3fxa": {
+   "ft": 60
+  },
+  "Compendium.pf2e.blog-bestiary.Actor.4BzHtRTPQ5mZj9Mr.Item.whdGwDoqDTFsJHre": {
+   "ft": 60,
+   "area": true
+  },
+  "Compendium.pf2e.lost-omens-bestiary.Actor.gSjijU7CefEIpdN1.Item.auVLK7MxrfP8W4Xl": {
+   "ft": 100,
+   "area": true
+  },
+  "Compendium.pf2e.fists-of-the-ruby-phoenix-bestiary.Actor.uvBZm8b7Vtzn1U2d.Item.behIG7MUGDjnopex": {
+   "ft": 500,
+   "area": true
+  },
+  "Compendium.pf2e.battlecry-bestiary.Actor.ZV0sTglav4pah5iu.Item.PKUSYo3GgYBtftNN": {
+   "ft": 30,
+   "area": true
+  },
+  "Compendium.pf2e.hellbreakers-bestiary.Actor.KNCMQmJ8ddo9fAiI.Item.PoCHXLvk6Nt9a5GS": {
+   "ft": 60,
+   "area": true
+  },
+  "Compendium.pf2e.feats-srd.Item.y3E0V6Nmq7HElfDT": {
+   "ft": 30
+  },
+  "Compendium.pf2e.lost-omens-bestiary.Actor.iFodAjceDZItd2Qy.Item.t12q6tHImrfj9gBu": {
+   "ft": 60
+  },
+  "Compendium.pf2e.pathfinder-monster-core-2.Actor.CZc6eVvRcsVJgjBU.Item.t12q6tHImrfj9gBu": {
+   "ft": 60
+  },
+  "Compendium.pf2e.pfs-season-7-bestiary.Actor.SnoWbBMVQdoAKJA9.Item.dKVpzI2Gex2xr8no": {
+   "ft": 30
+  },
+  "Compendium.pf2e.pfs-season-7-bestiary.Actor.vngxFO3AQdnBivra.Item.dKVpzI2Gex2xr8no": {
+   "ft": 30
+  },
+  "Compendium.pf2e.feats-srd.Item.acJkVtpX2GUvl90E": {
+   "ft": 30,
+   "area": true
+  },
+  "Compendium.pf2e.strength-of-thousands-bestiary.Actor.9dsDwOspNTaUGoem.Item.jvm0dsaowmfz1zgn": {
+   "ft": 30
+  },
+  "Compendium.pf2e.battlecry-bestiary.Actor.AHV0FTrbuPljLndw.Item.0fy4J6XGUdXEiXGs": {
+   "ft": 60,
+   "area": true
+  },
+  "Compendium.pf2e.actionspf2e.Item.7wQe43fSCG9DSWdj": {
+   "ft": 30
+  },
+  "Compendium.pf2e.bestiary-family-ability-glossary.Item.ACtEZDv5sogaOgcG": {
+   "ft": 60
+  },
+  "Compendium.pf2e.pathfinder-monster-core.Actor.OCZR5r4EBUrt97Ai.Item.JKbYUjDXzNXugMpJ": {
+   "ft": 10
+  },
+  "Compendium.pf2e.rage-of-elements-bestiary.Actor.O3Rjdf00nJOHF4PE.Item.dDHxzADSN2FkryKO": {
+   "ft": 60
+  },
+  "Compendium.pf2e.feats-srd.Item.H1kZ8nqvHlAazM35": {
+   "ft": 30
+  },
+  "Compendium.pf2e.feats-srd.Item.bCizH4ByTwbLcYA1": {
+   "ft": 30
+  },
+  "Compendium.pf2e.vehicles.Actor.cvP9ytBY9SJbaNbo.Item.jv3XUW2upC7aFRtR": {
+   "ft": 20
+  },
+  "Compendium.pf2e.hellbreakers-bestiary.Actor.3uUi2rjOEzJGCBkW.Item.mhNxlbtHGjZzl37C": {
+   "ft": 60
+  },
+  "Compendium.pf2e.myth-speaker-bestiary.Actor.sPy2VUgObOcUKceK.Item.Qk2RJG0m0VJmaflT": {
+   "ft": 30
+  },
+  "Compendium.pf2e.battlecry-bestiary.Actor.qjCFbg7IB5NDbMOW.Item.dsHzY2PK1f58ohEV": {
+   "ft": 30,
+   "area": true
+  },
+  "Compendium.pf2e.quest-for-the-frozen-flame-bestiary.Actor.RPXXt5bgFCqKibZ3.Item.o71qj7womecgs164": {
+   "ft": 30
+  },
+  "Compendium.pf2e.pathfinder-npc-core.Actor.A8jeXP2XNUSsdXhs.Item.rnHh5tgPOQAnpPh8": {
+   "ft": 30
+  },
+  "Compendium.pf2e.pathfinder-monster-core-2.Actor.QkjZNv3kb7BErPHR.Item.6lGBPYTZUWLJZzDA": {
+   "ft": 120,
+   "area": true
+  },
+  "Compendium.pf2e.lost-omens-bestiary.Actor.6v2HzHeT1mNLaqg9.Item.d8HR4EQ9nX1SA5WT": {
+   "ft": 30
+  },
+  "Compendium.pf2e.wardens-of-wildwood-bestiary.Actor.kGZ9TvZWq4eOG9hk.Item.b7t2rgUWf5rWRd8L": {
+   "ft": 60
+  },
+  "Compendium.pf2e.pathfinder-npc-core.Actor.sAurhtXSqv3kPAlJ.Item.3KRBTeawv2IY2roA": {
+   "ft": 15
+  },
+  "Compendium.pf2e.book-of-the-dead-bestiary.Actor.5ukWvQqK17BQl31O.Item.dtbhcid8fzmfjtp7": {
+   "ft": 20
+  },
+  "Compendium.pf2e.pfs-season-5-bestiary.Actor.ACCnvTL2K5L9CAPg.Item.dtbhcid8fzmfjtp7": {
+   "ft": 20
+  },
+  "Compendium.pf2e.bestiary-family-ability-glossary.Item.w5wDTUUeGHAAoZH1": {
+   "ft": 60
+  },
+  "Compendium.pf2e.season-of-ghosts-bestiary.Actor.USMiwD8crKdeFybh.Item.X6VfzxcB3o3mXrJE": {
+   "ft": 60
+  },
+  "Compendium.pf2e.feats-srd.Item.ctl5zNJC3APlHg9o": {
+   "ft": 30
+  },
+  "Compendium.pf2e.menace-under-otari-bestiary.Actor.mX47c0W9rizbmMBM.Item.tOCS9mkYR5K1LuOZ": {
+   "ft": 30
+  },
+  "Compendium.pf2e.kingmaker-bestiary.Actor.WJ0bMCZUHJVwKYG1.Item.tOCS9mkYR5K1LuOZ": {
+   "ft": 30
+  },
+  "Compendium.pf2e.pathfinder-bestiary-2.Actor.4x9trDSABU5dqq9w.Item.gL7E79l3yS72fXPo": {
+   "ft": 30
+  },
+  "Compendium.pf2e.pathfinder-monster-core.Actor.mX47c0W9rizbmMBM.Item.tOCS9mkYR5K1LuOZ": {
+   "ft": 30
+  },
+  "Compendium.pf2e.sky-kings-tomb-bestiary.Actor.zWtfGN6uugDaRtcS.Item.tOCS9mkYR5K1LuOZ": {
+   "ft": 30
+  },
+  "Compendium.pf2e.myth-speaker-bestiary.Actor.UkO1E2yzPQdk2i5r.Item.tOCS9mkYR5K1LuOZ": {
+   "ft": 30
+  },
+  "Compendium.pf2e.feats-srd.Item.KnaKxKP3eCUcCZC7": {
+   "ft": 30
+  },
+  "Compendium.pf2e.menace-under-otari-bestiary.Actor.mX47c0W9rizbmMBM.Item.Nl15bkRTLq869IPi": {
+   "ft": 30
+  },
+  "Compendium.pf2e.feats-srd.Item.baVAW4IDiCyKN8Q1": {
+   "ft": 60
+  },
+  "Compendium.pf2e.shades-of-blood-bestiary.Actor.yLDEDOpiBK8kEiqy.Item.oxkrOr3uZuzTNuR4": {
+   "ft": 30,
+   "area": true
+  },
+  "Compendium.pf2e.shades-of-blood-bestiary.Actor.zjmH2o7EaajaQ7sQ.Item.oxkrOr3uZuzTNuR4": {
+   "ft": 30,
+   "area": true
+  },
+  "Compendium.pf2e.pfs-season-4-bestiary.Actor.IkS9AxSHCAPTYSoB.Item.X9LAGzV3G3k4NJL1": {
+   "ft": 30
+  },
+  "Compendium.pf2e.feats-srd.Item.yOyMlFGAgLfRas8m": {
+   "ft": 30
+  },
+  "Compendium.pf2e.feats-srd.Item.ODy9tq7NPlD5fxzZ": {
+   "ft": 120,
+   "area": true
+  },
+  "Compendium.pf2e.fists-of-the-ruby-phoenix-bestiary.Actor.PsipHKpczW9FT2Jk.Item.uTQwt6vV8Jw92Whh": {
+   "ft": 60,
+   "area": true
+  },
+  "Compendium.pf2e.fists-of-the-ruby-phoenix-bestiary.Actor.vjE1lUpklp4slNbd.Item.8VkXSkdo2QljL0s2": {
+   "ft": 90,
+   "area": true
+  },
+  "Compendium.pf2e.kingmaker-bestiary.Actor.1vsQlCVwa9kVmgRi.Item.JWMAFJOdy4Odx7RY": {
+   "ft": 60
+  },
+  "Compendium.pf2e.battlecry-bestiary.Actor.2TE622Pc0ExYZ5dS.Item.PFRTcxVCSgkl4Vru": {
+   "ft": 60,
+   "area": true
+  },
+  "Compendium.pf2e.lost-omens-bestiary.Actor.L0olDEaCquOy9aL6.Item.urfhl0ShllPM8lPS": {
+   "ft": 120
+  },
+  "Compendium.pf2e.lost-omens-bestiary.Actor.QOj4HnGuAPC4viLr.Item.urfhl0ShllPM8lPS": {
+   "ft": 120
+  },
+  "Compendium.pf2e.pathfinder-monster-core-2.Actor.IpceyxBj5kTkmQWx.Item.rkJfQhBUvxq3Xw1y": {
+   "ft": 75
+  },
+  "Compendium.pf2e.pathfinder-monster-core-2.Actor.NrfzOgCuPadLmKwj.Item.urfhl0ShllPM8lPS": {
+   "ft": 90
+  },
+  "Compendium.pf2e.lost-omens-bestiary.Actor.RqdL0YzNF1dG163i.Item.97tkdskjbdqmdznu": {
+   "ft": 120,
+   "area": true
+  },
+  "Compendium.pf2e.outlaws-of-alkenstar-bestiary.Actor.Lck0FIlp4kLFeLfg.Item.qad7trlveeeygqzj": {
+   "ft": 30
+  },
+  "Compendium.pf2e.rage-of-elements-bestiary.Actor.m2WdV4XJ3r70mnJX.Item.SDDRm9yPKg3NJ4SU": {
+   "ft": 30
+  },
+  "Compendium.pf2e.lost-omens-bestiary.Actor.7q6gHmLkKu3gAoxW.Item.nWEiNzJVO4NSKZA8": {
+   "ft": 120,
+   "area": true
+  },
+  "Compendium.pf2e.lost-omens-bestiary.Actor.9D9woSv4rl4brb50.Item.nWEiNzJVO4NSKZA8": {
+   "ft": 120,
+   "area": true
+  },
+  "Compendium.pf2e.lost-omens-bestiary.Actor.GS0xs8kgKrwHEX3u.Item.nWEiNzJVO4NSKZA8": {
+   "ft": 120,
+   "area": true
+  },
+  "Compendium.pf2e.lost-omens-bestiary.Actor.PZlEThIJ3lWXEKMa.Item.nWEiNzJVO4NSKZA8": {
+   "ft": 120,
+   "area": true
+  },
+  "Compendium.pf2e.pathfinder-npc-core.Actor.xMDUgVCByn9VA0zC.Item.H2HkvSvxAPG03G9a": {
+   "ft": 30
+  },
+  "Compendium.pf2e.pathfinder-bestiary-2.Actor.FRTpT9rLxUBKGdin.Item.OJA9CljFVtmCuzlZ": {
+   "ft": 60
+  },
+  "Compendium.pf2e.sky-kings-tomb-bestiary.Actor.gl7jMlFgJW1iKJM3.Item.AjQpBvc8QdfxEyAD": {
+   "ft": 120
+  },
+  "Compendium.pf2e.strength-of-thousands-bestiary.Actor.tNDYjNXMWk4VoxGm.Item.yy8vbnwfxfj86fv8": {
+   "ft": 90,
+   "area": true
+  },
+  "Compendium.pf2e.feats-srd.Item.sPCLWu1JdTFqKZVH": {
+   "ft": 30
+  },
+  "Compendium.pf2e.feats-srd.Item.O0YJxlWgO1BPX7w5": {
+   "ft": 60
+  },
+  "Compendium.pf2e.hellbreakers-bestiary.Actor.CBHCri79DDf3I6jf.Item.STeGuJ5028k9wlaF": {
+   "ft": 30
+  },
+  "Compendium.pf2e.battlecry-bestiary.Actor.bBCYy91DecP2Y8Ax.Item.Kne0fCu271kBT4tl": {
+   "ft": 60,
+   "area": true
+  },
+  "Compendium.pf2e.feats-srd.Item.dPOH2iZ6ZT1jwpz9": {
+   "ft": 30
+  },
+  "Compendium.pf2e.myth-speaker-bestiary.Actor.zBkMFaZZAHvivVnh.Item.uh8n5Em5GNcWEzfu": {
+   "ft": 20
+  },
+  "Compendium.pf2e.revenge-of-the-runelords-bestiary.Actor.E3MQAayLHyz1Cgm9.Item.U6detunFxsigyWVV": {
+   "ft": 60
+  },
+  "Compendium.pf2e.pathfinder-bestiary-2.Actor.drtCZDDoESPSUqH7.Item.71Xez8c9broSGKbf": {
+   "ft": 30
+  },
+  "Compendium.pf2e.fists-of-the-ruby-phoenix-bestiary.Actor.YHbBs2Jq6ukngOra.Item.BnV3qtr2i3CgT8Mz": {
+   "ft": 200,
+   "area": true
+  },
+  "Compendium.pf2e.strength-of-thousands-bestiary.Actor.tNDYjNXMWk4VoxGm.Item.s4kk8xce6s8xp1y3": {
+   "ft": 30
+  },
+  "Compendium.pf2e.age-of-ashes-bestiary.Actor.7WNFNE3SVMRGbBDf.Item.w40QDydlY3kEtlQE": {
+   "ft": 30,
+   "area": true
+  },
+  "Compendium.pf2e.fists-of-the-ruby-phoenix-bestiary.Actor.YHSV9DfaqoaSggLi.Item.wOP6YXpdFoKUcye3": {
+   "ft": 60,
+   "area": true
+  },
+  "Compendium.pf2e.lost-omens-bestiary.Actor.4ZGa5rrV0plrmDZm.Item.qVz6OVUg1O9o7fRb": {
+   "ft": 30,
+   "area": true
+  },
+  "Compendium.pf2e.fists-of-the-ruby-phoenix-bestiary.Actor.hkGMvgL9IOZcAKyc.Item.f4G7Q9LKy3OXsxWz": {
+   "ft": 50,
+   "area": true
+  },
+  "Compendium.pf2e.feats-srd.Item.879dW5QkNDS66Ue3": {
+   "ft": 60,
+   "area": true
+  },
+  "Compendium.pf2e.lost-omens-bestiary.Actor.c1lHpvAyJUaQvPEH.Item.pnSwPIQ2ghGc0vZv": {
+   "ft": 120,
+   "area": true
+  },
+  "Compendium.pf2e.feats-srd.Item.t3BPLh4rEInYGJJW": {
+   "ft": 60,
+   "area": true
+  },
+  "Compendium.pf2e.wardens-of-wildwood-bestiary.Actor.Cm96cXbKhov2TqJq.Item.e5mTIkYXOCsRLHLx": {
+   "ft": 60,
+   "area": true
+  },
+  "Compendium.pf2e.wardens-of-wildwood-bestiary.Actor.yW6weKrIkjL3UIqD.Item.45lQQZKzEFKKWh5z": {
+   "ft": 30,
+   "area": true
+  },
+  "Compendium.pf2e.gatewalkers-bestiary.Actor.5kcL1xtNY0apAwhO.Item.jn8TyvsQzXnJDy6c": {
+   "ft": 60,
+   "area": true
+  },
+  "Compendium.pf2e.actionspf2e.Item.IBEbFlMmDbGsrN4G": {
+   "ft": 15
+  },
+  "Compendium.pf2e.agents-of-edgewatch-bestiary.Actor.Rinxhe1cRXKEsXuW.Item.haax0MkiNqA6MN2L": {
+   "ft": 60
+  },
+  "Compendium.pf2e.feats-srd.Item.df4cBV3qZn3qNUmP": {
+   "ft": 60
+  },
+  "Compendium.pf2e.myth-speaker-bestiary.Actor.CxAfUQklaPHoi9h2.Item.SrPmoklSHSyDRXzL": {
+   "ft": 20
+  },
+  "Compendium.pf2e.fists-of-the-ruby-phoenix-bestiary.Actor.pi3njPvz8AsOrVGZ.Item.XtzogVngDP2ov4QI": {
+   "ft": 15
+  },
+  "Compendium.pf2e.feats-srd.Item.Vc3TsH5y2vsCawLy": {
+   "ft": 60
+  },
+  "Compendium.pf2e.hells-destiny-bestiary.Actor.nN1fOQT8FDgbmQdx.Item.8BepGIHpY5yY5uZf": {
+   "ft": 120,
+   "area": true
+  },
+  "Compendium.pf2e.pathfinder-npc-core.Actor.nN1fOQT8FDgbmQdx.Item.8BepGIHpY5yY5uZf": {
+   "ft": 120,
+   "area": true
+  },
+  "Compendium.pf2e.lost-omens-bestiary.Actor.7ZSjqT2yiJB5OKgk.Item.qJ1FnFAqZYR85GdB": {
+   "ft": 30
+  },
+  "Compendium.pf2e.pathfinder-bestiary-2.Actor.EXeR2HC4xsvHcf6K.Item.vm77jtXXqIjODOmX": {
+   "ft": 40
+  },
+  "Compendium.pf2e.actionspf2e.Item.kRxWINkrHUPSHHYq": {
+   "ft": 30
+  },
+  "Compendium.pf2e.stolen-fate-bestiary.Actor.P604YfY14wo4Uu56.Item.D8Yqt5Mr33XLJVeT": {
+   "ft": 100
+  },
+  "Compendium.pf2e.battlecry-bestiary.Actor.egHaHp1lqQBZdKdR.Item.R5lNnsguizwqTZFA": {
+   "ft": 60,
+   "area": true
+  },
+  "Compendium.pf2e.pathfinder-monster-core-2.Actor.FuvlS0DHfooobGiN.Item.iev8zZf1pmJl4hx1": {
+   "ft": 30
+  },
+  "Compendium.pf2e.feats-srd.Item.YePPw9Oc4JlDAmYD": {
+   "ft": 100,
+   "area": true
+  },
+  "Compendium.pf2e.kingmaker-bestiary.Actor.UfB3NfSgZIkN5Rjx.Item.fYhoTq6AnWKAwKBM": {
+   "ft": 30
+  },
+  "Compendium.pf2e.kingmaker-bestiary.Actor.qS7JwIPqsjNKKALK.Item.fYhoTq6AnWKAwKBM": {
+   "ft": 30
+  },
+  "Compendium.pf2e.pathfinder-dark-archive.Actor.3Oz62UCZeqwG6BzE.Item.4oz5vNIBQ0PmHw6p": {
+   "ft": 50,
+   "area": true
+  },
+  "Compendium.pf2e.kingmaker-bestiary.Actor.htHgsx1COWOfhE3D.Item.gzziZdYQCjJ1pCM1": {
+   "ft": 60
+  },
+  "Compendium.pf2e.feats-srd.Item.0wpnyayq9ZXmfv7H": {
+   "ft": 120
+  },
+  "Compendium.pf2e.curtain-call-bestiary.Actor.ZaT4rd3bTIfECkCd.Item.dwH6nJY0Yb3I4jsA": {
+   "ft": 50,
+   "area": true
+  },
+  "Compendium.pf2e.sky-kings-tomb-bestiary.Actor.cn4Fxcuiae4X9pYV.Item.ylOgfZlsabna8Qoo": {
+   "ft": 30,
+   "area": true
+  },
+  "Compendium.pf2e.age-of-ashes-bestiary.Actor.Fe1lYhCUY4UO4Plw.Item.sEn2RRTxyiFjpqfu": {
+   "ft": 30
+  },
+  "Compendium.pf2e.actionspf2e.Item.XkrN7gxdRXTYYBkX": {
+   "ft": 30
+  },
+  "Compendium.pf2e.pathfinder-bestiary-2.Actor.FRTpT9rLxUBKGdin.Item.x3aksJFYweZk98OP": {
+   "ft": 60
+  },
+  "Compendium.pf2e.fists-of-the-ruby-phoenix-bestiary.Actor.6wRicVhIx07i94s3.Item.splf2Bg9krRw5Scf": {
+   "ft": 60
+  },
+  "Compendium.pf2e.feats-srd.Item.FgtUV7SKeq0nTivu": {
+   "ft": 30
+  },
+  "Compendium.pf2e.feats-srd.Item.83zzG4XBiL5I3NZv": {
+   "ft": 30
+  },
+  "Compendium.pf2e.feats-srd.Item.fOwArAHixZsrpUMM": {
+   "ft": 60
+  },
+  "Compendium.pf2e.pfs-season-2-bestiary.Actor.SFBumlEX6jDIwAvL.Item.bdrrSnIH32ERMP25": {
+   "ft": 100
+  },
+  "Compendium.pf2e.rage-of-elements-bestiary.Actor.jKSirpKNicffmRpW.Item.agAnzTLuLv3ofRDa": {
+   "ft": 60
+  },
+  "Compendium.pf2e.feats-srd.Item.ZJSkCrud1FZ7PMFk": {
+   "ft": 30
+  },
+  "Compendium.pf2e.feats-srd.Item.P0v56G9Hkt87cAKj": {
+   "ft": 500,
+   "area": true
+  },
+  "Compendium.pf2e.actionspf2e.Item.YdS8gzytU5gvK5QY": {
+   "ft": 30,
+   "area": true
+  },
+  "Compendium.pf2e.strength-of-thousands-bestiary.Actor.9dsDwOspNTaUGoem.Item.mds3qf6b45mnbotm": {
+   "ft": 60,
+   "area": true
+  },
+  "Compendium.pf2e.strength-of-thousands-bestiary.Actor.BsXzS2fooPorzqsV.Item.8cIoZgJYjTSQNeqn": {
+   "ft": 60,
+   "area": true
+  },
+  "Compendium.pf2e.strength-of-thousands-bestiary.Actor.NVeGEMmia7sVq7uj.Item.F8cB9BOXSox2BLLk": {
+   "ft": 60,
+   "area": true
+  },
+  "Compendium.pf2e.strength-of-thousands-bestiary.Actor.yBIeXuLhBROG84Ca.Item.O7Nkcu4MCIufyEcJ": {
+   "ft": 60,
+   "area": true
+  },
+  "Compendium.pf2e.strength-of-thousands-bestiary.Actor.yqZqz9sMK8LNolIB.Item.aKVxowf3fUlcmJuc": {
+   "ft": 60,
+   "area": true
+  },
+  "Compendium.pf2e.pathfinder-npc-core.Actor.C8Bo22NBYGoj9Fwd.Item.o7RippHQ22wnFDkR": {
+   "ft": 50,
+   "area": true
+  },
+  "Compendium.pf2e.feats-srd.Item.40mZVDnIP5qBNhTH": {
+   "ft": 30,
+   "area": true
+  },
+  "Compendium.pf2e.outlaws-of-alkenstar-bestiary.Actor.ceKqkc0c86gh6cI1.Item.ayrFq5rbKak2j5fR": {
+   "ft": 60,
+   "area": true
+  },
+  "Compendium.pf2e.pathfinder-monster-core.Actor.irl1wnfk4b83JWkY.Item.AzIejcCA4nY9zlmB": {
+   "ft": 60,
+   "area": true
+  },
+  "Compendium.pf2e.feats-srd.Item.pHBHQaqI77pYtaCU": {
+   "ft": 120,
+   "area": true
+  },
+  "Compendium.pf2e.pathfinder-bestiary-3.Actor.HEgGta4uVmwdkw3E.Item.2oNUku2hW5pSquMS": {
+   "ft": 60
+  },
+  "Compendium.pf2e.feats-srd.Item.mZttsiWl1ql5NvrH": {
+   "ft": 30
+  },
+  "Compendium.pf2e.feats-srd.Item.XqtJVBwnxBsSo9Py": {
+   "ft": 60,
+   "area": true
+  },
+  "Compendium.pf2e.iconics.Actor.XaBCp3DygrjJaqR7.Item.wWJnbKflHkxqyVFm": {
+   "ft": 60,
+   "area": true
+  },
+  "Compendium.pf2e.feats-srd.Item.KNhmeUpZCSW5eHqg": {
+   "ft": 60
+  },
+  "Compendium.pf2e.feats-srd.Item.f01ieQOcJFY7Ta7m": {
+   "ft": 120,
+   "area": true
+  },
+  "Compendium.pf2e.agents-of-edgewatch-bestiary.Actor.5pBr5aWUb7yGCqN7.Item.8QIEpGKWvwKK8mSZ": {
+   "ft": 30
+  },
+  "Compendium.pf2e.pfs-season-1-bestiary.Actor.uedXIip0UPHJ4Egt.Item.nk39gb38JIlNQo9N": {
+   "ft": 20
+  },
+  "Compendium.pf2e.pfs-season-6-bestiary.Actor.WUEqFQr2smIhJEWC.Item.bwFByvenrmrtAL0q": {
+   "ft": 60
+  },
+  "Compendium.pf2e.pfs-season-6-bestiary.Actor.itasH0mQ5m9dd4Tk.Item.bwFByvenrmrtAL0q": {
+   "ft": 60
+  },
+  "Compendium.pf2e.pfs-season-6-bestiary.Actor.tM1FEUbrFpTPfDhZ.Item.bwFByvenrmrtAL0q": {
+   "ft": 60
+  },
+  "Compendium.pf2e.feats-srd.Item.c2hPWQ4zdc4CnrnZ": {
+   "ft": 30
+  },
+  "Compendium.pf2e.rage-of-elements-bestiary.Actor.YKEPPmyqTvVSApo8.Item.jOt2g9OMVZme0Mqs": {
+   "ft": 120,
+   "area": true
+  },
+  "Compendium.pf2e.fists-of-the-ruby-phoenix-bestiary.Actor.vf59nmtYaF0se9Ui.Item.l11ZoxPVttpvt5aN": {
+   "ft": 20,
+   "area": true
+  },
+  "Compendium.pf2e.feats-srd.Item.iyXw5PnevT2jT8kU": {
+   "ft": 30
+  },
+  "Compendium.pf2e.pathfinder-bestiary-2.Actor.WqppjHF2Y8yC6veS.Item.usIKpszaYrCWfN8r": {
+   "ft": 40,
+   "area": true
+  },
+  "Compendium.pf2e.pfs-introductions-bestiary.Actor.LG0Vg7zBMGFQUkvE.Item.usIKpszaYrCWfN8r": {
+   "ft": 40,
+   "area": true
+  },
+  "Compendium.pf2e.pfs-season-3-bestiary.Actor.yw5hz4q8vn7S7aUF.Item.usIKpszaYrCWfN8r": {
+   "ft": 40,
+   "area": true
+  },
+  "Compendium.pf2e.pfs-season-4-bestiary.Actor.55qjNw6rOCdJYC52.Item.usIKpszaYrCWfN8r": {
+   "ft": 40,
+   "area": true
+  },
+  "Compendium.pf2e.pfs-season-4-bestiary.Actor.aOniinvqGZ6EUbyq.Item.usIKpszaYrCWfN8r": {
+   "ft": 40,
+   "area": true
+  },
+  "Compendium.pf2e.abomination-vaults-bestiary.Actor.2TOXR7nKS6xPng2Y.Item.eRq3BYWv8B8rLpXL": {
+   "ft": 30,
+   "area": true
+  },
+  "Compendium.pf2e.pfs-season-7-bestiary.Actor.20N1KWw4cmy0Etoh.Item.JEjJmbaqLOsaBEiD": {
+   "ft": 30
+  },
+  "Compendium.pf2e.pfs-season-7-bestiary.Actor.73rwK4mN1FJbcoTG.Item.JEjJmbaqLOsaBEiD": {
+   "ft": 30
+  },
+  "Compendium.pf2e.pfs-season-7-bestiary.Actor.EsbnHIdsavLd2qJc.Item.JEjJmbaqLOsaBEiD": {
+   "ft": 30
+  },
+  "Compendium.pf2e.pfs-season-7-bestiary.Actor.b1xe6qPYygPr7MH5.Item.JEjJmbaqLOsaBEiD": {
+   "ft": 30
+  },
+  "Compendium.pf2e.curtain-call-bestiary.Actor.JYE1gsB9D12crx5C.Item.FVDPg3HIsGffnOjd": {
+   "ft": 5
+  },
+  "Compendium.pf2e.pathfinder-monster-core-2.Actor.tHXV7mD747K60656.Item.uw1pWcCZmbGdd2S3": {
+   "ft": 5
+  },
+  "Compendium.pf2e.rage-of-elements-bestiary.Actor.E3n4MNWQNPR2o3bG.Item.rBBPu3L2sSvSJOCv": {
+   "ft": 30,
+   "area": true
+  },
+  "Compendium.pf2e.pathfinder-npc-core.Actor.lqlrpoxzBoBH6Hw8.Item.TxfvDT9dqOAuWcTv": {
+   "ft": 120
+  },
+  "Compendium.pf2e.feats-srd.Item.fCHB8wNlr5q0THRG": {
+   "ft": 30
+  },
+  "Compendium.pf2e.sky-kings-tomb-bestiary.Actor.G7RxS2VvwZDZs0fa.Item.0XhvwdSYaWFgbC0W": {
+   "ft": 50,
+   "area": true
+  },
+  "Compendium.pf2e.pathfinder-bestiary-2.Actor.xUtl7Nkb6iJpPUMK.Item.lXe9Yv9DRWtrP5OH": {
+   "ft": 60
+  },
+  "Compendium.pf2e.howl-of-the-wild-bestiary.Actor.bu6iSeOO5ho0IIRS.Item.sMs1a1cLWNZ7JWYx": {
+   "ft": 60,
+   "area": true
+  },
+  "Compendium.pf2e.feats-srd.Item.HP1DKj4FLwtStzYq": {
+   "ft": 15,
+   "area": true
+  },
+  "Compendium.pf2e.age-of-ashes-bestiary.Actor.MOyYEls8wNGHoe8F.Item.W0905p3wQrOz7E2x": {
+   "ft": 5
+  },
+  "Compendium.pf2e.blood-lords-bestiary.Actor.L30BKaq55auUhcPY.Item.9yfwQGf7Fj956UQS": {
+   "ft": 60
+  },
+  "Compendium.pf2e.pathfinder-bestiary-2.Actor.HI7SecILsRTmOtky.Item.JakacQ9SCpgoCpCp": {
+   "ft": 30
+  },
+  "Compendium.pf2e.pathfinder-npc-core.Actor.jAdRgBHut1h1et10.Item.cLFteTTZ1b4O3AoI": {
+   "ft": 120,
+   "area": true
+  },
+  "Compendium.pf2e.hells-destiny-bestiary.Actor.Ma74LwDVshp1RZ1y.Item.tPForCLpExwpPzCe": {
+   "ft": 60,
+   "area": true
+  },
+  "Compendium.pf2e.pfs-season-7-bestiary.Actor.61Q3uMgF7S2ko6z2.Item.GnsMYRIpAJsHjad1": {
+   "ft": 60,
+   "area": true
+  },
+  "Compendium.pf2e.battlecry-bestiary.Actor.Td5jgGuZvNBVQngE.Item.unbuSuEJCHdIxDeZ": {
+   "ft": 60,
+   "area": true
+  },
+  "Compendium.pf2e.agents-of-edgewatch-bestiary.Actor.uFU6dQfcNeKq68YT.Item.XKe1YQHD2E6lSSDn": {
+   "ft": 60
+  },
+  "Compendium.pf2e.shades-of-blood-bestiary.Actor.VVDuJAwbwUjKZ5SD.Item.a4RuZGPEPdmhudOd": {
+   "ft": 20
+  },
+  "Compendium.pf2e.fists-of-the-ruby-phoenix-bestiary.Actor.fxukt1qqVaQG9KcY.Item.sbeiX4ZyHe5GYhPS": {
+   "ft": 30,
+   "area": true
+  },
+  "Compendium.pf2e.feats-srd.Item.cV2CZxD6HB7HFeFv": {
+   "ft": 30
+  },
+  "Compendium.pf2e.pathfinder-monster-core-2.Actor.U93WglNpPjOYk23q.Item.TTBI8puLr7uK7ucG": {
+   "ft": 60
+  },
+  "Compendium.pf2e.curtain-call-bestiary.Actor.XlEHPOxIIvne6oxe.Item.GdByrDIFQsIb65c6": {
+   "ft": 30
+  },
+  "Compendium.pf2e.bestiary-family-ability-glossary.Item.MAC97gjFcdiqLyhp": {
+   "ft": 20
+  },
+  "Compendium.pf2e.pfs-season-7-bestiary.Actor.NxCNW4zGHP63dEH6.Item.K0mRxUnwtl1cRBXV": {
+   "ft": 20
+  },
+  "Compendium.pf2e.triumph-of-the-tusk-bestiary.Actor.hNvjRDhIuef4po3N.Item.Xl1EIt7OgharDLTs": {
+   "ft": 30
+  },
+  "Compendium.pf2e.outlaws-of-alkenstar-bestiary.Actor.3BFECcR5ggVH69Gu.Item.5uGqnM64QY7cRK1T": {
+   "ft": 30
+  },
+  "Compendium.pf2e.strength-of-thousands-bestiary.Actor.OPLok0VMnWsmhF7K.Item.cvkjyt3rcklil8al": {
+   "ft": 30
+  },
+  "Compendium.pf2e.battlecry-bestiary.Actor.JLIdUna25mDtAdLM.Item.2yNNYUWDIamcdzjI": {
+   "ft": 30,
+   "area": true
+  },
+  "Compendium.pf2e.battlecry-bestiary.Actor.5JQ5nf7LZt05EYiF.Item.qt8qxclrefUDCgL5": {
+   "ft": 50,
+   "area": true
+  },
+  "Compendium.pf2e.battlecry-bestiary.Actor.X5UZZ6b6sq5JVJN9.Item.saCHZrL12xRzQ6S0": {
+   "ft": 50,
+   "area": true
+  },
+  "Compendium.pf2e.blood-lords-bestiary.Actor.OgaEYZJaxGXPnhcz.Item.qtO1WSrVjmSwb8Mb": {
+   "ft": 50,
+   "area": true
+  },
+  "Compendium.pf2e.pfs-season-5-bestiary.Actor.TRRlNkWX1EJnLNZi.Item.VQNPHotvY6aogCDS": {
+   "ft": 30
+  },
+  "Compendium.pf2e.revenge-of-the-runelords-bestiary.Actor.1o0nvZRwGkqxP1D9.Item.ZUgYOmlfCEXWSI9b": {
+   "ft": 100,
+   "area": true
+  },
+  "Compendium.pf2e.lost-omens-bestiary.Actor.U1RloAQupBZfGy9x.Item.qUp0ao0Z9dPIcpJR": {
+   "ft": 60,
+   "area": true
+  },
+  "Compendium.pf2e.spore-war-bestiary.Actor.THRmSpcf3FvVDXhj.Item.ZCRXWPSO911WQluj": {
+   "ft": 15
+  },
+  "Compendium.pf2e.pfs-season-2-bestiary.Actor.8WXX6nSrxpry1QYN.Item.2sPPytpDwbbGGzJk": {
+   "ft": 120,
+   "area": true
+  },
+  "Compendium.pf2e.quest-for-the-frozen-flame-bestiary.Actor.zXTacktEPpjUlYr3.Item.dgv7kV7i49q94CZb": {
+   "ft": 30
+  },
+  "Compendium.pf2e.feats-srd.Item.ugDZeILVpgLVhvGC": {
+   "ft": 60,
+   "area": true
+  },
+  "Compendium.pf2e.actionspf2e.Item.DpboPjBwZLbEWOHe": {
+   "ft": 30
+  },
+  "Compendium.pf2e.bastion-of-blasphemies-bestiary.Actor.ns5h9AY1kPboyPln.Item.QfHENN57yg5I6acK": {
+   "ft": 30
+  },
+  "Compendium.pf2e.feats-srd.Item.WoUwDqhA6i6abwen": {
+   "ft": 30
+  },
+  "Compendium.pf2e.lost-omens-bestiary.Actor.1MxubcO4SB8PwmKT.Item.JRVNlfIPlDWOJtj4": {
+   "ft": 60
+  },
+  "Compendium.pf2e.feats-srd.Item.B8MKXr7mMzOHhTQH": {
+   "ft": 30,
+   "area": true
+  },
+  "Compendium.pf2e.sky-kings-tomb-bestiary.Actor.U2UxLnrZ7wbtOftk.Item.XOHMB0h6W5pdtGvU": {
+   "ft": 20
+  },
+  "Compendium.pf2e.bestiary-family-ability-glossary.Item.IvTJfaZqfGupUMvd": {
+   "ft": 60,
+   "area": true
+  },
+  "Compendium.pf2e.strength-of-thousands-bestiary.Actor.NJclJai0QoEiR8wC.Item.lv7i24rex28d2wsa": {
+   "ft": 10
+  },
+  "Compendium.pf2e.feats-srd.Item.3CPKbiweBRzXAJA9": {
+   "ft": 30,
+   "area": true
+  },
+  "Compendium.pf2e.paizo-pregens.Actor.W0YXJshlka7JiNGQ.Item.OHRSSujrlG858LWz": {
+   "ft": 30,
+   "area": true
+  },
+  "Compendium.pf2e.feats-srd.Item.bWW2q4HUtWeX0SA2": {
+   "ft": 30
+  },
+  "Compendium.pf2e.stolen-fate-bestiary.Actor.9CR1pTY23jFPi5Xn.Item.AXpLna1FjT83aiYJ": {
+   "ft": 10
+  },
+  "Compendium.pf2e.feats-srd.Item.gO729iC9b5ypes2K": {
+   "ft": 120
+  },
+  "Compendium.pf2e.bastion-of-blasphemies-bestiary.Actor.qLUE00lfPwlt5dNM.Item.87qPOtPo2eBVQgyb": {
+   "ft": 30
+  },
+  "Compendium.pf2e.pathfinder-monster-core.Actor.aYDbWuOj66nve8r4.Item.4tkIBY4fl80WZyr6": {
+   "ft": 50,
+   "area": true
+  },
+  "Compendium.pf2e.adventure-specific-actions.Item.YdG3UwVBia5AyLjO": {
+   "ft": 30
+  },
+  "Compendium.pf2e.agents-of-edgewatch-bestiary.Actor.HF0ymYmKC6KydPQ1.Item.lVvJa2dDy1MeSjQ1": {
+   "ft": 10
+  },
+  "Compendium.pf2e.pathfinder-monster-core.Actor.BoXCGLACP9vuIZkZ.Item.LCFMKpxw0iDxWGXu": {
+   "ft": 20
+  },
+  "Compendium.pf2e.pfs-introductions-bestiary.Actor.RPqISpa2Jq8Jy3dh.Item.Ln8ZtQy8JZzqvbgp": {
+   "ft": 20
+  },
+  "Compendium.pf2e.pfs-season-2-bestiary.Actor.4BaZvzpSYftJEkV8.Item.KAOz16lrV0kp3Tj4": {
+   "ft": 20
+  },
+  "Compendium.pf2e.pfs-season-2-bestiary.Actor.BjJ5KAf1f3SeAesY.Item.wA0lsQyYycyOxlSZ": {
+   "ft": 20
+  },
+  "Compendium.pf2e.pfs-season-6-bestiary.Actor.59X4JpNNQTOg2Fsp.Item.kJUApzF9beBQy9ZK": {
+   "ft": 20
+  },
+  "Compendium.pf2e.pfs-season-6-bestiary.Actor.ixPuh9vPLklQNjLw.Item.kJUApzF9beBQy9ZK": {
+   "ft": 20
+  },
+  "Compendium.pf2e.sky-kings-tomb-bestiary.Actor.jcd1gtnFTvQ3jzPS.Item.8oNze8UsvdvZmjkC": {
+   "ft": 20
+  },
+  "Compendium.pf2e.pathfinder-monster-core-2.Actor.jWsHDhzrIOqOp29p.Item.Jyzm7OFRyidSiJk0": {
+   "ft": 60
+  },
+  "Compendium.pf2e.sky-kings-tomb-bestiary.Actor.SiBC7HLCaxDeOTt6.Item.lTJbWBQBv5EcbRCb": {
+   "ft": 60
+  },
+  "Compendium.pf2e.strength-of-thousands-bestiary.Actor.QkT3Yr6mdnhVNJE8.Item.jfKBMXemc9SBW9bb": {
+   "ft": 30
+  },
+  "Compendium.pf2e.seven-dooms-for-sandpoint-bestiary.Actor.nUnZtlm7PneSF8ww.Item.DE2HiFd3EjYr3JoX": {
+   "ft": 120
+  },
+  "Compendium.pf2e.spore-war-bestiary.Actor.rdh4wcn2nAKGGQIc.Item.DE2HiFd3EjYr3JoX": {
+   "ft": 120
+  },
+  "Compendium.pf2e.pathfinder-bestiary-3.Actor.4cfi0BksjHbFVY0A.Item.RcQhtjlnYqR8A8J9": {
+   "ft": 100
+  },
+  "Compendium.pf2e.pathfinder-monster-core-2.Actor.ANptV6ltBi9C3P1l.Item.Js5HPgVs02JYjPwr": {
+   "ft": 30,
+   "area": true
+  },
+  "Compendium.pf2e.bestiary-family-ability-glossary.Item.yaDe9hO9fm2N4SqH": {
+   "ft": 30
+  },
+  "Compendium.pf2e.pathfinder-monster-core.Actor.085JMzkQqhNEWWWL.Item.LqAAXNmz0VgzPf62": {
+   "ft": 100,
+   "area": true
+  },
+  "Compendium.pf2e.blog-bestiary.Actor.MO2QmDcf117b8FQk.Item.jEoWg5wqbeaOWfji": {
+   "ft": 30
+  },
+  "Compendium.pf2e.pathfinder-npc-core.Actor.yr7kC9piMmRKrSop.Item.UXTu6H3vuKZK9TRt": {
+   "ft": 30
+  },
+  "Compendium.pf2e.feats-srd.Item.zJsu5JQGGOpyT6Xk": {
+   "ft": 30
+  },
+  "Compendium.pf2e.feats-srd.Item.OJLGFnmbT418dC18": {
+   "ft": 30
+  },
+  "Compendium.pf2e.feats-srd.Item.2VzIrCWJU4dJQV0x": {
+   "ft": 120,
+   "area": true
+  },
+  "Compendium.pf2e.myth-speaker-bestiary.Actor.sA9LeJ1wDJr9lEeo.Item.W3v31hVIRNEcLyWS": {
+   "ft": 30
+  },
+  "Compendium.pf2e.lost-omens-bestiary.Actor.7qAP2PorASrlpDGC.Item.EZmRWrf1EQnbLdow": {
+   "ft": 60
+  },
+  "Compendium.pf2e.pathfinder-monster-core-2.Actor.0CCsMvCrYxTCMYrh.Item.EZmRWrf1EQnbLdow": {
+   "ft": 60
+  },
+  "Compendium.pf2e.pathfinder-monster-core-2.Actor.X4zhNBhgxE74TPb5.Item.EZmRWrf1EQnbLdow": {
+   "ft": 60
+  },
+  "Compendium.pf2e.pathfinder-monster-core-2.Actor.XOmx4kDjRW47dc9Z.Item.EZmRWrf1EQnbLdow": {
+   "ft": 60
+  },
+  "Compendium.pf2e.revenge-of-the-runelords-bestiary.Actor.4wPrfPkGmDCid7eP.Item.K243luCNNDUqbbbz": {
+   "ft": 120
+  },
+  "Compendium.pf2e.agents-of-edgewatch-bestiary.Actor.M8ONVV7yl4uu0zcz.Item.8j0TGPf1kZlcIwpn": {
+   "ft": 30
+  },
+  "Compendium.pf2e.pathfinder-monster-core-2.Actor.y8bxt4vLmHHy1Xys.Item.rPY3emvJzyMgoloI": {
+   "ft": 30
+  },
+  "Compendium.pf2e.lost-omens-bestiary.Actor.D7YQwzLCMFSnYOxd.Item.gvL4Ckw5HBylf6Fw": {
+   "ft": 50,
+   "area": true
+  },
+  "Compendium.pf2e.lost-omens-bestiary.Actor.DvTyMt09Dw9JKYaD.Item.gvL4Ckw5HBylf6Fw": {
+   "ft": 60,
+   "area": true
+  },
+  "Compendium.pf2e.lost-omens-bestiary.Actor.EJACvM31pQgDNQY3.Item.gvL4Ckw5HBylf6Fw": {
+   "ft": 75,
+   "area": true
+  },
+  "Compendium.pf2e.lost-omens-bestiary.Actor.FkzvfxxgLdEwqtx3.Item.gvL4Ckw5HBylf6Fw": {
+   "ft": 40,
+   "area": true
+  },
+  "Compendium.pf2e.feats-srd.Item.CB6UwS2g9ramyOEV": {
+   "ft": 60
+  },
+  "Compendium.pf2e.feats-srd.Item.lMIh84yjIA7f7xG8": {
+   "ft": 30
+  },
+  "Compendium.pf2e.lost-omens-bestiary.Actor.O65PlKiIRpj50sXu.Item.jmrC9phVteComdYb": {
+   "ft": 60
+  },
+  "Compendium.pf2e.pathfinder-monster-core-2.Actor.jHD1bsWWmcUa2e7H.Item.jmrC9phVteComdYb": {
+   "ft": 60
+  },
+  "Compendium.pf2e.pathfinder-monster-core-2.Actor.lnINJvSfYcw2YV0G.Item.jmrC9phVteComdYb": {
+   "ft": 60
+  },
+  "Compendium.pf2e.pfs-season-7-bestiary.Actor.6KDLEO0y33QX4lTb.Item.qmgLZswwX5TMFlx9": {
+   "ft": 60
+  },
+  "Compendium.pf2e.season-of-ghosts-bestiary.Actor.TVi4RDeqw7GDsxp0.Item.QdvzawYptGAzNQOJ": {
+   "ft": 30
+  },
+  "Compendium.pf2e.rage-of-elements-bestiary.Actor.1cpG2DuXPXq3DMBx.Item.u3Uc9NoalPADbJdb": {
+   "ft": 100
+  },
+  "Compendium.pf2e.pathfinder-bestiary-2.Actor.xIvv8vKBa0YsTEzt.Item.oIucCyy3YvC5FoCA": {
+   "ft": 30
+  },
+  "Compendium.pf2e.hells-destiny-bestiary.Actor.RwK0eh7c0FZGHAh8.Item.OFhSDDlpQpjidJ59": {
+   "ft": 80,
+   "area": true
+  },
+  "Compendium.pf2e.lost-omens-bestiary.Actor.nWBx8eOkera03Esv.Item.f41UP17HGartnVYx": {
+   "ft": 20,
+   "area": true
+  },
+  "Compendium.pf2e.battlecry-bestiary.Actor.9wgj9Jiej236yjBW.Item.uYsOWXvUohnIoJuN": {
+   "ft": 30,
+   "area": true
+  },
+  "Compendium.pf2e.feats-srd.Item.hv0SwlsAtcnR7R4T": {
+   "ft": 60,
+   "area": true
+  },
+  "Compendium.pf2e.fists-of-the-ruby-phoenix-bestiary.Actor.l2oapyRhfCFRsCHX.Item.szWmWOcZ0TbncrBc": {
+   "ft": 30
+  },
+  "Compendium.pf2e.lost-omens-bestiary.Actor.0vbjFotLwkIoPy2m.Item.EQJqcawbdYAHLgiw": {
+   "ft": 100
+  },
+  "Compendium.pf2e.strength-of-thousands-bestiary.Actor.aQH62hiGUoOscc4i.Item.a96pdh6130w53g5a": {
+   "ft": 30
+  },
+  "Compendium.pf2e.feats-srd.Item.KYmr5eXZinLPevhm": {
+   "ft": 30
+  },
+  "Compendium.pf2e.feats-srd.Item.tXn6fJO3Q2dAvCZC": {
+   "ft": 30
+  },
+  "Compendium.pf2e.feats-srd.Item.8M7iQfVBRuucR6hJ": {
+   "ft": 60
+  },
+  "Compendium.pf2e.menace-under-otari-bestiary.Actor.r2uJWK5Vz7lJpfux.Item.txSoRn67SYcT0oVZ": {
+   "ft": 30,
+   "area": true
+  },
+  "Compendium.pf2e.pathfinder-npc-core.Actor.OB4x3FBwjJBfOsi3.Item.gFnCdfngReE4akJ9": {
+   "ft": 30
+  },
+  "Compendium.pf2e.actionspf2e.Item.cGCQkCz14sF238gE": {
+   "ft": 30
+  },
+  "Compendium.pf2e.pathfinder-monster-core.Actor.WlbwkGQPAenbSUKJ.Item.G777V3D4iEFRLrXm": {
+   "ft": 20
+  },
+  "Compendium.pf2e.actionspf2e.Item.gxtq81VAhpmNvEgA": {
+   "ft": 30,
+   "area": true
+  },
+  "Compendium.pf2e.actionspf2e.Item.4DYFJ4TUsNkgFBDb": {
+   "ft": 30
+  },
+  "Compendium.pf2e.iconics.Actor.AwZRZftsnX2fIpwV.Item.Jhgr13umuAq4SHIx": {
+   "ft": 30
+  },
+  "Compendium.pf2e.dawn-of-the-frogs.Actor.yPYQC2bfOYmqcfIB.Item.7fsCk0IFfk5xAAKn": {
+   "ft": 30
+  },
+  "Compendium.pf2e.pfs-season-6-bestiary.Actor.0bA099WNbydhScyp.Item.Mb9JQUaYhpwJGMDv": {
+   "ft": 60
+  },
+  "Compendium.pf2e.pfs-season-6-bestiary.Actor.fx0LDesH0BaNrdm9.Item.Mb9JQUaYhpwJGMDv": {
+   "ft": 60
+  },
+  "Compendium.pf2e.howl-of-the-wild-bestiary.Actor.O7EJDExSclMdUFWo.Item.niDY9lm2zgxq1GvI": {
+   "ft": 30
+  },
+  "Compendium.pf2e.pathfinder-bestiary-3.Actor.LTSZ3LD1L7ZthoD2.Item.kQNlQmU6whlWK7M9": {
+   "ft": 100
+  },
+  "Compendium.pf2e.revenge-of-the-runelords-bestiary.Actor.T9iiSzluw5ITmbcL.Item.kQNlQmU6whlWK7M9": {
+   "ft": 100
+  },
+  "Compendium.pf2e.pathfinder-monster-core-2.Actor.T4qVNgJRyk1NRfQg.Item.uSrLj12M9nzjE5tG": {
+   "ft": 120
+  },
+  "Compendium.pf2e.feats-srd.Item.T8tNZANOWUZiXuzO": {
+   "ft": 30
+  },
+  "Compendium.pf2e.age-of-ashes-bestiary.Actor.oPXRJxxWrY2kz2qf.Item.2OGTeZ56MmSCLl9P": {
+   "ft": 30
+  },
+  "Compendium.pf2e.dawn-of-the-frogs.Actor.i1eNojElEVMMliTv.Item.xhxEryV2rX50RWwN": {
+   "ft": 30
+  },
+  "Compendium.pf2e.feats-srd.Item.HjinlKihkadhkQ4Z": {
+   "ft": 30
+  },
+  "Compendium.pf2e.feats-srd.Item.HZE37GeNGeBeutZk": {
+   "ft": 30
+  },
+  "Compendium.pf2e.strength-of-thousands-bestiary.Actor.U6EEfdbaodpYZfU6.Item.orec2boz49au2bis": {
+   "ft": 30
+  },
+  "Compendium.pf2e.age-of-ashes-bestiary.Actor.91BSCAJA1Oto2ctf.Item.7LPUMs664rIwb4pr": {
+   "ft": 30
+  },
+  "Compendium.pf2e.feats-srd.Item.rAUNZfiulXh4zcm6": {
+   "ft": 30
+  },
+  "Compendium.pf2e.season-of-ghosts-bestiary.Actor.7Fua7064VlF0Y14D.Item.SNBRxMl0LfjvgCP2": {
+   "ft": 30
+  },
+  "Compendium.pf2e.season-of-ghosts-bestiary.Actor.N69YhHyRWfpfvESy.Item.SNBRxMl0LfjvgCP2": {
+   "ft": 30
+  },
+  "Compendium.pf2e.strength-of-thousands-bestiary.Actor.UOXavVdqiOPyB6xa.Item.5zzsahgrf02p7stk": {
+   "ft": 60
+  },
+  "Compendium.pf2e.feats-srd.Item.Aa0DqivAEL0ngunw": {
+   "ft": 120,
+   "area": true
+  },
+  "Compendium.pf2e.feats-srd.Item.PYRx4lCIQXyW8tz8": {
+   "ft": 500,
+   "area": true
+  },
+  "Compendium.pf2e.feats-srd.Item.VS28L98uFhr3j1HC": {
+   "ft": 30,
+   "area": true
+  },
+  "Compendium.pf2e.shades-of-blood-bestiary.Actor.o5TPuCVrjk5WeIEb.Item.j8lxkN1kyunKhzlm": {
+   "ft": 30
+  },
+  "Compendium.pf2e.pathfinder-npc-core.Actor.ct7EwIepldAqv572.Item.aEZR3IjhkqAzFTzg": {
+   "ft": 30,
+   "area": true
+  },
+  "Compendium.pf2e.pfs-season-1-bestiary.Actor.NhMS6b3W6gXefijq.Item.4fiLPlktwh4Qwm4z": {
+   "ft": 10
+  },
+  "Compendium.pf2e.pfs-season-1-bestiary.Actor.XiGTud90i1WkJYz2.Item.cEfIoUeeMDjfNctl": {
+   "ft": 10
+  },
+  "Compendium.pf2e.fists-of-the-ruby-phoenix-bestiary.Actor.lqHn5wSzxvdllGgH.Item.hIO2oU3iLfjia0Qe": {
+   "ft": 60,
+   "area": true
+  },
+  "Compendium.pf2e.pfs-season-2-bestiary.Actor.QQ93gOZxsfTdTSn2.Item.e3RlQHfH1zTKEKwf": {
+   "ft": 10
+  },
+  "Compendium.pf2e.pfs-season-2-bestiary.Actor.xW5IhEbAhQneniT2.Item.rjEjl4EfYDSqvrBQ": {
+   "ft": 10
+  },
+  "Compendium.pf2e.feats-srd.Item.aHlcMMNQ85VLK7QT": {
+   "ft": 30
+  },
+  "Compendium.pf2e.stolen-fate-bestiary.Actor.zsITxVss3vTQHISh.Item.WJdkk1c9rxADaR2u": {
+   "ft": 60,
+   "area": true
+  },
+  "Compendium.pf2e.pathfinder-npc-core.Actor.mkyMSRTbDV4lho2o.Item.aOhlGrHOhl9PSeQM": {
+   "ft": 30
+  },
+  "Compendium.pf2e.pathfinder-monster-core-2.Actor.9u9DrehHJk66ix5B.Item.6GYPjwrrx9YCtARE": {
+   "ft": 100,
+   "area": true
+  },
+  "Compendium.pf2e.pfs-season-6-bestiary.Actor.ToGMQllme8A08Ejz.Item.sKJOM5v5CkJwAzYb": {
+   "ft": 30
+  },
+  "Compendium.pf2e.pfs-season-6-bestiary.Actor.lW0kemhu0n0bPlUg.Item.sKJOM5v5CkJwAzYb": {
+   "ft": 30
+  },
+  "Compendium.pf2e.feats-srd.Item.y0Ru2hRmoRwkRsxZ": {
+   "ft": 10
+  },
+  "Compendium.pf2e.age-of-ashes-bestiary.Actor.CmbcgWZgOSDmo2Pm.Item.AXpLna1FjT83aiYJ": {
+   "ft": 10
+  },
+  "Compendium.pf2e.revenge-of-the-runelords-bestiary.Actor.E3MQAayLHyz1Cgm9.Item.CVquoqIULWmrpVk2": {
+   "ft": 30,
+   "area": true
+  },
+  "Compendium.pf2e.curtain-call-bestiary.Actor.ZaT4rd3bTIfECkCd.Item.XBz2toYQ5LlpBAkp": {
+   "ft": 50
+  },
+  "Compendium.pf2e.hells-destiny-bestiary.Actor.6mdq7UV9gFXAEOpJ.Item.rNTMxJy598w3758E": {
+   "ft": 50
+  },
+  "Compendium.pf2e.pathfinder-dark-archive.Actor.3Oz62UCZeqwG6BzE.Item.XBz2toYQ5LlpBAkp": {
+   "ft": 50
+  },
+  "Compendium.pf2e.spore-war-bestiary.Actor.DS74YwOb9IOJPsF3.Item.XBz2toYQ5LlpBAkp": {
+   "ft": 50
+  },
+  "Compendium.pf2e.feats-srd.Item.v8nOsffb6mkdmBt3": {
+   "ft": 30
+  },
+  "Compendium.pf2e.shades-of-blood-bestiary.Actor.j6JGWiMMFMeBV7Bz.Item.diWSfLrndFVECtUR": {
+   "ft": 100,
+   "area": true
+  },
+  "Compendium.pf2e.pfs-season-5-bestiary.Actor.CZ6Z15ofj8zlHcol.Item.guTg7fvEcAWZvRM9": {
+   "ft": 30
+  },
+  "Compendium.pf2e.feats-srd.Item.KqpXb13Scv7uzole": {
+   "ft": 60,
+   "area": true
+  },
+  "Compendium.pf2e.feats-srd.Item.r5vSplcFXtTS0kOB": {
+   "ft": 30,
+   "area": true
+  },
+  "Compendium.pf2e.pathfinder-npc-core.Actor.mD4gjp3Yus8TXGUs.Item.HLSb3Hxa9yNvAbbN": {
+   "ft": 30,
+   "area": true
+  },
+  "Compendium.pf2e.pathfinder-monster-core-2.Actor.Y8rw1J79zfGyznoa.Item.xlRvqRH56IaXVOPc": {
+   "ft": 40
+  },
+  "Compendium.pf2e.season-of-ghosts-bestiary.Actor.oai45noF4GX3LZvX.Item.iIftOKIs8DTBCL3j": {
+   "ft": 20
+  },
+  "Compendium.pf2e.bastion-of-blasphemies-bestiary.Actor.VQrtNCtgkoNuCaxn.Item.M6Su3OjYEvyjJUrn": {
+   "ft": 15
+  },
+  "Compendium.pf2e.pathfinder-monster-core.Actor.byShcvERXQVHNaoL.Item.NtFRF9lyIg4kj664": {
+   "ft": 15
+  },
+  "Compendium.pf2e.menace-under-otari-bestiary.Actor.WPsgrCUSFCqgDvJi.Item.94P2S8OyxiovGujz": {
+   "ft": 10
+  },
+  "Compendium.pf2e.pfs-season-6-bestiary.Actor.Lt5GIrcYWixW0FaA.Item.YWzEkwp5ZbNl5zmJ": {
+   "ft": 120
+  },
+  "Compendium.pf2e.pfs-season-6-bestiary.Actor.q7Ar2jl4HFLwB5wF.Item.YWzEkwp5ZbNl5zmJ": {
+   "ft": 120
+  },
+  "Compendium.pf2e.pathfinder-npc-core.Actor.9ZKIadbfdzrJJGOk.Item.DejDtFjggAqLgKhW": {
+   "ft": 30
+  },
+  "Compendium.pf2e.curtain-call-bestiary.Actor.RUuUJtm8jAJ66z0Q.Item.fQu0yUD2r9nf6RCk": {
+   "ft": 120,
+   "area": true
+  },
+  "Compendium.pf2e.feats-srd.Item.ZyQYP7i26DWhMNux": {
+   "ft": 30
+  },
+  "Compendium.pf2e.lost-omens-bestiary.Actor.r2kidd4kzbvMgYxz.Item.kbG9Fa6ZVowLwyWQ": {
+   "ft": 100,
+   "area": true
+  },
+  "Compendium.pf2e.pathfinder-monster-core-2.Actor.66MUUmu8950MEXFf.Item.d0v6wPxsOagOq8lE": {
+   "ft": 20
+  },
+  "Compendium.pf2e.pathfinder-monster-core-2.Actor.JMegWvgrPVElJYDW.Item.xfLLF3SeG0v8yQNe": {
+   "ft": 120
+  },
+  "Compendium.pf2e.season-of-ghosts-bestiary.Actor.OoTnmIkunSTCPet3.Item.pVX2irGBvUFMoufU": {
+   "ft": 60
+  },
+  "Compendium.pf2e.menace-under-otari-bestiary.Actor.yb3ZUPctOGz3yQTS.Item.lDeS18dnskh4FIBw": {
+   "ft": 20
+  },
+  "Compendium.pf2e.lost-omens-bestiary.Actor.7qAP2PorASrlpDGC.Item.dWk0sE2yMPmzHdY2": {
+   "ft": 60
+  },
+  "Compendium.pf2e.pathfinder-monster-core-2.Actor.0CCsMvCrYxTCMYrh.Item.dWk0sE2yMPmzHdY2": {
+   "ft": 60
+  },
+  "Compendium.pf2e.pathfinder-monster-core-2.Actor.XOmx4kDjRW47dc9Z.Item.dWk0sE2yMPmzHdY2": {
+   "ft": 60
+  },
+  "Compendium.pf2e.pathfinder-monster-core-2.Actor.Ymk65Vujq2Y5US9r.Item.dWk0sE2yMPmzHdY2": {
+   "ft": 60
+  },
+  "Compendium.pf2e.feats-srd.Item.c3c7pVXq0Ys5a6Mr": {
+   "ft": 500,
+   "area": true
+  },
+  "Compendium.pf2e.gatewalkers-bestiary.Actor.qsRrYCsKLiMwZ1I9.Item.LgnVcq7w3CiTBhew": {
+   "ft": 60
+  },
+  "Compendium.pf2e.blood-lords-bestiary.Actor.epfj3ZAwLHMlYlF3.Item.YvUhNZ1GT4PmqTz5": {
+   "ft": 30
+  },
+  "Compendium.pf2e.howl-of-the-wild-bestiary.Actor.NYRk2xqxid0lfNka.Item.SMbxooGFfHJk1iAh": {
+   "ft": 60
+  },
+  "Compendium.pf2e.feats-srd.Item.Jnhkl2BOhxxRCTpp": {
+   "ft": 30
+  },
+  "Compendium.pf2e.revenge-of-the-runelords-bestiary.Actor.1o0nvZRwGkqxP1D9.Item.Ukqna71c9zIfLg06": {
+   "ft": 120
+  },
+  "Compendium.pf2e.wardens-of-wildwood-bestiary.Actor.N8YG3THrSgSwtzIn.Item.4CT0cZYglQW0zFjC": {
+   "ft": 15
+  },
+  "Compendium.pf2e.wardens-of-wildwood-bestiary.Actor.uctziqpGJSJU50rl.Item.7vWwhPngKnxoJVOg": {
+   "ft": 15
+  },
+  "Compendium.pf2e.wardens-of-wildwood-bestiary.Actor.upP0w940TKNkLO1k.Item.879VTWI95MVRxFHf": {
+   "ft": 15
+  },
+  "Compendium.pf2e.pfs-season-6-bestiary.Actor.6gz6gfIh8Wp34S1D.Item.d6UGxC2zRZHSEbJu": {
+   "ft": 20
+  },
+  "Compendium.pf2e.pfs-season-6-bestiary.Actor.5vxVxeTTGf7Qrru1.Item.68hj5oeowEXvhU6E": {
+   "ft": 15
+  },
+  "Compendium.pf2e.pfs-season-6-bestiary.Actor.KXxoywZSDkxqZqD4.Item.68hj5oeowEXvhU6E": {
+   "ft": 15
+  },
+  "Compendium.pf2e.feats-srd.Item.KFM6XeDnQoYQsIM5": {
+   "ft": 60
+  },
+  "Compendium.pf2e.agents-of-edgewatch-bestiary.Actor.Z6R8YjgX8Jvt9Ds4.Item.AkqOlXLB6K0JLoqz": {
+   "ft": 120
+  },
+  "Compendium.pf2e.hells-destiny-bestiary.Actor.uEyZiYMHXsmZT5P1.Item.mcTAJeftVLoFCQpH": {
+   "ft": 60
+  },
+  "Compendium.pf2e.feats-srd.Item.Dq1SZ5LfZ66XDMNc": {
+   "ft": 120,
+   "area": true
+  },
+  "Compendium.pf2e.blood-lords-bestiary.Actor.pQJbY3PTeHNYbkho.Item.4jCvZADBa2etfzw7": {
+   "ft": 30,
+   "area": true
+  },
+  "Compendium.pf2e.quest-for-the-frozen-flame-bestiary.Actor.wuV8k7N1cEJBYNbK.Item.XQCCfTtrOoXy15i6": {
+   "ft": 30
+  },
+  "Compendium.pf2e.feats-srd.Item.zZCyJhsaugHB6mZW": {
+   "ft": 30
+  },
+  "Compendium.pf2e.feats-srd.Item.9jc2G0Rc4hjcYakh": {
+   "ft": 60
+  },
+  "Compendium.pf2e.pathfinder-monster-core-2.Actor.dZwcLmENWYSneook.Item.Ipe1qvzDL43R929K": {
+   "ft": 60,
+   "area": true
+  },
+  "Compendium.pf2e.triumph-of-the-tusk-bestiary.Actor.XYItaez8M433qfWt.Item.4bA72vD9bi2Ottlg": {
+   "ft": 30
+  },
+  "Compendium.pf2e.stolen-fate-bestiary.Actor.UQabwMtqQucqBDsy.Item.6E2eP6upQld3ZTFv": {
+   "ft": 30,
+   "area": true
+  },
+  "Compendium.pf2e.stolen-fate-bestiary.Actor.hqnAjx8pamSAzAmb.Item.6E2eP6upQld3ZTFv": {
+   "ft": 30,
+   "area": true
+  },
+  "Compendium.pf2e.feats-srd.Item.2j99hqUYPciC9bFQ": {
+   "ft": 120,
+   "area": true
+  },
+  "Compendium.pf2e.pathfinder-npc-core.Actor.mD4gjp3Yus8TXGUs.Item.8vsZl6kXGembKqhs": {
+   "ft": 120,
+   "area": true
+  },
+  "Compendium.pf2e.feats-srd.Item.EVgtfnOPDKpB0bAi": {
+   "ft": 30,
+   "area": true
+  },
+  "Compendium.pf2e.feats-srd.Item.0eOrhBrIPbRvPhNd": {
+   "ft": 15
+  },
+  "Compendium.pf2e.feats-srd.Item.apKvJtD1Qpvt3O9f": {
+   "ft": 500
+  },
+  "Compendium.pf2e.night-of-the-gray-death-bestiary.Actor.M2X9UUVefBA8x9gk.Item.z1h9foa0rroyvcrj": {
+   "ft": 60
+  },
+  "Compendium.pf2e.feats-srd.Item.55WR55op9BIdgF1B": {
+   "ft": 60
+  },
+  "Compendium.pf2e.bastion-of-blasphemies-bestiary.Actor.aEuFu2OCViPxG08f.Item.DDrkGecBAcWZu1k2": {
+   "ft": 60
+  },
+  "Compendium.pf2e.iconics.Actor.XfQckMVRgnbEqKZJ.Item.uT41JJnM8HwxYmgX": {
+   "ft": 60
+  },
+  "Compendium.pf2e.feats-srd.Item.F2i6B8adeIy4LYxk": {
+   "ft": 500,
+   "area": true
+  },
+  "Compendium.pf2e.hells-destiny-bestiary.Actor.GCaffz5WyKsrVPpo.Item.6xkx0H6UoEHMXJq5": {
+   "ft": 20,
+   "area": true
+  },
+  "Compendium.pf2e.pathfinder-monster-core-2.Actor.O9CiNSi930iKgIDK.Item.JcWNWj6ans0QVfeA": {
+   "ft": 60
+  },
+  "Compendium.pf2e.rage-of-elements-bestiary.Actor.6VCNPJ3xPw4Js52V.Item.GXEYb7C00ZXmEiOV": {
+   "ft": 100,
+   "area": true
+  },
+  "Compendium.pf2e.pathfinder-bestiary-3.Actor.fHczwj1B8ULKRSJk.Item.dRWLZGZySawLWgLz": {
+   "ft": 15
+  },
+  "Compendium.pf2e.feats-srd.Item.YM4ReMXafoqCEpaR": {
+   "ft": 60,
+   "area": true
+  },
+  "Compendium.pf2e.blood-lords-bestiary.Actor.IeAy6hvDcnU1pCZr.Item.2W8gctzT96KjqgB7": {
+   "ft": 30
+  },
+  "Compendium.pf2e.feats-srd.Item.zwxRIi0qqmyWlaTd": {
+   "ft": 120
+  },
+  "Compendium.pf2e.pathfinder-monster-core-2.Actor.U93WglNpPjOYk23q.Item.1CbLB8lE9SpQxMZ1": {
+   "ft": 60
+  },
+  "Compendium.pf2e.pathfinder-bestiary-2.Actor.mpBOeFrbtx1wMrNn.Item.KtIqgI2Oe8cbrguF": {
+   "ft": 100
+  },
+  "Compendium.pf2e.shades-of-blood-bestiary.Actor.obnOPigZBszDZu77.Item.VYFkq9aWsXUBgCLs": {
+   "ft": 30
+  }
+ },
+ "bySlug": {
+  "a-challenge-for-heroes": {
+   "ft": 60
+  },
+  "a-fairer-face": {
+   "ft": 100
+  },
+  "a-tale-to-believe-in": {
+   "ft": 30
+  },
+  "a-thousand-mouths-in-prayer": {
+   "ft": 30
+  },
+  "abyssal-spite": {
+   "ft": 60
+  },
+  "abyssal-strikes": {
+   "ft": 10
+  },
+  "accelerating-inquest": {
+   "ft": 100
+  },
+  "acid-rain": {
+   "ft": 30,
+   "area": true
+  },
+  "acid-spray": {
+   "ft": 60
+  },
+  "activate-aura": {
+   "ft": 10
+  },
+  "activate-glyph": {
+   "ft": 30
+  },
+  "admonishing-hymn": {
+   "ft": 90,
+   "area": true
+  },
+  "aeon-blast": {
+   "ft": 120,
+   "area": true
+  },
+  "aeon-stars-curse": {
+   "ft": 120
+  },
+  "aerial-feint": {
+   "ft": 20
+  },
+  "aerial-flash": {
+   "ft": 60,
+   "area": true
+  },
+  "agonized-wail": {
+   "ft": 60
+  },
+  "agonizing-wail": {
+   "ft": 30
+  },
+  "aim-as-one": {
+   "ft": 100,
+   "area": true
+  },
+  "align-the-stars": {
+   "ft": 30
+  },
+  "all-becomes-flame": {
+   "ft": 60
+  },
+  "all-shall-end-in-flames": {
+   "ft": 500,
+   "area": true
+  },
+  "amalgamate": {
+   "ft": 30
+  },
+  "ambush-bladderwort": {
+   "ft": 30
+  },
+  "an-intense-gust": {
+   "ft": 20
+  },
+  "anchor-the-unliving": {
+   "ft": 30
+  },
+  "anguished-shriek": {
+   "ft": 20
+  },
+  "arc-lightning": {
+   "ft": 100
+  },
+  "arcane-explosion": {
+   "ft": 200,
+   "area": true
+  },
+  "architect-of-flame": {
+   "ft": 120
+  },
+  "arrogant-taunts": {
+   "ft": 30
+  },
+  "astral-tether": {
+   "ft": 60
+  },
+  "attack-now": {
+   "ft": 30
+  },
+  "awaken-painting": {
+   "ft": 60
+  },
+  "awaken-tree": {
+   "ft": 180
+  },
+  "bad-deal": {
+   "ft": 60
+  },
+  "baffling-bluff": {
+   "ft": 30
+  },
+  "ball-lightning-breath": {
+   "ft": 100
+  },
+  "banish-falsehoods-of-flesh": {
+   "ft": 30
+  },
+  "barbed-net-barrage": {
+   "ft": 30,
+   "area": true
+  },
+  "baronesss-scream": {
+   "ft": 100
+  },
+  "barrage-of-force": {
+   "ft": 120,
+   "area": true
+  },
+  "battle-prayer": {
+   "ft": 30
+  },
+  "beasts-of-slumbering-steel": {
+   "ft": 30
+  },
+  "begin-stampede": {
+   "ft": 60
+  },
+  "beguile-the-addled": {
+   "ft": 60
+  },
+  "beguiling-gaze": {
+   "ft": 30
+  },
+  "behold-the-promises-of-kugaptee": {
+   "ft": 60
+  },
+  "bellow": {
+   "ft": 30
+  },
+  "blackfrost-dead-mindburning-gaze": {
+   "ft": 60
+  },
+  "blood-run-cold": {
+   "ft": 60
+  },
+  "bloody-handprint": {
+   "ft": 60,
+   "area": true
+  },
+  "bloody-obsession": {
+   "ft": 30
+  },
+  "bloody-wail": {
+   "ft": 50
+  },
+  "boiling-darkness": {
+   "ft": 30
+  },
+  "bolt-barrage": {
+   "ft": 120,
+   "area": true
+  },
+  "bolt-salvo": {
+   "ft": 120,
+   "area": true
+  },
+  "bolts-from-the-blue": {
+   "ft": 120,
+   "area": true
+  },
+  "bombing-barrage": {
+   "ft": 60,
+   "area": true
+  },
+  "bon-mot": {
+   "ft": 30
+  },
+  "born-to-the-trees": {
+   "ft": 30
+  },
+  "bounce-cruuk": {
+   "ft": 30
+  },
+  "brain-drain": {
+   "ft": 30
+  },
+  "brainlash": {
+   "ft": 30
+  },
+  "brandish-authority": {
+   "ft": 30
+  },
+  "bullet-smog": {
+   "ft": 120
+  },
+  "bullets-from-the-blue": {
+   "ft": 120,
+   "area": true
+  },
+  "calamitous-roar": {
+   "ft": 30
+  },
+  "call-down-the-storm": {
+   "ft": 80,
+   "area": true
+  },
+  "call-to-action": {
+   "ft": 60
+  },
+  "call-to-blood": {
+   "ft": 30
+  },
+  "call-to-halt": {
+   "ft": 30
+  },
+  "cannonball-fall": {
+   "ft": 10
+  },
+  "captivating-charm": {
+   "ft": 30
+  },
+  "captivating-lure": {
+   "ft": 60
+  },
+  "caustic-mucus": {
+   "ft": 50,
+   "area": true
+  },
+  "chargs-blessing": {
+   "ft": 60
+  },
+  "chastise": {
+   "ft": 30
+  },
+  "chastising-enforcement": {
+   "ft": 30
+  },
+  "cherubs-arrow": {
+   "ft": 30
+  },
+  "chorus-of-croaks": {
+   "ft": 30
+  },
+  "clatter": {
+   "ft": 30
+  },
+  "claws-from-below": {
+   "ft": 30,
+   "area": true
+  },
+  "clockwork-necromancy": {
+   "ft": 100,
+   "area": true
+  },
+  "collect-prayer": {
+   "ft": 60
+  },
+  "collect-unholy-prayer": {
+   "ft": 60
+  },
+  "command-elemental": {
+   "ft": 30
+  },
+  "command-zombie": {
+   "ft": 100
+  },
+  "commanding-croak": {
+   "ft": 30
+  },
+  "commitment-to-equality": {
+   "ft": 30
+  },
+  "commitment-to-protection": {
+   "ft": 30
+  },
+  "compel-condemned": {
+   "ft": 30
+  },
+  "condemn-soul": {
+   "ft": 30
+  },
+  "conduct": {
+   "ft": 60
+  },
+  "conduct-the-experiment": {
+   "ft": 60
+  },
+  "conductive-sphere": {
+   "ft": 30,
+   "area": true
+  },
+  "conflagration-of-jaws": {
+   "ft": 10,
+   "area": true
+  },
+  "consume-death": {
+   "ft": 30
+  },
+  "consume-emotion": {
+   "ft": 60
+  },
+  "consume-knowledge": {
+   "ft": 100
+  },
+  "coordinated-charge": {
+   "ft": 60
+  },
+  "coral-dragon-grasping-waves": {
+   "ft": 30,
+   "area": true
+  },
+  "corner-of-the-eye": {
+   "ft": 60,
+   "area": true
+  },
+  "corpse-puppet": {
+   "ft": 30
+  },
+  "corrupting-gaze": {
+   "ft": 30
+  },
+  "cosmic-explosion": {
+   "ft": 20,
+   "area": true
+  },
+  "courteous-causerie": {
+   "ft": 60
+  },
+  "covetous-confiscation": {
+   "ft": 100
+  },
+  "crawling-fire": {
+   "ft": 30,
+   "area": true
+  },
+  "create-counterfeit": {
+   "ft": 40,
+   "area": true
+  },
+  "crossbow-array": {
+   "ft": 100,
+   "area": true
+  },
+  "crossbow-salvo": {
+   "ft": 60,
+   "area": true
+  },
+  "crossbow-volley": {
+   "ft": 60,
+   "area": true
+  },
+  "crumbling-ground": {
+   "ft": 30,
+   "area": true
+  },
+  "crystal-burst": {
+   "ft": 120,
+   "area": true
+  },
+  "curse-of-defiled-idols": {
+   "ft": 30
+  },
+  "curse-of-the-grave": {
+   "ft": 30
+  },
+  "cursed-gaze": {
+   "ft": 20
+  },
+  "dance-of-ruin": {
+   "ft": 30
+  },
+  "dance-of-the-jester": {
+   "ft": 30
+  },
+  "dance-of-the-mousedeer": {
+   "ft": 30
+  },
+  "darting-shot": {
+   "ft": 30
+  },
+  "dash-of-herbs": {
+   "ft": 30
+  },
+  "de-animating-gestures-false": {
+   "ft": 30
+  },
+  "de-animating-gestures-true": {
+   "ft": 30
+  },
+  "deafening-shriek": {
+   "ft": 30
+  },
+  "debilitating-dichotomy": {
+   "ft": 30
+  },
+  "declare-fate": {
+   "ft": 60
+  },
+  "decree-of-execution": {
+   "ft": 60
+  },
+  "deep-freeze": {
+   "ft": 60
+  },
+  "deimatic-display": {
+   "ft": 30
+  },
+  "demanding-orders": {
+   "ft": 120
+  },
+  "demon-hunter": {
+   "ft": 30
+  },
+  "demoralize": {
+   "ft": 30
+  },
+  "denounce": {
+   "ft": 30
+  },
+  "designate-apostate": {
+   "ft": 30
+  },
+  "designate-bellflower-crop": {
+   "ft": 30
+  },
+  "designate-blood-foe": {
+   "ft": 30
+  },
+  "devastating-weaponry": {
+   "ft": 30
+  },
+  "devourers-dictum": {
+   "ft": 120
+  },
+  "dimensional-pilfer": {
+   "ft": 60
+  },
+  "direct-halo": {
+   "ft": 90,
+   "area": true
+  },
+  "direct-hit": {
+   "ft": 60
+  },
+  "dirt-breath": {
+   "ft": 30,
+   "area": true
+  },
+  "disharmonic-door": {
+   "ft": 240
+  },
+  "disquieting-change-shape": {
+   "ft": 60
+  },
+  "dissolve-from-the-inside": {
+   "ft": 10
+  },
+  "distracting-dance": {
+   "ft": 30
+  },
+  "distracting-diatribe": {
+   "ft": 30
+  },
+  "distracting-toss": {
+   "ft": 30
+  },
+  "distracting-whispers": {
+   "ft": 90
+  },
+  "distressing-joke": {
+   "ft": 30
+  },
+  "disturbing-knowledge": {
+   "ft": 30
+  },
+  "divergent-potential": {
+   "ft": 60
+  },
+  "divine-disharmony": {
+   "ft": 60
+  },
+  "divine-lance-fusillade": {
+   "ft": 60,
+   "area": true
+  },
+  "do-a-jig": {
+   "ft": 30
+  },
+  "dooming-proclamation": {
+   "ft": 30
+  },
+  "dorsal-lash": {
+   "ft": 15
+  },
+  "draconic-grandeur": {
+   "ft": 30
+  },
+  "drain-light": {
+   "ft": 30
+  },
+  "drake-breath": {
+   "ft": 120,
+   "area": true
+  },
+  "dream-eating": {
+   "ft": 30
+  },
+  "dream-step": {
+   "ft": 60
+  },
+  "driving-rain": {
+   "ft": 120,
+   "area": true
+  },
+  "duty": {
+   "ft": 30
+  },
+  "dying-breath": {
+   "ft": 40
+  },
+  "ectoplasmic-maneuver": {
+   "ft": 15
+  },
+  "edict-of-mortality": {
+   "ft": 60
+  },
+  "elemental-attack": {
+   "ft": 60
+  },
+  "embrace-of-destiny": {
+   "ft": 20
+  },
+  "enervating-howl": {
+   "ft": 30
+  },
+  "enhance-spell": {
+   "ft": 30
+  },
+  "enraging-whistle": {
+   "ft": 60
+  },
+  "enslave-soul": {
+   "ft": 60
+  },
+  "entangling-net": {
+   "ft": 30
+  },
+  "entangling-rune": {
+   "ft": 60,
+   "area": true
+  },
+  "enticing-invitation": {
+   "ft": 30
+  },
+  "eternal-fear": {
+   "ft": 100
+  },
+  "eternal-torch": {
+   "ft": 120
+  },
+  "ethereal-step": {
+   "ft": 60
+  },
+  "evoke-fault": {
+   "ft": 30
+  },
+  "extol": {
+   "ft": 30
+  },
+  "extract-element": {
+   "ft": 30
+  },
+  "extract-fear": {
+   "ft": 30
+  },
+  "extract-vow-of-nonviolence": {
+   "ft": 60
+  },
+  "eye-ray": {
+   "ft": 60
+  },
+  "fabricate-truth": {
+   "ft": 30
+  },
+  "falling-frozen-lightning": {
+   "ft": 60,
+   "area": true
+  },
+  "false-pride": {
+   "ft": 30
+  },
+  "false-vision": {
+   "ft": 800
+  },
+  "familiars-resolve": {
+   "ft": 30
+  },
+  "fancy-bladework": {
+   "ft": 30
+  },
+  "fascinating-speech": {
+   "ft": 30
+  },
+  "fearsome-stare": {
+   "ft": 15
+  },
+  "feed-the-masses": {
+   "ft": 60
+  },
+  "feeding-time": {
+   "ft": 100
+  },
+  "feign-harmlessness": {
+   "ft": 10
+  },
+  "feign-innocence": {
+   "ft": 60
+  },
+  "fervent-command": {
+   "ft": 30
+  },
+  "fiery-rhetoric": {
+   "ft": 30,
+   "area": true
+  },
+  "final-words-of-doom": {
+   "ft": 40
+  },
+  "fire-longbows": {
+   "ft": 150,
+   "area": true
+  },
+  "fire-the-cannons-3-4": {
+   "ft": 100
+  },
+  "fire-the-cannons-5-6": {
+   "ft": 100
+  },
+  "fireball-breath": {
+   "ft": 180,
+   "area": true
+  },
+  "flash-web": {
+   "ft": 30
+  },
+  "flashforge": {
+   "ft": 30
+  },
+  "flight-commander-of-dis": {
+   "ft": 30
+  },
+  "fling-head": {
+   "ft": 30
+  },
+  "flinging-updraft": {
+   "ft": 60
+  },
+  "flower-street-infamy": {
+   "ft": 30
+  },
+  "flying-flame": {
+   "ft": 30
+  },
+  "focus-hatred": {
+   "ft": 30
+  },
+  "focused-gaze": {
+   "ft": 30
+  },
+  "focused-volley": {
+   "ft": 120,
+   "area": true
+  },
+  "for-the-queen": {
+   "ft": 30
+  },
+  "forge-pact": {
+   "ft": 30
+  },
+  "four-winds": {
+   "ft": 30
+  },
+  "frightening-rattle": {
+   "ft": 30
+  },
+  "frightening-shush": {
+   "ft": 30
+  },
+  "frightful-snarl": {
+   "ft": 30
+  },
+  "fungal-web": {
+   "ft": 80
+  },
+  "furious-harangue": {
+   "ft": 30
+  },
+  "fusing-spit": {
+   "ft": 60
+  },
+  "galvanic-barrage": {
+   "ft": 100
+  },
+  "gem-gaze": {
+   "ft": 30
+  },
+  "ghastly-visage": {
+   "ft": 30
+  },
+  "ghost-corrupting-gaze": {
+   "ft": 30
+  },
+  "ghost-inhabit-object": {
+   "ft": 20
+  },
+  "ghost-memento-mori": {
+   "ft": 30
+  },
+  "ghost-pyres-memory": {
+   "ft": 30,
+   "area": true
+  },
+  "giant-felling-comet": {
+   "ft": 60,
+   "area": true
+  },
+  "glacial-prison": {
+   "ft": 120
+  },
+  "glare-of-rage": {
+   "ft": 30
+  },
+  "goad": {
+   "ft": 30
+  },
+  "goading-roar": {
+   "ft": 30
+  },
+  "goblin-jubilee": {
+   "ft": 120,
+   "area": true
+  },
+  "goguntas-croak": {
+   "ft": 30
+  },
+  "graffiti-egg": {
+   "ft": 30
+  },
+  "grasping-visions": {
+   "ft": 60
+  },
+  "grave-impressions": {
+   "ft": 30
+  },
+  "grovel": {
+   "ft": 30
+  },
+  "grow-sporepod": {
+   "ft": 60,
+   "area": true
+  },
+  "grudge": {
+   "ft": 30
+  },
+  "guiding-star": {
+   "ft": 30
+  },
+  "hampering-fusillade": {
+   "ft": 120,
+   "area": true
+  },
+  "hark-the-goblins-chanters-sing": {
+   "ft": 30
+  },
+  "haunting-echoes": {
+   "ft": 30
+  },
+  "healing-bomb": {
+   "ft": 30
+  },
+  "healing-pulse": {
+   "ft": 10
+  },
+  "heat-beam": {
+   "ft": 30
+  },
+  "heavy-is-the-crown": {
+   "ft": 60,
+   "area": true
+  },
+  "hedge-maze": {
+   "ft": 120,
+   "area": true
+  },
+  "hell-of-1-000-000-needles": {
+   "ft": 500
+  },
+  "hell-pack-mindlink": {
+   "ft": 100
+  },
+  "hellish-gaze": {
+   "ft": 30
+  },
+  "high-alert": {
+   "ft": 30
+  },
+  "hilarious-exhalation": {
+   "ft": 60
+  },
+  "hilarious-insult": {
+   "ft": 30
+  },
+  "hissing-command": {
+   "ft": 30
+  },
+  "hours-go-by": {
+   "ft": 60
+  },
+  "hungry-winds": {
+   "ft": 20
+  },
+  "hunt-will": {
+   "ft": 120
+  },
+  "hunted-fear": {
+   "ft": 60
+  },
+  "hunting-throw": {
+   "ft": 60
+  },
+  "hurl-axes": {
+   "ft": 120,
+   "area": true
+  },
+  "hurl-slagblade": {
+   "ft": 120
+  },
+  "hurricane-bag": {
+   "ft": 60,
+   "area": true
+  },
+  "hurtful-critique": {
+   "ft": 30
+  },
+  "hypnotic-stare": {
+   "ft": 30
+  },
+  "i-see-what-ye-did": {
+   "ft": 30
+  },
+  "ignite-heresy": {
+   "ft": 30
+  },
+  "ignite-the-sun": {
+   "ft": 500,
+   "area": true
+  },
+  "impaling-barrage": {
+   "ft": 40,
+   "area": true
+  },
+  "impenetrable-fog": {
+   "ft": 120,
+   "area": true
+  },
+  "imprison-mind": {
+   "ft": 60
+  },
+  "improvise-strategy": {
+   "ft": 30
+  },
+  "incessant-goading": {
+   "ft": 60
+  },
+  "incite-ferocity": {
+   "ft": 30
+  },
+  "incriminating-spell": {
+   "ft": 60
+  },
+  "infect-shame": {
+   "ft": 30
+  },
+  "infector": {
+   "ft": 30
+  },
+  "infernal-insight": {
+   "ft": 30
+  },
+  "infested-shadow": {
+   "ft": 30
+  },
+  "infinite-expanse-of-bluest-heaven": {
+   "ft": 100,
+   "area": true
+  },
+  "inflict-lesser-warpwave": {
+   "ft": 30
+  },
+  "inflict-warpwave": {
+   "ft": 100
+  },
+  "infrasonic-moan": {
+   "ft": 30
+  },
+  "inhale-light": {
+   "ft": 30
+  },
+  "insidious-query": {
+   "ft": 40
+  },
+  "inspire-dread": {
+   "ft": 90
+  },
+  "instant-opening": {
+   "ft": 30
+  },
+  "iron-rain": {
+   "ft": 30,
+   "area": true
+  },
+  "isolating-words": {
+   "ft": 30
+  },
+  "item-treachery": {
+   "ft": 60
+  },
+  "ivory-dictum": {
+   "ft": 30
+  },
+  "jagged-berms": {
+   "ft": 120,
+   "area": true
+  },
+  "jangle-the-chain": {
+   "ft": 30
+  },
+  "javelin-barrage": {
+   "ft": 30,
+   "area": true
+  },
+  "jazlins-haunted-arrows": {
+   "ft": 30
+  },
+  "jettison-cranium": {
+   "ft": 100,
+   "area": true
+  },
+  "judgmental-gaze": {
+   "ft": 30
+  },
+  "jumping-jenny": {
+   "ft": 60
+  },
+  "kestros-volley": {
+   "ft": 60,
+   "area": true
+  },
+  "kettle-up": {
+   "ft": 30
+  },
+  "kneel-before-the-rightful-heir": {
+   "ft": 40
+  },
+  "label-memories": {
+   "ft": 100
+  },
+  "lasso": {
+   "ft": 20
+  },
+  "launch-slings": {
+   "ft": 50,
+   "area": true
+  },
+  "leech-moisture": {
+   "ft": 50
+  },
+  "lerrisus-dirge": {
+   "ft": 30
+  },
+  "lesson-of-the-broken-wing": {
+   "ft": 60
+  },
+  "lich-metamagic-alteration": {
+   "ft": 30
+  },
+  "lightning-chain": {
+   "ft": 60
+  },
+  "lightning-strike": {
+   "ft": 20
+  },
+  "lightning-tongue": {
+   "ft": 10
+  },
+  "living-bonfire": {
+   "ft": 30,
+   "area": true
+  },
+  "lob-amoeba": {
+   "ft": 40
+  },
+  "longbow-barrage": {
+   "ft": 100,
+   "area": true
+  },
+  "longbow-volley": {
+   "ft": 60,
+   "area": true
+  },
+  "loose-the-pawls": {
+   "ft": 10
+  },
+  "luring-chomp": {
+   "ft": 30
+  },
+  "magma-tomb": {
+   "ft": 120
+  },
+  "magnetic-pinions": {
+   "ft": 60
+  },
+  "magnificent": {
+   "ft": 30
+  },
+  "manipulate-energy": {
+   "ft": 100
+  },
+  "manipulate-puppets": {
+   "ft": 30
+  },
+  "mark-target": {
+   "ft": 60
+  },
+  "mask-of-fate": {
+   "ft": 60
+  },
+  "mass-bramble-jump": {
+   "ft": 60,
+   "area": true
+  },
+  "measure-soul": {
+   "ft": 60
+  },
+  "mechanized-animus": {
+   "ft": 60
+  },
+  "medical-malpractice": {
+   "ft": 60
+  },
+  "melfesh-monster-burrowing-grasp": {
+   "ft": 10
+  },
+  "melfesh-monster-false-synapses": {
+   "ft": 60
+  },
+  "memory-of-nothing": {
+   "ft": 30
+  },
+  "menacing-growl": {
+   "ft": 30
+  },
+  "mind-bolt": {
+   "ft": 60
+  },
+  "mind-reading": {
+   "ft": 30
+  },
+  "mirror-gaze": {
+   "ft": 30
+  },
+  "missile-volley": {
+   "ft": 20,
+   "area": true
+  },
+  "mocking-cry": {
+   "ft": 30
+  },
+  "molten-wire": {
+   "ft": 15
+  },
+  "monitor-escape": {
+   "ft": 60,
+   "area": true
+  },
+  "monstrous-howl": {
+   "ft": 60
+  },
+  "more-centaurs": {
+   "ft": 60,
+   "area": true
+  },
+  "mounted-volley": {
+   "ft": 100,
+   "area": true
+  },
+  "mover-of-worlds": {
+   "ft": 500,
+   "area": true
+  },
+  "mucus-deluge": {
+   "ft": 30,
+   "area": true
+  },
+  "muster-animals": {
+   "ft": 60,
+   "area": true
+  },
+  "mythic-containment": {
+   "ft": 30
+  },
+  "necro-puppeteer": {
+   "ft": 60
+  },
+  "nihilistic-truthsayer": {
+   "ft": 30
+  },
+  "nudge-the-scales": {
+   "ft": 30,
+   "area": true
+  },
+  "observe-weakness": {
+   "ft": 30
+  },
+  "offal-rain": {
+   "ft": 60,
+   "area": true
+  },
+  "offer-story": {
+   "ft": 30
+  },
+  "omen-dragon-link-fates": {
+   "ft": 60
+  },
+  "on-borrowed-time": {
+   "ft": 30
+  },
+  "oppressive-might": {
+   "ft": 60
+  },
+  "orate": {
+   "ft": 30
+  },
+  "ossuary-storm": {
+   "ft": 30,
+   "area": true
+  },
+  "otherworldly-roar": {
+   "ft": 30
+  },
+  "overacted-strike": {
+   "ft": 30
+  },
+  "overloaded-arc": {
+   "ft": 120,
+   "area": true
+  },
+  "overwrite-memory": {
+   "ft": 30
+  },
+  "pain-fueled-roar": {
+   "ft": 60
+  },
+  "pantomime": {
+   "ft": 15
+  },
+  "paralyzing-spew": {
+   "ft": 20
+  },
+  "path-maiden-vengeful-frenzy": {
+   "ft": 60
+  },
+  "perplex": {
+   "ft": 30
+  },
+  "petrifying-gaze": {
+   "ft": 30
+  },
+  "petrifying-gaze-mimicry": {
+   "ft": 30
+  },
+  "pheromonal-message": {
+   "ft": 60
+  },
+  "phlegm-mortar": {
+   "ft": 30,
+   "area": true
+  },
+  "pinpoint-weakness": {
+   "ft": 30
+  },
+  "pistoleros-challenge": {
+   "ft": 30
+  },
+  "pit-of-snakes": {
+   "ft": 120,
+   "area": true
+  },
+  "playful-switch": {
+   "ft": 60
+  },
+  "poisoned-bolts": {
+   "ft": 60,
+   "area": true
+  },
+  "pox-the-land": {
+   "ft": 120,
+   "area": true
+  },
+  "pre-programmed-greeting": {
+   "ft": 30
+  },
+  "predators-stare": {
+   "ft": 30
+  },
+  "pressurized-pool": {
+   "ft": 120,
+   "area": true
+  },
+  "prudent-asterism": {
+   "ft": 60
+  },
+  "psychic-daze": {
+   "ft": 120
+  },
+  "pull-down-the-sun": {
+   "ft": 90,
+   "area": true
+  },
+  "purify-element": {
+   "ft": 30
+  },
+  "putrefaction": {
+   "ft": 60
+  },
+  "pyres-mercy": {
+   "ft": 30
+  },
+  "qi-blast": {
+   "ft": 60,
+   "area": true
+  },
+  "quick-harvest": {
+   "ft": 30
+  },
+  "quick-release-snare": {
+   "ft": 20
+  },
+  "quieting-rune": {
+   "ft": 60
+  },
+  "quill-barrage": {
+   "ft": 30
+  },
+  "rain-of-fire": {
+   "ft": 30,
+   "area": true
+  },
+  "rain-of-knives": {
+   "ft": 50,
+   "area": true
+  },
+  "rain-of-razors": {
+   "ft": 60,
+   "area": true
+  },
+  "rain-of-ruin": {
+   "ft": 120,
+   "area": true
+  },
+  "rain-of-rust": {
+   "ft": 60,
+   "area": true
+  },
+  "rain-of-seeds": {
+   "ft": 60,
+   "area": true
+  },
+  "rain-of-splinters": {
+   "ft": 30,
+   "area": true
+  },
+  "raise-blackfrost": {
+   "ft": 60,
+   "area": true
+  },
+  "raise-the-walls": {
+   "ft": 15
+  },
+  "rallying-call": {
+   "ft": 60
+  },
+  "rallying-charge-marshal": {
+   "ft": 60
+  },
+  "ravenous-winds": {
+   "ft": 20
+  },
+  "reach-of-the-dead": {
+   "ft": 60
+  },
+  "ready-fire": {
+   "ft": 120,
+   "area": true
+  },
+  "reap-memory": {
+   "ft": 30
+  },
+  "rebuke-soul": {
+   "ft": 40
+  },
+  "recall-the-teachings": {
+   "ft": 30
+  },
+  "reel-thread": {
+   "ft": 100
+  },
+  "reflective-arrows": {
+   "ft": 60,
+   "area": true
+  },
+  "regurgitate-gastrolith": {
+   "ft": 30
+  },
+  "release-spores": {
+   "ft": 100,
+   "area": true
+  },
+  "release-the-inmost-worm": {
+   "ft": 30
+  },
+  "relocate": {
+   "ft": 50,
+   "area": true
+  },
+  "reminder-of-doom": {
+   "ft": 60
+  },
+  "remote-detonation-snarecrafter": {
+   "ft": 120
+  },
+  "resonant-wail": {
+   "ft": 30
+  },
+  "restore-the-mind": {
+   "ft": 30
+  },
+  "return-to-nature": {
+   "ft": 60
+  },
+  "return-to-the-sea": {
+   "ft": 30
+  },
+  "revitalizing-finisher": {
+   "ft": 30
+  },
+  "rock-stride": {
+   "ft": 60
+  },
+  "rotten-slurry": {
+   "ft": 30
+  },
+  "rouse-the-forests-fury": {
+   "ft": 500,
+   "area": true
+  },
+  "rouse-the-world": {
+   "ft": 30,
+   "area": true
+  },
+  "rupture-shadow": {
+   "ft": 60,
+   "area": true
+  },
+  "sacred-salvo": {
+   "ft": 50,
+   "area": true
+  },
+  "sand-snatcher": {
+   "ft": 30,
+   "area": true
+  },
+  "sandstorm-breath": {
+   "ft": 60,
+   "area": true
+  },
+  "sanguivolent-roots": {
+   "ft": 120,
+   "area": true
+  },
+  "sap-mind": {
+   "ft": 60
+  },
+  "scare-to-death": {
+   "ft": 30
+  },
+  "scorching-column": {
+   "ft": 60,
+   "area": true
+  },
+  "scour-the-library": {
+   "ft": 60
+  },
+  "scrap-barricade": {
+   "ft": 120,
+   "area": true
+  },
+  "scraping-clamor": {
+   "ft": 30
+  },
+  "screaming-skull": {
+   "ft": 20
+  },
+  "sea-chantey": {
+   "ft": 60
+  },
+  "seasoned-command": {
+   "ft": 30
+  },
+  "seed-volley": {
+   "ft": 120,
+   "area": true
+  },
+  "seiya-soiya": {
+   "ft": 20,
+   "area": true
+  },
+  "sense-alignment": {
+   "ft": 30
+  },
+  "shadow-flitter": {
+   "ft": 30,
+   "area": true
+  },
+  "shake-confidence": {
+   "ft": 30
+  },
+  "shameful-touch": {
+   "ft": 5
+  },
+  "shard-volley": {
+   "ft": 30,
+   "area": true
+  },
+  "shared-focus": {
+   "ft": 30
+  },
+  "sharpened-advance": {
+   "ft": 50,
+   "area": true
+  },
+  "shattering-harmonics": {
+   "ft": 60
+  },
+  "shattering-scream": {
+   "ft": 60,
+   "area": true
+  },
+  "sheltering-pulse": {
+   "ft": 15,
+   "area": true
+  },
+  "shimmer-step": {
+   "ft": 60
+  },
+  "shocking-burst": {
+   "ft": 30
+  },
+  "shoot-crossbows": {
+   "ft": 120,
+   "area": true
+  },
+  "short-salvo": {
+   "ft": 60,
+   "area": true
+  },
+  "shortbow-volley": {
+   "ft": 60,
+   "area": true
+  },
+  "shrieking-flurry": {
+   "ft": 20
+  },
+  "silkworms-basket": {
+   "ft": 30,
+   "area": true
+  },
+  "sing-to-the-steel": {
+   "ft": 30
+  },
+  "siphon-scroll": {
+   "ft": 60
+  },
+  "siphon-voice": {
+   "ft": 30
+  },
+  "skeleton-screaming-skull": {
+   "ft": 20
+  },
+  "skin-net": {
+   "ft": 30
+  },
+  "skull-shot": {
+   "ft": 30
+  },
+  "slaughter-tackle": {
+   "ft": 30
+  },
+  "slime-barrage": {
+   "ft": 30,
+   "area": true
+  },
+  "sling-barrage": {
+   "ft": 50,
+   "area": true
+  },
+  "slip-between": {
+   "ft": 50,
+   "area": true
+  },
+  "slip-from-the-back": {
+   "ft": 30
+  },
+  "slither-between-worlds": {
+   "ft": 100,
+   "area": true
+  },
+  "snatch-object": {
+   "ft": 15
+  },
+  "snow-step": {
+   "ft": 120,
+   "area": true
+  },
+  "snuff": {
+   "ft": 30
+  },
+  "solar-detonation": {
+   "ft": 60,
+   "area": true
+  },
+  "solitary-invocation": {
+   "ft": 30
+  },
+  "sommeliers-trick": {
+   "ft": 30
+  },
+  "song-of-grace-and-speed": {
+   "ft": 30
+  },
+  "song-of-the-lost": {
+   "ft": 60
+  },
+  "soul-well": {
+   "ft": 30,
+   "area": true
+  },
+  "spark-bombardment": {
+   "ft": 20
+  },
+  "spawning-soulrider-monitor-escape": {
+   "ft": 60,
+   "area": true
+  },
+  "spear-dance": {
+   "ft": 10
+  },
+  "spell-protection-array": {
+   "ft": 30,
+   "area": true
+  },
+  "spellbinding-speech": {
+   "ft": 30
+  },
+  "spirit-flensing-touch": {
+   "ft": 10
+  },
+  "spirits-wrath": {
+   "ft": 120
+  },
+  "spiritual-anguish": {
+   "ft": 30
+  },
+  "splash-poison": {
+   "ft": 10
+  },
+  "sporewarp": {
+   "ft": 120
+  },
+  "spray-perfume": {
+   "ft": 100
+  },
+  "spray-pus": {
+   "ft": 30,
+   "area": true
+  },
+  "spring-heeled-jack-resonant-terror": {
+   "ft": 30
+  },
+  "sprout-life": {
+   "ft": 100,
+   "area": true
+  },
+  "squeak-of-doom": {
+   "ft": 30
+  },
+  "stab-it-stab-it-stab-it": {
+   "ft": 30
+  },
+  "stages-of-fate": {
+   "ft": 30
+  },
+  "stand-firm": {
+   "ft": 30
+  },
+  "start-the-festival": {
+   "ft": 120,
+   "area": true
+  },
+  "starving-invocation": {
+   "ft": 30
+  },
+  "steal-knowledge": {
+   "ft": 60
+  },
+  "steal-memories": {
+   "ft": 30
+  },
+  "stepping-stones": {
+   "ft": 60
+  },
+  "stir-allies": {
+   "ft": 30
+  },
+  "stoke-the-flames": {
+   "ft": 60
+  },
+  "stolen-scream": {
+   "ft": 30
+  },
+  "stone-crush": {
+   "ft": 100
+  },
+  "stone-stride": {
+   "ft": 30
+  },
+  "stop-where-you-are": {
+   "ft": 80,
+   "area": true
+  },
+  "storm-of-daggers": {
+   "ft": 30,
+   "area": true
+  },
+  "storm-spiral": {
+   "ft": 60,
+   "area": true
+  },
+  "story-of-valor": {
+   "ft": 30
+  },
+  "structural-possession": {
+   "ft": 100
+  },
+  "study-foe": {
+   "ft": 30
+  },
+  "subjugation": {
+   "ft": 30
+  },
+  "sudden-terror": {
+   "ft": 30
+  },
+  "sword-light-wave": {
+   "ft": 60
+  },
+  "take-stock": {
+   "ft": 30
+  },
+  "tangle-in-riddle": {
+   "ft": 30
+  },
+  "tangle-prey": {
+   "ft": 20
+  },
+  "tap-ley-line": {
+   "ft": 30,
+   "area": true
+  },
+  "taunt": {
+   "ft": 30
+  },
+  "teasing-taunt": {
+   "ft": 30
+  },
+  "telekinetic-interference": {
+   "ft": 60
+  },
+  "telepathic-pounce": {
+   "ft": 30
+  },
+  "telepathic-wail": {
+   "ft": 100
+  },
+  "temper-thy-words": {
+   "ft": 120
+  },
+  "terrifying-invocation": {
+   "ft": 30
+  },
+  "terrifying-squeal": {
+   "ft": 30
+  },
+  "terrifying-transformation": {
+   "ft": 30
+  },
+  "thatchlings-curse": {
+   "ft": 30
+  },
+  "the-queens-enemy": {
+   "ft": 60
+  },
+  "the-shattered-mountain-weeps": {
+   "ft": 120,
+   "area": true
+  },
+  "the-thousand-lashes-of-the-weeping-willow": {
+   "ft": 500,
+   "area": true
+  },
+  "their-masters-call": {
+   "ft": 30,
+   "area": true
+  },
+  "threaten-imp": {
+   "ft": 30
+  },
+  "throw-detritus": {
+   "ft": 30,
+   "area": true
+  },
+  "throw-drink": {
+   "ft": 10
+  },
+  "thunder-drums": {
+   "ft": 60,
+   "area": true
+  },
+  "thunderous-roar": {
+   "ft": 10
+  },
+  "timber-sentinel": {
+   "ft": 30
+  },
+  "time-bound": {
+   "ft": 60,
+   "area": true
+  },
+  "timely-trick": {
+   "ft": 30
+  },
+  "tine-and-tide": {
+   "ft": 100,
+   "area": true
+  },
+  "to-me-my-minions": {
+   "ft": 30
+  },
+  "tongue-disarm": {
+   "ft": 10
+  },
+  "tormenting-touch": {
+   "ft": 10
+  },
+  "transdimensional-step": {
+   "ft": 30,
+   "area": true
+  },
+  "transpose-etching": {
+   "ft": 30
+  },
+  "trash-the-place": {
+   "ft": 100,
+   "area": true
+  },
+  "treasure-toss": {
+   "ft": 30
+  },
+  "tree-of-duality": {
+   "ft": 60,
+   "area": true
+  },
+  "tricky-throw": {
+   "ft": 40
+  },
+  "twang": {
+   "ft": 20
+  },
+  "twisted-whispers": {
+   "ft": 15
+  },
+  "ulna-bow": {
+   "ft": 120
+  },
+  "unbelievable-connection": {
+   "ft": 30
+  },
+  "undo-destruction": {
+   "ft": 120,
+   "area": true
+  },
+  "unfazed-assessment": {
+   "ft": 30
+  },
+  "unleash-hell": {
+   "ft": 100,
+   "area": true
+  },
+  "unleash-weapon": {
+   "ft": 20
+  },
+  "unnatural-shriek": {
+   "ft": 120
+  },
+  "unsteadying-magnetism": {
+   "ft": 20
+  },
+  "unveil-secret": {
+   "ft": 60
+  },
+  "usurp-the-lunar-reins": {
+   "ft": 500,
+   "area": true
+  },
+  "vengeful-fibers": {
+   "ft": 60
+  },
+  "venomous-gaze": {
+   "ft": 30
+  },
+  "vibratory-excavation": {
+   "ft": 60
+  },
+  "vigils-walls-rise-anew": {
+   "ft": 30
+  },
+  "vision-of-lost-meaning": {
+   "ft": 120
+  },
+  "vitriol": {
+   "ft": 15
+  },
+  "voice-of-the-nessari": {
+   "ft": 20
+  },
+  "void-geyser": {
+   "ft": 15
+  },
+  "vow-of-mortal-defiance": {
+   "ft": 60
+  },
+  "wail-of-the-betrayed": {
+   "ft": 120
+  },
+  "wail-of-the-damned": {
+   "ft": 60
+  },
+  "walk-through-the-conflagration": {
+   "ft": 120,
+   "area": true
+  },
+  "warded-ground": {
+   "ft": 30,
+   "area": true
+  },
+  "wasting-gaze": {
+   "ft": 30
+  },
+  "watch-your-back": {
+   "ft": 30
+  },
+  "watch-your-back-golden-legionnaire": {
+   "ft": 60
+  },
+  "watery-void": {
+   "ft": 60,
+   "area": true
+  },
+  "weaseling-words": {
+   "ft": 30
+  },
+  "web-of-fate": {
+   "ft": 30,
+   "area": true
+  },
+  "weight-of-stone": {
+   "ft": 120,
+   "area": true
+  },
+  "whirling-grindstone": {
+   "ft": 30,
+   "area": true
+  },
+  "whirlpools-pull": {
+   "ft": 15
+  },
+  "whisper-on-the-wind": {
+   "ft": 500
+  },
+  "whispers-of-superiority": {
+   "ft": 60
+  },
+  "whispers-of-weakness": {
+   "ft": 60
+  },
+  "wiles-on-the-wind": {
+   "ft": 500,
+   "area": true
+  },
+  "wind-and-waves": {
+   "ft": 20,
+   "area": true
+  },
+  "window-to-the-soul": {
+   "ft": 60
+  },
+  "windstorm": {
+   "ft": 100,
+   "area": true
+  },
+  "winning-smile": {
+   "ft": 15
+  },
+  "winters-clutch": {
+   "ft": 60,
+   "area": true
+  },
+  "wolverines-protection": {
+   "ft": 30
+  },
+  "wooden-palisade": {
+   "ft": 120
+  },
+  "word-caller": {
+   "ft": 60
+  },
+  "worm-trill": {
+   "ft": 100
+  },
+  "zuras-gift": {
+   "ft": 30
+  }
+ },
+ "exceptions": {
+  "hydraulic-maneuvers": "меняет дальность чужого действия (Trip), цели у самой черты нет",
+  "in-tune": "перенос начала эмпатии заклинания на союзника — модификатор, цели нет",
+  "silo-crop": "дальность 60 фт — условие знать о членах «урожая», не применение",
+  "vitality-manipulating-stance": "дальность Удара стойки (30 фт), а не применения стойки",
+  "absorb-wraith": "общий slug у несвязанных документов: только по uuid источника",
+  "arrow-volley": "общий slug у несвязанных документов: только по uuid источника",
+  "attack-of-opportunity": "общий slug у несвязанных документов: только по uuid источника",
+  "bark-orders": "общий slug у несвязанных документов: только по uuid источника",
+  "base-kinesis": "документы с общим slug дают разную дальность: только по uuid источника",
+  "battle-cry": "общий slug у несвязанных документов: только по uuid источника",
+  "belch-smoke": "общий slug у несвязанных документов: только по uuid источника",
+  "black-water-breath": "документы с общим slug дают разную дальность: только по uuid источника",
+  "bodyguards-defense": "общий slug у несвязанных документов: только по uuid источника",
+  "bombard": "общий slug у несвязанных документов: только по uuid источника",
+  "bramble-jump": "общий slug у несвязанных документов: только по uuid источника",
+  "breath-weapon": "общий slug у несвязанных документов: только по uuid источника",
+  "cacophonous-roar": "общий slug у несвязанных документов: только по uuid источника",
+  "chthonic-mucus": "документы с общим slug дают разную дальность: только по uuid источника",
+  "crumble": "общий slug у несвязанных документов: только по uuid источника",
+  "dazzling-display": "общий slug у несвязанных документов: только по uuid источника",
+  "death-gaze": "общий slug у несвязанных документов: только по uuid источника",
+  "do-you-know-who-i-am": "общий slug у несвязанных документов: только по uuid источника",
+  "dragonmist": "документы с общим slug дают разную дальность: только по uuid источника",
+  "dread-gaze": "общий slug у несвязанных документов: только по uuid источника",
+  "drench": "общий slug у несвязанных документов: только по uuid источника",
+  "drown": "общий slug у несвязанных документов: только по uuid источника",
+  "elemental-artillery": "несколько расстояний (30/120): неясно, какое — дальность применения",
+  "exploding-red-breath": "документы с общим slug дают разную дальность: только по uuid источника",
+  "fire-crossbows": "документы с общим slug дают разную дальность: только по uuid источника",
+  "fire-in-the-hole": "общий slug у несвязанных документов: только по uuid источника",
+  "focus-gaze": "общий slug у несвязанных документов: только по uuid источника",
+  "frightening-rant": "общий slug у несвязанных документов: только по uuid источника",
+  "ghostly-condemnation": "несколько расстояний (120/15): неясно, какое — дальность применения",
+  "goblin-song": "общий slug у несвязанных документов: только по uuid источника",
+  "grasping-hands": "общий slug у несвязанных документов: только по uuid источника",
+  "guiding-words": "общий slug у несвязанных документов: только по uuid источника",
+  "hail-of-arrows": "общий slug у несвязанных документов: только по uuid источника",
+  "heads-will-roll": "общий slug у несвязанных документов: только по uuid источника",
+  "hundred-dimension-grasp": "несколько расстояний (120/30): неясно, какое — дальность применения",
+  "invoke-rune": "общий slug у несвязанных документов: только по uuid источника",
+  "manipulate-flames": "документы с общим slug дают разную дальность: только по uuid источника",
+  "mirror-travel": "общий slug у несвязанных документов: только по uuid источника",
+  "ominous-dreams": "документы с общим slug дают разную дальность: только по uuid источника",
+  "one-for-all": "общий slug у несвязанных документов: только по uuid источника",
+  "open-eyes": "общий slug у несвязанных документов: только по uuid источника",
+  "petrifying-glance": "общий slug у несвязанных документов: только по uuid источника",
+  "planar-step": "документы с общим slug дают разную дальность: только по uuid источника",
+  "portal-strike": "документы с общим slug дают разную дальность: только по uuid источника",
+  "primal-roar": "общий slug у несвязанных документов: только по uuid источника",
+  "radiant-blast": "общий slug у несвязанных документов: только по uuid источника",
+  "radiate-glory": "общий slug у несвязанных документов: только по uuid источника",
+  "rain-of-arrows": "общий slug у несвязанных документов: только по uuid источника",
+  "reach-beyond": "общий slug у несвязанных документов: только по uuid источника",
+  "reposition": "общий slug у несвязанных документов: только по uuid источника",
+  "rescue": "общий slug у несвязанных документов: только по uuid источника",
+  "retributive-strike": "общий slug у несвязанных документов: только по uuid источника",
+  "rise-up": "общий slug у несвязанных документов: только по uuid источника",
+  "roar": "общий slug у несвязанных документов: только по uuid источника",
+  "shadow-breath": "общий slug у несвязанных документов: только по uuid источника",
+  "share-burden": "общий slug у несвязанных документов: только по uuid источника",
+  "shield-block": "общий slug у несвязанных документов: только по uuid источника",
+  "shriek": "общий slug у несвязанных документов: только по uuid источника",
+  "siren": "несколько расстояний (500/100/30): неясно, какое — дальность применения",
+  "snap-shot": "общий slug у несвязанных документов: только по uuid источника",
+  "spit-venom": "общий slug у несвязанных документов: только по uuid источника",
+  "spite": "общий slug у несвязанных документов: только по uuid источника",
+  "spore-cloud": "общий slug у несвязанных документов: только по uuid источника",
+  "spore-domination": "документы с общим slug дают разную дальность: только по uuid источника",
+  "steal-magic": "общий slug у несвязанных документов: только по uuid источника",
+  "steel-lightning-breath": "документы с общим slug дают разную дальность: только по uuid источника",
+  "storm-of-blades": "общий slug у несвязанных документов: только по uuid источника",
+  "tag-team": "общий slug у несвязанных документов: только по uuid источника",
+  "terrifying-croak": "общий slug у несвязанных документов: только по uuid источника",
+  "terrifying-howl": "общий slug у несвязанных документов: только по uuid источника",
+  "terrifying-roar": "общий slug у несвязанных документов: только по uuid источника",
+  "transpose": "общий slug у несвязанных документов: только по uuid источника",
+  "tremor": "общий slug у несвязанных документов: только по uuid источника",
+  "twisting-tail": "общий slug у несвязанных документов: только по uuid источника",
+  "unnerving-shriek": "общий slug у несвязанных документов: только по uuid источника"
+ }
+}

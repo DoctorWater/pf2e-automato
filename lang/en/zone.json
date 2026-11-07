@@ -5,7 +5,12 @@
       "hint": "Applies a condition/effect to tokens inside the area, removes it on exit and when the duration ends.",
       "name": "Zone",
       "stayUnlinkFailed": "Could not detach the area from the caster token: it will close together with the token.",
+      "areaFar": "\"{name}\": the area's base is beyond range ({d} ft > {r} ft). Place it closer or hold Alt while placing.",
       "FIELDS": {
+        "endCombat": { "label": "Duration combat (id)" },
+        "endRound": { "label": "Round of the author's turn end" },
+        "endCombatant": { "label": "Author combatant (id)" },
+        "maxRound": { "label": "Last round when sustained" },
         "condition": { "label": "Condition (slug)" },
         "conditionValue": { "label": "Condition value" },
         "effectUuid": { "label": "Effect UUID" },

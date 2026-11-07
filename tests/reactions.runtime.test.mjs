@@ -34,7 +34,8 @@ function fixture({ sourceOnly = true } = {}) {
   } };
   globalThis.game = {
     user: { isActiveGM: true }, users: [{ id: "gm", isGM: true }],
-    combat: { id: "combat", round: 1, started: true, combatants: [{ actorId: actor.id }] },
+    combat: { id: "combat", round: 1, started: true, active: true, scene: "s", combatants: [{ actorId: actor.id, actor }] },
+    get combats() { return [this.combat]; },
     settings: { get: (_mod, key) => key === "mode.macro" ? "off" : key === "debug" ? false : key === "catalog" ? {} : "auto" },
     messages: { get: (id) => id === attack.id ? attack : hints.find((h) => h.id === id), contents: hints },
     modules: { get: (id) => id === "pf2e-auto-action-tracker" ? { active: true } : null },

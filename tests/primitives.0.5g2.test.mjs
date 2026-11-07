@@ -267,6 +267,23 @@ test("extendEffect: минуты -> раунды + N, повтор того же
   void hero;
 });
 
+test("extendEffect.chosen: ставит prolonged, откат снимает флаг (эффект снова кандидат prolongable)", async () => {
+  const { prolongable } = await import("../scripts/apply.mjs");
+  const eff = mkEffect({ slug: "frightened-eff", duration: { value: 3, unit: "rounds", expiry: null } });
+  const hero = mkActor("Actor.hero", [eff]);
+  hero.itemTypes.condition = [{ slug: "frightened", name: "frightened", grantedBy: { id: eff.id }, system: { value: { value: 1 } } }];
+  hero.items = { get: (id) => (id === eff.id ? eff : undefined) };
+  const m = mkMsg(use());
+  const ops = await applyOps(m, "self", [{ to: "self", extendEffect: { chosen: true, rounds: 1 } }], { scope: "apply", picks: { effect: eff } });
+  assert.equal(ops[0].prolonged, true);
+  assert.equal(eff.flags[MOD].prolonged, true);
+  assert.deepEqual(prolongable(hero), []);
+  await undoOps(m, "self");
+  assert.equal(eff.flags[MOD].prolonged, false);
+  assert.deepEqual(eff.system.duration, { value: 3, unit: "rounds", expiry: null });
+  assert.deepEqual(prolongable(hero).map((x) => x.effect.id), [eff.id]);
+});
+
 test("badge decrement: -1 до минимума, на минимуме эффект снимается и откат его возвращает; нет эффекта — пусто, копия не создаётся", async () => {
   const eff = mkEffect({ slug: "x", badge: { type: "counter", value: 3, min: 1 } });
   const hero = mkActor("Actor.hero", [eff]);

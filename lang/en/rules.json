@@ -12,11 +12,15 @@
           "label": "The rule name must be text ({path})",
           "onTurn": "Per-turn triggers are not supported yet — remove it ({path})",
           "both": "A rule cannot trigger both on use and when the owner is attacked — keep only one ({path})",
+          "bothFailed": "A reroll on failure cannot be combined with a reaction to damage or to an attack on the owner — keep only one ({path})",
+          "bothDamaged":"A reaction to damage and a reaction to an attack on the owner are mutually exclusive — keep only one ({path})",
           "empty": "The rule is empty: add at least one step, check or reaction"
         },
         "use": {
           "targets": "Choose who the rule affects: yourself, selected targets or an area ({path})",
           "excludeSelf": "\"Exclude author\" must be on or off ({path})",
+          "range": "Range is {ft: feet > 0, area?: boolean, grow?: {add, every}} ({path})",
+          "summon": "Summon — { traits: [traits] } or { uuid }, optional levels {rank: level} and count ({path})",
           "pulse": "Sustain pulse is \"same\" or \"new\" and needs an area or selected targets plus a challenge or a target step; \"new\" — area only ({path})",
           "both": "A challenge and a check are mutually exclusive — keep only one ({path})",
           "checkSelf": "A check against a target does not work with \"self\" — choose selected targets or an area ({path})"
@@ -46,13 +50,16 @@
           "when": "Step: \"when\" is a pf2e predicate: roll option strings, comparisons (gte/lte/gt/lt/eq) and and/or/not/nor ({path})",
           "sustain": "Step: \"sustain\" must be true or false and is only allowed with a condition or effect ({path})",
           "sustainDur": "Step: a condition with \"sustain: true\" requires a duration, otherwise it cannot be removed when the spell is no longer sustained ({path})",
-          "chosen": "A step for the chosen creature needs an ally or enemy choice step before it ({path})"
+          "chosen": "A step for the chosen creature needs an ally or enemy choice step before it ({path})",
+          "condPick": "Choosing a condition needs a creature choice step before it ({path})",
+          "condEvent": "Choosing a condition is only available in onEvent entries ({path})",
+          "effPick": "Extending the chosen effect needs a condition choice step before it ({path})"
         },
-        "choose": { "bad": "Choice: say what to choose from — allies, enemies or options (options are a list of unique Latin codes); the radius is an integer from 5 and only for allies and enemies ({path})" },
+        "choose": { "bad": "Choice: say what to choose from — allies, enemies, creatures, conditions (a timed condition of the chosen creature; events only, no radius) or options (options are a list of unique Latin codes); the radius is an integer from 5 and only for allies and enemies ({path})" },
         "move": { "bad": "Move: mode is push, pull or choose (direction picked, no from), distance is a multiple of 5 ft from 5, only for the target; not in zone triggers nor with targets: area, the area centre is not the author token ({path})" },
         "dmg": { "bad": "Damage: the formula is dice and numbers or variables (for example 2d6+3, @actor.level), the type is from the damage list or \"healing\" ({path})" },
         "rmEff": { "bad": "Remove effect: exactly one of slug (a-z, digits, hyphen) or UUID is needed; \"of\" can only be origin ({path})" },
-        "extEff": { "bad": "Extend effect: either the effect slug or cast: true (effects of this casting), plus an integer number of rounds from 1 ({path})" },
+        "extEff": { "bad": "Extend effect: exactly one of the effect slug, cast: true (effects of this casting) or chosen: true (only for the chosen creature), plus an integer number of rounds from 1 ({path})" },
         "refund": { "bad": "Refund Focus Point: only refundFocus: true, only for the owner (to: self) ({path})" },
         "rollOpt": { "bad": "Option: a domain and an option name without spaces are needed; value is true/false ({path})" },
         "rm": {
@@ -94,6 +101,7 @@
         "ch": {
           "stat": "Challenge: choose a skill or a save ({path})",
           "basic": "Challenge: \"basic save\" must be on or off ({path})",
+          "dmgDeg": "Challenge: damage multipliers by degree must be 0, 0.5, 1 or 2 for known degrees, and only on a non-basic challenge ({path})",
           "roller": "Challenge: the target always rolls ({path})"
         },
         "dc": {
@@ -134,6 +142,25 @@
           "bonus": "Reaction: set an AC bonus — a type and a number ({path})",
           "cost": "Reaction: the cost can only be \"reaction\" ({path})",
           "notify": "Reaction: you can notify the owner and/or the GM ({path})"
+        },
+        "damaged": {
+          "who": "Reaction to damage: who can react — self, familiar or ally ({path})",
+          "range": "Reaction to damage: range is a positive number and only for \"ally\" ({path})",
+          "withSelf": "Reaction to damage: \"withSelf\" is yes or no, yes only for \"ally\" ({path})",
+          "requires": "Reaction to damage: requirement — invested, equipped, held, none, or an owner option like shield:raised ({path})",
+          "damage": "Reaction to damage: one of reduce, halve, or redirect to self (with part all/half) ({path})",
+          "reduce": "Reaction to damage: the reduction is a number or a formula without dice ({path})",
+          "resist": "Reaction to damage: resistance is a list of type + number or formula without dice ({path})",
+          "triggerOnly": "Reaction to damage: \"triggerOnly\" is yes or no ({path})",
+          "cost": "Reaction to damage: the cost is hit points as a number or a formula without dice ({path})"
+        },
+        "failed": {
+          "who": "Reroll on failure: who — \"self\", \"ally\" or \"any\" ({path})",
+          "range": "Reroll on failure: range — a positive number, not for \"self\" ({path})",
+          "withSelf": "Reroll on failure: \"and self\" — yes or no, \"yes\" not for \"self\" ({path})",
+          "check": "Reroll on failure: check — a non-empty list of save, skill, perception, attack ({path})",
+          "degree": "Reroll on failure: degree — fail, critFail or failNotCrit ({path})",
+          "keep": "Reroll on failure: keep — new or higher ({path})"
         },
         "macro": {
           "id": "No macro chosen — specify a macro or a built-in handler ({path})",

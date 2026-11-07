@@ -3,14 +3,17 @@
 // Шаг правила с sustain:true привязывает выданное к якорю (meta.sustainOf = ключ якоря); якорь кончается — привязанное снимается (apply.removeBound).
 // Якорь не создаётся из системного эффекта заклинания с duration.sustained (Traveling Workshop): это вторая модель срока и режим на 8 часов — волна 2.
 import { MOD, L, flagPath, queue, guardActiveGM, callGM, sluggify } from "./util.mjs";
+import { trackerFlags, withTracker } from "./compat.mjs";
 import { itemDuration, slugOf } from "./rules.mjs";
-import { effectSource, whisper, esc } from "./builtin/lib.mjs";
+import { effectSource, whisper, esc, combatOf } from "./builtin/lib.mjs";
 import { cardButton } from "./card.mjs";
 import { S } from "./settings.mjs";
-import { removeBound } from "./apply.mjs";
+import { removeBound, orphaned } from "./apply.mjs";
 
 /** Слушатели Поддержания ({anchor, actor, pos}): events.mjs запускает способность фамильяра. count() зовёт их без ожидания — окно выбора не держит очередь якоря. */
 export const sustained = new Set();
+/** Уборщики на переходе в лидеры (sweep): summon.cleanup. */
+export const sweepers = new Set();
 
 /* ---------- чистая часть ---------- */
 
@@ -28,7 +31,7 @@ export const missedBefore = (last, pos) => !(!!pos?.combat && last?.combat === p
 export const anchorDuration = (item) => itemDuration(item?.system?.duration) ?? { value: 10, unit: "minutes" };
 
 /** Бой, где актёр участвует и который идёт (round > 0): позиция {combat, round}; иначе пустая. game.combat — не обязательно тот бой. */
-export const posOfActor = (actor) => posOf(globalThis.game?.combats?.find?.((c) => c.round > 0 && c.combatants.some((x) => x.actor?.uuid === actor?.uuid)));
+export const posOfActor = (actor) => posOf(actor && globalThis.game?.combats ? combatOf([...game.combats].filter((c) => c.round > 0), actor) : null);
 const alive = (anchor) => !!anchor?.actor?.items?.some?.((i) => i.id === anchor.id);
 
 const metaOf = (item) => item?.flags?.[MOD]?.meta;
@@ -49,7 +52,7 @@ export function isSustainMessage(message) {
 // ponytail: автоякорь фамильяра (events.runFamiliar) и якорь шага sustain:true делят ключ anchorKey(message.id): кто пришёл первым, создаёт якорь и шлёт offer,
 // второй только добавляет привязку. Будущему hex со sustain:true: offer уже ушёл «тихим» текстом; prune по откату шага автоякорь без привязок не снимает.
 /** Якорь по ключу на авторе (идемпотентно по meta.key) + актёр-получатель в список привязок (target null — автоякорь наговора: привязок нет). -> {item, created} */
-export function attach(author, target, { key, msg, item, token, at, pulse, create = true }) {
+export function attach(author, target, { key, msg, item, token, at, pulse, create = true, quiet }) {
   return queue(`actor:${author.uuid}`, async () => {
     let anchor = findAnchor(author, key), created = false;
     if (!anchor && create) {
@@ -62,7 +65,7 @@ export function attach(author, target, { key, msg, item, token, at, pulse, creat
       });
       data.system.slug = anchorSlug(item?.slug ?? sluggify(item?.name));
       // message "ev:…" — как у эффектов событий: onItem не гоняет по якорю onEvent effect-created/deleted
-      data.flags = { [MOD]: { meta: { key, source: "sustain", message: "ev:sustain", origin: item?.uuid ?? null, by: author.uuid }, sustain: { msg, src: item?.uuid ?? null, actors: [], last: at ?? posOfActor(author), ...(pulse && { pulse: true }) } } };
+      data.flags = { [MOD]: { meta: { key, source: "sustain", message: "ev:sustain", origin: item?.uuid ?? null, by: author.uuid }, sustain: { msg, src: item?.uuid ?? null, actors: [], last: at ?? posOfActor(author), quiet: quiet ?? (!target && !pulse), ...(pulse && { pulse: true }) } } };   // quiet — для напоминания в начале хода (remind)
       [anchor] = await author.createEmbeddedDocuments("Item", [data]);
       created = !!anchor;
     }
@@ -71,9 +74,51 @@ export function attach(author, target, { key, msg, item, token, at, pulse, creat
     const actors = dataOf(anchor)?.actors ?? [];
     if (target && !actors.includes(target.uuid)) await anchor.update({ [flagPath("sustain", "actors")]: [...actors, target.uuid] });
     // откат → «Применить» заново: карточка с кнопками по этому ключу уже есть — второй не шлём
-    if (created && !globalThis.game?.messages?.find?.((m) => m.flags?.[MOD]?.sustain?.key === key)) Promise.resolve(offer(author, anchor, item, key, !target && !pulse)).catch((e) => console.error(`${MOD} | sustain offer`, e));
+    // в бою предложение — в начале следующего хода автора (remind): в ход сотворения Поддерживать нечего; вне боя ходов нет — предлагаем сразу
+    if (created && !posOfActor(author).combat && !globalThis.game?.messages?.find?.((m) => m.flags?.[MOD]?.sustain?.key === key)) Promise.resolve(offer(author, anchor, item, key, quiet ?? (!target && !pulse))).catch((e) => console.error(`${MOD} | sustain offer`, e));
     return { item: anchor, created };
   });
+}
+
+/** Любое заклинание с длительностью «поддерживаемое». */
+export const isSustained = (item) => !!item?.system?.duration?.sustained;
+
+/**
+ * Автоякорь сотворения (events.onMessage): якорь у каждого поддерживаемого заклинания, не только у наговоров и шагов sustain:true. Ключ тот же, что у привязок —
+ * якорь не двоится. Эффекты шагов без sustain:true снимает конец якоря по сообщению (dropUnbound). Наговоры (hex) — тихое предложение: Поддержание нужно способности фамильяра.
+ */
+export function onCast(message) {
+  const item = message?.item, author = message?.actor;
+  if (!isSustained(item) || !author) return null;
+  const hex = !!message.flags?.pf2e?.origin?.rollOptions?.includes?.("origin:item:trait:hex") || !!item.system?.traits?.value?.includes?.("hex");   // черты сотворения (как событие spell-cast), запасной — предмета
+  return attach(author, null, { key: anchorKey(message.id), msg: message.id, item, token: message.token ?? null, quiet: hex });
+}
+
+/** Эффекты шагов этого сотворения, не привязанные к якорю (шаги без sustain:true): effect с meta.message = сообщению и origin = заклинанию. Состояния без обёртки (продолжительный урон) не трогаем. */
+export function unboundOf(actors, msg, src) {
+  return actors.flatMap((a) => (a.items?.filter?.((i) => i.type === "effect" && !metaOf(i)?.sustainOf && metaOf(i)?.source !== "sustain" && metaOf(i)?.message === msg && (!src || metaOf(i)?.origin === src)) ?? []));
+}
+/**
+ * Кто мог получить эффекты сотворения: автор, цели (use.targets — они же цели испытания) и токены области (state.area.keys своей сцены).
+ * Сообщения уже нет (удалено) — null: тогда ищем по всему миру.
+ */
+export function recipientsOf(message) {
+  if (!message) return null;
+  const use = message.flags?.[MOD]?.use ?? {}, out = new Set([message.actor]);
+  const actorOf = (d) => d?.actor ?? (d?.documentName === "Actor" ? d : null);
+  for (const t of use.targets ?? []) out.add(actorOf(globalThis.fromUuidSync?.(t.uuid)));
+  const scene = globalThis.fromUuidSync?.(use.state?.area?.regionUuid)?.parent;
+  for (const k of use.state?.area?.keys ?? []) out.add(scene?.tokens?.get?.(k)?.actor);
+  return [...out].filter(Boolean);
+}
+// ponytail: сообщения нет — поиск по миру (актёры + несвязанные токены всех сцен)
+const worldActors = () => [...new Set([...(game.actors?.contents ?? []), ...(game.scenes?.contents ?? []).flatMap((s) => s.tokens?.contents?.filter((t) => !t.actorLink).map((t) => t.actor) ?? [])].filter(Boolean))];
+
+/** Хук deleteChatMessage (активный ГМ): сообщение сотворения удалено — якорь автоякоря снимается как откат (привязанное и эффекты шагов убирает конец якоря). */
+export async function onDeleteMessage(message) {
+  if (!guardActiveGM() || !message?.actor || !isSustained(message.item)) return;
+  const anchor = findAnchor(message.actor, anchorKey(message.id));
+  if (anchor) await queue(`actor:${message.actor.uuid}`, () => anchor.delete());
 }
 
 /** Откат: у якоря не осталось живых привязок — якорь удаляется как откат (без «конца заклинания»). */
@@ -94,7 +139,24 @@ export async function prune(author, key) {
 function offer(author, anchor, item, key, quiet = false) {
   const buttons = cardButton(`data-af-sustain="support"`, L("sustain.support")) + cardButton(`data-af-sustain="dismiss"`, L("sustain.dismiss"), "paf-ghost");
   // автоякорь (фамильяр): ГМу не шумим на каждый наговор — одна строка только владельцам; без владельцев-игроков Поддержание засчитает разбор чата
-  return whisper(author, L(quiet ? "sustain.offerQuiet" : "sustain.offer", { name: esc(author.name), spell: esc(item?.name ?? "?") }), "sustain", { sustain: { actor: author.uuid, key } }, buttons, quiet ? (game.users.some((u) => !u.isGM && author.testUserPermission?.(u, "OWNER")) ? "players" : "gm") : null);   // нет владельца-игрока — то же короткое предложение ГМу
+  return whisper(author, L(quiet ? "sustain.offerQuiet" : "sustain.offer", { name: esc(author.name), spell: esc(item?.name ?? "?") }), "sustain", { sustain: { actor: author.uuid, key, quiet: !!quiet } }, buttons, quiet ? (game.users.some((u) => !u.isGM && author.testUserPermission?.(u, "OWNER")) ? "players" : "gm") : null);   // нет владельца-игрока — то же короткое предложение ГМу
+}
+
+/** Чистая: якоря, о которых напомнить в начале хода — живые и ещё не поддержанные в этом раунде (сотворённые в этом раунде не напоминаем). */
+export const toRemind = (anchors, pos) => anchors.filter((a) => !a.isExpired && !sameTurn(dataOf(a)?.last, pos));
+
+/** Начало хода (pf2e.startTurn, активный ГМ): предложение «Поддержать / Прекратить» выкладывается заново внизу чата,
+ *  прежнее сообщение с кнопками этого якоря удаляется — игрок видит его в свой ход, а не в глубине ленты. */
+export async function remind(combatant) {
+  const actor = combatant?.actor;
+  if (!guardActiveGM() || !actor) return;
+  for (const anchor of toRemind(anchorsOf(actor), posOfActor(actor))) {
+    const key = metaOf(anchor)?.key, old = (game.messages?.contents ?? []).filter((m) => m.flags?.[MOD]?.sustain?.key === key);
+    const quiet = dataOf(anchor)?.quiet ?? old.some((m) => m.flags[MOD].sustain.quiet);
+    const item = (dataOf(anchor)?.src && globalThis.fromUuidSync?.(dataOf(anchor).src)) || { name: anchor.name };
+    if (old.length) await globalThis.ChatMessage?.deleteDocuments?.(old.map((m) => m.id));
+    await offer(actor, anchor, item, key, quiet);
+  }
 }
 
 /* ---------- конец ---------- */
@@ -105,10 +167,27 @@ export async function onDeleteItem(item, options) {
   const key = metaOf(item).key, lost = [];
   for (const uuid of new Set(dataOf(item)?.actors ?? [])) {
     const actor = await fromUuid(uuid).catch(() => null);
+    if (actor && orphaned(actor)) continue;   // сцена/токен удалены — снимать уже нечего
     if (!actor) { lost.push(uuid); continue; }
-    try { await removeBound(actor, key); } catch (e) { console.error(`${MOD} | sustain end`, e); lost.push(actor.name); }
+    try { await removeBound(actor, key); } catch (e) {
+      if (/does not exist/i.test(e?.message ?? "")) continue;   // сцену удаляют одновременно (клиент ещё видит токен, сервер — уже нет): снимать нечего
+      console.error(`${MOD} | sustain end`, e); lost.push(actor.name);
+    }
   }
   if (lost.length) globalThis.ui?.notifications?.warn(L("sustain.unreachable", { spell: item.name, list: lost.join(", ") }));
+  await dropUnbound(item);
+}
+
+/** Конец якоря: снять эффекты сотворения без привязки (шаги без sustain:true). Шёпот со списком — только если что-то снято. */
+async function dropUnbound(anchor) {
+  const d = dataOf(anchor);
+  if (!d?.msg) return;
+  const names = [];
+  for (const e of unboundOf((recipientsOf(game.messages?.get?.(d.msg)) ?? worldActors()).filter((a) => !orphaned(a)), d.msg, d.src)) {
+    try { await queue(`actor:${e.actor.uuid}`, async () => { if (e.actor.items.some((i) => i.id === e.id)) { await e.delete(); names.push(`${e.name} (${e.actor.name})`); } }); }
+    catch (err) { if (!/does not exist/i.test(err?.message ?? "")) console.error(`${MOD} | sustain drop`, err); }   // актёра/сцену удаляют одновременно — снимать нечего
+  }
+  if (names.length) await whisper(anchor.actor, L("sustain.dropped", { spell: esc(anchor.name), list: esc(names.join(", ")) }), "sustain", {}).catch((err) => console.error(`${MOD} | sustain whisper`, err));
 }
 
 /** Удалить якорь под очередью его ключа (не вложенно в run). -> true, если удалили. */
@@ -142,7 +221,9 @@ export async function onEndTurn(combatant, encounter) {
 
 /** Страховка: начало любого хода (pf2e.startTurn у активного ГМа: раунд уже новый) и переход в лидеры — пропущенные ходы (skip/delay, endTurn не вызван). */
 export async function sweep(combat) {
-  if (!guardActiveGM() || !combat) return;
+  if (!guardActiveGM()) return;
+  for (const f of sweepers) await Promise.resolve().then(f).catch((e) => console.error(`${MOD} | sustain sweeper`, e));   // summon.cleanup: призванные без якоря (и вне боя)
+  if (!combat) return;
   await check(combat.combatants.map((c) => c.actor).filter(Boolean), posOf(combat), "round");
 }
 
@@ -172,7 +253,8 @@ export function run(actorUuid, key, how = "support") {
     if (r !== "fresh") return { ok: true, result: r };   // повтор в раунде: срок не продлевается, Sustain в чат второй раз не выкладываем
     const sustainAction = game.pf2e?.actions?.get?.("sustain");
     posting++;
-    try { await sustainAction?.use({ actors: [actor] }); }
+    const src = dataOf(anchor)?.src ? globalThis.fromUuidSync?.(dataOf(anchor).src) ?? null : null;   // трекер действий: это Поддержание этого предмета (иначе действие не спишется)
+    try { await withTracker(actor, trackerFlags("sustain", src), () => sustainAction?.use({ actors: [actor] })); }
     catch (e) { console.warn(`${MOD} | sustain action`, e); }
     finally { posting--; }
     return { ok: true, result: r };
@@ -213,7 +295,8 @@ function bind(message, html) {
 export function init() {
   Hooks.on("renderChatMessageHTML", bind);
   Hooks.on("deleteItem", (item, options) => { onDeleteItem(item, options).catch((e) => console.error(`${MOD} | sustain.delete`, e)); });
+  Hooks.on("deleteChatMessage", (m) => { onDeleteMessage(m).catch((e) => console.error(`${MOD} | sustain.deleteMessage`, e)); });
   Hooks.on("createChatMessage", (m) => { onMessage(m).catch((e) => console.error(`${MOD} | sustain.message`, e)); });
   Hooks.on("pf2e.endTurn", (c, e) => { onEndTurn(c, e).catch((err) => console.error(`${MOD} | sustain.endTurn`, err)); });
-  Hooks.on("pf2e.startTurn", (_c, combat) => { sweep(combat).catch((e) => console.error(`${MOD} | sustain.round`, e)); });
+  Hooks.on("pf2e.startTurn", (c, combat) => { sweep(combat).then(() => remind(c)).catch((e) => console.error(`${MOD} | sustain.round`, e)); });   // сначала снять пропущенные, потом напомнить о живых
 }

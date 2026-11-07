@@ -281,3 +281,14 @@ test("rollCheck: askMap у атакующего манёвра спрашива�
     assert.equal(rolls[1].attackNumber, undefined);
   } finally { delete globalThis.foundry; }
 });
+
+test("runCheck: бросок удержан ради переброса (hold.mjs) — исход не пишется, rollTried не ставится (кнопки «Бросить» у ГМа пока нет)", async () => {
+  const actor = uuids.get("Actor.o"), stat = actor.getStatistic;
+  actor.getStatistic = (s) => ({ check: { roll: async (p) => { rolls.push(p); p.callback?.(null, null, { id: "rm1", flags: { [MOD]: { gate: { hold: "reroll" } } } }); return { degreeOfSuccess: 0, total: 3, dice: [] }; } } });
+  const m = mkRealMsg("M9", useFor());
+  assert.deepEqual(await runCheck(m), []);
+  assert.equal(m.flags[MOD].use.state.challenge?.results?.t1, undefined);
+  assert.equal(rolls.length, 1);
+  assert.equal(m.flags[MOD].use.state.challenge?.rollTried?.t1, undefined);   // исход запишет replay (acceptSavingThrow по маркеру)
+  actor.getStatistic = stat;
+});

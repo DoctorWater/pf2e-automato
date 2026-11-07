@@ -14,6 +14,7 @@
       "pulseNoArea": "<p>{spell}: no area to template — place the pulse template manually.</p>",
       "gone": "This sustained spell has already ended.",
       "pick": "<p><b>{name}</b> is sustaining several spells: press “Sustain” on the card of the right one.</p>",
+      "dropped": "<p>Sustaining “{spell}” ended: removed effects without a binding — {list}.</p>",
       "unreachable": "End of sustaining “{spell}”: could not remove bound effects on: {list}.",
       "ended": {
         "missed": "<b>{name}</b>: “{spell}” ended — Sustain was missed.",

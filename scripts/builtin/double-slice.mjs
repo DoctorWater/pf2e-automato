@@ -3,6 +3,7 @@
 import { L } from "../util.mjs";
 import { esc, whisper } from "./lib.mjs";
 import { isHit, twoWeaponCandidates, askStrikes, rollStrike, rollDamage, mapLabel } from "./strikes.mjs";
+import { farFor } from "./melee-reach.mjs";
 
 export { isHit, twoWeaponCandidates as candidates };
 
@@ -66,6 +67,10 @@ export async function run(scope) {
   if (w1 === w2) return void ui.notifications.warn(L("builtin.double.sameWeapon", { name }));
   const [a, b] = [cands[w1], cands[w2]];
   const mapIdx = setup.map;
+  // досягаемость обоих оружий — до первого броска (иначе первый Удар в чате, второй заблокирован, урон не считается); Alt — бить всё равно
+  const src = (scope.token ?? actor.getActiveTokens?.(true, true)?.[0])?.object, tgt = target.object ?? target;
+  const far = game.keyboard?.isModifierActive?.("Alt") ? null : [a, b].map((s) => s.item?.isMelee ? farFor(actor, s.item, src, tgt) : null).find(Boolean);
+  if (far) return void ui.notifications.warn(L("builtin.reach.out", far));
 
   const first = await rollStrike(actor, a, mapIdx, target);
   const rule = actor.rules.find((r) => r.key === "RollOption" && r.option === OPTION);

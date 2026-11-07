@@ -73,6 +73,20 @@
         "effect": "Surprise Attack: creatures yet to act",
         "hint": "<p><b>Surprise Attack</b>: {name} rolled Deception or Stealth for initiative. In the first round, creatures that have not acted yet are off-guard to them until their turn starts.</p>"
       },
+      "prolongAll": "{name}: the effect carries several negative conditions ({names}) — all will be prolonged (the text says one condition of your choice). Prolong by hand if you need just one.",
+      "limit": {
+        "noAura": "{name}: your kinetic aura isn't active — {channel} first. Alt-click to use anyway.",
+        "noHand": "{name}: no hand free to shape the elemental flow (impulses need a free hand). Free a hand. Alt-click to use anyway.",
+        "overflow": "{name}: you already used an overflow impulse this round (one per round). Alt-click to use anyway.",
+        "auraActive": "{name}: your kinetic aura is already active (requires your kinetic gate to be inactive). Dismiss it first. Alt-click to use anyway.",
+        "torches": "{name}: the maximum number of torches is already active (Constitution modifier, {n}). Dismiss one. Alt-click to use anyway.",
+        "hex": "{name}: you already used a hex this turn (one per turn, a second attempt fails). Alt-click to use anyway.",
+        "reaction": "{name}: your reaction is already spent this round. Alt-click to use anyway."
+      },
+      "wrapFailed": "pf2e-automato: the «{what}» check is not installed (conflict with another module: {error}). The restriction is off.",
+      "reachName": "melee reach",
+      "inertAction": "This action only describes the ability — attack and roll damage with its strike buttons below.",
+      "reach": { "out": "{name} is out of reach: {d} ft, reach {r} ft. Alt-click to strike anyway." },
       "ward": {
         "hint": "<p><b>{guard}</b>: cover {ally} with your shield? Shield Block, Hardness {hardness}.</p>",
         "button": "Cover with shield",
@@ -113,6 +127,33 @@
         "gone": "Damage message or target is gone.",
         "lowered": "The shield is no longer raised: no block, reaction not spent.",
         "applied": "Damage from this message was already applied to this target."
+      },
+      "damaged": {
+        "hint": "<p><b>{actor}</b>: {target} is about to take damage. Use «{item}»?</p>",
+        "skip": "No reaction",
+        "popup": "{item} ({actor}): {target} is about to take damage",
+        "waiting": "Damage is waiting for a reaction decision.",
+        "gone": "Damage message, target or ability is gone.",
+        "applied": "Damage from this message was already applied to this target.",
+        "notUsed": "The ability was not used (no spell slot or focus?): reaction not spent, damage goes through.",
+        "expired": "The moment to react has passed (the damage was dealt or the turn ended)."
+      },
+      "failed": {
+        "hint": "<p><b>{actor}</b>: {target} fails a check. Reroll with «{item}»?</p>",
+        "skip": "No reroll",
+        "gone": "The check message, the actor or the ability is gone.",
+        "expired": "The moment to reroll has passed (the check was accepted or the turn ended).",
+        "notRerolled": "The reroll did not happen (no connection to the roller?): nothing was spent, the result stands.",
+        "noResource": "The ability has no uses left: cannot reroll."
+      },
+      "basicDamage": {
+        "line": "Dealt: {name} {mult}",
+        "reverted": "Reverted: {name}",
+        "skipped": "Skipped (already applied): {name}",
+        "apply": "Apply damage by save results",
+        "redo": "Recalculate",
+        "noUndo": "<p>Recalculation for {name} skipped: the earlier damage could not be reverted (damage message not found). Fix the target's hit points by hand.</p>",
+        "changed": "<p>Save result for <b>{name}</b> changed after damage was applied ({item}). Use \"Recalculate\" on the damage card.</p>"
       },
       "reactive": {
         "hint": "<p><b>Reactive Strike</b>: {source} uses a {trigger} within {holder}'s reach. Reaction: @UUID[{item}]</p>",

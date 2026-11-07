@@ -1,6 +1,6 @@
 import { modeOf } from "./settings.mjs";
 import { MOD, L, callGM } from "./util.mjs";
-import { isHeld, isCancelled } from "./hold.mjs";
+import { isSanctuaryHold, isCancelled } from "./hold.mjs";
 
 const OUTCOMES = ["criticalFailure", "failure", "success", "criticalSuccess"];
 
@@ -41,7 +41,7 @@ const workbench = () => {
 
 /** Плашка удержанной/отменённой атаки (Sanctuary); ГМу при удержании — ручные «Выпустить» / «Отменить» (карточка испытания не пришла, закрыта, сломалась). */
 function holdBlock(message, html) {
-  const held = isHeld(message), box = html.querySelector(".message-content");
+  const held = isSanctuaryHold(message), box = html.querySelector(".message-content");
   if (!box || box.querySelector(".paf-hold")) return;
   const el = document.createElement("div");
   el.className = "paf-hold";
@@ -60,7 +60,7 @@ export function init() {
   });
   Hooks.on("renderChatMessageHTML", (message, html) => {
     if (modeOf("damageGate") === "off") return;
-    const blocked = isHeld(message) || isCancelled(message);
+    const blocked = isSanctuaryHold(message) || isCancelled(message);   // удержание переброса плашки и скрытия кнопок не даёт: провал урона не открывает
     const degree = gateDegree(message);
     if (degree === null && !blocked) return;
     if (blocked) holdBlock(message, html);

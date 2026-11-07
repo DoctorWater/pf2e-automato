@@ -231,7 +231,7 @@ export function setStepText(row, v, valued = false) {
 
 /* ---------- шаг «Игрок выбирает» (row.text — JSON {from, options?, prompt?, range?, of?, withSelf?}) ---------- */
 
-export const CHOOSE_FROM = ["allies", "enemies", "creatures", "options"];
+export const CHOOSE_FROM = ["allies", "enemies", "creatures", "options", "conditions"];
 export const chooseOf = (row) => { try { const c = JSON.parse(row.text); return c && typeof c === "object" && !Array.isArray(c) ? c : {}; } catch { return {}; } };
 const optsOf = (c) => (Array.isArray(c.options) ? c.options.map((o) => (typeof o === "string" ? { value: o } : { ...o })) : []);
 export function chooseView(row) {
@@ -253,7 +253,7 @@ export function chooseSet(row, name, v) {
     c.from = v;
     const held = keepGet(row).hold?.options;   // варианты прячутся при уходе к существам и возвращаются обратно
     if (v === "options") { for (const k of ["range", "of", "withSelf", "where"]) delete c[k]; c.options = optsOf(c).length ? optsOf(c) : held?.length ? held : [{ value: "" }]; hold(row, "options", null); }
-    else { if (optsOf(c).length) hold(row, "options", optsOf(c)); delete c.options; if (v !== "allies" && v !== "creatures") delete c.withSelf; }
+    else { if (optsOf(c).length) hold(row, "options", optsOf(c)); delete c.options; if (v !== "allies" && v !== "creatures") delete c.withSelf; if (v === "conditions") for (const k of ["range", "of", "where"]) delete c[k]; }
   } else if (a === "range") { const n = numOrRaw(v); if (n == null) delete c.range; else c.range = n; }
   else if (a === "of") { if (v === "target") c.of = "target"; else delete c.of; }
   else if (text(v)) c[a] = text(v); else delete c[a];
@@ -293,7 +293,7 @@ export function plate(row, env) {
   }
   if (row.kind === "remove") return { ...base, name: t("workshop.au.removePlate", { name: row.text ? env.conditionLabel(row.text) : "?" }) };
   if (row.kind === "removeEffect") return { ...base, name: t("workshop.au.removePlate", { name: row.text ? env.uuidName(row.text) ?? row.text : "?" }) };
-  if (row.kind === "extendEffect") return { ...base, name: t(row.text !== "*" ? "workshop.au.extendPlate" : "workshop.au.extendCastPlate", { slug: row.text, rounds: num(row.value) ?? "?" }) };
+  if (row.kind === "extendEffect") return { ...base, name: t(row.text === "*" ? "workshop.au.extendCastPlate" : row.text === "~" ? "workshop.au.extendChosenPlate" : "workshop.au.extendPlate", { slug: row.text, rounds: num(row.value) ?? "?" }) };
   if (row.kind === "refundFocus") return { ...base, name: t("workshop.au.refundPlate") };
   if (row.kind === "rollOption") return { ...base, name: t(row.optOff ? "workshop.au.optionOffPlate" : "workshop.au.optionPlate", { option: row.text || "?" }) };
   if (row.kind === "effect") return { ...base, name: row.text?.startsWith("[") ? (() => { try { return textOfMods(JSON.parse(row.text), { t }); } catch { return "?"; } })() : row.text ? env.uuidName(row.text) ?? row.text : "?", dur: String(row.durValue ?? "").trim() ? t("workshop.au.dur", { value: String(row.durValue).trim(), unit: t(`workshop.unitShort.${row.durUnit}`) }) : "" };

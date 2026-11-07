@@ -1,6 +1,7 @@
 // K4: блок автоматизации в сообщении чата. Контракт — plan.md §2 chat.mjs, §1.4, §3.G, §5.
-import { MOD, L, DEGREES, callGM, damageLabel } from "./util.mjs";
-import { modeOf, S } from "./settings.mjs";
+import { MOD, L, DEGREES, callGM, damageLabel, sluggify } from "./util.mjs";
+import { placeUnder } from "./damage-button.mjs";
+import { modeOf, effectiveMode, S } from "./settings.mjs";
 import { automationsGroups, toolbeltTargetHelper } from "./compat.mjs";
 import * as saves from "./saves.mjs";
 import * as checks from "./checks.mjs";
@@ -25,6 +26,9 @@ export function init() {
 export async function ready() {
   template = await foundry.applications.handlebars.getTemplate(TEMPLATE);
 }
+
+/** Статистики проверок, которых нет в CONFIG.PF2E.saves/skills/attributes (игроку — перевод pf2e, не служебное имя). */
+const STAT_KEYS = { "spell-attack": "PF2E.SpellAttackLabel", perception: "PF2E.PerceptionLabel" };
 
 /* ---------- окружение (подменяется в тестах) ---------- */
 
@@ -53,13 +57,14 @@ const defaultEnv = () => ({
   groups: automationsGroups,
   toolbelt: (() => { const th = toolbeltTargetHelper(); return th.enabled && th.checks && S.get("useToolbeltTargetHelper"); })(),
   tokenName: (key, use) => tokenDocOf(key, use)?.name ?? key,
+  itemBasic: (use) => !!fromUuidSync(use.item?.uuid)?.system?.defense?.save?.basic,
   metagame: { dcs: !!game.pf2e?.settings?.metagame?.dcs, results: !!game.pf2e?.settings?.metagame?.results },
   isActorPc: (uuid) => !!fromUuidSync(uuid)?.hasPlayerOwner,
   isPc: (key, use) => !!tokenDocOf(key, use)?.actor?.hasPlayerOwner,
   isOwner: (key, use, user) => !!tokenDocOf(key, use)?.actor?.testUserPermission(user, "OWNER"),
   isActorOwner: (uuid, user) => !!fromUuidSync(uuid)?.testUserPermission?.(user, "OWNER"),
   statLabel: (s) => {
-    const k = CONFIG.PF2E?.saves?.[s] ?? CONFIG.PF2E?.skills?.[s]?.label ?? CONFIG.PF2E?.skills?.[s] ?? CONFIG.PF2E?.attributes?.[s];
+    const k = CONFIG.PF2E?.saves?.[s] ?? CONFIG.PF2E?.skills?.[s]?.label ?? CONFIG.PF2E?.skills?.[s] ?? CONFIG.PF2E?.attributes?.[s] ?? STAT_KEYS[s];
     return k ? game.i18n.localize(k) : s;
   },
   conditionLabel: (slug) => {
@@ -112,7 +117,7 @@ export function stepText(a, env, defTo) {
   const when = a.when ? ` [${t("chat.stepWhen", { when: whenHuman(a.when) })}]` : "", say = (key, what) => rank + t(`chat.${key}${to}`, { what, range: a.range }) + when;
   if (a.removeCondition) return say("stepRemove", env.conditionLabel(a.removeCondition.slug));
   if (a.removeEffect) return say("stepRemove", t("chat.stepEffect", { name: a.removeEffect.uuid ? env.uuidName(a.removeEffect.uuid) ?? a.removeEffect.uuid : a.removeEffect.slug }));
-  if (a.extendEffect) return say("step", t(a.extendEffect.cast ? "chat.stepExtendCast" : "chat.stepExtend", a.extendEffect));
+  if (a.extendEffect) return say("step", t(a.extendEffect.cast ? "chat.stepExtendCast" : a.extendEffect.chosen ? "chat.stepExtendChosen" : "chat.stepExtend", a.extendEffect));
   if (a.refundFocus) return say("step", t("chat.stepRefundFocus"));
   if (a.rollOption) return say("step", t(a.rollOption.value === false ? "chat.stepOptionOff" : "chat.stepOption", { option: a.rollOption.option }));
   if (a.move) return say("step", t(`chat.stepMove.${a.move.mode}${a.move.from === "point" ? "Point" : ""}`, { distance: a.move.distance }));
@@ -171,7 +176,7 @@ export function buildViewModel(message, user, env = null) {
   };
 
   // карточка pf2e над блоком уже показывает название предмета
-  if (vm.title === use.item?.name) vm.title = null;
+  if (vm.title === use.item?.name || (use.slug && sluggify(vm.title) === use.slug)) vm.title = null;   // английский label правила = исходное имя предмета: заголовок карточки pf2e уже есть, на языке игрока
 
   if (state.yielded) {
     vm.yielded = t("chat.yielded");
@@ -215,11 +220,12 @@ export function buildViewModel(message, user, env = null) {
   // испытание
   const ck = on.check, ch = on.challenge ?? ck;   // check: бросает автор (checks.mjs), результаты и применение — общие
   if (ch) {
-    const modeApply = use.confidence === "low" && env.mode("apply") === "auto" ? "button" : env.mode("apply"), modeChallenge = env.mode("challenge");
+    const modeApply = effectiveMode("apply", use, env.mode), modeChallenge = env.mode("challenge");
     const keys = [...new Set([
       ...(state.area?.keys ?? (on.targets === "area" ? [] : (use.targets ?? []).filter((x) => !x.far).map((x) => x.key))),
       ...Object.keys(state.challenge?.results ?? {})
     ])];
+    const basicCh = ch.basic ?? (!ck && !!env.itemBasic?.(use));   // basic не указан в правиле — признак заклинания defense.save.basic (как у builtin/basic-damage)
     const resultsSeen = isGM || meta.results;
     // move в auto: применение ждёт всех бросков (saves.afterRecord), пока пакет не отработал
     const deferred = modeApply === "auto" && !state.challenge?.autoAll && Object.values(ch.byDegree ?? {}).flat().some((s) => s?.move);
@@ -227,7 +233,7 @@ export function buildViewModel(message, user, env = null) {
       const r = state.challenge?.results?.[key];
       const ap = state.challenge?.applied?.[key];
       const steps = r ? (ch.byDegree?.[DEGREES[r.degree]] ?? []) : [];
-      const m = r ? mult(r.degree, ch.basic) : null;
+      const m = r ? mult(r.degree, basicCh) : null;
       const immune = !ap && !!ch.immunity && env.immune(key, use);
       const imm = r && checks.immunityAt(ch.immunity, r.degree) ? ch.immunity : null;   // ставится при этой степени
       const dcN = ck && (isGM || meta.dcs || (ck.vs?.dc == null && env.isPc?.(key, use))) ? (r?.dc ?? env.checkDc(key, use)) : null;
@@ -259,7 +265,7 @@ export function buildViewModel(message, user, env = null) {
     vm.challenge = {
       stat: ck ? (ck.vs ? t("checks.head", { stat: [ck.statistic].flat().map(env.statLabel).join(" / "), vs: vsLabel(ck.vs?.dc != null && checks.dcOverridden(use) ? { ...ck.vs, dc: use.dc } : ck.vs, env, showDc) }) : t("checks.headSelf", { stat: [ck.statistic].flat().map(env.statLabel).join(" / ") }))
         : t("chat.challenge", { stat: env.statLabel(ch.statistic) }),
-      basic: ch.basic ? t("chat.basic") : null,
+      basic: basicCh ? t("chat.basic") : null,
       dc: dcKnown != null ? t("chat.dc", { dc: dcKnown }) : null,
       dcUnknown: !ck && showDc && dcKnown == null ? t("chat.dcUnknown") : null,
       canSetDC: isGM && !allFar && (ck ? ck.vs?.dc != null : dcKnown == null) && isEmpty(state.challenge?.results),   // у проверки с фиксированной СЛ — ГМ правит её (Lingering Composition: СЛ по уровню существ)
@@ -271,6 +277,7 @@ export function buildViewModel(message, user, env = null) {
       waiting: deferred && isGM && rows.some((r) => r.canApply) ? rows.filter((r) => r.waiting).length || null : null,   // move в auto: ждём остальных бросков; «Применить всем» — явный выход
       // при скрытых итогах сводка и сворачивание выдали бы, что все прошли
       settled: resultsSeen && rows.length > 0 && rows.every((r) => r.settled),
+      resolved: rows.every((r) => !r.waiting),   // у всех целей есть итог (или иммунитет): можно бросать урон — порядок «спасброски → урон» (damage-button.placeUnder)
       summary: resultsSeen ? t("chat.summary", { applied: rows.filter((r) => state.challenge?.applied?.[r.key]).length }) : null
     };
     if (!rows.length && !isUse && !isRoll) vm.challenge = null;
@@ -303,7 +310,7 @@ export function buildViewModel(message, user, env = null) {
   const applied = state.derived?.applied ?? [];
   for (const key of state.derived?.pending ?? []) {
     if (applied.includes(key)) continue;
-    if (env.mode(key === "zone" ? "zone" : /^c\d/.test(key) ? "apply" : "effect") === "off") continue;
+    if (env.mode(key === "zone" ? "zone" : "effect") === "off") continue;
     const text = describeStep(rule, key, env);
     vm.derived.push({ key, text, title: t("chat.applyDerivedTitle", { text }), canApply: canAct });
   }
@@ -337,6 +344,17 @@ export function buildReactionViewModel(message, user, env = null) {
       : t("chat.reaction.popupHidden", { item, actor: r.actorName ?? env.uuidName(r.actor) ?? "" }),
     used: r.used ? t("chat.reaction.used") : null,
     canUse: !r.used && (!!user.isGM || (!!r.actor && env.isActorOwner(r.actor, user)))
+  };
+}
+
+/** Подсказка реакции «получит урон»: flags[MOD].damaged. Только для окна реакции; в чате у шёпота свои кнопки (builtin/damaged.mjs). */
+export function buildDamagedViewModel(message, user, env = null) {
+  const h = message?.flags?.[MOD]?.damaged;
+  if (!h) return null;
+  env ??= defaultEnv();
+  return {
+    popup: env.t("builtin.damaged.popup", { item: h.itemName ?? env.uuidName(h.item) ?? "", actor: h.actorName ?? "", target: h.targetName ?? "" }),
+    canUse: h.state === "pending" && (!!user.isGM || (!!h.actor && env.isActorOwner(h.actor, user)))
   };
 }
 
@@ -385,6 +403,7 @@ async function renderBlock(message, html) {
     canvas.animatePan({ ...o.center, duration: 250 });
   });   // новый элемент на каждый рендер -> слушатели не копятся
   root.append(block);
+  placeUnder(html, det);   // кнопки «Урон» (damage-button.mjs) — под спасбросками
 }
 
 async function onClick(ev, messageId) {

@@ -8,6 +8,7 @@
         "apply": { "name": "Conditions by degree", "hint": "Apply conditions to targets by challenge result (default: GM button)." },
         "reaction": { "name": "Reactions", "hint": "Auto: whisper a hint when a reaction changes the attack outcome." },
         "macro": { "name": "Rule macros", "hint": "Run macros attached to rules, executed by the active GM." },
+        "limits": { "name": "Usage limits", "hint": "Melee reach block and usage limits (impulse junction and similar). Alt bypasses." },
         "shieldBlock": { "name": "Shield Block reminder", "hint": "Auto: whisper a Shield Block button when damage targets a creature with a raised shield and a free reaction; after a block the Shield spell ends." },
         "frightened": { "name": "Frightened each turn", "hint": "Auto: frightened drops by 1 at the end of the creature's turn (pf2e does not do it). Yields when the Workbench setting decreaseFrightenedConditionEachTurn is on." },
         "sickened": { "name": "Sickened each turn", "hint": "Auto: at the start of a sickened creature's turn, a whisper to the owner and GM with a Retch button (Fortitude vs the source DC)." },
@@ -27,6 +28,12 @@
       "vision": { "marks": { "name": "Visibility marks in PF2e Vision", "hint": "When the PF2e Vision module is active, smoke, blindness and invisibility write marks into its matrix instead of conditions on actors." } },
       "sustain": { "parse": { "name": "Count pf2e Sustain messages", "hint": "The Sustain action posted in chat (from the sheet or the action list) counts for the caster’s sustained spell when they have exactly one. Several — a hint to press the button on the card." } },
       "resumeMinutes": { "name": "Resume window (minutes)", "hint": "Messages older than this are not resumed automatically (1-1440)." },
+      "summon": {
+        "packs": {
+          "name": "Summoned creature sources", "hint": "Creature compendiums for summon spells. Nothing checked means the pf2e bestiaries from the compendium browser settings.",
+          "menu": "Choose compendiums", "title": "Summoned creature sources", "default": "Default (pf2e bestiaries)", "save": "Save", "empty": "No creature compendiums."
+        }
+      },
       "debug": { "name": "Debug", "hint": "Write verbose logs to the console (this client only)." }
     }
   }

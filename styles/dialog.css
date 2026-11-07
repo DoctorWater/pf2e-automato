@@ -32,3 +32,49 @@
 .paf-dialog .form-footer button:only-child:hover:not(:disabled), .paf-dialog .form-footer .paf-primary:hover:not(:disabled) { color: #fff; background: #7a1414; border-color: #7a1414; }
 .paf-dialog .form-footer .paf-ghost { background: transparent; border-color: transparent; color: #5b5048; }
 .paf-dialog .form-footer button:disabled { opacity: .5; cursor: not-allowed; }
+
+/* Окно призыва (scripts/summon.mjs chooseDialog): поиск и «сколько» в строку, уровень сегментами, существа — плитками.
+   Плитка: портрет в золотой рамке, название Eczar, признаки — тихие метки, уровень капителью справа. Выбор — белая плитка и рамка наведения. */
+.paf-summon { display: flex; flex-direction: column; gap: 10px; }
+.paf-summon-bar { display: flex; align-items: center; gap: 10px; }
+.paf-summon-search { position: relative; flex: 1; display: flex; }
+.paf-summon-search > i { position: absolute; left: 9px; top: 50%; transform: translateY(-50%); color: #786452; font-size: 12px; pointer-events: none; }
+.paf-dialog .paf-summon-search input[type="search"] { flex: 1; padding-left: 28px; }
+.paf-summon-qty { display: flex; align-items: center; gap: 6px; font: 700 11px "Roboto Condensed", Roboto, sans-serif; letter-spacing: .06em; text-transform: uppercase; color: #443730; }
+.paf-dialog .paf-summon-qty input[type="number"] { width: 4em; }
+
+.paf-seg { display: flex; flex-wrap: wrap; border: 1px solid #baa991; border-radius: 3px; background: #fffdf9; overflow: hidden; width: fit-content; max-width: 100%; }
+.paf-seg label { position: relative; display: flex; }
+.paf-seg label + label { border-left: 1px solid #ddd2c0; }
+.paf-seg input { position: absolute; opacity: 0; pointer-events: none; }
+.paf-seg span { padding: 5px 11px; font: 500 12px Roboto, sans-serif; color: #2a2420; cursor: pointer; font-variant-numeric: tabular-nums; }
+.paf-seg label:hover span { background: #fff; }
+.paf-seg input:checked + span { background: #443730; color: #fff; }
+.paf-seg input:focus-visible + span { outline: 2px solid #171f69; outline-offset: -2px; }
+
+.paf-summon-list { display: flex; flex-direction: column; gap: 4px; max-height: 340px; overflow-y: auto; padding-right: 2px; }
+.paf-summon-row { position: relative; display: grid; grid-template-columns: 40px minmax(0, 1fr) auto 16px; align-items: center; gap: 10px;
+  padding: 5px 10px 5px 6px; background: #fffdf9; border: 1px solid #ddd2c0; border-radius: 3px; cursor: pointer;
+  transition: background-color .12s ease-out, border-color .12s ease-out; }
+.paf-summon-row[hidden] { display: none; }
+.paf-summon-row:hover { background: #fff; border-color: #baa991; }
+.paf-summon-row:has(input:checked) { background: #fff; border-color: #786452; box-shadow: 0 1px 2px rgba(68, 55, 48, .18); }
+.paf-summon-row:has(input:focus-visible) { outline: 2px solid #171f69; outline-offset: 2px; }
+.paf-summon-row > input { position: absolute; opacity: 0; pointer-events: none; }
+.paf-summon-img { width: 40px; height: 40px; object-fit: cover; border: 1px solid #d8c384; border-radius: 3px; background: #efe7dc; }
+.paf-summon-text { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.paf-summon-name { font: 600 14px/1.2 Eczar, Georgia, serif; color: #2a2420; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.paf-summon-tags { display: flex; flex-wrap: wrap; gap: 3px; }
+.paf-tag { padding: 0 5px; font: 700 10px/16px "Roboto Condensed", Roboto, sans-serif; letter-spacing: .05em; text-transform: uppercase;
+  color: #443730; background: #f8f4f1; border: 1px solid #ddd2c0; border-radius: 2px; }
+.paf-summon-lvl { display: flex; flex-direction: column; align-items: center; min-width: 34px; font: 600 16px/1 Eczar, Georgia, serif; color: #2a2420; font-variant-numeric: tabular-nums; }
+.paf-summon-lvl > span { font: 700 9px "Roboto Condensed", Roboto, sans-serif; letter-spacing: .06em; text-transform: uppercase; color: #5b5048; margin-bottom: 2px; }
+.paf-summon-check { color: #5e0000; font-size: 13px; opacity: 0; transition: opacity .12s ease-out; }
+.paf-summon-row:has(input:checked) .paf-summon-check { opacity: 1; }
+.paf-summon-empty { display: flex; align-items: center; gap: 8px; margin: 0; padding: 18px 12px; color: #5b5048; background: #efe7dc; border: 1px dashed #baa991; border-radius: 3px; }
+.paf-summon-empty[hidden] { display: none; }
+.paf-summon-empty > i { color: #786452; }
+.paf-dialog .paf-summon-meta { margin: 0; font-variant-numeric: tabular-nums; }
+.paf-dialog .form-footer button > i { margin-right: 6px; }
+.paf-summon-dialog ::selection { background: #d8c384; color: #2a2420; }
+@media (prefers-reduced-motion: reduce) { .paf-summon-row, .paf-summon-check { transition: none; } }

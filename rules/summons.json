@@ -1,0 +1,105 @@
+{
+ "v": 1,
+ "bySource": {
+  "Compendium.pf2e.spells-srd.Item.29ytKctjg7qSW2ff": {
+   "traits": [
+    "fiend"
+   ]
+  },
+  "Compendium.pf2e.spells-srd.Item.4YnON9JHYqtLzccu": {
+   "traits": [
+    "animal"
+   ]
+  },
+  "Compendium.pf2e.spells-srd.Item.9WGeBwIIbbUuWKq0": {
+   "traits": [
+    "undead"
+   ]
+  },
+  "Compendium.pf2e.spells-srd.Item.B0FZLkoHsiRgw7gv": {
+   "traits": [
+    "celestial",
+    "fiend",
+    "monitor",
+    "animal"
+   ],
+   "levels": {
+    "1": -1,
+    "2": 1,
+    "3": 2,
+    "4": 3
+   }
+  },
+  "Compendium.pf2e.spells-srd.Item.ZbEHglw5tkJ3grQZ": {
+   "traits": [
+    "monitor"
+   ]
+  },
+  "Compendium.pf2e.spells-srd.Item.e9UJoVYUd5kJWUpi": {
+   "traits": [
+    "giant"
+   ]
+  },
+  "Compendium.pf2e.spells-srd.Item.hs7h8f4Z1ZNdUt3s": {
+   "traits": [
+    "fey"
+   ]
+  },
+  "Compendium.pf2e.spells-srd.Item.i1TvBID5QLyXrUCa": {
+   "traits": [
+    "aberration"
+   ]
+  },
+  "Compendium.pf2e.spells-srd.Item.jSRAyd57kd4WZ4yE": {
+   "traits": [
+    "plant",
+    "fungus"
+   ]
+  },
+  "Compendium.pf2e.spells-srd.Item.kghwmH3tQjMIhdH1": {
+   "traits": [
+    "dragon"
+   ]
+  },
+  "Compendium.pf2e.spells-srd.Item.lKcsmeOrgHtK4xQa": {
+   "traits": [
+    "construct"
+   ]
+  },
+  "Compendium.pf2e.spells-srd.Item.lTDixrrNKaCvLKwX": {
+   "traits": [
+    "celestial"
+   ]
+  },
+  "Compendium.pf2e.spells-srd.Item.lpT6LotUaQPfinjj": {
+   "traits": [
+    "elemental"
+   ]
+  },
+  "Compendium.pf2e.spells-srd.Item.xqmHD8JIjak15lRk": {
+   "uuid": "Compendium.pf2e.pathfinder-bestiary.Actor.j7NNPfZwD19BwSEZ"
+  }
+ },
+ "exceptions": {
+  "summon-anarch": "легаси (chaotic): заменено ремастером",
+  "summon-axiom": "легаси (lawful): заменено ремастером",
+  "call-ursine-ally": "черта: врождённое Summon Animal с растущим списком конкретных медведей по уровню персонажа",
+  "healing-servitor": "воплощение (incarnate), не приспешник",
+  "irii": "воплощение (incarnate), не приспешник",
+  "stampede": "воплощение (incarnate), не приспешник",
+  "elemental-herald": "воплощение (incarnate), не приспешник",
+  "warden-of-the-wild": "воплощение (incarnate), не приспешник",
+  "ancient-fleshforged": "воплощение (incarnate), не приспешник",
+  "oliphaunt": "воплощение (incarnate), не приспешник",
+  "graveknight-phantom-mount": "способность/черта NPC или предмет с нестандартным текстом призыва: долг",
+  "summon-devil": "способность/черта NPC или предмет с нестандартным текстом призыва: долг",
+  "summon-elementals": "способность/черта NPC или предмет с нестандартным текстом призыва: долг",
+  "summon-monster": "способность/черта NPC или предмет с нестандартным текстом призыва: долг",
+  "churning-charybdis": "способность/черта NPC или предмет с нестандартным текстом призыва: долг",
+  "spider-minions": "способность/черта NPC или предмет с нестандартным текстом призыва: долг",
+  "summon-weak-monster": "способность/черта NPC или предмет с нестандартным текстом призыва: долг",
+  "summon-crawling-hands": "способность/черта NPC или предмет с нестандартным текстом призыва: долг",
+  "release-rakshasa": "способность/черта NPC или предмет с нестандартным текстом призыва: долг",
+  "summon-vanths": "способность/черта NPC или предмет с нестандартным текстом призыва: долг"
+ }
+}

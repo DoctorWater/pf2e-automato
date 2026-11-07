@@ -221,7 +221,7 @@ function chooseFields(row, p) {
     list: c.options.map((o) => ({ i: o.i, fields: [F.text(`${q}.opt.${o.i}.value`, t("workshop.au.chs.value"), o.value, { bare: true, placeholder: "fire" }), F.text(`${q}.opt.${o.i}.label`, t("workshop.au.chs.label"), o.label, { bare: true, placeholder: t("workshop.au.chs.label") }),
       F.text(`${q}.opt.${o.i}.when`, t("workshop.au.chs.when"), o.when, { bare: true, placeholder: t("workshop.au.chs.whenHint") })], rm: { path: p, op: `opt:opt.${o.i}.remove` } })),
     add: { path: p, op: "opt:opt.add" }, hint: t("workshop.au.chs.hint") }, label: t("workshop.au.chs.optionsLabel") });
-  else out.push(F.num(`${q}.range`, t("workshop.au.chs.range"), c.range, { min: 5, placeholder: "—" }), F.seg(`${q}.of`, t("workshop.au.chs.of"), c.of, [["", t("workshop.au.chs.ofOrigin")], ["target", t("workshop.au.chs.ofTarget")]]));
+  else if (c.from !== "conditions") out.push(F.num(`${q}.range`, t("workshop.au.chs.range"), c.range, { min: 5, placeholder: "—" }), F.seg(`${q}.of`, t("workshop.au.chs.of"), c.of, [["", t("workshop.au.chs.ofOrigin")], ["target", t("workshop.au.chs.ofTarget")]]));
   return out;
 }
 

@@ -2,6 +2,7 @@
 // а не имя существа: подходят все Удары компендия. Улучшенные — бесплатное действие: проводим само (Захват / Сбивание с ног / Толчок по цели
 // Удара, без штрафа за серию атак). Обычные тратят действие существа, а потратит ли его ведущий, модуль не знает — шёпот с кнопкой.
 import { L, MOD, DEGREES, callGM } from "../util.mjs";
+import { isHeldReroll } from "../hold.mjs";
 import { esc, findFeat, whisper, cardButton, paHas } from "./lib.mjs";
 
 // База (CONFIG.PF2E.attackEffects pf2e): grab / knockdown / push / trip, «improved-» — бесплатное действие. Варианты с расстоянием и «или притянуть»
@@ -35,7 +36,7 @@ export const perform = (actor, action, targetDoc) =>
 
 export async function onMessage(message) {
   const ctx = message.flags?.pf2e?.context;
-  if (ctx?.type !== "attack-roll" || ctx.isReroll) return;
+  if (ctx?.type !== "attack-roll" || (ctx.isReroll && !isHeldReroll(message))) return;   // переброс удержанного (hold.mjs): прежний бросок не обрабатывался
   const item = message.item, actor = message.actor;
   if (!actor || item?.type !== "melee") return;
   const degree = message.rolls?.[0]?.degreeOfSuccess ?? DEGREES.indexOf(ctx.outcome);

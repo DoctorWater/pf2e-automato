@@ -6,6 +6,7 @@ import { noReactions } from "../inline-effect.mjs";
 import { gapFeet } from "../aura.mjs";
 import { esc, whisper, cardButton } from "./lib.mjs";
 import { isHit, meleeCandidates, askStrikes, rollStrike, rollDamage } from "./strikes.mjs";
+import { unchecked } from "./melee-reach.mjs";
 
 export const SLUG = "reactive-strike";
 const STRIKE_SLUGS = new Set([SLUG, "attack-of-opportunity"]);
@@ -119,7 +120,7 @@ export function bindStrike(message, html) {
     if (!setup) { btn.disabled = false; return; }
     await (game.user.isGM ? message.setFlag(MOD, "strike.used", true) : callGM("markStrikeUsed", message.id));
     const s = cands[setup.picks[0]];
-    const { degree } = await rollStrike(actor, s, setup.map, target);
+    const { degree } = await unchecked(() => rollStrike(actor, s, setup.map, target));   // к нажатию цель уже ушла из досягаемости — реакция законна по её пути
     if (degree != null && isHit(degree)) await rollDamage(actor, s, setup.map, target, degree === 3);
   });
 }

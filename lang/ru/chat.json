@@ -1,6 +1,10 @@
 {
   "PF2E_AUTOMATO": {
     "chat": {
+      "byButton": "Урон — кнопкой под карточкой",
+      "basicUnlinked": "<p>Урон не привязан: у карточки «{item}» уже есть бросок урона ({roll}). Этот бросок нанесите вручную.</p>",
+      "dealt": "Этот урон наносит модуль — бросать вручную не нужно",
+      "persistent": { "button": "Наложить продолжительный урон", "done": "Продолжительный урон наложен: {names}", "waiting": "Ещё нет спасброска: {names}", "none": "Продолжительный урон некому накладывать: нет целей с подходящим итогом (или уже наложен)" },
       "title": "Автоматизация",
       "yielded": "Выполняет pf2e-automations",
       "yieldWarn": "Группа «{name}» в pf2e-automations тоже сработает на этот бросок; отключите её или не снимайте уступку.",
@@ -40,7 +44,7 @@
       "stepAllies": "{what} на союзников в {range} фт",
       "stepChosen": "{what} на выбранного",
       "stepRemoveChosen": "снять {what} с выбранного",
-      "stepChoose": { "allies": "выбрать союзника", "enemies": "выбрать врага", "creatures": "выбрать существо", "options": "выбрать вариант: {options}" },
+      "stepChoose": { "allies": "выбрать союзника", "enemies": "выбрать врага", "creatures": "выбрать существо", "options": "выбрать вариант: {options}", "conditions": "выбрать состояние для продления" },
       "stepDamage": "урон {formula} ({type})",
       "stepHeal": "лечение {formula}",
       "stepMove": { "push": "оттолкнуть на {distance} фт от автора", "pull": "притянуть к автору до {distance} фт", "pushPoint": "оттолкнуть на {distance} фт от центра области", "pullPoint": "притянуть к центру области до {distance} фт", "choose": "сдвинуть на {distance} фт в выбранную сторону" },
@@ -52,6 +56,7 @@
       "stepBadgeDec": "значок −1, если есть",
       "stepEffect": "эффект {name}",
       "stepExtend": "продлить эффект {slug} на {rounds} р.",
+      "stepExtendChosen": "продлить выбранный эффект на {rounds} р. (один раз на эффект)",
       "stepExtendCast": "продлить эффекты этого сотворения на {rounds} р.",
       "stepRefundFocus": "вернуть очко фокуса, потраченное на это заклинание",
       "stepOption": "включить опцию {option}",

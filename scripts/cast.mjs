@@ -1,7 +1,9 @@
 // cast: активация снаряжения «вы сотворяете X» (plan-cast-activation.md). Эфемерное заклинание с ленивой записью заклинателя, ранг, мягкая частота, сброс отдыхом.
 // Исполняет клиент, нажавший кнопку (владелец актёра или ведущий): запись заклинателя и карточка строятся одинаково на любом клиенте, ведущий применяет результат из сообщения.
 import { MOD, L, flagPath, forcedDelete } from "./util.mjs";
+import { trackerFlags } from "./compat.mjs";
 import * as rules from "./rules.mjs";
+import { combatOf } from "./builtin/lib.mjs";
 
 /* ---------- чистая часть (юнит-тесты) ---------- */
 
@@ -181,7 +183,7 @@ function install() {
 
 /* ---------- окружение ---------- */
 
-const clock = () => ({ time: game.time.worldTime, combat: game.combat?.id ?? null, round: game.combat?.round ?? 0 });
+const clock = (actor) => { const c = actor ? combatOf(game.combats, actor) : game.combat; return { time: game.time.worldTime, combat: c?.id ?? null, round: c?.round ?? 0 }; };   // бой актёра — как у лимитов реакций (builtin/lib.combatOf)
 const usesOf = (item, id) => item?.flags?.[MOD]?.uses?.[id];
 
 // заклинания точно нет: пака с таким id нет в мире либо его индекс загружен и не содержит документа (индекс не загружен — неизвестно, проверит castItem)
@@ -196,7 +198,7 @@ export function castInfo(item, c) {
   const own = !c.spell && actor ? plainDc(c, item, actor) : null;   // активация без заклинания: СЛ записи без записи заклинателя
   return {
     why: (c.spell && missingSpell(c.spell) ? "noSpell" : null) ?? requirementOf(item, c.requires),
-    left: tracksUses(item, c.per) ? usesLeft(usesOf(item, c.id), c.per, clock()) : null,
+    left: tracksUses(item, c.per) ? usesLeft(usesOf(item, c.id), c.per, clock(actor)) : null,
     dc: own ? own.dc : (c.spell && actor && entryFor(actor, item, c)?.statistic.dc.value) ?? null,
     byLevel: own ? own.byLevel : !!(c.spell && actor && entryFor(actor, item, c)?.byLevel),
     rank: rankOf(c.rank, { actorLevel: actor?.level, itemLevel: item?.level })
@@ -261,7 +263,8 @@ export async function castItem(item, id) {
     msg.updateSource({
       "flags.pf2e.origin.rollOptions": [...(msg.flags.pf2e?.origin?.rollOptions ?? []), "origin:item:cast-by-activation", ...options],
       [flagPath("activation")]: { ...flag, dc: info.dc, rank: eph.rank, ...(info.byLevel && { byLevel: true }), ...(c.duration && { duration: c.duration }), ...(c.immunity && { immunity: c.immunity }) },
-      ...(actions && { [flagPath("cast")]: { actions } })
+      ...(actions && { [flagPath("cast")]: { actions } }),
+      ...Object.fromEntries(Object.entries(trackerFlags("use")).map(([k, v]) => [`flags.${k}`, v]))   // трекер действий: карточка создаётся у ГМа — сам он использование не увидит
     });
     card = await ChatMessage.create(msg.toObject());
     if (!card) return { ok: false, reason: "no-message" };   // preCreateChatMessage отменил: добавку не создаём, частоту не списываем
@@ -284,7 +287,7 @@ export async function castItem(item, id) {
       })
     });
   }
-  if (tracksUses(item, rec.per)) await item.update({ [flagPath("uses", rec.id)]: withUse(usesOf(item, rec.id), rec.per, clock(), useId) });
+  if (tracksUses(item, rec.per)) await item.update({ [flagPath("uses", rec.id)]: withUse(usesOf(item, rec.id), rec.per, clock(actor), useId) });
   if (missiles && card) { const { rollMissiles } = await import("./builtin/variable-cast.mjs"); await rollMissiles(card, missiles.spell, missiles.actions); }   // cast.actions записан заранее — variable-cast сам снаряды не бросит
   return { ok: true };
 }

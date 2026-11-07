@@ -2,6 +2,7 @@
 // Механика как у «Избавиться от тошноты» (turn-conditions.mjs): бросок у владельца, снятие у ГМа (callGM). Кнопка не одноразовая: каждая попытка — действие жертвы.
 import { MOD, L, queue, callGM, DEGREES } from "./util.mjs";
 import { esc, whisperDC, cardButton } from "./builtin/lib.mjs";
+import { settledDegree } from "./hold.mjs";
 
 /* ---------- Чистая часть (node-тесты) ---------- */
 
@@ -57,8 +58,9 @@ async function escapeRoll(h, stat, dcInput) {
   if (!h.items.some((u) => actor.items.has(u.split(".").pop()))) return ui.notifications.info(L("turn.escapeGone", { name: actor.name }));   // уже снято: действие не тратим
   if (dc == null) return ui.notifications.warn(L("turn.needEscapeDC"));
   const res = await game.pf2e.actions.get("escape").use({ actors: [actor], statistic: stat, difficultyClass: dc });
-  const degree = escapeDegree(res?.[0]);
-  if (degree == null) return;   // бросок отменён
+  const first = escapeDegree(res?.[0]);
+  if (first == null) return;   // бросок отменён
+  const degree = await settledDegree(res[0].message, first);   // удержан ради переброса (hold.mjs) — ждём итог
   const r = await callGM("applyEscape", h.actor, h.items, degree);
   if (!r?.ok || r.result?.ok === false) return ui.notifications.warn(L("chat.failed", { reason: r?.result?.error ?? r?.reason }));
   if (r.result?.gone) ui.notifications.info(L("turn.escapeGone", { name: actor.name }));   // снято, пока шёл бросок

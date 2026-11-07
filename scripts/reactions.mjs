@@ -3,8 +3,9 @@ import { MOD, L, DEGREES, degreeFromTotal, isActiveGM, queue, debug, callGM } fr
 import { modeOf, S, rev } from "./settings.mjs";
 import { resolveRule, slugOf, sourceOf } from "./rules.mjs";
 import { runMacros } from "./macros.mjs";
-import { buildReactionViewModel } from "./chat.mjs";
+import { buildReactionViewModel, buildDamagedViewModel } from "./chat.mjs";
 import { noReactions } from "./inline-effect.mjs";
+import { combatOf } from "./builtin/lib.mjs";
 
 const clamp = (n) => Math.min(3, Math.max(0, n));
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
@@ -21,6 +22,10 @@ export function init() {
 
 /** Чистая: текст окна для этого пользователя или null (не показывать). Получатель — из whisper, как и шёпот. */
 export function reactionWindowText(message, user, env = null) {
+  if (damagedOf(message)) {   // подсказка «получит урон» (builtin/damaged.mjs): тот же шёпот-получатель, свой текст
+    const vm = message.whisper?.includes(user.id) ? buildDamagedViewModel(message, user, env) : null;
+    return vm?.canUse ? vm.popup : null;
+  }
   const h = hintOf(message);
   if (!h || h.used || !message.whisper?.includes(user.id)) return null;
   const vm = buildReactionViewModel(message, user, env);
@@ -33,6 +38,11 @@ const sigOf = (h) => `${h.before}>${h.after}`;
 
 // used -> закрыть все окна этого актёра (реакция одна на раунд); переброс (before/after сменились) -> перерисовать
 function onHintUpdate(m) {
+  const dm = damagedOf(m);
+  if (dm) {   // решено (использована/без реакции) — окно закрыть; использована — реакция потрачена, окна того же актёра тоже
+    if (dm.state !== "pending") for (const [id, w] of [...windows]) if (id === m.id || (dm.state === "used" && w.actor === dm.actor)) closeReactionWindow(id);
+    return;
+  }
   const h = hintOf(m);
   if (!h) return;
   if (h.used) { for (const [id, w] of [...windows]) if (id === m.id || w.actor === h.actor) closeReactionWindow(id); return; }
@@ -45,8 +55,15 @@ function onHintUpdate(m) {
 function showReactionWindow(message) {
   const text = reactionWindowText(message, game.user);
   if (!text || windows.has(message.id)) return;
-  const id = message.id, h = hintOf(message);
+  const id = message.id, dm = damagedOf(message), h = dm ?? hintOf(message);
   const { DialogV2 } = foundry.applications.api;
+  const call = (name) => async () => {
+    try {
+      const res = await callGM(name, id);   // тот же путь, что у кнопки в чате
+      const r = res?.result ?? res;
+      if (res && (res.ok === false || r?.ok === false) && res.reason !== "no-gm") ui.notifications.warn(L("chat.failed", { reason: r?.error ?? res.error ?? res.reason }));
+    } catch (e) { ui.notifications.error(L("chat.failed", { reason: e.message })); }
+  };
   const app = new DialogV2({
     window: { title: L("chat.reaction.windowTitle"), minimizable: false },
     classes: ["paf-dialog"],
@@ -54,13 +71,9 @@ function showReactionWindow(message) {
     modal: false,
     content: `<p>${esc(text)}</p>`,
     buttons: [
-      { action: "use", label: L("chat.reaction.use"), class: "paf-primary", callback: async () => {
-        try {
-          const res = await callGM("useReaction", id);   // тот же путь, что у кнопки в чате
-          if (res && res.ok === false && res.reason !== "no-gm") ui.notifications.warn(L("chat.failed", { reason: res.error ?? res.reason }));
-        } catch (e) { ui.notifications.error(L("chat.failed", { reason: e.message })); }
-      } },
-      { action: "skip", label: L("chat.reaction.skip"), class: "paf-ghost", default: true }
+      { action: "use", label: L("chat.reaction.use"), class: "paf-primary", callback: call(dm ? "useDamaged" : "useReaction") },
+      // у «получит урон» «Пропустить» игрока-владельца — решение «без реакции» (удержанный урон не ждёт таймаута); у ГМа окно только закрывается: за игрока он не решает, «Без реакции» — кнопка в чате
+      { action: "skip", label: L("chat.reaction.skip"), class: "paf-ghost", default: true, ...(dm && !game.user?.isGM && { callback: call("skipDamaged") }) }
     ]
   });
   windows.set(id, { app, actor: h.actor, sig: sigOf(h), timer: setTimeout(() => closeReactionWindow(id), WINDOW_TTL) });
@@ -94,7 +107,7 @@ export function reactionAvailable(actor) {
   if (noReactions(actor)) return false;   // эффект «нельзя использовать реакции» (inline-эффект forbid)
   const f = actor?.getFlag?.(MOD, "reactionSpent");
   if (!f) return true;
-  const c = game.combat;
+  const c = actor && combatOf(game.combats, actor);   // бой актёра, как у impulse-gate и spendReaction
   return !(c && c.id === f.combat && c.round === f.round);
 }
 
@@ -137,6 +150,7 @@ async function cantSeeAttacker(actor, message) {
 }
 
 const hintOf = (m) => m?.flags?.[MOD]?.reaction;
+const damagedOf = (m) => m?.flags?.[MOD]?.damaged;
 const findHint = (key) => game.messages.contents.findLast((m) => {
   const h = hintOf(m);
   return h && h.attacker === key.attacker && h.actor === key.actor && h.item === key.item;
@@ -191,7 +205,12 @@ export async function onAttackMessage(message) {
  * -> { prev, set } (флаг до траты и поставленный, для отката) | null, если флаг не поставлен.
  */
 export async function spendReaction(actor, item) {
-  const c = game.combat, track = async () => { if (item && game.modules.get("pf2e-auto-action-tracker")?.active) await item.toMessage(); };
+  // карточка трекера — наша же трата: лимит реакций листа (builtin/impulse-gate) её не блокирует и не отмечает. Ленивый импорт: reactions -> macros -> builtin/index
+  const c = actor && combatOf(game.combats, actor), track = async () => {
+    if (!item || !game.modules.get("pf2e-auto-action-tracker")?.active) return;
+    const { unchecked } = await import("./builtin/impulse-gate.mjs");
+    await unchecked(actor, item, () => item.toMessage());
+  };
   if (!(actor && c?.started && c.combatants.some((x) => x.actorId === actor.id))) { await track(); return null; }
   const prev = actor.getFlag?.(MOD, "reactionSpent") ?? null, set = { combat: c.id, round: c.round };
   await actor.setFlag(MOD, "reactionSpent", set);   // флаг первым: сбой карточки трекера не оставит реакцию неотмеченной
@@ -200,7 +219,7 @@ export async function spendReaction(actor, item) {
 }
 
 export function useReaction(hintMessageId) {
-  return queue(`reaction:${hintMessageId}`, async () => {
+  return queue(`reaction-owner:${hintOf(game.messages.get(hintMessageId))?.actor}`, async () => {   // общая с Блоком щитом и damaged: одна реакция владельца
     const msg = game.messages.get(hintMessageId);
     const h = hintOf(msg);
     if (!h) return { ok: false, reason: "no-hint" };

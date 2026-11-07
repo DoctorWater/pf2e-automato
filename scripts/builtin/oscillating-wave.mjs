@@ -7,6 +7,7 @@
 // переключатель нельзя: у RollOption `alwaysActive`, он включён всегда, меняется только выбор.
 import { MOD } from "../util.mjs";
 import { paHas } from "./lib.mjs";
+import { isHeldReroll } from "../hold.mjs";
 
 export const OPTION = "conservation-of-energy";
 const SLUG = /^item:slug:([a-z0-9-]+)$/;
@@ -49,7 +50,7 @@ export function castKey(messages, damage) {
 
 export async function onMessage(message) {
   const pf = message.flags?.pf2e, actor = message.actor, feat = waveFeat(actor);
-  if (!feat || !pf?.origin || pf.context?.isReroll || paHas("the-oscillating-wave")) return;
+  if (!feat || !pf?.origin || (pf.context?.isReroll && !isHeldReroll(message)) || paHas("the-oscillating-wave")) return;
   const opts = pf.origin.rollOptions ?? [];
   const slug = opts.find((o) => o.startsWith("origin:item:slug:"))?.slice(17) ?? message.item?.slug;
   const set = (value) => actor.toggleRollOption("all", OPTION, feat.id, true, value);

@@ -99,6 +99,7 @@ async function createTimed(actor, spec, meta, ctx, base) {
     duration: { value: dur, unit: d.unit, expiry: d.expiry ?? null }, origin: who, target: { actor: actor.uuid, token: tToken?.uuid }
   });
   withMeta(data, meta);
+  if (forStun) data.flags[MOD].stunWrap = true;   // prolongable обёртку шока на срок не берёт
   const [item] = await actor.createEmbeddedDocuments("Item", [data]);
   return item ? { op: "created", item } : { op: "skipped" };   // pf2e выкинул документ (иммунитет к состоянию)
 }
@@ -281,7 +282,11 @@ export function removeCarrier(actor, key) {
 }
 
 /** Конец Поддержания: снять у актёра всё, что привязано к якорю key (meta.sustainOf) — состояния уходят с обёрткой. Не removeCarrier: тот берёт только носители повтора. */
+/** Актёр-токен, чей токен или сцена уже удалены: документы в памяти ещё есть, а в базе их нет — удаление упадёт. */
+export const orphaned = (actor) => !!actor?.isToken && !actor.token?.parent?.tokens?.has?.(actor.token.id);
+
 export function removeBound(actor, key) {
+  if (orphaned(actor)) return Promise.resolve({ op: "skipped" });
   return queue(`actor:${actor.uuid}`, async () => {
     const hit = actor.items.filter((i) => metaOf(i)?.sustainOf === key);
     return hit.length ? dropEffects(hit, actor) : { op: "skipped" };
@@ -297,15 +302,35 @@ export async function extendEffect(actor, spec, meta = {}) {
   return queue(`actor:${actor.uuid}`, async () => {
     // эффект сотворения лежит на барде или на цели сотворения (Allegro, Uplifting Overture)
     const holders = spec.cast ? [actor, ...(game.messages?.get(spec.message) ? messageTargets(game.messages.get(spec.message)).map((t) => t.actor) : [])] : [actor];
-    const own = spec.cast ? [...new Set(holders)].flatMap((h) => h.itemTypes.effect.filter((e) => spec.message && metaOf(e)?.message === spec.message)) : effectsOf(actor, spec);
+    const own = spec.chosen ? [spec.effect && actor.items.get(spec.effect.id)].filter((e) => e && !e.isExpired && !e.flags?.[MOD]?.prolonged)   // chosen: эффект выбран шагом from:"conditions"; продлённый раз не продлевается
+      : spec.cast ? [...new Set(holders)].flatMap((h) => h.itemTypes.effect.filter((e) => spec.message && metaOf(e)?.message === spec.message)) : effectsOf(actor, spec);
     const cur = own.find((e) => ROUNDS_IN[e.system?.duration?.unit] && e.system.duration.value >= 0);
     const done = cur?.flags?.[MOD]?.bumped ?? [];
     if (!cur && spec.cast) notify("apply.noCastEffect", { name: actor.name });
     if (!cur || !meta.key || done.includes(meta.key)) return { op: "skipped" };
     const d = cur.system.duration, prev = { value: d.value, unit: d.unit, expiry: d.expiry ?? null };
     // expiry передаём явно: pf2e при смене unit без expiry подставляет turn-start (EffectPF2e#_preUpdate)
-    await cur.update({ "system.duration.value": d.value * ROUNDS_IN[d.unit] + spec.rounds, "system.duration.unit": "rounds", "system.duration.expiry": d.expiry ?? null, [`flags.${MOD}.bumped`]: [...done, meta.key] });
-    return { op: "extended", item: cur, prev, key: meta.key };
+    await cur.update({ "system.duration.value": d.value * ROUNDS_IN[d.unit] + spec.rounds, "system.duration.unit": "rounds", "system.duration.expiry": d.expiry ?? null, [`flags.${MOD}.bumped`]: [...done, meta.key], ...(spec.chosen && { [`flags.${MOD}.prolonged`]: true }) });
+    return { op: "extended", item: cur, prev, key: meta.key, ...(spec.chosen && { prolonged: true }) };
+  });
+}
+
+// Состояния, которые эффект не «причиняет»: продлевать их нечем и незачем (WF11 — только негативные)
+const POSITIVE_CONDITIONS = new Set(["quickened", "concealed", "hidden", "invisible", "undetected", "unnoticed", "observed"]);
+/**
+ * Чистая: эффекты актёра, которые может продлить WF11 «Familiar of Ongoing Misery» — с конечным сроком, не истёкшие, ещё не продлённые,
+ * выдавшие негативное состояние (condition.grantedBy = эффект); обёртка «шок на срок» (флаг stunWrap от createTimed) не берётся.
+ * -> [{ effect, names }]
+ */
+export function prolongable(actor) {
+  const conds = actor?.itemTypes?.condition ?? [];
+  return (actor?.itemTypes?.effect ?? []).flatMap((e) => {
+    const d = e.system?.duration;
+    // sustained — срок держит Поддержание (минимум Evil Eye), это не «timed duration» WF11: продление ничего не даст, якорь снимет эффект сам
+    if (!ROUNDS_IN[d?.unit] || !(d.value >= 0) || d.sustained || metaOf(e)?.sustainOf || e.isExpired || e.flags?.[MOD]?.prolonged) return [];   // sustainOf — обёртка шага sustain:true (Information Overload): её снимет конец Поддержания
+    const neg = conds.filter((c) => c.grantedBy?.id === e.id && !POSITIVE_CONDITIONS.has(c.slug));
+    if (!neg.length || e.flags?.[MOD]?.stunWrap) return [];
+    return [{ effect: e, count: neg.length, names: neg.map((c) => { const v = c.system?.value?.value; return v != null && !/\d/.test(c.name) ? `${c.name} ${v}` : c.name; }).join(", ") }];
   });
 }
 
@@ -358,6 +383,13 @@ async function whenOptions({ use, message, selfActor, targetDoc, originItem, deg
   if (t) { set.add("target"); for (const o of t.getSelfRollOptions?.("target") ?? []) set.add(o); if (selfActor && t.uuid === selfActor.uuid) set.add("target:self"); }   // target:self — автор действует на самого себя (Возложение рук: бонус к КБ только другому)
   for (const o of selfActor?.getRollOptions?.() ?? []) set.add(o);
   for (const o of originItem?.getRollOptions?.("item") ?? []) set.add(o);
+  // оружие в руках автора: у pf2e таких опций актёра нет (Пройдоха: Шаг после Финта — только с ловким/точным ближним в руке)
+  for (const w of selfActor?.itemTypes?.weapon ?? []) {
+    if (w.system?.equipped?.carryType !== "held") continue;
+    const kind = w.isMelee ? "melee" : "ranged";
+    set.add(`self:held:${kind}`);
+    for (const t of w.system.traits?.value ?? []) set.add(`self:held:${kind}:trait:${t}`);
+  }
   return set;
 }
 const whenPasses = (when, opts) => (globalThis.game?.pf2e?.Predicate?.test ? game.pf2e.Predicate.test(when, opts) : testPredicate(when, opts));
@@ -505,10 +537,11 @@ const actorOf = (doc) => doc?.actor ?? doc ?? null;   // TokenDocument -> син
 
 /** Выборы автора из сохранённых операций `chose` (value без actor — вариант `choice:<value>`, с actor — существо). */
 export async function picksFromOps(ops = []) {
-  const picks = { opts: new Set(), actor: null };
+  const picks = { opts: new Set(), actor: null, effect: null };
   for (const o of ops) {
     if (o.op !== "chose") continue;
-    if (o.actor) picks.actor = actorOf(await fromUuid(o.actor)); else picks.opts.add(`choice:${o.value}`);
+    if (o.effect) picks.effect = await fromUuid(o.effect);
+    else if (o.actor) picks.actor = actorOf(await fromUuid(o.actor)); else picks.opts.add(`choice:${o.value}`);
   }
   return picks;
 }
@@ -547,6 +580,7 @@ export async function applyOps(message, tokenKey, steps, ctx = {}) {
 
   // шаг на группу (party, allies) раскладывается по получателям: дальше всё как у одиночного; «chosen» — получатель известен после шага choose (ищется в цикле)
   const jobs = steps.flatMap((step, i) => (step.to === "self" || step.choose ? [selfActor] : step.to === "party" ? partyOf(selfActor) : step.to === "allies" ? alliesIn(selfActor, originToken, step.range) : step.to === "chosen" ? [null] : [actorOf(targetDoc)]).map((actor) => ({ i, step, actor })));
+  const nextStepOf = (i) => ctx.next ?? steps[i + 1];   // события исполняют шаги по одному: следующий шаг передаёт ctx.next
   let wopts = null;   // roll options для `when`: считаем один раз и только если есть такой шаг
   // выбор автора (шаг choose): вариант -> опция `choice:<value>` для when следующих шагов, существо -> получатель шагов to:"chosen". Общий на запись события (ctx.picks)
   // ctx.picks — общий на запись события; иначе восстанавливаем из сохранённых chose (self-шаги и шаги цели/степеней идут разными вызовами)
@@ -602,7 +636,7 @@ export async function applyOps(message, tokenKey, steps, ctx = {}) {
     if (step.sustain === true && selfActor && (!use.state?.sustainKey || sustain.findAnchor(selfActor, use.state.sustainKey))) { meta.sustainOf = use.state?.sustainKey ?? sustain.anchorKey(message.id); meta.sustainBy = selfActor.uuid; }
     if (step.choose) {
       const c = step.choose, prev = doneOps.find((o) => o.op === "chose" && o.key === meta.key);
-      let value = prev?.value ?? null, chosen = prev?.actor ? actorOf(await fromUuid(prev.actor)) : null;
+      let value = prev?.value ?? null, chosen = prev?.actor ? actorOf(await fromUuid(prev.actor)) : null, eff = prev?.effect ? await fromUuid(prev.effect) : null;
       if (!prev) {
         const title = originItem?.name ?? use.item?.name ?? "";
         if (c.from === "options") {
@@ -610,12 +644,21 @@ export async function applyOps(message, tokenKey, steps, ctx = {}) {
           const choices = c.options.filter((o) => !o.when || whenPasses(o.when, wset)).map((o) => ({ value: o.value, label: optionLabel(o) }));
           if (!choices.length) continue;
           value = choices.length === 1 ? choices[0].value : await askChoice(ectx.chooser, title, c.prompt ?? L("apply.prompt.options"), choices);
+        } else if (c.from === "conditions") {
+          // эффекты выбранного шагом выше существа, срок которых можно продлить; нет кандидатов — молча, один — без окна
+          const list = prolongable(picks.actor).map((x) => ({ value: x.effect.uuid, label: L("apply.effectLeft", { names: x.names, n: x.effect.system.duration.value * ROUNDS_IN[x.effect.system.duration.unit] }), effect: x.effect }));
+          if (!list.length) continue;
+          value = list.length === 1 ? list[0].value : await askChoice(ectx.chooser, title, c.prompt ?? L("apply.prompt.conditions"), list);
+          eff = list.find((x) => x.value === value)?.effect ?? null;
+          const many = eff && prolongable(picks.actor).find((x) => x.effect.id === eff.id);
+          if (many?.count > 1) notify("builtin.prolongAll", { name: eff.name, names: many.names });   // продление идёт по сроку эффекта, не по состоянию: «одно состояние на выбор» здесь невыразимо
         } else {
           const centre = c.of === "target" ? targetDoc : ctx.centre ?? originToken;   // of:"target" — расстояние от цели броска/карточки; ctx.centre — токен фамильяра (side:"familiar")
           const skip = ctx.skipPick;   // запись-реакция: без жертвы события и без лежащих на 0 ОЗ
           const any = c.from === "creatures";   // любое существо: автор — кандидат сам; центр отсчёта (сам фамильяр) никогда
           const list = alliesIn(selfActor, centre, c.range ?? null, any ? "any" : c.from === "enemies" ? "isEnemyOf" : "isAllyOf", any || !!c.withSelf)
             .filter((a) => !(ctx.centre && a.uuid === centre?.actor?.uuid) && (!c.where || whenPasses(c.where, new Set(a.getRollOptions?.() ?? []))))
+            .filter((a) => !(nextStepOf(i)?.choose?.from === "conditions") || (prolongable(a).length && !immuneToTraits(a.attributes?.immunities, ["curse"])))   // за выбором существа идёт выбор состояния: только те, у кого есть что продлевать; WF11 — проклятие, иммунные к curse не кандидаты
             .filter((a) => !skip || (!skip.uuids.includes(a.uuid) && !(skip.alive && (a.hitPoints?.value ?? a.system?.attributes?.hp?.value) <= 0) && !skip.immune?.(a)));
           if (!list.length) { if (!ctx.centre) notify("apply.noCandidates", { name: title }); continue; }   // способность фамильяра (ctx.centre) молчит
           const uuid = await askChoice(ectx.chooser, title, c.prompt ?? L(`apply.prompt.${c.from}`), list.map((a) => ({ value: a.uuid, label: a.token?.name ?? a.name })));
@@ -623,9 +666,11 @@ export async function applyOps(message, tokenKey, steps, ctx = {}) {
           value = chosen?.uuid ?? null;
         }
         if (value == null) continue;   // окно закрыто: ничего не выбрано, следующие шаги с выбором пропускаются
-        ops.push({ op: "chose", key: meta.key, value, ...(chosen && { actor: chosen.uuid }) });
+        ops.push({ op: "chose", key: meta.key, value, ...(chosen && { actor: chosen.uuid }), ...(eff && { effect: eff.uuid }) });
       }
-      if (c.from === "options") picks.opts.add(`choice:${value}`); else picks.actor = chosen;
+      if (c.from === "options") picks.opts.add(`choice:${value}`);
+      else if (c.from === "conditions") picks.effect = eff;
+      else { picks.actor = chosen; picks.effect = null; }   // выбор эффекта хранится отдельно и не затирает выбранное существо
       continue;
     }
     if (step.damage) {
@@ -718,7 +763,7 @@ export async function applyOps(message, tokenKey, steps, ctx = {}) {
       ? await applyCondition(actor, dur ? { ...step.condition, duration: dur } : step.condition, meta, { ...ectx, target: tgt })
       : step.removeKey ? await removeCarrier(actor, step.removeKey)
       : step.removeEffect ? await removeEffect(actor, step.removeEffect, ectx)
-      : step.extendEffect ? await extendEffect(actor, step.extendEffect.cast ? { ...step.extendEffect, message: use.state?.castMessage } : step.extendEffect, meta)
+      : step.extendEffect ? await extendEffect(actor, step.extendEffect.cast ? { ...step.extendEffect, message: use.state?.castMessage } : step.extendEffect.chosen ? { ...step.extendEffect, effect: picks.effect } : step.extendEffect, meta)
       : step.rollOption ? await setRollOption(actor, step.rollOption)
       : step.effect.mods ? await applyInlineEffect(actor, { ...step.effect, duration: step.duration }, meta, { ...ectx, target: tgt })
       : await applyEffect(actor, step.duration ? { ...step.effect, duration: step.duration } : step.effect, meta, { ...ectx, markUuid, choice: step.choice, target: tgt });
@@ -733,7 +778,7 @@ export async function applyOps(message, tokenKey, steps, ctx = {}) {
       } catch (e) { console.error(`${MOD} | escape`, e); }
     }
     if (r.reason === "vision") ops.push({ op: "vis", skipped: "marks", key: meta.key });   // видимость — метками: строка отработана
-    else if (r.op !== "skipped" && r.op !== "pending") ops.push({ op: r.op, ...(r.item && { item: r.item.uuid }), ...((r.data || r.domain || r.slug) && { actor: actor.uuid }), ...(r.slug && { slug: r.slug }), ...(r.data && { data: r.data }), ...(r.domain && { domain: r.domain, option: r.option }), ...(r.prev != null && { prev: r.prev }), ...(r.key && { key: r.key }) });
+    else if (r.op !== "skipped" && r.op !== "pending") ops.push({ op: r.op, ...(r.item && { item: r.item.uuid }), ...((r.data || r.domain || r.slug) && { actor: actor.uuid }), ...(r.slug && { slug: r.slug }), ...(r.data && { data: r.data }), ...(r.domain && { domain: r.domain, option: r.option }), ...(r.prev != null && { prev: r.prev }), ...(r.key && { key: r.key }), ...(r.prolonged && { prolonged: true }) });
     // первый выполненный шаг sustain:true создаёт якорь на авторе — отдельной операцией журнала (откат последней привязки убирает якорь)
     if (meta.sustainOf && r.op === "created") {
       try {
@@ -850,7 +895,7 @@ export async function undoOps(message, tokenKey) {
       await queue(`actor:${item.actor.uuid}`, async () => {
         if (o.op === "created") await item.delete({ [MOD]: { undo: true } });   // откат — не «снятие эффекта»: events.onItem такие удаления игнорирует
         else if (o.op === "raised") await game.pf2e.ConditionManager.updateConditionValue(item.id, item.actor, o.prev);
-        else if (o.op === "extended") await item.update({ "system.duration.value": o.prev.value, "system.duration.unit": o.prev.unit, "system.duration.expiry": o.prev.expiry ?? null, [`flags.${MOD}.bumped`]: (item.flags?.[MOD]?.bumped ?? []).filter((k) => k !== o.key) });
+        else if (o.op === "extended") await item.update({ "system.duration.value": o.prev.value, "system.duration.unit": o.prev.unit, "system.duration.expiry": o.prev.expiry ?? null, [`flags.${MOD}.bumped`]: (item.flags?.[MOD]?.bumped ?? []).filter((k) => k !== o.key), ...(o.prolonged && { [`flags.${MOD}.prolonged`]: false }) });
         else if (o.op === "badged") await item.update({ "system.badge.value": o.prev, [`flags.${MOD}.bumped`]: (item.flags?.[MOD]?.bumped ?? []).filter((k) => k !== o.key) });
       });
       undone++;

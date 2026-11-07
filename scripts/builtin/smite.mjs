@@ -1,7 +1,7 @@
 // «Сокрушение» (Smite): если отмеченный враг совершает враждебное действие против чемпиона или его союзника (бросок атаки по цели), эффект Сокрушения у чемпиона продлевается
 // до конца следующего хода этого врага (текст черты; так же делает extendSmite у pf2e-automations). Эффект pf2e ставит сама черта (selfEffect, TokenMark на жертву) — здесь только продление.
 import { queue } from "../util.mjs";
-import { paHas } from "./lib.mjs";
+import { paHas, combatOf } from "./lib.mjs";
 
 export const SLUG = "smite", SMITE_EFFECT = "Compendium.pf2e.feat-effects.Item.AlnxieIRjqNqsdVu";
 const ATTACKS = new Set(["attack-roll", "spell-attack-roll"]);
@@ -15,7 +15,7 @@ export const extension = (worldTime, initiative) => ({ "system.start": { value: 
 export async function onMessage(message) {
   const ctx = message.flags?.pf2e?.context;
   if (!ATTACKS.has(ctx?.type) || !ctx.target?.actor || paHas(SLUG)) return;
-  const combat = game.combat, attacker = message.actor, token = message.token ?? null, target = fromUuidSync(ctx.target.actor);
+  const attacker = message.actor, combat = attacker && combatOf(game.combats, attacker), token = message.token ?? null, target = fromUuidSync(ctx.target.actor);
   if (!combat?.active || !attacker?.combatant || !token || !target) return;
   // эффект Сокрушения у чемпиона, чья метка — этот враг, а цель атаки — сам чемпион или его союзник
   const effects = combat.turns.map((c) => c.actor).filter((a) => a && attacker.isEnemyOf?.(a) && (a === target || target.isAllyOf?.(a)))

@@ -81,7 +81,10 @@ function main() {
     if (!want.has(t.status) || (review && it.embedded) || (which !== "all" && t.batchName !== which)) continue;
     (by[t.batchName] ??= []).push({ it, pr: t.priority });
   }
-  rmSync(outPath(dir), { recursive: true, force: true });
+  // стирать только файлы пачек этого прогона, а не всю tools/out/<dir>: иначе волна одного батча стирала входы остальных (ловушка handoff)
+  for (const f of existsSync(outPath(dir)) ? readdirSync(outPath(dir)) : []) {
+    if (Object.keys(by).some((b) => f.startsWith(`${review ? "review-" : ""}${b}-`))) rmSync(outPath(dir, f));
+  }
   const draftOf = review ? (u) => triBy.get(u).rule : null;
   let files = 0;
   for (const [batch, list] of Object.entries(by)) {

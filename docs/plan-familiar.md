@@ -73,7 +73,7 @@ pf2e — локальный `systems/pf2e/pf2e.mjs` (`pf2e:строка`), сн�
 | **WF09** Restored Spirit | `choose from:"creatures" range:15 withSelf:true` (согласие — выбор игрока) -> `to:"chosen"` | `twvhTLrLEfr7dz1m` (2+⌊level/2⌋ temp HP; на 1 ур. 2), перенесён вместе с `onUse` в `catalog.json` | второй источник temp HP не суммируется (берётся больший, pf2e); дальше 15 ft не кандидат |
 | **WF10** Paired Perplexity | `choose from:"creatures" range:20` -> `to:"chosen"` | `stupefied 1` до начала следующего хода ведьмы, `of:"origin"`; без спасброска | иммунитет к visual effect **не покрыт** (`isImmune` не знает его): остаётся решением ГМа, в запись не вносим; закрытое окно = отказ |
 
-Позже: WF02/WF05 — область у токена фамильяра (`zone`, спайк §4.3 `plan-sustain.md`); WF03 — flanking без глобального off-guard; WF04 — относительное восприятие + ГМ; WF08 — Recall Knowledge ведьмой (`check`); WF11 — SOURCE-BLOCKED (конфликт Горечи); WF12 — `choose options` + `4wJM0OA9y2gsBAh7`; WF13/WF14 — `confirm`/`move`; WF15 — `move push` от `ownerToken`; **WF16 — вместе с `once/round`**.
+Позже: WF02/WF05 — область у токена фамильяра (`zone`, спайк §4.3 `plan-sustain.md`); WF03 — flanking без глобального off-guard; WF04 — относительное восприятие + ГМ; WF08 — Recall Knowledge ведьмой (`check`); WF11 — сделана 2026-11-06 (`docs/plan-rustyspirit.md` P1); WF12 — `choose options` + `4wJM0OA9y2gsBAh7`; WF13/WF14 — `confirm`/`move`; WF15 — `move push` от `ownerToken`; **WF16 — вместе с `once/round`**.
 
 ## 6. Дальше (вне этого плана)
 

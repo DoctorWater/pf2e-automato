@@ -14,7 +14,7 @@ export const isFigurine = (item) => !!item && (item._stats?.compendiumSource ===
 /** Секунд до конца недельной перезарядки (0 — готово). */
 export const cooldownLeft = (now, last) => (last == null ? 0 : Math.max(0, last + WEEK - now));
 
-const hit = (a, b) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
+export const hit = (a, b) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
 
 /** Чистая: свободная позиция (в клетках) вплотную к владельцу, ближайшая к нему. origin/size/occupied: {x,y,w,h} в клетках. */
 export function findSpot(origin, size, occupied) {

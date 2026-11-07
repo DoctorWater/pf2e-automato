@@ -4,6 +4,7 @@ import { MOD, L, DEGREES, flagPath, degreeFromTotal, isActiveGM } from "./util.m
 import { S } from "./settings.mjs";
 import { useOf, safeUuid, marker, isPcActor, challengeOf, challengeTargets, recordResult, markTried } from "./saves.mjs";
 import { applyEffect } from "./apply.mjs";
+import { isHeld } from "./hold.mjs";
 import { effectSource, addEffect, ask } from "./builtin/lib.mjs";
 
 const rolling = new Set();
@@ -125,6 +126,7 @@ async function runOneRoll(message, ck, author, only) {
     const first = pending[0];
     const r = await rollCheck(author, ck, { message, tokenKey: first.key, target: first.token, skipDialog: true, askMap: !!only, messageMode: S.get("challenge.messageMode") });
     if (!r) return await fail();
+    if (isHeld(r.rollMessage)) return [];   // удержан ради переброски (hold.mjs): исход запишет replay; rollTried не ставим (см. runCheck)
     return (await recordOneRoll(message, { total: r.total, die: r.die, key: first.key, degree: r.degree, dc: r.dc, by: game.user.id, rollMessageId: r.rollMessage?.id ?? null, src: "own" })).keys;
   } catch (e) { console.error(`${MOD} | runCheck oneRoll`, e); return await fail(); }
   finally { rolling.delete(rk); }
@@ -173,6 +175,7 @@ export async function runCheck(message, { only } = {}) {
     try {
       const r = await rollCheck(author, ck, { message, tokenKey: key, target: token, skipDialog: true, askMap: !!only, messageMode: S.get("challenge.messageMode") });
       if (!r) { if (!only) await markTried(message.id, "rollTried", key); continue; }
+      if (isHeld(r.rollMessage)) continue;   // удержан ради переброски (hold.mjs): исход запишет replay; rollTried не ставим — кнопка «Бросить» не нужна, бросок уже есть
       await recordResult(message.id, key, { degree: r.degree, total: r.total, dc: r.dc, by: game.user.id, rollMessageId: r.rollMessage?.id ?? null, src: "own" });
       done.push(key);
     } catch (e) { console.error(`${MOD} | runCheck ${key}`, e); if (!only) await markTried(message.id, "rollTried", key); }

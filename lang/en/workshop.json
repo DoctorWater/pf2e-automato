@@ -222,7 +222,7 @@
           "slugNote": "The target gets an effect named “Effect: [item]” with slug af-[item slug]; the “remove effect” and “extend effect” steps find it by that slug."
         },
         "chs": {
-          "from": "From", "allies": "allies", "enemies": "enemies", "creatures": "creatures", "options": "options", "prompt": "Question for the player", "range": "Range, ft", "of": "From", "ofOrigin": "author", "ofTarget": "target",
+          "from": "From", "allies": "allies", "enemies": "enemies", "creatures": "creatures", "options": "options", "conditions": "conditions of the chosen", "prompt": "Question for the player", "range": "Range, ft", "of": "From", "ofOrigin": "author", "ofTarget": "target",
           "optionsLabel": "Options", "value": "Code", "label": "Label", "when": "Condition", "whenHint": "shown if…", "add": "Add option", "remove": "Remove option",
           "hint": "The code is a latin slug (fire); conditions of later steps check it as choice:fire. An option condition is a pf2e predicate on the author."
         },
@@ -353,7 +353,8 @@
         "ofOrigin": "Only the one I created",
         "dmgBasic": "Basic save (×0 / ×½ / ×1 / ×2)",
         "extendRounds": "Extend by rounds",
-        "effectSlugCast": "* = effects of this casting",
+        "effectSlugCast": "* = effects of this casting, ~ = the effect chosen above",
+        "extendChosenPlate": "Extend the chosen effect by {rounds} rd.",
         "extendCastPlate": "Extend this casting's effects by {rounds} rd.",
         "refundPlate": "Refund the Focus Point",
         "optionName": "Option (e.g. mighty-rage)",

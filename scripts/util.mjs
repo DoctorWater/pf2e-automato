@@ -24,6 +24,8 @@ export const sluggify = (s) => {
 /** Активный ГМ И лидер своих сессий: один исполнитель, даже если ГМ открыт в нескольких вкладках (leader.mjs). */
 export const isActiveGM = () => !!game.user?.isActiveGM && isLeader();
 export const flagPath = (...p) => ["flags", MOD, ...p].join(".");
+/** uuid актёра -> токены, которые use.liveTargets берёт вместо game.user.targets (builtin/damaged.mjs: реакция на защищаемого). Только для сообщений этого актёра и на время вызова, цели ГМа не трогаем. */
+export const useTargetOverride = new Map();
 export const tokenKey = (tokenDoc) => tokenDoc.id;
 
 export function debug(...a) {

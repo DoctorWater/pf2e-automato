@@ -1,6 +1,10 @@
 {
   "PF2E_AUTOMATO": {
     "chat": {
+      "byButton": "Roll this with the button under the card",
+      "basicUnlinked": "<p>Damage not linked: the card for “{item}” already has a damage roll ({roll}). Apply this roll by hand.</p>",
+      "dealt": "The module deals this damage itself — no need to roll it by hand",
+      "persistent": { "button": "Apply persistent damage", "done": "Persistent damage applied: {names}", "waiting": "No saving throw yet: {names}", "none": "No one to apply persistent damage to: no targets with a matching result (or already applied)" },
       "title": "Automation",
       "yielded": "Handled by pf2e-automations",
       "yieldWarn": "The group \"{name}\" in pf2e-automations will also react to this roll; disable it or do not remove the yield.",
@@ -40,7 +44,7 @@
       "stepAllies": "{what} on allies within {range} ft",
       "stepChosen": "{what} on the chosen creature",
       "stepRemoveChosen": "remove {what} from the chosen creature",
-      "stepChoose": { "allies": "choose an ally", "enemies": "choose an enemy", "creatures": "choose a creature", "options": "choose an option: {options}" },
+      "stepChoose": { "allies": "choose an ally", "enemies": "choose an enemy", "creatures": "choose a creature", "options": "choose an option: {options}", "conditions": "choose a condition to prolong" },
       "stepDamage": "{formula} damage ({type})",
       "stepHeal": "{formula} healing",
       "stepMove": { "push": "push {distance} ft away from the author", "pull": "pull up to {distance} ft toward the author", "pushPoint": "push {distance} ft away from the area centre", "pullPoint": "pull up to {distance} ft toward the area centre", "choose": "move {distance} ft in a chosen direction" },
@@ -52,6 +56,7 @@
       "stepBadgeDec": "badge −1 if present",
       "stepEffect": "effect {name}",
       "stepExtend": "extend effect {slug} by {rounds} rd.",
+      "stepExtendChosen": "extend the chosen effect by {rounds} rd. (once per effect)",
       "stepExtendCast": "extend the effects of this casting by {rounds} rd.",
       "stepRefundFocus": "refund the Focus Point spent on this spell",
       "stepOption": "turn on option {option}",

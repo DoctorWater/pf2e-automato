@@ -1,1 +1,32 @@
-{}
+{
+  "PF2E_AUTOMATO": {
+    "summon": {
+      "button": "Summon",
+      "title": "{name}: choose a creature",
+      "search": "Search by name",
+      "anyLevel": "Any level",
+      "empty": "No suitable creatures: check the summon sources in the module settings.",
+      "go": "Summon",
+      "cancel": "Cancel",
+      "place": "Click the scene where to place the creature (right click or Esc cancels).",
+      "far": "Farther than {ft} ft from the summoner. Pick a closer spot (the GM can override with Alt).",
+      "nested": "A summoned creature can't summon other creatures. The GM can override with Alt.",
+      "cap": "The summoner already has {max} minions: no more. The GM can override with Alt.",
+      "noSpot": "No free space for the creature nearby. Pick another spot.",
+      "noToken": "The summoner has no token on this scene.",
+      "pick": "This creature can't be summoned by this spell.",
+      "order": "The creatures are already summoned: refresh the card.",
+      "folder": "Summoned (automation)",
+      "effect": "Summoned Creature",
+      "effectDesc": "The creature is summoned: it has the summoned and minion traits. It acts only when the summoner spends an action on it.",
+      "actionsCast": "<p>Summoned: {list}. The minion gets {n} actions right now, no reactions.</p>",
+      "actionsSustain": "<p>Sustain counted: {list} get {n} actions each this turn, no reactions.</p>",
+      "waits": "<p>{name}: a minion acts only when its summoner Sustains; awaiting commands.</p>",
+      "banished": "<p>{name}: 0 HP, the creature is banished.</p>",
+      "qty": "How many",
+      "noMatch": "Nothing matches the filter — change the search or level.",
+      "meta": "Matching creatures: {n} · level {max} or lower · common only",
+      "lvl": "Lvl"
+    }
+  }
+}

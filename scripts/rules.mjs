@@ -2,6 +2,7 @@ import { MOD, DEGREES, ENDS_EARLY, errText, sluggify } from "./util.mjs";
 import { S, rev } from "./settings.mjs";
 import { isPredicate } from "./predicate.mjs";
 import { normalizeMods } from "./inline-effect.mjs";
+import { lookupRange, setRangeSource } from "./range.mjs";
 
 export const RULE_VERSION = 1;
 
@@ -90,7 +91,7 @@ export const isActiveStep = (a) => STEP_KINDS.some((k) => a?.[k]) || !!a?.remove
 // получатели шага: self — автор, target — цель, party — участники партий автора, allies — союзники автора в радиусе range футов от его токена,
 // chosen — существо, которое автор выбрал предыдущим шагом choose (from: allies | enemies)
 export const APPLY_TO = ["self", "target", "party", "allies", "chosen"];
-export const CHOOSE_FROM = ["allies", "enemies", "creatures", "options"];   // creatures — любое существо (фамильяр ведьмы: «существо в 15 фт»)
+export const CHOOSE_FROM = ["allies", "enemies", "creatures", "options", "conditions"];   // creatures — любое существо (фамильяр ведьмы: «существо в 15 фт»); conditions — эффект с состоянием на выбранном существе (только после выбора существа)
 /** Урон шага damage: типы урона и лечение (healing — формула лечит). */
 export const STEP_DAMAGE_TYPES = ["healing", ...DAMAGE_TYPES];
 
@@ -114,6 +115,7 @@ function vApply(a, path, defTo, err, basicOk = false, castOk = false) {
     if (!isObj(c) || !CHOOSE_FROM.includes(c.from) || (c.prompt != null && !isStr(c.prompt))
       || (c.from === "options" ? !(opts?.length && opts.every((o) => isObj(o) && isStr(o.value) && SLUG.test(o.value) && (o.label == null || isStr(o.label)) && (o.when == null || isPredicate(o.when))) && new Set(opts.map((o) => o.value)).size === opts.length) : c.options != null)
       || (c.range != null && !(c.from !== "options" && isInt(c.range) && c.range >= 5))
+      || (c.from === "conditions" && (c.range != null || c.of != null || c.withSelf != null || c.where != null))
       || (c.of != null && !(c.from !== "options" && c.of === "target")) || (c.withSelf != null && !(c.withSelf === true && ["allies", "creatures"].includes(c.from))) || (c.where != null && !(c.from !== "options" && isPredicate(c.where)))) err.push(E("choose.bad", `${path}.choose`));
     // option.when — вариант виден, только если у автора выполнено условие (черта даёт вариант); of:"target" — радиус считается от цели события/карточки, а не от автора
     else out.choose = { from: c.from, ...(opts && { options: opts.map((o) => ({ value: o.value, ...(o.label && { label: o.label }), ...(o.when && { when: o.when }) })) }), ...(c.prompt && { prompt: c.prompt }), ...(c.range != null && { range: c.range }), ...(c.of && { of: c.of }), ...(c.withSelf && { withSelf: true }), ...(c.where && { where: c.where }) };   // where — предикат по опциям кандидата (getRollOptions: hp-percent:N)
@@ -138,9 +140,11 @@ function vApply(a, path, defTo, err, basicOk = false, castOk = false) {
   if (a.extendEffect != null) {
     const x = a.extendEffect;
     // cast:true вместо slug — эффекты, выданные этим же сотворением (Lingering Composition: у проверки записи onEvent.check); slug и cast вместе нельзя
-    const byCast = castOk && isObj(x) && x.cast === true && x.slug == null;
-    if (!isObj(x) || !(byCast || (isStr(x.slug) && SLUG.test(x.slug) && x.cast == null)) || !(isInt(x.rounds) && x.rounds >= 1)) err.push(E("extEff.bad", `${path}.extendEffect`));
-    else out.extendEffect = byCast ? { cast: true, rounds: x.rounds } : { slug: x.slug, rounds: x.rounds };
+    const byCast = castOk && isObj(x) && x.cast === true && x.slug == null && x.chosen == null;
+    // chosen:true — эффект, выбранный шагом choose from:"conditions" (WF11); только получателю "chosen"
+    const byChosen = isObj(x) && x.chosen === true && x.slug == null && x.cast == null && out.to === "chosen";
+    if (!isObj(x) || !(byCast || byChosen || (isStr(x.slug) && SLUG.test(x.slug) && x.cast == null && x.chosen == null)) || !(isInt(x.rounds) && x.rounds >= 1)) err.push(E("extEff.bad", `${path}.extendEffect`));
+    else out.extendEffect = byChosen ? { chosen: true, rounds: x.rounds } : byCast ? { cast: true, rounds: x.rounds } : { slug: x.slug, rounds: x.rounds };
   }
   // refundFocus: вернуть владельцу очки фокуса, потраченные на это заклинание; только на самого автора
   if (a.refundFocus != null) { if (a.refundFocus !== true || out.to !== "self") err.push(E("refund.bad", `${path}.refundFocus`)); else out.refundFocus = true; }
@@ -357,10 +361,13 @@ function vApplyList(list, path, defTo, err, basicOk = false, castOk = false) {
   if (!Array.isArray(list)) { err.push(E("notArr", path)); return []; }
   const out = list.map((a, i) => vApply(a, `${path}[${i}]`, defTo, err, basicOk, castOk));
   // to:"chosen" — только после шага choose из allies/enemies в этом же списке
-  let picked = false;
+  // choose conditions сам существа не выбирает: ему нужен выбор существа выше; extendEffect.chosen — выбор conditions выше
+  let picked = false, effPicked = false;
   out.forEach((a, i) => {
-    if (a?.choose && a.choose.from !== "options") picked = true;
+    if (a?.choose?.from === "conditions") { if (!path.startsWith("onEvent")) err.push(E("apply.condEvent", `${path}[${i}].choose`)); else if (!picked) err.push(E("apply.condPick", `${path}[${i}].choose`)); else effPicked = true; }
+    else if (a?.choose && a.choose.from !== "options") picked = true;
     else if (a?.to === "chosen" && !picked) err.push(E("apply.chosen", `${path}[${i}].to`));
+    if (a?.extendEffect?.chosen && !effPicked) err.push(E("apply.effPick", `${path}[${i}].extendEffect`));
   });
   return out.filter(Boolean);
 }
@@ -420,6 +427,11 @@ function vZone(z, path, err) {
         if (d[k] == null) continue;
         if (!(isNum(d[k]) && d[k] > 0)) err.push(E("zone.durNum", `${path}.duration.${k}`)); else out.duration[k] = d[k];
       }
+      // until:"next-turn-end" — до конца следующего хода автора (rounds — запас вне боя); sustainMax — потолок Поддержания в раундах
+      if (d.until != null) { if (d.until !== "next-turn-end") err.push(E("zone.durNum", `${path}.duration.until`)); else out.duration.until = d.until; }
+      if (d.sustainMax != null) {
+        if (!(isInt(d.sustainMax) && d.sustainMax > 0) || d.until !== "next-turn-end") err.push(E("zone.durNum", `${path}.duration.sustainMax`)); else out.duration.sustainMax = d.sustainMax;
+      }
       if (!Object.keys(out.duration).length) out.duration = null;
     }
   }
@@ -446,6 +458,12 @@ function vChallenge(c, path, err) {
   }
   if (c.basic != null && typeof c.basic !== "boolean") err.push(E("ch.basic", `${path}.basic`));
   out.basic = !!c.basic;
+  // damageByDegree: множители урона кнопки pf2e по степеням у не-basic испытания («Success half damage», «Critical Failure double damage»); basic их уже задаёт
+  if (c.damageByDegree != null) {
+    const m = c.damageByDegree;
+    if (c.basic || !isObj(m) || !Object.entries(m).every(([k, v]) => DEGREES.includes(k) && [0, 0.5, 1, 2].includes(v))) err.push(E("ch.dmgDeg", `${path}.damageByDegree`));
+    else out.damageByDegree = Object.fromEntries(DEGREES.filter((k) => k in m).map((k) => [k, m[k]]));
+  }
   for (const k of ["traits", "options"]) {
     if (c[k] == null) continue;
     if (!Array.isArray(c[k]) || !c[k].every(isStr)) err.push(E("strList", `${path}.${k}`)); else out[k] = [...c[k]];
@@ -549,6 +567,17 @@ function vOnUse(u, err) {
   if (!TARGETS.includes(u.targets)) err.push(E("use.targets", "onUse.targets"));
   if (u.excludeSelf != null && typeof u.excludeSelf !== "boolean") err.push(E("use.excludeSelf", "onUse.excludeSelf"));
   out.excludeSelf = u.excludeSelf ?? null;
+  if (u.range != null) {   // дальность до цели (area — до основания области); пишет оверлей rules/ranges.json или автор правила
+    const r = u.range, g = r?.grow;
+    if (!isObj(r) || !(isNum(r.ft) && r.ft > 0) || (r.area != null && typeof r.area !== "boolean") || (g != null && !(isObj(g) && isNum(g.add) && g.add > 0 && isNum(g.every) && g.every > 0))) err.push(E("use.range", "onUse.range"));
+    else out.range = { ft: r.ft, ...(r.area && { area: true }), ...(g && { grow: { add: g.add, every: g.every } }) };
+  }
+  if (u.summon != null) {   // призыв существа (черта summon): признак ИЛИ конкретное существо; levels — {ранг: уровень}; пишет оверлей rules/summons.json или автор правила
+    const m = u.summon, t = m?.traits, lv = m?.levels;
+    if (!isObj(m) || (t != null && !(Array.isArray(t) && t.length && t.every((x) => typeof x === "string" && x))) || (m.uuid != null && !(typeof m.uuid === "string" && m.uuid.startsWith("Compendium."))) || (t == null) === (m.uuid == null)
+      || (lv != null && !(isObj(lv) && Object.keys(lv).length && Object.entries(lv).every(([k, v]) => isInt(Number(k)) && Number(k) >= 1 && isInt(v)))) || (m.count != null && !(isInt(m.count) && m.count >= 1 && m.count <= 4))) err.push(E("use.summon", "onUse.summon"));
+    else out.summon = { ...(t && { traits: [...t] }), ...(m.uuid && { uuid: m.uuid }), ...(lv && { levels: { ...lv } }), ...(m.count != null && { count: m.count }) };
+  }
   out.zone = null;
   if (u.zone != null) {
     if (u.targets !== "area") err.push(E("zone.onlyArea", "onUse.zone"));
@@ -589,6 +618,64 @@ function vReaction(r, err) {
   out.cost = "reaction";
   if (r.notify != null && !(Array.isArray(r.notify) && r.notify.every((n) => NOTIFY.includes(n)))) err.push(E("react.notify", "onAttacked.notify"));
   out.notify = Array.isArray(r.notify) ? [...r.notify] : ["owner", "gm"];
+  return out;
+}
+
+const DAMAGED_WHO = ["self", "familiar", "ally"];
+const num = (f) => typeof f === "string" && !/d\d/i.test(f) && resolveFormula(`(${f})`) != null;   // уменьшение — число, без кубиков
+
+/** onDamaged: реакция «получит урон» (builtin/damaged.mjs). Ответ-эффект — onUse.apply; здесь — кто, когда, что с уроном. */
+function vDamaged(r, err) {
+  const P = (k) => `onDamaged.${k}`;
+  if (!isObj(r)) { err.push(E("notObj", "onDamaged")); return null; }
+  const out = { who: r.who ?? "self", range: null, withSelf: false, when: null, requires: null, damage: null, triggerOnly: false, cost: null, notify: ["owner", "gm"] };
+  if (!DAMAGED_WHO.includes(out.who)) err.push(E("damaged.who", P("who")));
+  if (r.range != null) { if (!isNum(r.range) || r.range <= 0 || out.who !== "ally") err.push(E("damaged.range", P("range"))); else out.range = r.range; }
+  else if (out.who === "ally") out.range = 30;
+  if (r.withSelf != null) { if (typeof r.withSelf !== "boolean" || (r.withSelf && out.who !== "ally")) err.push(E("damaged.withSelf", P("withSelf"))); else out.withSelf = r.withSelf; }
+  if (r.when != null) { if (!isPredicate(r.when)) err.push(E("apply.when", P("when"))); else out.when = r.when; }
+  // requires: слово как у активации (настроен/надет/в руке) или опция владельца (shield:raised, stance:<slug>)
+  if (r.requires != null) { if (!(CAST_REQUIRES.includes(r.requires) || /^[a-z0-9-]+(?::[a-z0-9-]+)+$/.test(String(r.requires)))) err.push(E("damaged.requires", P("requires"))); else out.requires = r.requires; }
+  const d = r.damage;
+  if (d != null) {
+    const keys = isObj(d) ? Object.keys(d) : [];
+    if (keys.length !== 1 && !(keys.length === 2 && "redirect" in d && "part" in d)) err.push(E("damaged.damage", P("damage")));
+    else if ("reduce" in d) { if (!num(d.reduce)) err.push(E("damaged.reduce", P("damage.reduce"))); else out.damage = { reduce: d.reduce }; }
+    else if ("halve" in d) { if (d.halve !== true) err.push(E("damaged.damage", P("damage"))); else out.damage = { halve: true }; }
+    // resist: сопротивление только на это нанесение (временный эффект с Resistance RE в клоне актёра). type "triggering" — типы урона карточки, подходящие под when
+    else if ("resist" in d) {
+      const list = Array.isArray(d.resist) ? d.resist : [];
+      if (!list.length || !list.every((x) => isObj(x) && /^[a-z-]+$/.test(String(x.type)) && num(x.value))) err.push(E("damaged.resist", P("damage.resist")));
+      else out.damage = { resist: list.map((x) => ({ type: x.type, value: x.value })) };
+    }
+    else if (d.redirect === "self" && (d.part == null || d.part === "all" || d.part === "half")) out.damage = { redirect: "self", part: d.part ?? "all" };
+    else err.push(E("damaged.damage", P("damage")));
+  }
+  if (r.triggerOnly != null) { if (typeof r.triggerOnly !== "boolean") err.push(E("damaged.triggerOnly", P("triggerOnly"))); else out.triggerOnly = r.triggerOnly; }
+  if (r.cost != null) { if (!isObj(r.cost) || !num(r.cost.hp)) err.push(E("damaged.cost", P("cost"))); else out.cost = { hp: r.cost.hp }; }
+  if (r.notify != null) { if (!(Array.isArray(r.notify) && r.notify.length && r.notify.every((n) => NOTIFY.includes(n)))) err.push(E("react.notify", P("notify"))); else out.notify = [...r.notify]; }
+  return out;
+}
+
+export const FAILED_WHO = ["self", "ally", "any"];
+export const FAILED_CHECK = ["save", "skill", "perception", "attack"];
+export const FAILED_DEGREE = ["fail", "critFail", "failNotCrit"];
+
+/** onFailed: переброс после провала проверки (builtin/failed.mjs, docs/plan-reroll.md). Цена — по типу предмета (реакция, частота, сотворение), не в правиле. */
+function vFailed(r, err) {
+  const P = (k) => `onFailed.${k}`;
+  if (!isObj(r)) { err.push(E("notObj", "onFailed")); return null; }
+  const out = { who: r.who ?? "self", range: null, withSelf: false, check: [...FAILED_CHECK], degree: r.degree ?? "fail", when: null, requires: null, keep: r.keep ?? "new", notify: ["owner", "gm"] };
+  if (!FAILED_WHO.includes(out.who)) err.push(E("failed.who", P("who")));
+  if (r.range != null) { if (!isNum(r.range) || r.range <= 0 || out.who === "self") err.push(E("failed.range", P("range"))); else out.range = r.range; }
+  else if (out.who !== "self") out.range = 30;
+  if (r.withSelf != null) { if (typeof r.withSelf !== "boolean" || (r.withSelf && out.who === "self")) err.push(E("failed.withSelf", P("withSelf"))); else out.withSelf = r.withSelf; }
+  if (r.check != null) { if (!(Array.isArray(r.check) && r.check.length && r.check.every((c) => FAILED_CHECK.includes(c)))) err.push(E("failed.check", P("check"))); else out.check = [...new Set(r.check)]; }
+  if (!FAILED_DEGREE.includes(out.degree)) err.push(E("failed.degree", P("degree")));
+  if (r.when != null) { if (!isPredicate(r.when)) err.push(E("apply.when", P("when"))); else out.when = r.when; }
+  if (r.requires != null) { if (!(CAST_REQUIRES.includes(r.requires) || /^[a-z0-9-]+(?::[a-z0-9-]+)+$/.test(String(r.requires)))) err.push(E("damaged.requires", P("requires"))); else out.requires = r.requires; }
+  if (!["new", "higher"].includes(out.keep)) err.push(E("failed.keep", P("keep")));
+  if (r.notify != null) { if (!(Array.isArray(r.notify) && r.notify.length && r.notify.every((n) => NOTIFY.includes(n)))) err.push(E("react.notify", P("notify"))); else out.notify = [...r.notify]; }
   return out;
 }
 
@@ -829,6 +916,8 @@ export function validateRule(raw) {
   if (raw.label != null && typeof raw.label !== "string") err.push(E("rule.label", "label"));
   if (raw.onTurn != null) err.push(E("rule.onTurn", "onTurn"));
   if (raw.onUse != null && raw.onAttacked != null) err.push(E("rule.both", "onUse"));
+  if (raw.onDamaged != null && raw.onAttacked != null) err.push(E("rule.bothDamaged", "onDamaged"));
+  if (raw.onFailed != null && (raw.onAttacked != null || raw.onDamaged != null)) err.push(E("rule.bothFailed", "onFailed"));
   const rule = {
     v: RULE_VERSION,
     ...(typeof raw.label === "string" && { label: raw.label }),
@@ -838,6 +927,8 @@ export function validateRule(raw) {
     macros: vMacros(raw.macros, err),
     onTurn: null
   };
+  if (raw.onDamaged != null) rule.onDamaged = vDamaged(raw.onDamaged, err);   // нет ветки — поля нет (правила без неё не меняются)
+  if (raw.onFailed != null) rule.onFailed = vFailed(raw.onFailed, err);
   const events = vEvents(raw.onEvent, err);
   if (events.length) rule.onEvent = events;   // нет событий — поля нет (правила без него не меняются)
   if (raw.activate != null && raw.cast != null && !dupWarned.has(raw.label)) { dupWarned.add(raw.label); warn(`правило «${raw.label ?? "?"}» несёт activate и cast: берём activate`); }
@@ -845,7 +936,7 @@ export function validateRule(raw) {
   if (cast.length) rule.activate = cast;
   const cp = coatPlaces({ ...rule, onEvent: events });
   if (cp.top > 1 || cp.other) err.push(E("coat.place", "onUse.apply"));
-  if (!rule.onUse && !rule.onAttacked && !rule.macros.length && !events.length && !cast.length && !err.length) err.push(E("rule.empty", ""));
+  if (!rule.onUse && !rule.onAttacked && !rule.onDamaged && !rule.onFailed && !rule.macros.length && !events.length && !cast.length && !err.length) err.push(E("rule.empty", ""));
   return err.length ? { ok: false, rule: null, errors: err } : { ok: true, rule, errors: [] };
 }
 
@@ -1593,13 +1684,18 @@ export function initCatalog(jsons, labels) {
   return errors;
 }
 
+// Оверлеи (tools/ranges.mjs, tools/damage-degrees.mjs): самый нижний слой каскада — поля onUse.range и onUse.challenge.damageByDegree под флагом, миром и каталогами (§1.2)
+let overlays = { ranges: null, degrees: null, summons: null };
+export function initOverlays(ranges, degrees, summons) { overlays = { ranges: ranges ?? null, degrees: degrees ?? null, summons: summons ?? null }; rev.n++; }
+
 export async function loadCatalog() {
   const get = async (name, optional = false) => {
     const resp = await fetch(foundry.utils.getRoute(`modules/${MOD}/rules/${name}`));
     if (!resp.ok) { if (!optional) warn(`не загружен rules/${name}: ${resp.status}`); return null; }
     try { return await resp.json(); } catch (e) { warn(`rules/${name}: битый JSON`, e); if (!optional) throw e; return null; }   // битый необязательный файл не должен ронять остальные каталоги
   };
-  const [cat, campaign, pa, model, onhit, labels] = await Promise.all([get("catalog.json"), get("catalog.campaign.json", true), get("catalog.pa.json", true), get("catalog.model.json", true), get("catalog.onhit.json", true), get("labels.json")]);
+  const [cat, campaign, pa, model, onhit, labels, ranges, degrees, summons] = await Promise.all([get("catalog.json"), get("catalog.campaign.json", true), get("catalog.pa.json", true), get("catalog.model.json", true), get("catalog.onhit.json", true), get("labels.json"), get("ranges.json", true), get("damage-degrees.json", true), get("summons.json", true)]);
+  initOverlays(ranges, degrees, summons);
   // при совпадении ключа побеждает последний: автоматический перенос PA — первым, проверенные вручную — после
   // model (tools/drafts.mjs): черновики пачек от Haiku/Sonnet, прошедшие валидатор и выборку
   return initCatalog([pa, model, onhit, cat, campaign].filter(Boolean), labels);   // onhit (tools/onhit.mjs): «при попадании Удара — состояние» по тексту; ручные каталоги главнее
@@ -1684,7 +1780,7 @@ export const bySlugOf = (map, slug, type) => (type && map.get(slugTypeKey(slug, 
 /** Правило — ровно selfEffect самого документа: pf2e применяет его сам, второй раз не нужно. */
 export function isSelfEffectOnly(rule, selfEffect) {
   const u = rule?.onUse;
-  return !!selfEffect && !!u && !u.challenge && !u.check && !u.zone && !rule.onAttacked && !rule.onEvent?.length && !rule.macros?.length && u.apply.length > 0
+  return !!selfEffect && !!u && !u.challenge && !u.check && !u.zone && !rule.onAttacked && !rule.onDamaged && !rule.onFailed && !rule.onEvent?.length && !rule.macros?.length && u.apply.length > 0
     && u.apply.every((a) => a.to === "self" && a.effect?.uuid === selfEffect && !a.effect.replace && !a.duration);
 }
 
@@ -1880,6 +1976,29 @@ function englishText(key) {
 
 /** Порядок §1.2: флаг -> world.bySource -> world.bySlug -> builtin.bySource -> builtin.bySlug -> разметка. */
 export function resolveRule(source) {
+  const res = resolveBase(source);
+  const u = res?.rule?.onUse;
+  if (!u) return res;
+  const ch = u.challenge, e = !u.range && lookupRange(overlays.ranges, res.sourceUuid, res.slug), sm = !u.summon && lookupRange(overlays.summons, res.sourceUuid, res.slug), dd = ch &&!ch.basic && !ch.damageByDegree && res.sourceUuid && overlays.degrees?.[res.sourceUuid];
+  if (!e && !dd && !sm) return res;
+  // правило каталога отдаётся по ссылке — копия; недостающие поля берутся из оверлея, заданные правилом остаются
+  return { ...res, rule: { ...res.rule, onUse: { ...u, ...(e && { range: e }), ...(sm && { summon: sm }), ...(dd && { challenge: { ...ch, damageByDegree: dd } }) } } };
+}
+
+/** Запись дальности для предмета: из правила (onUse.range), у предметов без правила — прямо из оверлея. Для range.mjs и zone.mjs. */
+export function rangeEntry(item) {
+  const res = resolveRule(item);
+  return res?.rule?.onUse?.range ?? lookupRange(overlays.ranges, res?.sourceUuid ?? item?._stats?.compendiumSource ?? item?.flags?.core?.sourceId, res?.slug ?? item?.slug);
+}
+setRangeSource(rangeEntry);
+
+/** Запись призыва предмета: onUse.summon правила, у предметов без правила — прямо из оверлея rules/summons.json (по uuid источника: заклинания spells-srd). */
+export function summonEntry(item) {
+  const res = resolveRule(item);
+  return res?.rule?.onUse?.summon ?? lookupRange(overlays.summons, res?.sourceUuid ?? item?._stats?.compendiumSource ?? item?.flags?.core?.sourceId, res?.slug ?? item?.slug);
+}
+
+function resolveBase(source) {
   // документ предмета — сам источник; его .origin (у эффекта pf2e — актёр-автор) не origin карточки
   const isDoc = !!source?.system;
   const origin = isDoc ? null : source?.origin ?? null;

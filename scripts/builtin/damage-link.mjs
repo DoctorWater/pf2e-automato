@@ -5,7 +5,7 @@
 // 2) цель получила урон (сообщение pf2e «damage-taken») — часть урона возвращается цели и вычитается у заклинателя без сопротивлений (applyDamage с skipIWR).
 // ДОЛГ: откат урона кнопкой pf2e цели перенос заклинателю не откатывает (урон заклинателю уже записан settle; связи между сообщениями нет).
 import { L, MOD } from "../util.mjs";
-import { castOrigin, effectSource, addEffect, esc, whisper, paHas, messageTargets, itemSlug } from "./lib.mjs";
+import { castOrigin, effectSource, addEffect, esc, whisper, paHas, messageTargets, itemSlug, combatOf } from "./lib.mjs";
 
 /** Таблица группы: slug заклинания -> эффект и способ переноса. cap: [ранг от, значение], по убыванию. */
 export const LINKS = {
@@ -74,7 +74,7 @@ export async function onMessage(message) {
 export const LINK_OPTION = "af:link";   // урон самого переноса: обёртка applyDamage его не переносит повторно (попадает в context.options сообщения)
 
 /** Урон заклинателю через applyDamage (смерть/потеря сознания pf2e ведёт сам); без токена на сцене — прямая запись. */
-async function applyHp(actor, delta) {
+export async function applyHp(actor, delta) {
   const token = actor.getActiveTokens?.(true, true)?.[0];
   if (token) return actor.applyDamage({ damage: delta, token, skipIWR: true, final: true, rollOptions: new Set([LINK_OPTION]) });
   const hp = actor.system.attributes.hp;
@@ -98,7 +98,7 @@ export function intercept(actor, opts) {
   if (!(total > 0)) return null;
   const links = linksOf(actor.itemTypes?.effect ?? [], actor.uuid);
   if (!links.length) return null;
-  const c = game.combat, round = c ? `${c.id}:${c.round}` : null, rows = [];
+  const c = combatOf(game.combats, actor), round = c ? `${c.id}:${c.round}` : null, rows = [];
   const live = [];
   for (const l of links) {
     let caster = null;

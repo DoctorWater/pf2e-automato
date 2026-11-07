@@ -5,7 +5,8 @@ import assert from "node:assert/strict";
 const settings = { yieldToAutomations: false };
 const uuids = new Map();
 globalThis.fromUuidSync = (u) => uuids.get(u) ?? null;
-globalThis.game = { user: { isActiveGM: true }, users: [], modules: { get: () => null }, settings: { get: (_m, k) => settings[k] }, i18n: { localize: (k) => k, format: (k) => k }, time: { worldTime: 1000 }, combat: null };
+globalThis.game = { user: { isActiveGM: true }, users: [], modules: { get: () => null }, settings: { get: (_m, k) => settings[k] }, i18n: { localize: (k) => k, format: (k) => k }, time: { worldTime: 1000 }, combat: null, get combats() { return this.combat ? [this.combat] : []; } };
+const inCombat = (turns, active = true) => ({ active, scene: "s", turns, combatants: turns });
 
 const smite = await import("../scripts/builtin/smite.mjs");
 const { SMITE_EFFECT } = smite;
@@ -34,7 +35,7 @@ test("onMessage: атака отмеченного врага по чемпио�
   const hero = actor("hero", { side: "good" }), friend = actor("friend", { side: "good" }), stranger = actor("stranger", { side: "evil" });
   hero.isAllyOf = (a) => a.side === "good"; friend.isAllyOf = (a) => a.side === "good"; stranger.isAllyOf = (a) => a.side === "evil";
   const mine = effect(hero, "Token.foe"), other = effect(friend, "Token.somebody");
-  game.combat = { active: true, turns: [hero, friend, stranger, foe].map((actor) => ({ actor })) };
+  game.combat = inCombat([hero, friend, stranger, foe].map((actor) => ({ actor })));
   const msg = (target, extra = {}) => ({ actor: foe, token: { uuid: "Token.foe" }, flags: { pf2e: { context: { type: "attack-roll", target: { actor: target.uuid } } } }, ...extra });
   [hero, friend, stranger].forEach((a) => uuids.set(a.uuid, a));
   await smite.onMessage(msg(friend));   // цель — союзник чемпиона
@@ -44,10 +45,10 @@ test("onMessage: атака отмеченного врага по чемпио�
   assert.equal(mine.updates.length, 1);
   await smite.onMessage({ ...msg(hero), flags: { pf2e: { context: { type: "skill-check", target: { actor: hero.uuid } } } } });   // не атака
   assert.equal(mine.updates.length, 1);
-  game.combat = { active: false, turns: [] };
+  game.combat = inCombat([], false);
   await smite.onMessage(msg(hero));   // вне боя
   assert.equal(mine.updates.length, 1);
-  game.combat = { active: true, turns: [hero, foe].map((actor) => ({ actor })) };
+  game.combat = inCombat([hero, foe].map((actor) => ({ actor })));
   await smite.onMessage({ ...msg(hero), actor: { ...foe, combatant: null } });   // атакующий не в бою
   assert.equal(mine.updates.length, 1);
   await smite.onMessage(msg(hero));

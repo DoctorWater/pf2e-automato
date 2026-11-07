@@ -123,4 +123,11 @@
 ## Статус
 
 2026-11-05: первая партия — `sustain:true` у A20/A27/A28/A32/A33 (записи перенесены из model в `catalog.json` целиком), A23 Garden of Healing (лечение в эманации, метка `GardnHealedMark1` под Поддержанием, после конца — бонус `JhxAUu3JEyERedMd`), A25 Earth's Bile (урон по области); P1 «импульс при Поддержании» (`onUse.pulse`, docs/plan-sustain-pulse.md) — A23 `same`, A25 `new`. Вживую `tests/live/level1-animist.js` 13/13 (Само: сосуды + fear/guidance/rousing-splash/tangle-vine). Долг — A22, A26, A29–A31, выбор у A20, местность у A27.
+2026-11-05, вторая партия (ветка `feat/level1-animist-2`): A21, A24, A31 (первая часть) — записи на готовых полях, без новых примитивов. Метки ауры под Поддержанием: `NymphGraceAura01`, `DscmfWhspAura001`, `AnemosGiftEf0001` (+ метка врагов `AnemosMarkEf0001` через Aura RE; запись эффекта — `catalog.campaign.json`).
+- A21: `near enter`/`turn-start`, `range 10`, `per:"round"` (один ключ у входа и начала хода — одна Воля за раунд на цель), `confused 1` до начала хода; «не вредит автору» — заметка.
+- A24: `near turn-start`, `range 5`; провал Воли — штатный `JfvVyMWuD8yvSrIe` со сроком `of:"target"` (иначе pf2e берёт инициативу автора и эффект рождается истёкшим); запись на самом эффекте: провал атаки -> `(ceil(@item.level/2))d6` void атакующему. Гонки с `removeAfterRoll` нет (вживую).
+- A31: крит. промах Удара (`self:action:slug:strike`) врага с меткой ауры -> Рефлекс, off-guard `{1, rounds, turn-end, of:"origin"}`.
+- Ловушка: опция эффекта на акторе — `self:effect:<slug без spell-/effect->` (`self:effect:nymphs-grace`), а не полный slug.
+Вживую: `level1-an-a21.js` 4/4, `level1-an-a24.js` 3/3 (с проверкой `kl`), `level1-an-a31.js` 4/4.
+Долг второй партии: A24 — удача гасит неудачу -> эффект не снимается, void повторяется (заметка ГМу); A31 — выбор Step/Shove/прыжок (заметка), off-guard на ход дольше, если враг ходит раньше автора, две пересекающиеся ауры Gift дают одну метку; A21 — `confused` по инициативе автора, если цель ходит раньше.
 Долг: A32 Traveling Workshop — режим «сотворение 10 минут → 8 часов» с `sustain:true` не держит 8 часов (якорь Поддержания снимает эффект через 10 минут вне боя/при пропуске); работает применение действием с Поддержанием. Нужен признак времени сотворения.

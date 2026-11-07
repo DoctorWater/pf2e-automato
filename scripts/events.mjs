@@ -65,6 +65,7 @@ export function strikeCardFor(before, message, item, { stopId = null, slugOf = c
 }
 
 const turnStarts = new Map();   // actor uuid -> id последнего сообщения ленты на начало его хода (в памяти ГМа, из pf2e.startTurn); не состояние мира
+export const turnStartOf = (actorUuid) => turnStarts.get(actorUuid) ?? null;
 const noteTurn = (combatant) => { const u = combatant?.actor?.uuid; if (u) turnStarts.set(u, game.messages.contents.at(-1)?.id ?? null); };
 
 /** Бросок message после карточки найденного носителя? Только у активного ГМа (лента — game.messages). */
@@ -243,7 +244,7 @@ async function execEntry(ev, owner, { item, rule }, { i, entry }, sink, free) {
   });
 
   // реакция: тратится только после подтверждения (первый шаг choose либо окно да/нет) и повторной проверки; откат записи возвращает флаг (op reactionSpent)
-  const picks = { opts: new Set(), actor: null };
+  const picks = { opts: new Set(), actor: null, effect: null };
   let spent = !entry.cost, halt = false;
   const spend = async () => {
     if (ev.message?.flags?.pf2e?.appliedDamage?.isReverted) return false;   // урон откатили, пока окно было открыто
@@ -266,8 +267,9 @@ async function execEntry(ev, owner, { item, rule }, { i, entry }, sink, free) {
       for (const [j, step] of steps.entries()) {   // по одному шагу: у каждого свой stepKey, а значит свой meta.key
         if (halt) return;
         // способность фамильяра: закрытое окно выбора существа обрывает запись (второго окна WF01 нет)
-        if (ev.familiar && j > 0 && steps[j - 1].choose && steps[j - 1].choose.from !== "options" && !picks.actor) return;
-        const ops = await apply.applyOps(twin, tkey, [step], { ...ctx, stepKey: `${i}.${offset + j}` });
+        const pc = steps[j - 1]?.choose;
+        if (ev.familiar && pc && pc.from !== "options" && !(pc.from === "conditions" ? picks.effect : picks.actor)) return;   // и пустой выбор эффекта обрывает запись
+        const ops = await apply.applyOps(twin, tkey, [step], { ...ctx, stepKey: `${i}.${offset + j}`, next: steps[j + 1] });
         if (ops.length) res.recs.push({ tk: tkey, ops });
         if (!spent && step.choose && !(picks.actor && await spend())) halt = true;   // окно закрыто или реакцию успели потратить: остальное не исполняется
       }
@@ -538,18 +540,16 @@ async function runFamiliar(ev, on, witch, log) {
   if (!carriers.length) return;
   const witchToken = ev.witchToken ?? ev.message?.token ?? tokenOf(witch);
   const spell = ev.spell ?? ev.message?.item;
-  if (on === "spell-cast" && ev.message && ev.options.has("origin:item:trait:hex") && spell?.system?.duration?.sustained) {
-    try { await sustain.attach(witch, null, { key: sustain.anchorKey(ev.message.id), msg: ev.message.id, item: spell, token: witchToken }); }
-    catch (e) { console.error(`${MOD} | familiar anchor`, e); }
-  }
   for (const { fam, found } of carriers) {
     if (familiarDown(fam) || compat.shouldYield(found.rule, { slug: rules.slugOf(null, found.item), sourceUuid: rules.sourceOf(null, found.item) })) continue;
+    const entries = matchEntries(found.rule, on, "familiar", ev.options);
+    if (!entries.length) continue;   // заклинание не подходит способности (не наговор) — ни запуска, ни предупреждения
     const token = familiarToken(fam, witchToken?.parent);
     if (!token) {
       if (!noTokenWarned.has(witch.uuid)) { noTokenWarned.add(witch.uuid); await whisper(witch, L("familiar.noToken", { name: esc(witch.name), familiar: esc(fam.name) }), "sustain", {}, "", "gm").catch(() => {}); }
       continue;
     }
-    for (const m of matchEntries(found.rule, on, "familiar", ev.options)) {
+    for (const m of entries) {
       try { await runEntry({ ...ev, other: null, otherToken: null, ownerToken: witchToken, centre: token, familiar: fam, spell }, witch, found, m, log); }
       catch (e) { console.error(`${MOD} | familiar ${found.item.name}[${m.i}]`, e); }
     }
@@ -656,7 +656,7 @@ export function messageOptions(message, { actor, target, origin = null }, on) {
 }
 
 export async function onMessage(message) {
-  if (!guardActiveGM()) return;
+  if (!guardActiveGM() || hold.isRerollHold(message)) return;   // удержание переброса (builtin/failed.mjs): replay вернётся после решения; bail ниже выпускал бы его как зависшее Святилище
   // любой ранний выход при удержанной атаке выпускает её: зависшая атака хуже ручного шага
   const bail = async () => { if (hold.isHeld(message)) await hold.resolve(message, "release"); };
   if (modeOf("effect") === "off" && modeOf("challenge") === "off") return bail();   // шаги и испытания гасятся своими режимами внутри runEntry
@@ -667,6 +667,7 @@ export async function onMessage(message) {
   if (mk && game.messages.get(mk.messageId)?.flags?.[MOD]?.use?.state?.event) return bail();   // бросок по карточке испытания события
   const p = await messageParties(message);
   if (!p.actor) return bail();
+  if (on === "spell-cast") await Promise.resolve(sustain.onCast(message)).catch((e) => console.error(`${MOD} | sustain anchor`, e));   // якорь любого поддерживаемого заклинания; у шага sustain:true и наговора тот же ключ — не двоится
   const held = hold.isHeld(message);
   const ctx = message.flags.pf2e.context ?? {};
   if (ctx.isReroll) {   // откат прежнего исполнения: журнал старого сообщения (удалено при перебросе) -> undoOps
@@ -766,7 +767,7 @@ export function onPreCreate(message) {
     const ctx = message.flags?.pf2e?.context;
     if (!ctx?.target?.actor || !hold.isAttackContext(ctx) || !holdEnabled()) return;
     const target = fromUuidSync(ctx.target.actor);
-    if (target && holdsAttacks(target)) message.updateSource({ flags: { [MOD]: { gate: { hold: true } }, "xdy-pf2e-workbench": { noAutoDamageRoll: true } } });
+    if (target && holdsAttacks(target)) { const wb = compat.EXTERNAL.flags.wbNoAutoDamage; message.updateSource({ flags: { [MOD]: { gate: { hold: true } }, [wb.scope]: { [wb.key]: true } } }); }
   } catch (e) { console.warn(`${MOD} | events.onPreCreate`, e); }
 }
 

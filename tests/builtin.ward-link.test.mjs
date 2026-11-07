@@ -3,6 +3,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 
 globalThis.game = {
+  combats: [],
   user: { isActiveGM: true }, users: [], modules: { get: () => null }, settings: { get: () => true },
   i18n: { localize: (k) => k, format: (k) => k }
 };

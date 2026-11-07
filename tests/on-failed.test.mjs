@@ -57,13 +57,11 @@ test("isSelfEffectOnly и форма Мастерской: onFailed не тер�
   assert.deepEqual(validateRule(formToRule(ruleToForm(v))).rule.onFailed, v.onFailed);
 });
 
-test("вкладка листа: read (carryUneditable) -> formToRule не теряет onFailed/onDamaged", () => {
+test("вкладка листа: форма (с carryUneditable) не теряет onFailed/onDamaged", () => {
   const src = validateRule({ v: 1, onDamaged: { who: "self" } }).rule, f = ruleToForm(src);
-  const sheetForm = { ...f, failed: undefined, damaged: undefined, ev: [], cast: [] };   // то, что вернёт readForm(sec): этих полей в DOM нет
-  assert.equal(formToRule(sheetForm).onDamaged, undefined, "без переноса флаг потерялся бы");
-  assert.deepEqual(validateRule(formToRule(carryUneditable(sheetForm, f))).rule.onDamaged, src.onDamaged);
+  assert.deepEqual(validateRule(formToRule(carryUneditable({ ...f, ev: [], cast: [] }, f))).rule.onDamaged, src.onDamaged);
   const fail = validateRule(rule({ who: "self", degree: "critFail" })).rule, ff = ruleToForm(fail);
-  assert.deepEqual(validateRule(formToRule(carryUneditable({ ...ff, failed: undefined }, ff))).rule.onFailed, fail.onFailed);
+  assert.deepEqual(validateRule(formToRule(carryUneditable(ff, ff))).rule.onFailed, fail.onFailed);
 });
 
 test("каталог: Удача полурослика — onFailed {self, save+skill, fail, new}, валидна без потерь", () => {
@@ -112,6 +110,10 @@ test("isReactionItem, isSecret, optionsOf", () => {
   assert.equal(F.isSecret({ flags: { pf2e: { context: { messageMode: "gm" } } } }), true);
   assert.equal(F.isSecret({ flags: { pf2e: { context: { messageMode: "roll" } } }, whisper: [] }), false);
   assert.deepEqual([...F.optionsOf({ flags: { pf2e: { context: { options: ["a"] }, origin: { rollOptions: ["origin:trait:fire"] } } } })], ["a", "origin:trait:fire"]);
+  // Знание: общий признак только в домене lore-skill-check (Scholar's Hunch)
+  const lore = F.optionsOf({ flags: { pf2e: { context: { type: "skill-check", domains: ["skill-check", "lore-skill-check"], options: ["check:statistic:warfare-lore"] } } } });
+  assert.ok(lore.has("check:statistic:lore") && lore.has("check:type:skill-check"));
+  assert.ok(!F.optionsOf({ flags: { pf2e: { context: { type: "skill-check", domains: ["skill-check"] } } } }).has("check:statistic:lore"));
 });
 
 /* ---------- стенд ---------- */

@@ -35,6 +35,8 @@ export const noLuck = (ctx, roll) => !!ctx?.isReroll || (ctx?.options ?? []).inc
 export const optionsOf = (message) => {
   const ctx = message?.flags?.pf2e?.context, set = new Set([...(ctx?.options ?? []), ...(message?.flags?.pf2e?.origin?.rollOptions ?? [])]);
   if (ctx?.type) set.add(`check:type:${ctx.type}`);
+  // Знания: slug навыка — «<тема>-lore», общий признак pf2e кладёт только в домены (pf2e.mjs: lore-skill-check) — Scholar's Hunch
+  if (ctx?.domains?.includes?.("lore-skill-check")) set.add("check:statistic:lore");
   return set;
 };
 

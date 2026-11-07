@@ -186,7 +186,12 @@ test("п.7: resist — тип triggering раскрывается типами �
   const dec = D.decisionOf(d, { rank: 1, level: 1, actorLevel: 7 }, [], { card: ["piercing", "fire"], when });
   assert.deepEqual(dec.resist, [{ type: "piercing", value: 7 }]);   // fire не под when
   assert.deepEqual(D.decisionOf({ damage: { resist: [{ type: "physical", value: "15" }] } }, {}, [], { card: ["fire"], when: [] }).resist, [{ type: "physical", value: 15 }]);
-  assert.deepEqual(D.decisionOf({ damage: { resist: [{ type: "triggering", value: "5" }] } }, {}, [], { card: ["fire", "cold"], when: [] }).resist, [{ type: "fire", value: 5 }, { type: "cold", value: 5 }]);
+  // смешанный урон: сопротивление реакции — одно, наибольшее из подходящих (Deflecting Wave: «only once»)
+  assert.deepEqual(D.decisionOf({ damage: { resist: [{ type: "triggering", value: "5" }] } }, {}, [], { card: ["fire", "cold"], when: [] }).resist, [{ type: "fire", value: 5 }]);
+  const wave = { damage: { resist: [{ type: "acid", value: "2*@actor.level" }, { type: "fire", value: "2*@actor.level" }, { type: "bludgeoning", value: "@actor.level" }, { type: "slashing", value: "@actor.level" }] } };
+  assert.deepEqual(D.decisionOf(wave, { actorLevel: 6 }, [], { card: ["slashing", "fire"], when: [] }).resist, [{ type: "fire", value: 12 }]);
+  assert.deepEqual(D.decisionOf(wave, { actorLevel: 6 }, [], { card: ["slashing"], when: [] }).resist, [{ type: "slashing", value: 6 }]);
+  assert.deepEqual(D.decisionOf({ damage: { resist: [{ type: "physical", value: "15" }] } }, {}, [], { card: ["slashing", "fire"], when: [] }).resist, [{ type: "physical", value: 15 }]);
   assert.equal(D.changeOf(dec, 20).cut, 0);
   const fx = D.resistEffect("HINT0123456789ab", dec.resist, { name: "Колючка", owner: "Actor.o", target: "Actor.t" });
   assert.equal(fx._id, "HINT0123456789ab");
@@ -268,11 +273,15 @@ test("apply-hook: first ставит подписчика первым, actor п
   let click = { id: "MSG1" };
   hook.setClickSource(() => click);
   hook.subscribe(async (a, _o, ctx) => { order.push(`late:${a.id}`); ctxs.push(ctx.click?.id); });
-  hook.subscribe(async (a, o, ctx) => { order.push(`first:${a.id}`); ctxs.push(ctx.click?.id); click = null; return { actor: { id: "fresh" }, opts: { ...o, damage: o.damage - 1 }, after: () => order.push("after") }; }, { first: true });
-  hook.install();
+  // libWrapper отдаёт orig, привязанный к своему актёру (this подменить нельзя): свежий актёр наносит урон своим applyDamage — снова через обёртку
   const seen = [];
-  await wrappers.at(-1).call({ id: "clone" }, async function (o) { seen.push([this.id, o.damage]); }, { damage: 5 });
-  assert.deepEqual(seen, [["fresh", 4]]);
+  const origFor = (actor) => async (o) => { seen.push([actor.id, o.damage, Object.getOwnPropertySymbols(o).length]); };
+  const fresh = { id: "fresh", applyDamage(o) { return wrappers.at(-1).call(this, origFor(this), o); } };
+  hook.subscribe(async (a, o, ctx) => { order.push(`first:${a.id}`); ctxs.push(ctx.click?.id); click = null; return { actor: fresh, opts: { ...o, damage: o.damage - 1 }, after: () => order.push("after") }; }, { first: true });
+  hook.install();
+  const clone = { id: "clone" };
+  await wrappers.at(-1).call(clone, origFor(clone), { damage: 5 });
+  assert.deepEqual(seen, [["fresh", 4, 0]]);   // урон нанёс свежий актёр, метка прохода до pf2e не дошла, подписчики второй раз не звались
   assert.deepEqual(order, ["first:clone", "late:fresh", "after"]);
   assert.deepEqual(ctxs, ["MSG1", "MSG1"]);   // первый подписчик сбросил живую метку, второй всё равно видит снимок
   hook.setClickSource(() => null);

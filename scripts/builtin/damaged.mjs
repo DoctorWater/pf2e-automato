@@ -109,10 +109,22 @@ export const expandResist = (list, card, when) => (list ?? []).flatMap(({ type, 
   ? card.filter((t) => !when.length || when.includes(t)).map((t) => ({ type: t, value }))
   : [{ type, value }]));
 
+const PHYSICAL = ["bludgeoning", "piercing", "slashing"];
+/**
+ * Чистая: сопротивление от реакции действует на нанесение один раз — наибольшее из подходящих к типам карточки
+ * (Deflecting Wave: «apply the highest resistance, but apply it only once»; «resistance against the triggering damage» — тоже одно).
+ * pf2e применил бы сопротивление к каждому типу отдельно. Ничего не подходит — список как есть (на урон не влияет).
+ * ponytail: при равных значениях берётся первый тип карточки (обычно основной), без учёта долей урона по типам.
+ */
+export function onceResist(list, card) {
+  const fits = list.filter(({ type }) => card.includes(type) || (type === "physical" && card.some((t) => PHYSICAL.includes(t))));
+  return fits.length ? [fits.reduce((a, b) => (b.value > a.value ? b : a))] : list;
+}
+
 /** Чистая: решение по подсказке — формулы правила считаются на момент нажатия. ctx: {rank, level, actorLevel}. fx — эффекты ответа (для triggerOnly). types: {card, when} — для сопротивления "triggering". */
 export function decisionOf(d, ctx, fx = [], types = { card: [], when: [] }) {
   const n = (f) => { const r = f == null ? null : resolveFormula(`(${f})`, ctx); return r == null ? null : Number(r); };
-  const res = d.damage?.resist ? expandResist(d.damage.resist.map((x) => ({ type: x.type, value: n(x.value) })), types.card, types.when).filter((x) => x.value > 0) : null;
+  const res = d.damage?.resist ? onceResist(expandResist(d.damage.resist.map((x) => ({ type: x.type, value: n(x.value) })), types.card, types.when).filter((x) => x.value > 0), types.card) : null;
   return {
     reduce: n(d.damage?.reduce), halve: !!d.damage?.halve, redirect: d.damage?.redirect ? d.damage.part ?? "all" : null,
     resist: res, triggerOnly: !!d.triggerOnly, hp: n(d.cost?.hp), fx

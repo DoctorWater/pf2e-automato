@@ -1,0 +1,71 @@
+{
+  "_id": "AnemosGiftEf0001",
+  "name": "Spell Effect: Gift of the Anemos",
+  "type": "effect",
+  "img": "icons/svg/aura.svg",
+  "system": {
+    "description": {
+      "value": "<p>Granted by @UUID[Compendium.pf2e.spells-srd.Item.x2Gf3lt64eoMocMd]{Gift of the Anemos}</p><p>Gusting winds surround you in a 10-foot emanation. When an enemy in the aura critically fails a Strike against you, it must succeed at a Reflex save or become off-guard until the end of your next turn.</p>"
+    },
+    "duration": {
+      "expiry": null,
+      "sustained": true,
+      "value": 1,
+      "unit": "minutes"
+    },
+    "level": {
+      "value": 1
+    },
+    "publication": {
+      "license": "",
+      "remaster": false,
+      "title": ""
+    },
+    "rules": [
+      {
+        "key": "Aura",
+        "slug": "aura-gift-of-the-anemos",
+        "radius": 10,
+        "traits": [],
+        "effects": [
+          {
+            "uuid": "Compendium.pf2e-automato.effects.Item.AnemosMarkEf0001",
+            "affects": "enemies",
+            "predicate": []
+          }
+        ]
+      }
+    ],
+    "start": {
+      "initiative": null,
+      "value": 0
+    },
+    "tokenIcon": {
+      "show": true
+    },
+    "traits": {
+      "rarity": "common",
+      "value": []
+    },
+    "slug": "spell-effect-gift-of-the-anemos"
+  },
+  "effects": [],
+  "folder": null,
+  "sort": 0,
+  "ownership": {
+    "default": 0
+  },
+  "flags": {},
+  "_stats": {
+    "coreVersion": "14.366",
+    "systemId": "pf2e",
+    "systemVersion": "8.6.1",
+    "createdTime": null,
+    "modifiedTime": null,
+    "lastModifiedBy": null,
+    "compendiumSource": null,
+    "duplicateSource": null,
+    "exportSource": null
+  },
+  "_key": "!items!AnemosGiftEf0001"
+}

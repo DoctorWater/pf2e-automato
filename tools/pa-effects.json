@@ -1808,6 +1808,39 @@
     "unit": "minutes"
    },
    "authored": true
+  },
+  "NymphGraceAura01": {
+   "name": "Spell Effect: Nymph's Grace",
+   "kind": "own",
+   "dur": {
+    "value": 1,
+    "unit": "minutes"
+   },
+   "authored": true
+  },
+  "DscmfWhspAura001": {
+   "name": "Spell Effect: Discomfiting Whispers (Aura)",
+   "kind": "own",
+   "dur": {
+    "value": 1,
+    "unit": "minutes"
+   },
+   "authored": true
+  },
+  "AnemosGiftEf0001": {
+   "name": "Spell Effect: Gift of the Anemos",
+   "kind": "own",
+   "dur": {
+    "value": 1,
+    "unit": "minutes"
+   },
+   "authored": true
+  },
+  "AnemosMarkEf0001": {
+   "name": "Spell Effect: Gift of the Anemos (Aura)",
+   "kind": "own",
+   "dur": null,
+   "authored": true
   }
  }
 }

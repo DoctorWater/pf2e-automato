@@ -1,0 +1,57 @@
+{
+  "_id": "NymphGraceAura01",
+  "name": "Spell Effect: Nymph's Grace",
+  "type": "effect",
+  "img": "icons/svg/aura.svg",
+  "system": {
+    "description": {
+      "value": "<p>Granted by @UUID[Compendium.pf2e.spells-srd.Item.SAmyaiVKTDrUNjot]{Nymph's Grace}</p><p>Your apparition is a mask of unearthly beauty. The first time an enemy enters the 10-foot emanation each round, or starts its turn there, it must succeed at a Will save or be confused for 1 round.</p>"
+    },
+    "duration": {
+      "expiry": null,
+      "sustained": true,
+      "value": 1,
+      "unit": "minutes"
+    },
+    "level": {
+      "value": 1
+    },
+    "publication": {
+      "license": "",
+      "remaster": false,
+      "title": ""
+    },
+    "rules": [],
+    "start": {
+      "initiative": null,
+      "value": 0
+    },
+    "tokenIcon": {
+      "show": true
+    },
+    "traits": {
+      "rarity": "common",
+      "value": []
+    },
+    "slug": "spell-effect-nymphs-grace"
+  },
+  "effects": [],
+  "folder": null,
+  "sort": 0,
+  "ownership": {
+    "default": 0
+  },
+  "flags": {},
+  "_stats": {
+    "coreVersion": "14.366",
+    "systemId": "pf2e",
+    "systemVersion": "8.6.1",
+    "createdTime": null,
+    "modifiedTime": null,
+    "lastModifiedBy": null,
+    "compendiumSource": null,
+    "duplicateSource": null,
+    "exportSource": null
+  },
+  "_key": "!items!NymphGraceAura01"
+}

@@ -19,6 +19,12 @@ export const asksActions = (origin, time) => origin?.type === "spell" && !!origi
 /** Чистая: допустимые числа действий по system.time.value или null (время не переменное). */
 export const actionChoices = (time) => CHOICES[String(time ?? "").trim().toLowerCase()] ?? null;
 
+/** Чистая: у заклинания варианты pf2e по числу действий (overlays с time: Heal, Harm, Qi Blast…) — число выбирают кнопкой варианта на карточке, своё окно не нужно. */
+export const pf2eVariants = (spell) => Object.values(spell?._source?.system?.overlays ?? {}).some((o) => o?.system?.time?.value);
+
+/** Чистая: число действий выбранного варианта pf2e (origin:item:cast:actions:N); 0 — вариант не выбран или время не 1–3 («2 rounds»). */
+export const variantActions = (origin) => (origin?.variant ? Number(origin.rollOptions?.map((o) => /^origin:item:cast:actions:([123])$/.exec(o)?.[1]).find(Boolean) ?? 0) : 0);
+
 /** Чистая: снарядов всего = действия × (1 + по одному на каждые 2 ранга выше базового: «+2 — ещё снаряд за действие»). */
 export const missileCount = (actions, castRank, baseRank = 1) => actions * (1 + Math.max(0, Math.floor(((castRank ?? baseRank) - baseRank) / 2)));
 
@@ -137,11 +143,12 @@ export async function onMessage(message) {
   // awaitingActions ставит автор (use.mjs) до создания сообщения; снимаем в том же update, что пишет число; на отмене и любой ошибке — без опции
   const release = { [flagPath("use", "state", "awaitingActions")]: false };
   const standing = () => !!game.messages.get(message.id)?.flags?.[MOD]?.use?.state?.awaitingActions;
-  let spell = null, actions = 0;
+  let spell = null, actions = 0, byVariant = false;
   try {
     spell = origin.uuid ? await fromUuid(origin.uuid) : null;
     const choices = actionChoices(spell?.system?.time?.value);
     if (!choices) return;
+    if (pf2eVariants(spell)) { byVariant = true; return; }   // флаг снимет use.variantChosen по кнопке варианта pf2e
     actions = Number((await askActions(spell.name, choices).catch(() => null))?.action);
     if (!choices.includes(actions)) { actions = 0; return; }
     if (game.messages.get(message.id)?.flags?.[MOD]?.cast?.actions) { actions = 0; return; }   // другая вкладка того же игрока уже выбрала (и сняла флаг)
@@ -151,7 +158,7 @@ export async function onMessage(message) {
       ...release
     });
   } finally {
-    if (standing()) await message.update(release);
+    if (!byVariant && standing()) await message.update(release);
   }
   if (actions && MISSILE_SLUGS.has(spell.slug)) await rollMissiles(message, spell, actions);
 }

@@ -191,7 +191,7 @@ function bind(message, html) {
   if (skip.size) quench(html, skip);
   if (!message.item || !message.actor?.isOwner || !USE_TYPES.has(message.flags?.pf2e?.context?.type)) return;
   const card = html.querySelector(".chat-card");
-  placeAreaButton(html, card);
+  placeAreaButton(html, card, message.item);
   attackOrder(message, html);
   // область не размещена — урон некому: «Урон» (свой и системный у заклинания) не показываем до региона (порядок: область → спасброски → урон)
   const use = message.flags?.[MOD]?.use;
@@ -228,8 +228,10 @@ function bind(message, html) {
 
 /** Кнопка «Разместить …» для области из инлайн-ссылки (@Template → a.effect-area) — у импульсов, действий, расходников; у заклинания с областью
  *  своя кнопка pf2e (spell-template) — не дублируем. Клик — тот же клик по ссылке: pf2e ставит регион с messageId и origin карточки. Ссылку гасим (один путь). */
-function placeAreaButton(html, card) {
-  if (!card || html.querySelector(`${SEL.spellTemplate}, .paf-area-box`)) return;
+function placeAreaButton(html, card, item) {
+  // варианты pf2e с областью (Heal: только за 3 действия) — кнопку даёт система у такого варианта; у прочих (Falling Stars) область лишь в тексте
+  const base = item?.original ?? item;
+  if (!card || html.querySelector(`${SEL.spellTemplate}, .paf-area-box`) || Object.values(base?._source?.system?.overlays ?? {}).some((o) => o?.system?.area)) return;
   const a = card.querySelector(SEL.effectArea);
   if (!a) return;
   const box = document.createElement("div");

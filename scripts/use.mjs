@@ -12,7 +12,7 @@ import * as actions from "./actions.mjs";
 import { itemRange, markFar, inRange, TENTACLES } from "./range.mjs";
 import { recentShape, spentOptions } from "./builtin/spellshape.mjs";
 import { moveOrder, areaPoint } from "./move.mjs";
-import { asksActions } from "./builtin/variable-cast.mjs";
+import { asksActions, pf2eVariants, variantActions } from "./builtin/variable-cast.mjs";
 import { isHeld, replayers } from "./hold.mjs";
 import * as sustain from "./sustain.mjs";
 import { whisper, esc } from "./builtin/lib.mjs";
@@ -129,7 +129,8 @@ function onPreCreateMessage(message, data, options, userId) {
   const yielded = compat.shouldYield(resolved.rule, { slug: resolved.slug, sourceUuid: resolved.sourceUuid }) ? "pf2e-automations" : null;
   const snapshot = buildSnapshot({
     kind, resolved, consume: isConsume(message), yielded, dc, targets, now: Date.now(),
-    awaitingActions: modeOf("macro") !== "off" && !message.flags?.[MOD]?.cast?.actions && asksActions(origin, item?.system?.time?.value),
+    // варианты pf2e: ждать кнопку варианта и без макросов — окна нет, от варианта зависят цели
+    awaitingActions: (modeOf("macro") !== "off" || pf2eVariants(item)) && !message.flags?.[MOD]?.cast?.actions && asksActions(origin, item?.system?.time?.value),
     item: { uuid: origin.uuid ?? null, name: item?.name ?? origin.name ?? "", type: origin.type ?? item?.type ?? null, sourceId: resolved.sourceUuid },
     actor, token: tokenDoc?.uuid ?? null
   });
@@ -224,12 +225,33 @@ export async function onCreateMessage(message) {
   if (useOf(message)?.kind === "use" && !useOf(message).state?.awaitingActions) await tolerate("runUse", () => execUse(message.id, true));
 }
 
-/** variable-cast снял awaitingActions (число записано или окно отменено) — ГМ продолжает исполнение. */
-export async function onUpdateMessage(message, changes) {
+/** variable-cast снял awaitingActions (число записано или окно отменено) — ГМ продолжает исполнение.
+ *  Вариант pf2e обрабатывает нажавший: он видит сцену заклинателя и свои цели; не успел — дозапуск ГМа (resumePending). */
+export async function onUpdateMessage(message, changes, options, userId) {
+  if (userId === game.user.id && changes?.flags?.pf2e?.origin?.variant && useOf(message)?.state?.awaitingActions) return void await tolerate("variantChosen", () => variantChosen(message));
   if (!guardActiveGM() || changes?.flags?.[MOD]?.use?.state?.awaitingActions !== false) return;
   if (useOf(message)?.kind !== "use") return;
   await tolerate("runUse", () => execUse(message.id, true));
   await tolerate("resumeRegion", () => resumeRegion(message.id));   // область поставили до ответа в окне — runRegion её пропустил
+}
+
+/** Вариант pf2e выбран кнопкой на карточке (pf2e переписал сообщение): число действий и снятие awaitingActions — исполнение продолжит onUpdateMessage.
+ *  Правило с областью, а у варианта её нет (Heal за 1–2 действия) — цели выделенные, с дальностью варианта.
+ *  Флаг снимается и при сбое (finally) — иначе карточка ждала бы вечно.
+ *  ponytail: смена варианта после исполнения («Выберите другой вариант») снимок не пересчитывает — пересчёт, если в игре это всплывёт. */
+async function variantChosen(message) {
+  const use = useOf(message), item = message.item, origin = message.flags.pf2e.origin, actions = variantActions(origin);
+  const patch = { [flagPath("use", "state", "awaitingActions")]: false, ...(actions && { [flagPath("cast")]: { actions } }) };
+  try {
+    if (use.rule?.onUse?.targets === "area" && item && !item.system?.area) {
+      const caster = use.token ? fromUuidSync(use.token) : null;
+      const targets = use.targets?.length ? use.targets : liveTargets({}, message.speaker, item);   // у pf2e сначала сотворение, потом вариант: цель могли навести между ними
+      patch[flagPath("use", "rule", "onUse", "targets")] = "selected";
+      patch[flagPath("use", "targets")] = markFar(targets, caster?.object, itemRange(item, [...(origin.rollOptions ?? []), ...casterOptions(item.actor)]));
+    }
+  } finally {
+    await message.update(patch);
+  }
 }
 
 async function onCreateRegion(region) {
@@ -536,6 +558,10 @@ export async function resumePending({ maxAgeMinutes } = {}) {
   const age = maxAgeMinutes ?? S.get("resumeMinutes");
   const now = Date.now();
   const recent = game.messages.contents.slice(-100);
+  for (const m of recent) {   // вариант pf2e выбран, а нажавший флаг не снял (вкладка закрылась)
+    const u = useOf(m);
+    if (u?.kind === "use" && u.state?.awaitingActions && m.flags?.pf2e?.origin?.variant && now - (u.createdAt ?? 0) <= age * 60000) await tolerate("variantChosen", () => variantChosen(m));
+  }
   const list = recent.filter((m) => isResumable(useOf(m), now, age));
   for (const m of list) await tolerate("resume", () => execUse(m.id, true));
   for (const m of recent) {

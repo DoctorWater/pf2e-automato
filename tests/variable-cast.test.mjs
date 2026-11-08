@@ -10,6 +10,17 @@ test("переменное время -> допустимые числа дей�
   for (const t of ["2", "reaction", "", null, "10 minutes"]) assert.equal(v.actionChoices(t), null);
 });
 
+test("варианты pf2e по числу действий: своё окно не нужно, число — из опции варианта", () => {
+  const heal = { _source: { system: { overlays: { a: { system: { time: { value: "1" }, range: { value: "touch" } } }, b: { system: { area: { type: "emanation", value: 30 }, time: { value: "3" } } } } } } };
+  assert.equal(v.pf2eVariants(heal), true);
+  assert.equal(v.pf2eVariants({ _source: { system: { overlays: { a: { system: { damage: {} } } } } } }), false);   // варианты урона без времени
+  assert.equal(v.pf2eVariants({ _source: { system: {} } }), false);
+  const ro = ["origin:caster", "origin:item:cast:actions:2"];
+  assert.equal(v.variantActions({ variant: { overlays: ["x"] }, rollOptions: ro }), 2);
+  assert.equal(v.variantActions({ variant: null, rollOptions: ro }), 0);   // вариант не выбран
+  assert.equal(v.variantActions({ variant: { overlays: ["x"] }, rollOptions: ["origin:caster"] }), 0);   // «2 rounds»
+});
+
 test("снарядов: действия × (1 + по одному за каждые 2 ранга)", () => {
   assert.equal(v.missileCount(3, 1), 3);
   assert.equal(v.missileCount(2, 3), 4);

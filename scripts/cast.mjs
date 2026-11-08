@@ -247,8 +247,8 @@ export async function castItem(item, id) {
     if (spell?.type !== "spell") return warn("cast.why.noSpell");
     if (info.dc == null) return warn("cast.noCaster");
     // число действий «1 to 3»: спрашиваем здесь, до ChatMessage.create (variable-cast увидит cast.actions и не спросит; флаг awaitingActions не ставится)
-    const { actionChoices, askActions, MISSILE_SLUGS } = await import("./builtin/variable-cast.mjs"), { modeOf } = await import("./settings.mjs");
-    const choices = modeOf("macro") === "off" ? null : actionChoices(spell.system?.time?.value);
+    const { actionChoices, askActions, pf2eVariants, MISSILE_SLUGS } = await import("./builtin/variable-cast.mjs"), { modeOf } = await import("./settings.mjs");
+    const choices = modeOf("macro") === "off" || pf2eVariants(spell) ? null : actionChoices(spell.system?.time?.value);   // варианты pf2e: число выберут кнопкой на карточке. ponytail: карточка onUse активации тогда без actions:N — записей с таким when нет
     let actions = 0;
     if (choices) {
       actions = Number((await askActions(spell.name, choices).catch(() => null))?.action);

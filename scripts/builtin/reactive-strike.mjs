@@ -4,7 +4,7 @@
 import { L, MOD, callGM } from "../util.mjs";
 import { noReactions } from "../inline-effect.mjs";
 import { gapFeet } from "../aura.mjs";
-import { esc, whisper, cardButton } from "./lib.mjs";
+import { esc, whisper, cardButton, settleButtons } from "./lib.mjs";
 import { isHit, meleeCandidates, askStrikes, rollStrike, rollDamage } from "./strikes.mjs";
 import { unchecked } from "./melee-reach.mjs";
 
@@ -109,7 +109,7 @@ export function bindStrike(message, html) {
   const root = html instanceof HTMLElement ? html : html?.[0];
   const btn = root?.querySelector?.("[data-af-react-strike]");
   if (!data || !btn) return;
-  if (data.used) { btn.disabled = true; return; }   // реакция уже потрачена (ГМ или владелец)
+  if (data.used) return void settleButtons([btn], "used");   // реакция уже потрачена (ГМ или владелец)
   btn.addEventListener("click", async () => {
     const actor = await fromUuid(data.actor), target = await fromUuid(data.target);
     if (!actor?.isOwner || !target?.actor) return void ui.notifications.warn(L("builtin.reactive.cannot"));

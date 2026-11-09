@@ -1390,7 +1390,7 @@ function plainTerms(html, condNames, condSlug) {
 /**
  * itemLike = { type, slug, name?, system:{description:{value}, defense, area, target, selfEffect} }
  * labels = rules/labels.json; conditionSlugByUuid = (uuid) => slug|null.
- * Ветки взаимоисключающи, confidence — у правила целиком (см. README/отчёт).
+ * Ветки взаимоисключающи, confidence — у правила целиком (см. docs/dev/rules-format.md/отчёт).
  */
 /** Текст «use this … again, any existing one ends» (Timber Sentinel, Living Bonfire, Hallowed Ground): повтор заканчивает прежний эффект. */
 export const REPLACES = /\bagain\b[^.]{0,80}(?<!\b(?:until|once)\s+(?:the\s+)?)\b(?:existing|previous)\b[^.]{0,60}\bends?\b/i;   // «until/once the previous one ends» — запрет повтора, не замена (Turn the Wheel of Seasons)
@@ -1700,7 +1700,9 @@ export async function loadCatalog() {
   // model (tools/drafts.mjs): черновики пачек от Haiku/Sonnet, прошедшие валидатор и выборку
   return initCatalog([pa, model, onhit, cat].filter(Boolean), labels);   // onhit (tools/onhit.mjs): «при попадании Удара — состояние» по тексту; ручные каталоги главнее
 }
-export const ready = loadCatalog;
+let loading = null;
+/** Один общий промис загрузки каталога: main ждёт его на ready, Мастерская и лист — до первого рендера. Неудача сбрасывает его. */
+export const ready = () => (loading ??= loadCatalog().catch((e) => { loading = null; throw e; }));
 
 let wCache = { raw: null, val: null };
 export function worldCatalog() {

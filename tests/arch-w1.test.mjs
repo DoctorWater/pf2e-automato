@@ -20,7 +20,7 @@ test("externalProblems: версия, пропавшая строка шабло
   assert.equal(v.length, 1);
   assert.match(v[0], /pf2e 8\.8\.0/);
   assert.match(v[0], /spell-damage/);
-  assert.equal(externalProblems(EXTERNAL, good, { [EXTERNAL.templates[0].path]: "<button>" }).length, 2);
+  assert.equal(externalProblems(EXTERNAL, good, { [EXTERNAL.templates[0].path]: "<button>" }).length, EXTERNAL.templates[0].needles.length);
   assert.match(externalProblems(EXTERNAL, good, {})[0], /не загрузился/);
 });
 

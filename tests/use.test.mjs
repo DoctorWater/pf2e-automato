@@ -184,3 +184,11 @@ test("awaitingActions: снимок ставит флаг, isResumable его у
   assert.equal(isResumable({ ...ok, state: { awaitingActions: true } }, 100, 30), false);
   assert.equal(isResumable({ ...ok, state: { awaitingActions: false } }, 100, 30), true);
 });
+
+test("excludesAuthor: конус/линия/эманация без автора, взрыв с автором, явный excludeSelf главнее", () => {
+  const r = (areaShape) => ({ flags: { pf2e: { areaShape } } });
+  for (const sh of ["cone", "line", "emanation"]) assert.equal(use.excludesAuthor({ excludeSelf: null }, r(sh)), true, sh);
+  for (const sh of ["burst", "cylinder", undefined]) assert.equal(use.excludesAuthor({}, r(sh)), false, String(sh));
+  assert.equal(use.excludesAuthor({ excludeSelf: false }, r("cone")), false);
+  assert.equal(use.excludesAuthor({ excludeSelf: true }, r("burst")), true);
+});

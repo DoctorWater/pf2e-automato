@@ -1,5 +1,5 @@
 // K4: блок автоматизации в сообщении чата. Контракт — plan.md §2 chat.mjs, §1.4, §3.G, §5.
-import { MOD, L, DEGREES, callGM, damageLabel, sluggify } from "./util.mjs";
+import { MOD, L, DEGREES, callGM, damageLabel, sluggify, condValued } from "./util.mjs";
 import { placeUnder } from "./damage-button.mjs";
 import { modeOf, effectiveMode, S } from "./settings.mjs";
 import { automationsGroups, toolbeltTargetHelper } from "./compat.mjs";
@@ -67,6 +67,7 @@ const defaultEnv = () => ({
     const k = CONFIG.PF2E?.saves?.[s] ?? CONFIG.PF2E?.skills?.[s]?.label ?? CONFIG.PF2E?.skills?.[s] ?? CONFIG.PF2E?.attributes?.[s] ?? STAT_KEYS[s];
     return k ? game.i18n.localize(k) : s;
   },
+  valued: condValued,
   conditionLabel: (slug) => {
     const k = CONFIG.PF2E?.conditionTypes?.[slug];
     return k ? game.i18n.localize(k) : slug;
@@ -94,6 +95,9 @@ function persFormulaText(f, t) {
 
 /** Заметка с `when` в плане не показывается: applyOps шепчет её ГМу, когда условие выполнено. В режиме off applyOps не запустится — тогда заметка остаётся в плане текстом. */
 const planned = (off) => (a) => off || !(a.note && a.when);
+
+/** «Испуг 2»; value не задан у состояния со значением — «Испуг 1» (по умолчанию pf2e). */
+export const condText = (env, c) => { const v = c.value || (env.valued?.(c.slug) ? 1 : 0); return `${env.conditionLabel(c.slug)}${v ? ` ${v}` : ""}`; };
 
 export function stepText(a, env, defTo) {
   const t = env.t;
@@ -125,7 +129,7 @@ export function stepText(a, env, defTo) {
   if (a.condition?.policy === "reduce") return say("step", t("chat.stepReduce", { what: env.conditionLabel(a.condition.slug), n: a.condition.value ?? 1 }));
   const what = p ? t("chat.stepPersistent", { formula: persFormulaText(p.formula, t), type: env.damageLabel?.(p.damageType) ?? p.damageType }) + (p.dc && p.dc !== 15 ? ` (${t("chat.dc", { dc: p.dc })})` : "")
     : a.condition
-    ? `${env.conditionLabel(a.condition.slug)}${a.condition.value ? ` ${a.condition.value}` : ""}`
+    ? condText(env, a.condition)
     : a.effect?.mods ? textOfMods(a.effect.mods, { t })
     : (env.uuidName(a.effect?.uuid) ?? a.effect?.uuid ?? "?") + (a.effect?.badge ? ` (${t(a.effect.badge === "decrement" ? "chat.stepBadgeDec" : "chat.stepBadge")})` : "");
   return say("step", what);
@@ -135,7 +139,7 @@ const visText = (env, uuid) => { const n = env.visCells?.(uuid); return n == nul
 
 function zoneWhat(zone, env) {
   const c = zone?.condition;
-  return c ? `${env.conditionLabel(c.slug)}${c.value ? ` ${c.value}` : ""}` : (env.uuidName(zone?.effect?.uuid) ?? "");
+  return c ? condText(env, c) : (env.uuidName(zone?.effect?.uuid) ?? "");
 }
 
 // stepKey производных шагов (§3.G): "zone" | "u<i>" (onUse.apply) | "c<степень>.<i>" (byDegree); иное — показываем как есть
@@ -291,7 +295,7 @@ export function buildViewModel(message, user, env = null) {
       plan: on.apply.filter(planned(env.mode("effect") === "off")).map((a) => stepText(a, env, "self")),
       done: done ? t("chat.applyDone") : null,
       noTargets: !done && on.targets === "selected" && on.apply.some((a) => a.to === "target") && !(use.targets?.length) ? t("checks.noTargets") : null,
-      canApply: canAct && !done && !noneToApply && (env.mode("effect") === "button" || (env.mode("effect") === "auto" && !!state.done && (on.targets !== "area" || !!state.area)))   // auto: после попытки (state.done) кнопка на случай сбоя
+      canApply: canAct && !done && !noneToApply && (on.targets !== "area" || !!state.area) && (env.mode("effect") === "button" || (env.mode("effect") === "auto" && !!state.done))   // по области — после размещения   // auto: после попытки (state.done) кнопка на случай сбоя
     };
   }
 

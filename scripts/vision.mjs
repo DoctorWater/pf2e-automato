@@ -408,7 +408,7 @@ export function init() {
     }
   });
   Hooks.once("ready", () => setTimeout(() => {   // api Vision ставится в его ready — ждём такт
-    if (game.user.isGM && visionStatus().key === "missing") ui.notifications.warn(L("vision.warn"));
+    if (game.user.isGM && visionStatus().key === "missing") ui.notifications.info(L("vision.warn"));
   }, 0));
   Hooks.on("renderSettingsConfig", (app, html) => {
     const group = html.querySelector(`[name="${MOD}.vision.marks"]`)?.closest(".form-group");

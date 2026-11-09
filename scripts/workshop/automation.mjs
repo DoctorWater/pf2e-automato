@@ -298,10 +298,10 @@ export function plate(row, env) {
     row.to === "party" && t("workshop.au.keep.party"), row.to === "chosen" && t("workshop.au.keep.chosen"), row.to === "allies" && t("workshop.au.keep.allies", { range: num(row.range) ?? "?" }), String(row.when ?? "").trim() && t("workshop.au.keep.when", { when: String(row.when).trim() }), keep.who && t(`workshop.au.keep.${keep.who}`), keep.unlessEffect && t("workshop.au.keep.unless"), keep.mark && t("workshop.au.keep.mark"), keep.choice != null && t("workshop.au.keep.choice", { v: keep.choice }), keep.escape && t("workshop.au.keep.escape"), keep.repeat && t("workshop.au.keep.repeat"), (row.dmgBasic === true || row.dmgBasic === "true") && t("workshop.au.keep.basic")].filter(Boolean).join(" · ");
   const base = { kind: row.kind, valued: false, value: "", dur: "", self: row.to === "self", note };
   if (row.kind === "condition") {
-    const value = num(row.value);
+    const value = num(row.value), valued = value !== null || !!env.valued?.(row.text);
     return {
-      ...base, name: row.text ? env.conditionLabel(row.text) : "?", value: value ?? "",
-      valued: value !== null || !!env.valued?.(row.text), dur: dv !== null ? t("workshop.au.dur", { value: dv, unit: t(`workshop.unitShort.${row.durUnit}`) }) : ""
+      ...base, name: row.text ? env.conditionLabel(row.text) : "?", value: value ?? (valued ? 1 : ""),   // значение не задано — pf2e ставит 1
+      valued, dur: dv !== null ? t("workshop.au.dur", { value: dv, unit: t(`workshop.unitShort.${row.durUnit}`) }) : ""
     };
   }
   if (row.kind === "remove") return { ...base, name: t("workshop.au.removePlate", { name: row.text ? env.conditionLabel(row.text) : "?" }) };
@@ -366,7 +366,7 @@ export const castDc = (c, t) => (c.dcType === "high" ? t("workshop.au.cast.dcHig
 export function castLine(c, env) {
   const { t } = env, pv = num(c.perValue);
   return {
-    head: String(c.label ?? "").trim() || env.uuidName(c.spell) || String(c.spell ?? "").trim() || String(c.id ?? "").trim() || "?",
+    head: env.uuidName(c.spell) || String(c.label ?? "").trim() || String(c.spell ?? "").trim() || String(c.id ?? "").trim() || "?",
     body: [c.kind && c.kind !== "spell" && (c.kind === "choice" ? t("workshop.au.cast.choiceCount", { n: (c.choices ?? []).length }) : t(`workshop.au.cast.kind.${c.kind}`)),
       c.kind !== "choice" && c.kind !== "steps" && (c.rankMode?.startsWith("half-") ? t(`workshop.au.cast.rankMode.${c.rankMode}`) : num(c.rank) !== null && c.rankMode !== "base" && t("cast.rank", { rank: num(c.rank) })),
       castDc(c, t),
@@ -400,7 +400,7 @@ export function summaries(f, env) {
   const when = [
     f.kind === "onAttacked" ? t("workshop.au.when.onAttacked", { value: plus(num(f.react.value) ?? 0), type: t(`workshop.btype.${f.react.type}`) })
       : t(`workshop.au.when.${f.kind}`),
-    ...(f.label?.trim() && !isReaction(f) ? [`«${f.label.trim()}»`] : []), ...(yieldText ? [yieldText] : [])
+    ...(env.itemName?.trim() && f.label?.trim() && !isReaction(f) ? [`«${env.itemName.trim()}»`] : []), ...(yieldText ? [yieldText] : [])
   ].join(" · ");
 
   const targets = f.targets === "area"
@@ -417,7 +417,7 @@ export function summaries(f, env) {
 
   const z = f.zone;
   const zone = f.targets !== "area" ? t("workshop.au.zoneNeedsArea") : !z.on ? t("workshop.au.zoneOff")
-    : t("workshop.au.zoneOn", { what: z.cond ? `${env.conditionLabel(z.cond)}${num(z.condValue) ? ` ${z.condValue}` : ""}` : z.effect ? env.uuidName(z.effect) ?? z.effect : z.trig?.length ? t("workshop.au.zoneTrig", { n: z.trig.length }) : "?" });
+    : t("workshop.au.zoneOn", { what: z.cond ? `${env.conditionLabel(z.cond)}${num(z.condValue) || env.valued?.(z.cond) ? ` ${num(z.condValue) || 1}` : ""}` : z.effect ? env.uuidName(z.effect) ?? z.effect : z.trig?.length ? t("workshop.au.zoneTrig", { n: z.trig.length }) : "?" });
   const macros = f.macros.length ? t("workshop.au.macrosN", { n: f.macros.length }) : t("workshop.au.macrosNone");
   return { when, targets: onUse && !isReaction(f) ? targets : "", roll: onUse ? roll : "", outcome: onUse ? outcome : "", zone: onUse ? zone : "", macros, events: evSummary(f, env), cast: castSummary(f, env), mode, degLists };
 }

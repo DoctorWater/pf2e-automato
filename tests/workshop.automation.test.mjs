@@ -64,7 +64,10 @@ test("сводки строк по форме правила", () => {
   assert.match(au.summaries({ ...f, excludeSelf: "auto" }, env).targets, /author\.auto/);
   const known = au.summaries(f, { ...env, dc: 22 });
   assert.match(known.roll, /"dc":"22"/);
-  assert.match(au.summaries({ ...f, label: "Страх", yield: "yes" }, env).when, /«Страх».*yieldYes/);
+  assert.match(au.summaries({ ...f, label: "Fear", yield: "yes" }, { ...env, itemName: "Страх" }).when, /«Страх».*yieldYes/);
+  assert.doesNotMatch(au.summaries({ ...f, label: "Fear", yield: "yes" }, env).when, /Fear/);   // английский label каталога не показываем
+  const fr = au.plate({ ...blankRow(), kind: "condition", text: "frightened", value: "" }, { ...env, valued: () => true });
+  assert.equal(fr.value, 1);   // value не задан — pf2e ставит 1
 });
 
 test("сводки: проверка автора, без броска, реакция, зона", () => {

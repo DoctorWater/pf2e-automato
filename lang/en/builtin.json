@@ -131,6 +131,7 @@
         "needPrey": "{name}: no prey yet, use Hunt Prey first.",
         "needAlly": "{name}: target an ally."
       },
+      "hintState": { "used": "Used", "skipped": "Skipped", "expired": "The moment has passed" },
       "shieldBlock": {
         "hint": "<p><b>{name}</b>: Shield Block? Hardness {hardness}.</p>",
         "button": "Shield Block",

@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 
 globalThis.game ??= {};
-const { damageButtons, ruleFormulas, normFormula } = await import("../scripts/damage-button.mjs");
+const { damageButtons, ruleFormulas, normFormula, coreFormula, rolledCore, spellDamageDone } = await import("../scripts/damage-button.mjs");
 const link = (formula, text, damageRoll = formula) => ({ dataset: { formula, damageRoll }, textContent: text });
 
 test("damageButtons: одинаковая формула в разных абзацах — одна кнопка со всеми ссылками", () => {
@@ -63,4 +63,23 @@ test("attackStage: до попадания урона нет; после уро�
   assert.equal(multiTarget("1 или 2 существа"), true);
   assert.equal(multiTarget("1 creature"), false);
   assert.equal(multiTarget(""), false);
+});
+
+test("шаг урона: перезарядка не кнопка урона; формулы сравниваются без типов; повторный урон у поддерживаемых и атак по нескольким целям", () => {
+  const rech = { dataset: { damageRoll: "", formula: "1d4", flavor: "Recharge Spirit Breath" }, textContent: "1d4" };
+  assert.deepEqual(damageButtons([link("{9d8[spirit]}", "9d8"), rech], "Урон").map((b) => b.label), ["Урон"]);
+  assert.equal(coreFormula("{6d8[fire]}"), "6d8");
+  assert.equal(coreFormula("{(2d6 + 4)[slashing]}"), "2d6+4");
+  // бросок pf2e: formula переведена («6d8 огонь + 2d6 холод»), части — в instances; сравниваем множества частей
+  const roll = (...heads) => ({ formula: "6d8 огонь + 2d6 холод", instances: heads.map((h) => ({ head: { expression: h } })) });
+  assert.equal(rolledCore(roll("6d8", "2d6")), coreFormula("{6d8[fire],2d6[cold]}"));
+  assert.equal(rolledCore(roll("(2d6 + 4)")), coreFormula("{(2d6+4)[slashing]}"));
+  assert.notEqual(rolledCore(roll("6d8")), coreFormula("{3d8[fire]}"));
+  assert.equal(rolledCore(roll("9d8")), coreFormula("{9d8[spirit]}"));
+  assert.equal(rolledCore(roll("2d6")), coreFormula("{2d6[precision,fire]}"));   // запятая внутри типов — не граница частей
+  assert.notEqual(coreFormula("{6d8[fire]}"), coreFormula("3d8[fire]"));
+  assert.equal(spellDamageDone({ damages: 1, sustained: false, multiAttack: false }), true);
+  assert.equal(spellDamageDone({ damages: 0, sustained: false, multiAttack: false }), false);
+  assert.equal(spellDamageDone({ damages: 2, sustained: true, multiAttack: false }), false);
+  assert.equal(spellDamageDone({ damages: 1, sustained: false, multiAttack: true }), false);
 });

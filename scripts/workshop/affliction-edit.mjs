@@ -188,7 +188,7 @@ export function afflOp(f, row, op) {
     else if (name === "persOn") s.persistent ??= { formula: "1d6", damageType: "poison" };
     else if (name === "persOff") s.persistent = null;
     else if (name === "condRm") s.conditions.splice(j, 1);
-    else if (name === "condStep") { const c = s.conditions[j]; if (c) c.value = Math.min(COND_VALUE_MAX, Math.max(1, (Number(c.value) || 0) + Number(r[2]))); }
+    else if (name === "condStep") { const c = s.conditions[j]; if (c) c.value = Math.min(COND_VALUE_MAX, Math.max(1, (Number(c.value) || 1) + Number(r[2]))); }
     else if (name === "modAdd") modsEdit(s, (m) => modAdd(m, r[1]));
     else if (name === "modRm") modsEdit(s, (m) => modRemove(m, j));
     return undefined;

@@ -228,12 +228,23 @@ export async function expireWhere(test, { hintOf, close, state = "pending" }) {
   }
 }
 
-/** renderChatMessageHTML: кнопки подсказки с атрибутом `attr` (data-af-…) -> callGM(use|skip, id). Решённая подсказка — кнопки неактивны. */
+/** Решённая подсказка: кнопок решения больше нет (одна кнопка в один момент) — на их месте строка итога («Использовано», «Пропущено», «Момент прошёл»). */
+export function settleButtons(btns, state) {
+  const box = btns[0]?.closest(".paf-card-actions") ?? btns[0]?.parentElement;
+  if (!box) return;
+  const p = document.createElement("p");
+  p.className = "paf-hint-state";
+  p.textContent = game.i18n.localize(`PF2E_AUTOMATO.builtin.hintState.${["used", "skipped", "expired"].includes(state) ? state : "used"}`);
+  box.hidden = true;
+  box.after(p);
+}
+
+/** renderChatMessageHTML: кнопки подсказки с атрибутом `attr` (data-af-…) -> callGM(use|skip, id). Решённая подсказка — строка итога вместо кнопок. */
 export function bindHint(message, html, { hint, attr, use, skip }) {
   const h = hint(message), root = html instanceof HTMLElement ? html : html?.[0];
   const btns = [...(root?.querySelectorAll?.(`[${attr}]`) ?? [])], key = attr.replace(/^data-/, "").replace(/-(\w)/g, (_, c) => c.toUpperCase());
   if (!h || !btns.length) return;
-  if (h.state !== "pending") { btns.forEach((b) => { b.disabled = true; }); return; }
+  if (h.state !== "pending") return void settleButtons(btns, h.state);
   for (const btn of btns) btn.addEventListener("click", async () => {
     btns.forEach((b) => { b.disabled = true; });
     const res = await callGM(btn.dataset[key] === "use" ? use : skip, message.id);

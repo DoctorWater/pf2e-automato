@@ -98,7 +98,11 @@ export function isResumable(use, now, maxAgeMinutes) {
   return now - (use.createdAt ?? 0) <= maxAgeMinutes * 60000;
 }
 
-export const emanationDefault = (region) => region?.flags?.pf2e?.areaShape === "emanation";
+// PF2e (Areas of Effect): эманация, конус и линия исходят от создателя и его не задевают (эманация — «если не сказано иное»); взрыв/цилиндр задевают всех внутри, в т.ч. автора.
+const SELF_EXCLUDED_SHAPES = new Set(["emanation", "cone", "line"]);
+export const emanationDefault = (region) => SELF_EXCLUDED_SHAPES.has(region?.flags?.pf2e?.areaShape);
+/** Исключать ли автора из целей области: явный onUse.excludeSelf важнее умолчания по фигуре. */
+export const excludesAuthor = (onUse, region) => !!(onUse?.excludeSelf ?? emanationDefault(region));
 
 /* ---------- клиент автора (синхронно) ---------- */
 
@@ -447,7 +451,7 @@ export async function runRegion(region, message) {
     const targetSteps = use.kind === "use" ? (onUse.apply ?? []).filter((s) => s.to === "target") : [];
     if (!onUse.challenge && !onUse.check && !targetSteps.length) return;
 
-    const excl = onUse.excludeSelf ?? emanationDefault(region);
+    const excl = excludesAuthor(onUse, region);
     const tokens = (region.parent?.tokens?.contents ?? [])
       .filter((t) => t.testInsideRegion(region))
       .filter((t) => !(excl && (use.token ? t.uuid === use.token : t.actor?.uuid === use.actor)))

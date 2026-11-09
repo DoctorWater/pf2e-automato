@@ -85,9 +85,11 @@ export function planPersistent(list, degrees, challenge) {
 
 /** Чистая: различные ссылки урона (по формуле, иначе по тексту) без нанесённых правилом; одна — без подписи формулы, несколько — с подписью.
  *  links у кнопки — все ссылки с той же формулой (одна формула в абзацах «Провал» и «Крит. провал» — одна кнопка на обе степени). */
+const RECHARGE = /recharge|перезаряд/i;
 export function damageButtons(links, label, skip = new Set(), persistent = () => null, persistentLabel = label) {
   const seen = new Map(), out = [];
   for (const a of links) {
+    if (RECHARGE.test(a.dataset?.flavor ?? "")) continue;   // «перезарядка через 1d4 раунда» — не урон (pf2e помечает [[/r]] пустым data-damage-roll)
     const text = (a.textContent ?? "").trim(), key = a.dataset?.formula ?? text;
     if (coveredByRule(a.dataset?.damageRoll, skip)) continue;
     if (seen.has(key)) { seen.get(key).links.push(a); continue; }
@@ -106,6 +108,10 @@ export function damageButtons(links, label, skip = new Set(), persistent = () =>
 export function placeUnder(html, anchor) {
   const box = html.querySelector(".paf-damage-box");
   if (box && anchor) anchor.after(box);
+  const sys = html.querySelector(SEL.spellDamage)?.closest(".spell-button");   // системная «Бросить урон» заклинания — тоже под спасброски
+  if (sys && anchor) anchor.after(sys);
+  // шаг спасбросков пройден (у всех целей итог) — кнопка спасброска pf2e больше не нужна; пока ждём — через неё бросают вручную / Toolbelt
+  if (anchor?.dataset?.resolved === "true" && Number(anchor.dataset.rows) > 0) for (const b of html.querySelectorAll(SEL.spellSave)) b.hidden = true;
   if (anchor?.dataset?.resolved !== "false") return;
   if (box) box.hidden = true;
   for (const b of html.querySelectorAll(SEL.spellDamage)) b.hidden = true;
@@ -193,17 +199,44 @@ function bind(message, html) {
   const card = html.querySelector(".chat-card");
   placeAreaButton(html, card, message.item);
   attackOrder(message, html);
-  // область не размещена — урон некому: «Урон» (свой и системный у заклинания) не показываем до региона (порядок: область → спасброски → урон)
-  const use = message.flags?.[MOD]?.use;
-  if (use?.rule?.onUse?.targets === "area" && !use.state?.area?.regionUuid && !use.state?.yielded) {
-    for (const b of html.querySelectorAll(SEL.spellDamage)) b.hidden = true;
-    return;
+  // порядок «область → спасброски → урон», одна кнопка в один момент. Ждём области у правила «область» и у заклинания с областью
+  // (не у предмета с @Template в тексте: там область бывает альтернативой одной цели), кроме заклинаний «1 to 3» (область — не при каждом сотворении).
+  const use = message.flags?.[MOD]?.use, item = message.item, yielded = !!use?.state?.yielded;
+  const areaRule = use?.rule?.onUse?.targets === "area" && !yielded;
+  const variable = /\d\s*(?:to|or)\s*\d/i.test(item.system?.time?.value ?? "");
+  const gated = areaRule || (!!html.querySelector(SEL.spellTemplate) && !variable && !yielded);
+  const rolls = rollsOf(message), regionUuid = use?.state?.area?.regionUuid;
+  // регион стоит сейчас — «Разместить» не нужна; удалили — кнопка возвращается (поставить заново: цели заменятся). Шаг пройден, если область
+  // ставили или по карточке уже есть броски — удаление шаблона после бросков не откатывает карточку к «Разместить»
+  const placedNow = areaRule ? !!(regionUuid && fromUuidSync(regionUuid)) : regionOf(message.id);
+  const placedEver = areaRule ? !!regionUuid : placedNow || rolls.any > 0;
+  const tpl = [...html.querySelectorAll(`${SEL.spellTemplate}, .paf-area-box`)];
+  if (placedNow) for (const b of tpl) b.hidden = true;
+  else if (tpl.length && !placedEver) {
+    const first = html.querySelector(SEL.spellSave) ?? html.querySelector(SEL.spellDamage);
+    const place = tpl[0].closest(".spell-button, .message-buttons") ?? tpl[0];
+    if (first && !place.contains(first) && first.compareDocumentPosition(place) & Node.DOCUMENT_POSITION_FOLLOWING) (first.closest(".spell-button") ?? first).before(place);
+    if (gated) {
+      for (const b of html.querySelectorAll(`${SEL.spellDamage}, ${SEL.spellSave}`)) b.hidden = true;
+      for (const a of card?.querySelectorAll(SEL.damageRoll) ?? []) if (!RECHARGE.test(a.dataset?.flavor ?? "")) dim(a, L("chat.afterArea"));   // урон — после области, ссылка не обходит порядок
+      return;
+    }
   }
+  // урон заклинания брошен — шаг пройден; кроме повторных бросков с той же карточки (поддерживаемые, атаки по нескольким целям)
+  if (item.type === "spell" && spellDamageDone({ damages: rolls.damages.length, sustained: !!item.system?.duration?.sustained, multiAttack: !!html.querySelector(ATTACK_SEL) && multiTarget(item.system?.target?.value) }))
+    for (const b of html.querySelectorAll(SEL.spellDamage)) b.hidden = true;
   if (html.querySelector(`.paf-damage-box, ${SEL.anyDamageButton}`)) return;   // своя кнопка урона у системы (заклинание) — не дублируем
   const types = new Set(Object.keys(CONFIG.PF2E?.damageTypes ?? {}));
   const typeName = (t) => game.i18n.localize(CONFIG.PF2E.damageTypes[t] ?? t).toLocaleLowerCase();
   const pers = modeOf("apply") === "off" ? () => null : (a) => { const p = persistentOf(a.dataset?.formula, types); return p && { ...p, text: `${p.formula} ${typeName(p.damageType)}` }; };   // apply off — модуль не накладывает: обычный бросок pf2e
-  const list = damageButtons([...(card?.querySelectorAll(SEL.damageRoll) ?? [])], game.i18n.localize("PF2E.DamageLabel"), skip, pers, L("chat.persistent.button"));
+  const all = damageButtons([...(card?.querySelectorAll(SEL.damageRoll) ?? [])], game.i18n.localize("PF2E.DamageLabel"), skip, pers, L("chat.persistent.button"));
+  // брошенная формула — её шаг пройден (у не-заклинаний формулы независимы: «6d8, затем 3d8 каждый ход» — прячем только брошенную)
+  const done = new Set(rolls.damages.map((m) => rolledCore(m.rolls?.[0])));
+  const isDone = (x) => !x.pers && done.has(coreFormula(x.a.dataset?.damageRoll || x.a.dataset?.formula));
+  // одна кнопка — один путь: ссылки с кнопкой гасим (клик по ссылке дал бы второй бросок / ложную связь с карточкой).
+  // html ещё не в документе (renderChatMessageHTML) — проверка по html, не isConnected
+  for (const x of all) for (const a of x.links) if (html.contains(a)) dim(a, L(isDone(x) ? "chat.damageRolled" : "chat.byButton"), true);
+  const list = all.filter((x) => !isDone(x));
   if (!list.length) return;
   const box = document.createElement("div");
   box.className = "message-buttons paf-damage-box";
@@ -219,8 +252,6 @@ function bind(message, html) {
     });
     box.append(b);
   }
-  // одна кнопка — один путь: ссылки с кнопкой гасим (клик по ссылке дал бы второй бросок / ложную связь с карточкой)
-  for (const { links } of list) for (const a of links) if (a.isConnected) dim(a, L("chat.byButton"), true);
   const anchor = html.querySelector(".pf2e-automato details.paf-challenge");
   if (anchor) { anchor.after(box); placeUnder(html, anchor); }   // блок модуля уже вставлен (шаблон в кэше): «спасброски → урон» — здесь
   else (html.querySelector(".message-buttons") ?? card).after(box);
@@ -261,12 +292,13 @@ export const multiTarget = (text) => /(\d+)\s*(?:or|или|to|до|-|–)\s*\d+/
 /** Броски этой карточки: после неё, тот же предмет (origin.uuid), до следующей карточки этого предмета. */
 function rollsOf(message) {
   const uuid = message.flags?.pf2e?.origin?.uuid, all = game.messages.contents, i = all.findIndex((m) => m.id === message.id);
-  const out = { attacks: [], damages: [] };
+  const out = { attacks: [], damages: [], any: 0 };
   if (!uuid || i < 0) return out;
   for (const m of all.slice(i + 1)) {
     if (m.flags?.pf2e?.origin?.uuid !== uuid) continue;
     const t = m.flags?.pf2e?.context?.type;
-    if (t === "spell-cast" || (!t && m.item)) break;   // следующая карточка того же заклинания — дальше чужие броски
+    if (isCard(m)) break;   // следующая карточка того же предмета — дальше чужие броски
+    if (t) out.any++;   // любой бросок по карточке: спасбросок, проверка, атака, урон
     if (t === "attack-roll") out.attacks.push(m);
     else if (t === "damage-roll") out.damages.push(m);
   }
@@ -281,15 +313,36 @@ function attackOrder(message, html) {
   if (st.hideAttack) for (const b of html.querySelectorAll(ATTACK_SEL)) b.hidden = true;
 }
 
-/** Бросок атаки/урона заклинания — перерисовать его карточку (кнопки меняются по ходу). */
+/** Карточка использования предмета (не бросок): заклинание, эффект на себя, карточка действия / расходника. */
+const isCard = (m) => { const t = m.flags?.pf2e?.context?.type; return t === "spell-cast" || t === "self-effect" || (!t && !!m.item); };
+
+const coreOne = (f) => String(f ?? "").replace(/\[[^\]]*\]/g, "").replace(/[\s{}()]/g, "").toLowerCase();
+/** Чистая: части формулы ссылки урона без типов и скобок, как множество («{6d8[fire],2d6[cold]}» -> «2d6|6d8»). */
+export const coreFormula = (f) => String(f ?? "").trim().replace(/^\{|\}$/g, "").replace(/\[[^\]]*\]/g, "").split(",").map(coreOne).filter(Boolean).sort().join("|");
+/** Чистая: то же для брошенного урона — по выражениям частей (instances[].head.expression): formula у pf2e с переведённым типом («6d8 огонь»). */
+export const rolledCore = (roll) => (roll?.instances?.length ? roll.instances.map((i) => coreOne(i.head?.expression ?? i.formula)).filter(Boolean).sort().join("|") : coreFormula(roll?.formula));
+
+/** Чистая: прятать «Урон» заклинания после броска. Не прячем, где урон с той же карточки бросают повторно: поддерживаемые заклинания
+ *  (Floating Flame, Whirlwind) и атаки по нескольким целям (урон на каждую цель). */
+export const spellDamageDone = ({ damages, sustained, multiAttack }) => damages > 0 && !sustained && !multiAttack;
+
+/** Регион pf2e, размещённый с этой карточки (flags.pf2e.messageId), есть на какой-либо сцене. */
+const regionOf = (id) => game.scenes.some((s) => s.regions.some((r) => r.flags?.pf2e?.messageId === id));
+
+/** Бросок (создан или удалён) — перерисовать его карточку (кнопки меняются по ходу): последнюю карточку того же предмета не позже броска. */
 function refreshCard(m) {
-  const t = m.flags?.pf2e?.context?.type, uuid = m.flags?.pf2e?.origin?.uuid;
-  if (!uuid || !["attack-roll", "damage-roll"].includes(t) || m.item?.type !== "spell") return;
-  const card = game.messages.contents.findLast((x) => x.id !== m.id && x.flags?.pf2e?.origin?.uuid === uuid && x.flags?.pf2e?.context?.type === "spell-cast");
+  const t = m.flags?.pf2e?.context?.type, uuid = m.flags?.pf2e?.origin?.uuid, at = m.timestamp ?? Infinity;
+  if (!uuid || !t || isCard(m)) return;
+  const card = game.messages.contents.findLast((x) => x.id !== m.id && (x.timestamp ?? 0) <= at && x.flags?.pf2e?.origin?.uuid === uuid && isCard(x));
   if (card) ui.chat?.updateMessage?.(card);
 }
 
 export function init() {
   Hooks.on("renderChatMessageHTML", bind);
   Hooks.on("createChatMessage", refreshCard);
+  Hooks.on("deleteChatMessage", refreshCard);
+  // регион с карточки предмета без правила «область» — перерисовать карточку (кнопки шага области)
+  const regionCard = (r) => { const id = r.flags?.pf2e?.messageId, m = id && game.messages.get(id); if (m) ui.chat?.updateMessage?.(m); };
+  Hooks.on("createRegion", regionCard);
+  Hooks.on("deleteRegion", regionCard);
 }

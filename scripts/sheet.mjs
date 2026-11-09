@@ -1,7 +1,7 @@
 // K6: вкладка «Автоматизация» в листе предмета (AppV1, plan.md §6). Только ГМ.
-import { MOD, L, errText, DEGREES, callGM, forcedReplace, sluggify, damageLabel } from "./util.mjs";
+import { MOD, L, errText, DEGREES, callGM, forcedReplace, sluggify, damageLabel, condValued } from "./util.mjs";
 import { S } from "./settings.mjs";
-import { validateRule, activateSpells, activateUses, resolveRule, divergedOf, slugOf, sourceOf, DAMAGE_TYPES, FAILED_CHECK, FAILED_DEGREE } from "./rules.mjs";
+import { ready as catalogReady, validateRule, activateSpells, activateUses, resolveRule, divergedOf, slugOf, sourceOf, DAMAGE_TYPES, FAILED_CHECK, FAILED_DEGREE } from "./rules.mjs";
 import { automationsGroups } from "./compat.mjs";
 import { hintsView, hintList } from "./hints.mjs";
 import { resolveDC, safeUuid, uuidLabel } from "./saves.mjs";
@@ -503,7 +503,7 @@ export async function reportEnv(item, rule, names = null) {
     t: L, dc, author, cast,
     statLabel: (s) => { const k = CONFIG.PF2E.saves?.[s] ?? CONFIG.PF2E.skills?.[s]?.label ?? CONFIG.PF2E.attributes?.[s] ?? (s === "lore" ? "PF2E.Lore" : null); return k ? game.i18n.localize(k) : s; },
     conditionLabel: (slug) => (known(slug) ? game.i18n.localize(CONFIG.PF2E.conditionTypes[slug]) : slug),
-    damageLabel, conditionKnown: known, uuidName: (uuid) => names[uuid] ?? null
+    damageLabel, valued: condValued, conditionKnown: known, uuidName: (uuid) => names[uuid] ?? null
   };
 }
 
@@ -596,6 +596,8 @@ async function inject(app, $html) {
   const nav = root.querySelector("nav.sheet-tabs .tabs"), body = root.querySelector(".sheet-body");
   if (!nav || !body || body.querySelector(`.tab.${TAB}`)) return;
 
+  await catalogReady().catch(() => {});   // сразу после загрузки мира каталог ещё грузится: без него «правила нет»
+  if (!root.isConnected || body.querySelector(`.tab.${TAB}`)) return;
   const wasActive = !!app._afTab;
   nav.addEventListener("click", (e) => { const t = e.target.closest("[data-tab]"); if (t) app._afTab = t.dataset.tab === TAB; });
   nav.insertAdjacentHTML("beforeend", `<a class="list-row" data-tab="${TAB}">${L("sheet.tab")}</a>`);

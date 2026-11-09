@@ -6,7 +6,7 @@
 // и нести варианты «Блок + трата слота» (channeling-block.mjs: кнопки с data-af-cb).
 import { L, MOD, queue, callGM } from "../util.mjs";
 import { modeOf } from "../settings.mjs";
-import { esc, whisper, cardButton, combatOf } from "./lib.mjs";
+import { esc, whisper, cardButton, combatOf, settleButtons } from "./lib.mjs";
 import { guardHints, wardShield, watchShieldDamage, damageHolderShield } from "./shield-ward.mjs";
 import * as channeling from "./channeling-block.mjs";
 import * as damageLink from "./damage-link.mjs";
@@ -194,7 +194,7 @@ export function bindBlock(message, html) {
   const h = hintOf(message), root = html instanceof HTMLElement ? html : html?.[0];
   const btns = [...(root?.querySelectorAll?.("[data-af-shield-block]") ?? [])];
   if (!h || !btns.length) return;
-  if (h.used) { btns.forEach((b) => { b.disabled = true; }); return; }
+  if (h.used) return void settleButtons(btns, "used");
   for (const btn of btns) btn.addEventListener("click", async () => {
     btns.forEach((b) => { b.disabled = true; });
     const res = await callGM("useShieldBlock", message.id, btn.dataset.afCb || null);

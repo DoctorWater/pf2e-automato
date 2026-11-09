@@ -6,7 +6,7 @@ import { modeOf, S } from "./settings.mjs";
 import { applyCondition, applyEffect, removeByKey } from "./apply.mjs";
 import { runMacros } from "./macros.mjs";
 import { resolveDC } from "./saves.mjs";
-import { emanationDefault } from "./use.mjs";
+import { excludesAuthor } from "./use.mjs";
 import { pathRects, rectOf, insideAura } from "./aura.mjs";
 import { visionActive, refreshZone, dropSource } from "./vision.mjs";
 import { gapFeet } from "./aura.mjs";
@@ -282,7 +282,7 @@ export async function attachZone(region, rule, originInfo = {}) {
         messageId: originInfo.messageId ?? "",
         triggers: trg, dcs, dc: dcs.find((x) => x != null) ?? originInfo.dc ?? null, castRank,
         enterBy: z.enterBy ?? "end", onCarrierGone: z.onCarrierGone ?? "close",
-        skipOrigin: !!trg.length && !!(rule?.onUse?.excludeSelf ?? emanationDefault(region))
+        skipOrigin: !!trg.length && excludesAuthor(rule?.onUse, region)
       }
     }]);
     // Поддержание зоны: якорь (кнопки «Поддержать»/«Развеять»); засчитанное Поддержание продлевает срок (sustained-слушатель в init)

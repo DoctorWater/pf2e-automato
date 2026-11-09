@@ -330,12 +330,12 @@ export async function bind(message, html) {
   const keys = cardMsg ? (await challengeTargets(cardMsg)).map((t) => t.key) : [];   // те же цели, что у run
   const plan = planBasicDamage(use?.state?.challenge?.results, keys, link.done, { manual: true, table: link.table });
   const lines = Object.values(link.done ?? {}).map((e) => `<div>${esc(L(...lineOf(e, e.name ?? "")))}</div>`).join("");
-  const btn = (attr, key) => `<button type="button" class="paf-primary" ${attr}>${L(key)}</button>`;
-  const acts = mode === "off" ? "" : (plan.fresh.length ? btn("data-af-basic-apply", "builtin.basicDamage.apply") : "") + (plan.changed.length ? btn("data-af-basic-redo", "builtin.basicDamage.redo") : "");
+  const btn = (attr, key, icon, main) => `<button type="button"${main ? ' class="paf-main"' : ""} ${attr}><i class="fa-solid ${icon}" inert></i>${L(key)}</button>`;
+  const acts = mode === "off" ? "" : (plan.fresh.length ? btn("data-af-basic-apply", "builtin.basicDamage.apply", "fa-heart-crack", true) : "") + (plan.changed.length ? btn("data-af-basic-redo", "builtin.basicDamage.redo", "fa-rotate", false) : "");
   if (!lines && !acts) return;
   const el = document.createElement("div");
-  el.className = "pf2e-automato";
-  el.innerHTML = `<div class="paf-note">${lines}</div>${acts ? `<div class="paf-card-actions">${acts}</div>` : ""}`;
+  el.className = "pf2e-automato paf-bd";
+  el.innerHTML = `${lines ? `<div class="paf-note">${lines}</div>` : ""}${acts ? `<div class="paf-bd-actions">${acts}</div>` : ""}`;
   el.querySelector("[data-af-basic-apply]")?.addEventListener("click", (e) => go(e, message, false));
   el.querySelector("[data-af-basic-redo]")?.addEventListener("click", (e) => go(e, message, true));
   root.querySelector(".message-content")?.append(el);

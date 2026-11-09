@@ -4,7 +4,7 @@
 import { MOD, L, errText, DEGREES, callGM, forcedReplace, forcedDelete, flagPath, damageLabel } from "../util.mjs";
 import { modeOf } from "../settings.mjs";
 import { DENY, DAMAGED_MODES, divergedHint, dropSpec, ruleToForm, formToRule, blankRow, blankEvent, blankTrigger, blankCast, blankChoice, reportEnv, pickedTokens, ruleUuids, buildReport } from "../sheet.mjs";
-import { validateRule, resolveRule, divergedOf, slugOf, sourceOf, DAMAGE_TYPES, FAILED_CHECK, FAILED_DEGREE, EVENT_ON, EVENT_SIDES, EVENT_TARGETED, EVENT_AFTER_USE, NEAR_ON, TRIGGER_ON, TRIGGER_PER, ESCAPE_STATS, REPEAT_ON, CHOICES_MIN, CHOICES_MAX } from "../rules.mjs";
+import { ready as catalogReady, validateRule, resolveRule, divergedOf, slugOf, sourceOf, DAMAGE_TYPES, FAILED_CHECK, FAILED_DEGREE, EVENT_ON, EVENT_SIDES, EVENT_TARGETED, EVENT_AFTER_USE, NEAR_ON, TRIGGER_ON, TRIGGER_PER, ESCAPE_STATS, REPEAT_ON, CHOICES_MIN, CHOICES_MAX } from "../rules.mjs";
 import { automationsGroups } from "../compat.mjs";
 import { safeUuid, uuidLabel } from "../saves.mjs";
 import * as fx from "./effect.mjs";
@@ -190,7 +190,7 @@ function afflFields(row, p, { a, env, plates }) {
       list: pr ? [{ fields: [F.text(`${S}.persistent.formula`, t("workshop.au.persFormula"), pr.formula, { ...bare, inpCls: "ws-formula", placeholder: "1d6" }), F.sel(`${S}.persistent.damageType`, t("workshop.au.persType"), pr.damageType, DAMAGE_TYPES.map((x) => [x, damageLabel(x)]), bare),
         F.num(`${S}.persistent.dc`, t("workshop.au.persDc"), pr.dc ?? "", { ...bare, min: 1, placeholder: t("workshop.au.affl.dcShort") })], rm: btn(`persOff:${st.i}`) }] : [] }, label: "" };
     const full = s.conditions.length >= af.COND_MAX;
-    const conds = { chips: { label: t("workshop.au.affl.conditions"), list: s.conditions.map((c, j) => ({ name: condLabel(c.slug), value: c.value ?? "", stepper: c.value != null || condValued(c.slug), dec: btn(`condStep:${st.i}:${j}:-1`), inc: btn(`condStep:${st.i}:${j}:1`), rm: btn(`condRm:${st.i}:${j}`) })),
+    const conds = { chips: { label: t("workshop.au.affl.conditions"), list: s.conditions.map((c, j) => ({ name: condLabel(c.slug), value: c.value ?? (condValued(c.slug) ? 1 : ""), stepper: c.value != null || condValued(c.slug), dec: btn(`condStep:${st.i}:${j}:-1`), inc: btn(`condStep:${st.i}:${j}:1`), rm: btn(`condRm:${st.i}:${j}`) })),
       add: full ? null : F.sel(`${S}.cond.add`, t("workshop.au.affl.addCond"), "", { "": t("workshop.au.affl.addCond"), ...Object.fromEntries(grantable().filter((c) => !s.conditions.some((x) => x.slug === c.slug)).map((c) => [c.slug, c.label])) }, bare) }, label: "" };
     const pseudo = s.modsRow, mods = modsField(pseudo, `${S}`, (verb, arg) => btn(`${verb}:${st.i}:${arg}`), "", t("workshop.au.affl.noMods"));
     const body = [{ pair: { label: t("workshop.au.affl.stageDur"), fields: [F.num(`${S}.duration.value`, t("workshop.au.affl.stageDur"), s.duration.value, { ...bare, min: 1, placeholder: "—" }), F.sel(`${S}.duration.unit`, t("workshop.au.unit"), s.duration.unit, units, bare)] }, label: "" },
@@ -322,7 +322,7 @@ export class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
       },
       stepVal(_e, el) {
         const row = foundry.utils.getProperty(this.#au, el.dataset.path);
-        row.value = String(Math.max(1, (Number(row.value) || 0) + Number(el.dataset.d)));
+        row.value = String(Math.max(1, (Number(row.value) || 1) + Number(el.dataset.d)));
         this.#redraw();
       },
       addMacro() { this.#au.f.macros.push({ uuid: "", phase: "onUse", degree: "" }); this.#au.open.macros = true; this.#redraw(); },
@@ -378,6 +378,7 @@ export class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
     if (!args) console.warn(`${MOD} | openWorkshop: ожидается Item, UUID или {item, mode}`, arg);
     let { item = null, mode } = args ?? {};
     if (!game.user.isGM) return ui.notifications.warn(t("workshop.gmOnly"));
+    await catalogReady().catch(() => {});   // сразу после загрузки мира каталог ещё грузится: без него «правила ещё нет»
     if (typeof item === "string") item = await safeUuid(item);
     if (item && DENY.has(item.type)) { ui.notifications.warn(t("workshop.au.denied")); item = null; }
     const app = (Workshop.#instance ??= new Workshop());
@@ -600,7 +601,7 @@ export class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
     await Promise.all(need.map(async (u) => this.#names.set(u, await uuidLabel(u))));
     const base = await reportEnv(item, rule, Object.fromEntries(this.#names));
     const area = { shape: a.area.shape, size: au.clampSize(a.area.size) };
-    const env = { ...base, uuidName: (u) => this.#names.get(u) ?? null, valued: condValued, area };
+    const env = { ...base, uuidName: (u) => this.#names.get(u) ?? null, valued: condValued, area, itemName: item?.name };
     const sums = { ...au.summaries(f, env), ...au.useSummaries(f.cast, env) }, story = au.story(f, env);
     const S = into ? au.useSummary(m, env, foundry.utils.getProperty(a, P.replace(/\.use$/, ""))) : sums;   // сводки строк «Цели / Бросок / Исход»
     const probeDc = String(a.probeDc ?? "").trim(), needDc = mode === "save" && env.dc == null;
@@ -739,7 +740,7 @@ export class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
     const casts = f.cast.map((c, i) => {
       const p = `f.cast.${i}`, sp = c.kind === "spell" || c.kind === "both", st = c.kind === "steps" || c.kind === "both";
       return {
-        i, title: `${i + 1}. ${c.label?.trim() || (sp && this.#names.get(c.spell)) || c.id?.trim() || t("workshop.au.cast.untitled")}`,
+        i, title: `${i + 1}. ${(sp && this.#names.get(c.spell)) || c.label?.trim() || c.id?.trim() || t("workshop.au.cast.untitled")}`,
         fields: [
           kindF(p, c, ["spell", "steps", "choice", "both"]),
           F.text(`${p}.label`, t("sheet.label"), c.label), F.text(`${p}.id`, t("workshop.au.cast.id"), c.id, { placeholder: "electric-arc", tip: t("workshop.au.cast.idTip") }),
@@ -755,7 +756,7 @@ export class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
         ...(c.kind === "choice" && {
           choices: c.choices.map((v, j) => {
             const q = `${p}.choices.${j}`, vs = v.kind === "spell" || v.kind === "both";
-            return { j, title: `${j + 1}. ${v.label?.trim() || (vs && this.#names.get(v.spell)) || v.id?.trim() || t("workshop.au.cast.untitled")}`, off: c.choices.length <= CHOICES_MIN,
+            return { j, title: `${j + 1}. ${(vs && this.#names.get(v.spell)) || v.label?.trim() || v.id?.trim() || t("workshop.au.cast.untitled")}`, off: c.choices.length <= CHOICES_MIN,
               fields: [kindF(q, v, ["spell", "steps", "both"]), F.text(`${q}.label`, t("sheet.label"), v.label), F.text(`${q}.id`, t("workshop.au.cast.id"), v.id, { placeholder: "cut-fear", tip: t("workshop.au.cast.idTip") }),
                 ...(vs ? [spellF(q, v)] : []), ...(v.kind !== "spell" ? [stepsF(q, v)] : []), ...rkFields(q, v, vs)] };
           }),
@@ -1040,7 +1041,7 @@ export class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
     const raw = im.ruleOf(m), v = raw && validateRule(raw);
     let sums = null;
     if (v?.ok) {
-      const s = au.summaries(ruleToForm(v.rule), { t, statLabel: (x) => x, conditionLabel: condLabel, damageLabel, uuidName: (u) => (m.effect?.uuid === u ? m.effect.name : null), valued: condValued, area: au.DEFAULT_AREA });
+      const s = au.summaries(ruleToForm(v.rule), { t, itemName: m.name, statLabel: (x) => x, conditionLabel: condLabel, damageLabel, uuidName: (u) => (m.effect?.uuid === u ? m.effect.name : null), valued: condValued, area: au.DEFAULT_AREA });
       sums = ["when", "targets", "roll", "outcome"].map((k) => ({ label: t(`workshop.au.row.${k}`), text: s[k] }));
     }
     const autoNote = type === "consumable" ? t(m.auto ? "workshop.item.autoNone" : "workshop.item.autoOff") : t(`workshop.item.autoNote.${isAbility ? "ability" : "rules"}`);

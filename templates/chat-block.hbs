@@ -23,8 +23,14 @@
       {{#if vm.zone.canClose}}<button type="button" data-action="close-zone" data-region="{{vm.zone.regionUuid}}">{{localize "PF2E_AUTOMATO.chat.closeZone"}}</button>{{/if}}</p>
     {{#if vm.zone.vis}}<p class="paf-note">{{vm.zone.vis}}</p>{{/if}}
   {{/if}}
+  {{#if vm.useApply}}
+    <p class="paf-note">{{#each vm.useApply.plan}}<span class="paf-plan">{{this}}</span>{{/each}}
+      {{#if vm.useApply.done}}<span class="paf-applied">{{vm.useApply.done}}</span>{{/if}}
+      {{#if vm.useApply.noTargets}}<span class="paf-warning">{{vm.useApply.noTargets}}</span>{{/if}}
+      {{#if vm.useApply.canApply}}<button type="button" class="paf-primary" data-action="apply-use">{{localize "PF2E_AUTOMATO.chat.applyUse"}}</button>{{/if}}</p>
+  {{/if}}
   {{#if vm.challenge}}
-    <details class="paf-challenge{{#if vm.challenge.settled}} paf-settled{{/if}}" data-resolved="{{vm.challenge.resolved}}" open>
+    <details class="paf-challenge{{#if vm.challenge.settled}} paf-settled{{/if}}" data-resolved="{{vm.challenge.resolved}}" data-rows="{{vm.challenge.rows.length}}" open>
       {{#if vm.challenge.summary}}<summary class="paf-summary">{{vm.challenge.summary}}</summary>{{/if}}
       {{#if vm.challenge.toolbelt}}<p class="paf-note">{{vm.challenge.toolbelt}}</p>{{/if}}
       {{#if vm.challenge.rows.length}}
@@ -64,12 +70,6 @@
       </div>
       {{/if}}
     </details>
-  {{/if}}
-  {{#if vm.useApply}}
-    <p class="paf-note">{{#each vm.useApply.plan}}<span class="paf-plan">{{this}}</span>{{/each}}
-      {{#if vm.useApply.done}}<span class="paf-applied">{{vm.useApply.done}}</span>{{/if}}
-      {{#if vm.useApply.noTargets}}<span class="paf-warning">{{vm.useApply.noTargets}}</span>{{/if}}
-      {{#if vm.useApply.canApply}}<button type="button" class="paf-primary" data-action="apply-use">{{localize "PF2E_AUTOMATO.chat.applyUse"}}</button>{{/if}}</p>
   {{/if}}
   {{#each vm.cast}}
     <p class="paf-note paf-cast"><button type="button" class="paf-primary" data-action="cast-item" data-cast="{{id}}" {{#if why}}disabled title="{{why}}"{{/if}}><i class="fa-solid fa-wand-sparkles"></i> {{text}}</button>

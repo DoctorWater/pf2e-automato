@@ -98,6 +98,8 @@ export const EXTERNAL = {
   selectors: {
     spellDamage: "button[data-action='spell-damage']",
     spellTemplate: "button[data-action='spell-template']",
+    spellTemplateClear: "button[data-action='spell-template-clear']",
+    spellSave: "button[data-action='spell-save']",
     effectArea: "a.effect-area[data-effect-area]",
     damageRoll: "a.inline-roll[data-damage-roll]",
     anyDamageButton: "button[data-action$='-damage']",
@@ -113,7 +115,7 @@ export const EXTERNAL = {
     tracker: { scope: "pf2e-auto-action-tracker", explicitUse: "isExplicitUse", sustain: "isSustainAutomation" }
   },
   // шаблоны pf2e, в которых обязаны быть строки (по ним строятся селекторы выше)
-  templates: [{ path: "systems/pf2e/templates/chat/spell-card.hbs", needles: ["data-action=\"spell-damage\"", "data-action=\"spell-template\""] }]
+  templates: [{ path: "systems/pf2e/templates/chat/spell-card.hbs", needles: ["data-action=\"spell-damage\"", "data-action=\"spell-template\"", "data-action=\"spell-template-clear\"", "data-action=\"spell-save\""] }]
 };
 
 const mm = (v) => String(v ?? "").split(".").slice(0, 2).join(".");

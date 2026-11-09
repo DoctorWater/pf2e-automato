@@ -2,6 +2,8 @@
   "PF2E_AUTOMATO": {
     "chat": {
       "byButton": "Roll this with the button under the card",
+      "afterArea": "Roll damage after placing the area",
+      "damageRolled": "Damage for this card has already been rolled",
       "basicUnlinked": "<p>Damage not linked: the card for “{item}” already has a damage roll ({roll}). Apply this roll by hand.</p>",
       "dealt": "The module deals this damage itself — no need to roll it by hand",
       "persistent": { "button": "Apply persistent damage", "done": "Persistent damage applied: {names}", "waiting": "No saving throw yet: {names}", "none": "No one to apply persistent damage to: no targets with a matching result (or already applied)" },

@@ -149,7 +149,11 @@ async function selfCheck() {
   if (bad.length) console.warn(`pf2e-automato | внешние точки могли разойтись с чужими версиями:\n - ${bad.join("\n - ")}`);
 }
 
-export function ready() { index = null; getIndex(); selfCheck().catch((e) => console.warn("pf2e-automato | selfCheck", e)); }
+export function ready() {
+  index = null; getIndex(); selfCheck().catch((e) => console.warn("pf2e-automato | selfCheck", e));
+  // модули несовместимы (module.json conflicts): оба включены — каждый предмет обрабатывается дважды
+  if (game.user.isGM && game.modules.get(AUTOMATIONS)?.active) ui.notifications.warn(game.i18n.localize("PF2E_AUTOMATO.builtin.automationsConflict"), { permanent: true });
+}
 
 export const automationsCovers = (o) => groupsCovering(getIndex(), o).length > 0;
 export const automationsGroups = (o) => groupsCovering(getIndex(), o);

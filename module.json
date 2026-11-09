@@ -15,8 +15,10 @@
     "recommends": [
       { "id": "lib-wrapper", "type": "module" },
       { "id": "pf2e-toolbelt", "type": "module" },
-      { "id": "pf2e-automations", "type": "module" },
       { "id": "token-action-hud-pf2e", "type": "module" }
+    ],
+    "conflicts": [
+      { "id": "pf2e-automations", "type": "module", "reason": "PF2e AuTOMATO already covers its automations; with both active, items are processed twice." }
     ]
   },
   "documentTypes": {

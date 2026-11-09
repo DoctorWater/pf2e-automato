@@ -10,6 +10,7 @@ import { modeOf } from "./settings.mjs";
 import { EXTERNAL } from "./compat.mjs";
 import { applyPersistent } from "./apply.mjs";
 import * as saves from "./saves.mjs";
+import { asking } from "./builtin/variable-cast.mjs";
 
 const SEL = EXTERNAL.selectors;
 
@@ -222,6 +223,7 @@ function bind(message, html) {
       return;
     }
   }
+  if (asking.has(message.id)) for (const b of html.querySelectorAll(SEL.spellDamage)) b.hidden = true;   // сначала число действий (variable-cast)
   // урон заклинания брошен — шаг пройден; кроме повторных бросков с той же карточки (поддерживаемые, атаки по нескольким целям)
   if (item.type === "spell" && spellDamageDone({ damages: rolls.damages.length, sustained: !!item.system?.duration?.sustained, multiAttack: !!html.querySelector(ATTACK_SEL) && multiTarget(item.system?.target?.value) }))
     for (const b of html.querySelectorAll(SEL.spellDamage)) b.hidden = true;

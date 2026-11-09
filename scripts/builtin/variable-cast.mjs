@@ -13,6 +13,10 @@ export const MISSILE_SLUGS = new Set(["force-barrage", "magic-missile"]);
 
 const CAST = "origin:action:slug:cast-a-spell";
 
+/** Сообщения, по которым в этой вкладке открыт вопрос о числе действий: «Бросить урон» pf2e до ответа скрыта (damage-button), иначе клик
+ *  бросил бы урон без числа действий. В памяти: после перезагрузки вопроса нет — кнопка снова видна. */
+export const asking = new Set();
+
 /** Чистая: сообщение сотворения (origin) переменного заклинания, число действий которого ещё спросят (use.mjs ставит state.awaitingActions). */
 export const asksActions = (origin, time) => origin?.type === "spell" && !!origin.rollOptions?.includes(CAST) && !!actionChoices(time);
 
@@ -147,11 +151,12 @@ export async function onMessage(message) {
   const release = { [flagPath("use", "state", "awaitingActions")]: false };
   const standing = () => !!game.messages.get(message.id)?.flags?.[MOD]?.use?.state?.awaitingActions;
   let spell = null, actions = 0, byVariant = false;
-  try {
+  try { try {
     spell = origin.uuid ? await fromUuid(origin.uuid) : null;
     const choices = actionChoices(spell?.system?.time?.value);
     if (!choices) return;
     if (pf2eVariants(spell)) { byVariant = true; return; }   // флаг снимет use.variantChosen по кнопке варианта pf2e
+    asking.add(message.id); ui.chat?.updateMessage?.(message);
     actions = Number((await askActions(spell.name, choices).catch(() => null))?.action);
     if (!choices.includes(actions)) { actions = 0; return; }
     if (game.messages.get(message.id)?.flags?.[MOD]?.cast?.actions) { actions = 0; return; }   // другая вкладка того же игрока уже выбрала (и сняла флаг)
@@ -163,5 +168,8 @@ export async function onMessage(message) {
   } finally {
     if (!byVariant && standing()) await message.update(release);
   }
-  if (actions && MISSILE_SLUGS.has(spell.slug)) await rollMissiles(message, spell, actions);
+  if (actions && MISSILE_SLUGS.has(spell.slug)) await rollMissiles(message, spell, actions);   // кнопка скрыта и на время распределения снарядов
+  } finally {   // удалённое сообщение не перерисовывать: ChatLog вставил бы его заново
+    if (asking.delete(message.id) && game.messages.get(message.id)) ui.chat?.updateMessage?.(message);
+  }
 }

@@ -566,3 +566,45 @@ test("openWorkshop: голый Item, UUID, {item, mode}; простой объе
   assert.equal(au.openArgs({ item: { system: {} } }), null);
   assert.equal(au.openArgs(42), null);
 });
+
+test("degPath от корня P; resetCast гасит переход внутрь и ключи cast.*", () => {
+  assert.equal(au.degPath("save"), "f.ch.deg");
+  assert.equal(au.degPath("check", "f.cast.1.choices.0.use"), "f.cast.1.choices.0.use.ck.deg");
+  const a = { sel: "f.cast.0.use.apply.0", picker: "x", card: "y", stage: 2, into: "f.cast.0.use", open: { cast: true, roll: true } };
+  au.resetCast(a);
+  assert.deepEqual(a, { sel: null, picker: null, card: null, stage: null, into: null, open: { cast: true, roll: true } });
+});
+
+test("ROLL_RE: корень f или шаги активации/варианта; ck.roll и чужие пути не ловит", () => {
+  const hit = (p) => au.ROLL_RE.exec(p)?.[1];
+  assert.equal(hit("f.roll"), "f");
+  assert.equal(hit("f.cast.3.use.roll"), "f.cast.3.use");
+  assert.equal(hit("f.cast.3.choices.1.use.roll"), "f.cast.3.choices.1.use");
+  for (const p of ["f.ck.roll", "f.cast.0.use.ck.roll", "f.cast.0.roll", "f.ev.0.roll", "roll", "f.cast.0.use.roll.x"]) assert.equal(hit(p), undefined, p);
+});
+
+test("zoneNote: зона включена, а цель не «Область» — предупреждение; иначе нет", () => {
+  assert.deepEqual(au.zoneNote({ zone: { on: true }, targets: "selected" }, t), { note: "workshop.au.zoneNeedArea" });
+  assert.equal(au.zoneNote({ zone: { on: true }, targets: "area" }, t), null);
+  assert.equal(au.zoneNote({ zone: { on: false }, targets: "self" }, t), null);
+});
+
+test("сводка активации: без своего СЛ — СЛ записи, со своим числом — оно", () => {
+  const f = ruleToForm(validateRule({ v: 1, activate: [{ id: "s", label: "S", dc: { level: "high" }, onUse: { targets: "selected", challenge: { statistic: "fortitude", byDegree: {} } } }] }).rule);
+  const c = f.cast[0];
+  assert.match(au.useSummary(c.use, env, c).roll, /"dc":"workshop\.au\.dcCast\.high"/);   // без слова «СЛ»: его пишет сама сводка
+  c.dcType = "value"; c.dc = "18";
+  assert.match(au.useSummary(c.use, env, c).roll, /"dc":"18"/);
+  c.use.ch.dcText = "31";
+  assert.match(au.useSummary(c.use, env, c).roll, /31/);
+});
+
+test("сводка активации: цели · бросок · исход, без СЛ правила; хвост «шагов: N» в строке записи", () => {
+  const f = ruleToForm(validateRule({ v: 1, activate: [{ id: "s", label: "S", onUse: { targets: "selected", challenge: { statistic: "fortitude", dc: { value: 27 }, byDegree: { failure: [{ to: "target", condition: { slug: "sickened", value: 1 } }] } }, apply: [{ to: "self", condition: { slug: "prone" } }] } }] }).rule);
+  const s = au.useSummary(f.cast[0].use, { ...env, dc: 99 });
+  assert.match(s.roll, /27/);
+  assert.doesNotMatch(s.roll, /99/);
+  assert.match(s.outcome, /failure/);
+  assert.deepEqual(Object.keys(au.useSummaries(f.cast, env)), ["cast.0"]);
+  assert.match(au.castLine(f.cast[0], env).body, /au\.cast\.stepsN\{"n":2\}/);
+});

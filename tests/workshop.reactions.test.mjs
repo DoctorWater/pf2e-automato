@@ -97,3 +97,21 @@ test("как читается: типы урона и статистика не 
   assert.match(mixed, /react\.if/);
   assert.doesNotMatch(mixed, /dmg:acid/);
 });
+
+for (const kind of ["onDamaged", "onFailed"]) {
+  test(`${kind}: notify — флажки owner/gm, круг по трём значениям, оба сняты — react.notify`, () => {
+    for (const n of [["owner", "gm"], ["gm"], ["owner"]]) {
+      const src = rx({ v: 1, [kind]: { who: "self", notify: n } }), f = ruleToForm(src), d = kind === "onDamaged" ? f.dm : f.fl;
+      assert.deepEqual(d.notify, { owner: n.includes("owner"), gm: n.includes("gm") });
+      assert.deepEqual(rx(formToRule(f)), src);
+    }
+    const f = ruleToForm(rx({ v: 1, [kind]: { who: "self" } })), d = kind === "onDamaged" ? f.dm : f.fl;
+    assert.deepEqual(rx(formToRule(f))[kind].notify, ["owner", "gm"]);
+    Object.assign(d.notify, { owner: "false", gm: false });   // из DOM могут прийти строки
+    assert.equal(validateRule(formToRule(f)).errors.some((e) => JSON.stringify(e).includes("react.notify")), true);
+    Object.assign(d.notify, { owner: "true", gm: "false" });
+    assert.deepEqual(rx(formToRule(f))[kind].notify, ["owner"]);
+    d.notify = ["gm"];   // старая форма с массивом
+    assert.deepEqual(rx(formToRule(f))[kind].notify, ["gm"]);
+  });
+}

@@ -190,9 +190,8 @@ const trgForm = (t) => ({ on: t.on, per: t.per ?? "", apply: (t.apply ?? []).map
 const trgRule = (t) => ({ on: t.on, ...(t.per && { per: t.per }), ...((t.apply ?? []).length && { apply: t.apply.map(applyOf).filter(Boolean) }), ...(t.ch?.on && { challenge: chRule(t.ch) }) });
 
 // cast (plan-cast-activation.md, plan-activate.md §8): активации <-> форма; поля строками, пустое — «не задано».
-// kind: spell | steps | both (заклинание + шаги) | choice; onUse — JSON-строка (v1), choices — варианты той же формы без частоты/требования.
-const J = (v) => (v == null ? "" : JSON.stringify(v, (_k, x) => x ?? undefined));   // валидатор достраивает null-ключи — в строку их не несём
-const unJ = (s) => { const x = String(s ?? "").trim(); if (!x) return undefined; try { return JSON.parse(x); } catch { return x; } };   // битый JSON уходит в валидатор строкой
+// kind: spell | steps | both (заклинание + шаги) | choice; шаги — модель use (цели, бросок, исход как у onUse правила), choices — варианты той же формы без частоты/требования.
+const noNull = (v) => JSON.parse(JSON.stringify(v, (_k, x) => x ?? undefined));   // валидатор достраивает null-ключи — в правило их не несём
 const kindOf = (c) => (c.choices ? "choice" : c.spell != null && c.onUse ? "both" : c.onUse ? "steps" : "spell");
 // ранг и СЛ — общие у записи и варианта
 const rkForm = (c) => ({
@@ -211,15 +210,29 @@ function rkRule(c, withSpell) {
 }
 const usesSpell = (c) => c.kind === "spell" || c.kind === "both";
 const usesSteps = (c) => c.kind === "steps" || c.kind === "both";
-export const blankChoice = () => ({ id: "", label: "", kind: "spell", spell: "", onUse: "", ...rkForm({}) });
-export const blankCast = () => ({ id: "", kind: "spell", spell: "", onUse: "", choices: [], ...rkForm({}), attack: "", counteract: "", perValue: "", perUses: "", perUnit: "days", requires: "auto", label: "", note: "" });
-const choiceForm = (v) => ({ id: v.id, label: v.label ?? "", kind: kindOf(v), spell: v.spell ?? "", onUse: J(v.onUse), ...rkForm(v) });
-const choiceRule = (v) => ({ ...(v.id?.trim() && { id: v.id.trim() }), ...(v.label?.trim() && { label: v.label.trim() }), ...(usesSpell(v) && String(v.spell ?? "").trim() && { spell: String(v.spell).trim() }), ...(usesSteps(v) && unJ(v.onUse) !== undefined && { onUse: unJ(v.onUse) }), ...rkRule(v, usesSpell(v)) });
-const castForm = (c) => ({ id: c.id, kind: kindOf(c), spell: c.spell ?? "", onUse: J(c.onUse), choices: (c.choices ?? []).map(choiceForm), ...rkForm(c), attack: c.attack ?? "", counteract: c.counteract ?? "", perValue: c.per?.value ?? "", perUses: c.per?.uses ?? "", perUnit: c.per?.unit ?? "days", requires: c.requires ?? "auto", label: c.label ?? "", note: c.note ?? "" });
+/** Шаги активации (onUse записи/варианта) <-> модель use: выборка из формы основного onUse; зона едет как есть (UI у неё нет). */
+const USE_KEYS = ["targets", "excludeSelf", "pulse", "range", "zone", "ch", "ck", "apply"];
+export const blankUse = () => ({ ...useForm(null), targets: "selected" });
+function useForm(u) {
+  const f = ruleToForm(u && typeof u === "object" ? { v: 1, onUse: u } : null);
+  return Object.fromEntries(USE_KEYS.map((k) => [k, f[k]]));
+}
+/** use -> onUse активации; undefined, когда нет ни шагов, ни броска, ни зоны (тогда castRule не пишет onUse и валидатор говорит activate.kind). */
+export function useRule(use) {
+  if (!use || !(use.apply?.length || use.ch?.on || use.ck?.on || (use.targets === "area" && use.zone?.on))) return undefined;
+  const u = noNull(formToRule({ kind: "onUse", ...use, macros: [] }).onUse);
+  if (u.challenge?.dc && u.challenge.dc.value === undefined) delete u.challenge.dc;   // пусто: СЛ записи (иначе activate.dcForm)
+  return u;
+}
+export const blankChoice = () => ({ id: "", label: "", kind: "spell", spell: "", use: blankUse(), ...rkForm({}) });
+export const blankCast = () => ({ id: "", kind: "spell", spell: "", use: blankUse(), choices: [], ...rkForm({}), attack: "", counteract: "", perValue: "", perUses: "", perUnit: "days", requires: "auto", label: "", note: "" });
+const choiceForm = (v) => ({ id: v.id, label: v.label ?? "", kind: kindOf(v), spell: v.spell ?? "", use: useForm(v.onUse), ...rkForm(v) });
+const choiceRule = (v) => ({ ...(v.id?.trim() && { id: v.id.trim() }), ...(v.label?.trim() && { label: v.label.trim() }), ...(usesSpell(v) && String(v.spell ?? "").trim() && { spell: String(v.spell).trim() }), ...(usesSteps(v) && useRule(v.use) !== undefined && { onUse: useRule(v.use) }), ...rkRule(v, usesSpell(v)) });
+const castForm = (c) => ({ id: c.id, kind: kindOf(c), spell: c.spell ?? "", use: useForm(c.onUse), choices: (c.choices ?? []).map(choiceForm), ...rkForm(c), attack: c.attack ?? "", counteract: c.counteract ?? "", perValue: c.per?.value ?? "", perUses: c.per?.uses ?? "", perUnit: c.per?.unit ?? "days", requires: c.requires ?? "auto", label: c.label ?? "", note: c.note ?? "" });
 function castRule(c) {
   const attack = num(c.attack), counteract = num(c.counteract), pv = num(c.perValue), pu = num(c.perUses), kind = c.kind ?? "spell";
   return {
-    ...(c.id?.trim() && { id: c.id.trim() }), ...(usesSpell(c) && String(c.spell ?? "").trim() && { spell: String(c.spell).trim() }), ...(usesSteps(c) && unJ(c.onUse) !== undefined && { onUse: unJ(c.onUse) }),
+    ...(c.id?.trim() && { id: c.id.trim() }), ...(usesSpell(c) && String(c.spell ?? "").trim() && { spell: String(c.spell).trim() }), ...(usesSteps(c) && useRule(c.use) !== undefined && { onUse: useRule(c.use) }),
     ...(kind === "choice" && { choices: (c.choices ?? []).map(choiceRule) }), ...rkRule(c, usesSpell(c)),
     ...(usesSpell(c) && attack !== undefined && { attack }), ...(usesSpell(c) && counteract !== undefined && { counteract }),
     ...(pv !== undefined && { per: { value: pv, unit: c.perUnit, ...(pu !== undefined && { uses: pu }) } }),
@@ -230,6 +243,10 @@ function castRule(c) {
 /** Форма вкладки листа + то, что на вкладке не правится и едет как было (иначе сохранение потеряет: флаг перекрывает каталог). f — ruleToForm исходного правила. */
 export const carryUneditable = (form, f) => ({ ...form, ev: f.ev, cast: f.cast, pulse: f.pulse, range: f.range, dm: form.dm && { ...form.dm, notify: f.dm.notify }, fl: form.fl && { ...form.fl, notify: f.fl.notify } });
 
+/** notify реакции: массив правила <-> флажки {owner, gm}; пустой выбор уходит валидатору (react.notify). */
+const notifyForm = (n = ["owner", "gm"]) => ({ owner: n.includes("owner"), gm: n.includes("gm") });
+const notifyRule = (n) => (Array.isArray(n) ? n : ["owner", "gm"].filter((k) => n[k] === true || n[k] === "true"));
+
 export const DAMAGED_MODES = ["none", "reduce", "halve", "resist", "redirect"];
 const dmForm = (d) => {
   const x = d?.damage ?? {};
@@ -237,12 +254,12 @@ const dmForm = (d) => {
     who: d?.who ?? "self", range: d?.range ?? "", withSelf: !!d?.withSelf, when: whenText(d?.when), requires: d?.requires ?? "",
     mode: x.reduce != null ? "reduce" : x.halve ? "halve" : x.resist ? "resist" : x.redirect ? "redirect" : "none",
     reduce: x.reduce ?? "", resist: x.resist?.length ? x.resist.map((r) => ({ type: r.type, value: r.value })) : [{ type: "triggering", value: "" }], part: x.part ?? "all",
-    triggerOnly: !!d?.triggerOnly, hp: d?.cost?.hp ?? "", notify: d?.notify ?? ["owner", "gm"]   // notify в интерфейсе не показывается: едет как было
+    triggerOnly: !!d?.triggerOnly, hp: d?.cost?.hp ?? "", notify: notifyForm(d?.notify)
   };
 };
 const flForm = (d) => ({
   who: d?.who ?? "self", range: d?.range ?? "", withSelf: !!d?.withSelf, check: Object.fromEntries([...(d?.check ?? FAILED_CHECK), ...FAILED_CHECK].map((c) => [c, (d?.check ?? FAILED_CHECK).includes(c)])),   // порядок как в правиле
-  degree: d?.degree ?? "fail", when: whenText(d?.when), requires: d?.requires ?? "", keep: d?.keep ?? "new", notify: d?.notify ?? ["owner", "gm"]
+  degree: d?.degree ?? "fail", when: whenText(d?.when), requires: d?.requires ?? "", keep: d?.keep ?? "new", notify: notifyForm(d?.notify)
 });
 const trim = (s) => String(s ?? "").trim();
 function dmRule(d) {
@@ -252,14 +269,14 @@ function dmRule(d) {
   return {
     who: d.who, ...(ally && r !== undefined && { range: r }), ...(ally && d.withSelf && { withSelf: true }),
     ...(parseWhen(d.when) !== undefined && { when: parseWhen(d.when) }), ...(trim(d.requires) && { requires: trim(d.requires) }),
-    ...(dmg && { damage: dmg }), ...(d.triggerOnly && { triggerOnly: true }), ...(trim(d.hp) && { cost: { hp: trim(d.hp) } }), ...(d.notify && { notify: d.notify })
+    ...(dmg && { damage: dmg }), ...(d.triggerOnly && { triggerOnly: true }), ...(trim(d.hp) && { cost: { hp: trim(d.hp) } }), ...(d.notify && { notify: notifyRule(d.notify) })
   };
 }
 function flRule(d) {
   const other = d.who !== "self", r = num(d.range);
   return {
     who: d.who, ...(other && r !== undefined && { range: r }), ...(other && d.withSelf && { withSelf: true }), check: Object.keys(d.check ?? {}).filter((c) => d.check[c] === true || d.check[c] === "true"),
-    degree: d.degree, ...(parseWhen(d.when) !== undefined && { when: parseWhen(d.when) }), ...(trim(d.requires) && { requires: trim(d.requires) }), keep: d.keep, ...(d.notify && { notify: d.notify })
+    degree: d.degree, ...(parseWhen(d.when) !== undefined && { when: parseWhen(d.when) }), ...(trim(d.requires) && { requires: trim(d.requires) }), keep: d.keep, ...(d.notify && { notify: notifyRule(d.notify) })
   };
 }
 

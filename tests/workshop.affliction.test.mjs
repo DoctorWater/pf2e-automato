@@ -261,7 +261,7 @@ test("каталог и черновики: форма -> правило без 
     for (const row of rows(f)) {
       const d = defOf(row), x = af.afflView(f, row, env, 0);
       const same = [["name", x.name], ["kind", x.kind], ["save.statistic", x.statistic], ["save.dc", x.dc], ["maxDuration.value", x.maxDuration.value],
-        ["onset.value", x.onset.value], ["virulent", x.virulent], ["stage", x.stage]];   // единица без значения — не «пустая правка» (ставит значение 1), её не трогаем
+        ["onset.value", x.onset.value], ["virulent", x.virulent], ["stage", x.stage], ["traits", x.traits]];   // единица без значения — не «пустая правка» (ставит значение 1), её не трогаем
       for (const k of ["maxDuration", "onset"]) if (x[k].value !== "") same.push([`${k}.unit`, x[k].unit]);
       d.stages.forEach((s, i) => {
         same.push([`s.${i}.duration.value`, s.duration?.value ?? ""], [`s.${i}.text`, s.text ?? ""]);
@@ -292,4 +292,37 @@ test("заметка недуга: поле правки, общая для ша
   af.afflSet(f, a, "note", "");
   assert.equal("note" in defOf(a), false);
   assert.equal(af.afflView(f, a, env).note, "");
+});
+
+test("черты недуга: общие для группы, регистр приводится, пусто убирает ключ, «Отделить» разводит, не-slug — afflict.def", () => {
+  const f = form(def({ traits: ["poison"] })), [a, b] = rows(f);
+  assert.equal(af.afflView(f, a, env).traits, "poison");
+  af.afflSet(f, a, "traits", "Mental, MENTAL,  inhaled ,");
+  assert.deepEqual(defOf(b).traits, ["mental", "inhaled"]);
+  assert.equal(af.afflView(f, b, env).traits, "mental, inhaled");
+  assert.deepEqual(rt(f).rule.onUse.challenge.byDegree.failure[0].affliction.def.traits, ["mental", "inhaled"]);
+  af.afflOp(f, b, "split");
+  af.afflSet(f, b, "traits", "olfactory");
+  assert.deepEqual(defOf(a).traits, ["mental", "inhaled"]);
+  af.afflSet(f, a, "traits", "");
+  assert.equal("traits" in defOf(a), false);
+  assert.equal(af.afflView(f, a, env).traits, "");
+  af.afflSet(f, b, "traits", "poi son");
+  assert.equal(rt(f).ok, false);
+  assert.ok(rt(f).errors.some((e) => e.code === "afflict.def" || String(e).includes("afflict.def") || JSON.stringify(e).includes("afflict.def")));
+});
+
+test("недуг в шагах активации: группа, stepRows и подпись «активация N»", () => {
+  const d = def(), act = (id) => ({ id, label: id, onUse: { targets: "selected", challenge: { statistic: "fortitude", dc: { value: 20 }, rollerRole: "target", byDegree: { failure: [{ to: "target", affliction: { stage: 1, def: d } }] } }, apply: [] } });
+  const vr = validateRule({ v: 1, activate: [act("a"), { id: "c", label: "C", choices: [{ id: "x", label: "X", onUse: act("x").onUse }, { id: "y", spell: "Compendium.pf2e.spells-srd.Item.arc" }] }] });
+  assert.deepEqual(vr.errors, []);
+  const f = ruleToForm(vr.rule);
+  const paths = af.stepRows(f).filter(([, r]) => r.kind === "affliction").map(([p]) => p);
+  assert.deepEqual(paths, ["cast.0.use.ch.deg.failure.0", "cast.1.choices.0.use.ch.deg.failure.0"]);
+  const [r0] = af.stepRows(f).find(([p]) => p === paths[0]).slice(1);
+  assert.deepEqual(af.sharedPaths(f, r0), paths);
+  assert.equal(af.stepLabel(paths[0], t), `sheet.degree.failure (workshop.au.affl.inCast${JSON.stringify({ n: 1, m: NaN })})`);
+  assert.equal(af.stepLabel(paths[1], t), `sheet.degree.failure (workshop.au.affl.inCastChoice${JSON.stringify({ n: 2, m: 1 })})`);
+  af.afflSet(f, r0, "note", "x");
+  assert.equal(validateRule(formToRule(f)).rule.activate[1].choices[0].onUse.challenge.byDegree.failure[0].affliction.def.note, "x");
 });

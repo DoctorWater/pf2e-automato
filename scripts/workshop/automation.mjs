@@ -20,8 +20,21 @@ const num = (v) => { const s = String(v ?? "").trim().replace(",", "."); return 
 
 export const rollMode = (f) => (f.ch?.on ? "save" : f.ck?.on ? "check" : "none");
 export function setRollMode(f, mode) { f.ch.on = mode === "save"; f.ck.on = mode === "check"; }
-/** Путь (от корня состояния окна, где форма лежит в `f`) к спискам шагов по степеням. */
-export const degPath = (mode) => (mode === "save" ? "f.ch.deg" : "f.ck.deg");
+/** Путь (от корня состояния окна) к спискам шагов по степеням; P — корень строк «Цели / Бросок / Исход»: `f` или шаги активации `f.cast.N[.choices.M].use`. */
+export const degPath = (mode, P = "f") => `${P}.${mode === "save" ? "ch" : "ck"}.deg`;
+
+/** Выход из режима «внутри» активации и сброс всего, что указывало в шаги: после удаления записи/варианта пути сдвигаются. */
+export const resetCast = (a) => Object.assign(a, { sel: null, picker: null, card: null, stage: null, into: null });
+
+/** Корень пути строк «Цели / Бросок / Исход»: правило (`f`) или шаги активации (`f.cast.N[.choices.M].use`). */
+export const ROOT = String.raw`f(?:\.cast\.\d+(?:\.choices\.\d+)?\.use)?`;
+/** Путь поля «Кто бросает»: не ловит `…ck.roll` (у проверки своё поле roll). */
+export const ROLL_RE = new RegExp(String.raw`^(${ROOT})\.roll$`);
+
+/** Предупреждение у строки «Цели»: зона пишется в правило только при цели «Область». */
+export const zoneNote = (m, t) => (m.zone?.on && m.targets !== "area" ? { note: t("workshop.au.zoneNeedArea") } : null);
+
+const stepCount = (u) => (u.apply?.length ?? 0) + (u.ch?.on || u.ck?.on ? COLS.reduce((n, d) => n + ((u.ch?.on ? u.ch : u.ck).deg?.[d]?.length ?? 0), 0) : 0);
 
 /* ---------- форма/размер области <-> system.area заклинания и @Template в описании ---------- */
 
@@ -349,15 +362,32 @@ export function evLine(e, env) {
   };
 }
 /** Одна активация cast (форма) -> строка: заклинание · ранг · СЛ · частота · требование. */
+export const castDc = (c, t) => (c.dcType === "high" ? t("workshop.au.cast.dcHigh") : c.dcType === "class" ? t("workshop.au.cast.dc.class") : c.dcType === "value" ? t("chat.dc", { dc: String(c.dc ?? "").trim() || "?" }) : t("workshop.au.cast.dcAuto"));
 export function castLine(c, env) {
-  const { t } = env, dc = String(c.dc ?? "").trim(), pv = num(c.perValue);
+  const { t } = env, pv = num(c.perValue);
   return {
     head: String(c.label ?? "").trim() || env.uuidName(c.spell) || String(c.spell ?? "").trim() || String(c.id ?? "").trim() || "?",
     body: [c.kind && c.kind !== "spell" && (c.kind === "choice" ? t("workshop.au.cast.choiceCount", { n: (c.choices ?? []).length }) : t(`workshop.au.cast.kind.${c.kind}`)),
       c.kind !== "choice" && c.kind !== "steps" && (c.rankMode?.startsWith("half-") ? t(`workshop.au.cast.rankMode.${c.rankMode}`) : num(c.rank) !== null && c.rankMode !== "base" && t("cast.rank", { rank: num(c.rank) })),
-      c.dcType === "high" ? t("workshop.au.cast.dcHigh") : c.dcType === "class" ? t("workshop.au.cast.dc.class") : c.dcType === "value" ? t("chat.dc", { dc: dc || "?" }) : t("workshop.au.cast.dcAuto"),
+      castDc(c, t),
+      (c.kind === "steps" || c.kind === "both") && c.use && t("workshop.au.cast.stepsN", { n: stepCount(c.use) }),
       pv !== null && perText({ value: pv, unit: c.perUnit, uses: num(c.perUses) ?? 1 }, t), c.requires !== "auto" && t(`workshop.au.cast.req.${c.requires}`)].filter(Boolean).join(" · ")
   };
+}
+
+/** Сводка шагов активации (модель use): цели, бросок, исход. Без области и макросов; СЛ правила в сводку не подмешиваем (dc: null). */
+export function useSummary(u, env, c) {
+  const own = String(u.ch?.dcText ?? "").trim() !== "";   // своё число в испытании — его и показываем, иначе СЛ записи активации (c)
+  // СЛ записи без слова «СЛ»: сводка испытания сама пишет «СЛ {dc}»
+  const dc = !c ? null : c.dcType === "value" ? String(c.dc ?? "").trim() || "?" : env.t(`workshop.au.dcCast.${["high", "class"].includes(c.dcType) ? c.dcType : "auto"}`);
+  const s = summaries({ kind: "onUse", yield: "auto", label: "", ...u, ev: [], cast: [], macros: [] }, { ...env, dc: own ? null : dc });
+  return { targets: u.targets === "area" ? env.t("workshop.au.targetsBtn.area") : s.targets, roll: s.roll, outcome: s.outcome };
+}
+/** Сводки всех записей и вариантов: { "cast.N": текст, "cast.N.choices.M": текст } для строк «Активации». */
+export function useSummaries(casts, env) {
+  const out = {}, one = (key, c) => { if (c.kind === "steps" || c.kind === "both") { const s = useSummary(c.use, env, c); out[key] = [s.targets, s.roll, s.outcome].join(" · "); } };
+  (casts ?? []).forEach((c, i) => { one(`cast.${i}`, c); if (c.kind === "choice") c.choices.forEach((v, j) => one(`cast.${i}.choices.${j}`, v)); });
+  return out;
 }
 const castSummary = (f, env) => ((f.cast ?? []).length ? f.cast.map((c) => { const l = castLine(c, env); return `${l.head}: ${l.body}`; }).join(" · ") : env.t("workshop.au.cast.none"));
 

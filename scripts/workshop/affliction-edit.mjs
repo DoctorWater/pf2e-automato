@@ -28,7 +28,7 @@ const put = (row, x) => { row.text = JSON.stringify(x); };
 
 /**
  * Строки шагов правила с путями от корня формы: [[путь, строка]] — только те, что попадут в правило
- * (apply/испытание/проверка/зона — у onUse; испытание и проверка по своим флажкам; события всегда, их испытание по флажку; триггеры — у зоны области).
+ * (apply/испытание/проверка/зона — у onUse; испытание и проверка по своим флажкам; события всегда, их испытание по флажку; триггеры — у зоны области; шаги активаций — у записей «шаги»/«оба» и их вариантов).
  */
 export function stepRows(f) {
   const out = [], add = (path, rows) => (rows ?? []).forEach((r, i) => { out.push([`${path}.${i}`, r]); if (r.kind === "coat" && r.coat) degs(`${path}.${i}.coat.ch`, r.coat.ch); });   // шаг coat несёт своё испытание: его степени — тоже шаги правила
@@ -40,6 +40,8 @@ export function stepRows(f) {
     if (f.targets === "area" && f.zone?.on) (f.zone.trig ?? []).forEach((e, i) => { add(`zone.trig.${i}.apply`, e.apply); if (e.ch?.on) degs(`zone.trig.${i}.ch`, e.ch); });
   }
   (f.ev ?? []).forEach((e, i) => { add(`ev.${i}.apply`, e.apply); if (e.ch?.on) degs(`ev.${i}.ch`, e.ch); });
+  const use = (p, c) => { if (c.kind !== "steps" && c.kind !== "both") return; add(`${p}.use.apply`, c.use.apply); if (c.use.ch?.on) degs(`${p}.use.ch`, c.use.ch); if (c.use.ck?.on) degs(`${p}.use.ck`, c.use.ck); };   // шаги активаций (запись и варианты «выбора»)
+  (f.cast ?? []).forEach((c, i) => { use(`cast.${i}`, c); if (c.kind === "choice") (c.choices ?? []).forEach((v, j) => use(`cast.${i}.choices.${j}`, v)); });
   return out;
 }
 const afflRows = (f) => stepRows(f).filter(([, r]) => r.kind === "affliction");
@@ -71,8 +73,8 @@ export function sharedPaths(f, row) {
 /** Подпись шага для шапки «общее для шагов»: степень испытания/проверки, «сразу», событие, триггер. t — L(). */
 export function stepLabel(path, t) {
   const deg = /(?:^|\.)(?:ch|ck)\.deg\.(\w+)\.\d+$/.exec(path)?.[1];
-  const ev = /^ev\.(\d+)\./.exec(path)?.[1], trg = /^zone\.trig\.(\d+)\./.exec(path)?.[1];
-  const where = /\.coat\./.test(path) ? t("workshop.au.coat.inCoat") : ev !== undefined ? t("workshop.au.affl.inEvent", { n: Number(ev) + 1 }) : trg !== undefined ? t("workshop.au.affl.inTrigger", { n: Number(trg) + 1 }) : "";
+  const ev = /^ev\.(\d+)\./.exec(path)?.[1], trg = /^zone\.trig\.(\d+)\./.exec(path)?.[1], cast = /^cast\.(\d+)(?:\.choices\.(\d+))?\./.exec(path);
+  const where = /\.coat\./.test(path) ? t("workshop.au.coat.inCoat") : ev !== undefined ? t("workshop.au.affl.inEvent", { n: Number(ev) + 1 }) : trg !== undefined ? t("workshop.au.affl.inTrigger", { n: Number(trg) + 1 }) : cast ? t(cast[2] !== undefined ? "workshop.au.affl.inCastChoice" : "workshop.au.affl.inCast", { n: Number(cast[1]) + 1, m: Number(cast[2]) + 1 }) : "";
   const what = deg ? t(`sheet.degree.${deg}`) : t("workshop.au.immediate");
   return where ? `${what} (${where})` : what;
 }
@@ -148,6 +150,7 @@ export function afflSet(f, row, name, v, opts = {}) {
     else if (a === "kind") def.kind = v;
     else if (a === "virulent") def.virulent = !!v;
     else if (a === "note") { const s = String(v ?? "").trim(); if (s) def.note = s; else delete def.note; }
+    else if (a === "traits") { const l = [...new Set(String(v ?? "").split(",").map((x) => x.trim().toLowerCase()).filter(Boolean))]; if (l.length) def.traits = l; else delete def.traits; }
     else if (a === "save") { def.save = { ...def.save }; if (b === "dc") opt(def.save, "dc", v); else def.save[b] = v; }
     else if (a === "maxDuration" || a === "onset") durSet(def, a, b, v, units);
     else if (a === "s" && def.stages[Number(b)]) {
@@ -222,7 +225,7 @@ export function afflView(f, row, env, open = null) {
     modsRow: stageModsRow(s)
   });
   return {
-    name: def.name ?? "", kind: def.kind, statistic: def.save?.statistic, dc: def.save?.dc ?? "", maxDuration: durView(def.maxDuration, u.maxDuration), onset: durView(def.onset, u.onset), virulent: !!def.virulent, note: def.note ?? "",
+    name: def.name ?? "", kind: def.kind, statistic: def.save?.statistic, dc: def.save?.dc ?? "", maxDuration: durView(def.maxDuration, u.maxDuration), onset: durView(def.onset, u.onset), virulent: !!def.virulent, note: def.note ?? "", traits: (def.traits ?? []).join(", "),
     stage, n, shared: sharedPaths(f, row),
     stages: def.stages.map((s, i) => ({ i, line: stageLine(s, env), open: i === o, ...(i === o && { s: view(s, i) }) })),
     canAdd: n < MAX_STAGES, canRm: n > 1

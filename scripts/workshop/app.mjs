@@ -9,6 +9,7 @@ import { automationsGroups } from "../compat.mjs";
 import { safeUuid, uuidLabel } from "../saves.mjs";
 import * as fx from "./effect.mjs";
 import * as au from "./automation.mjs";
+import { F, fieldKit } from "./fields.mjs";
 import * as af from "./affliction-edit.mjs";
 import * as im from "./item.mjs";
 import { BUILTIN } from "../builtin/index.mjs";
@@ -21,7 +22,6 @@ const ICONS = { bonus: "plus-minus", resist: "shield-halved", temphp: "heart", f
 const t = (key, data) => L(key, data);
 const choices = (list, prefix) => Object.fromEntries(list.map((k) => [k, t(`workshop.${prefix}.${k}`)]));
 const picks = (list, prefix, cur) => list.map((v) => ({ value: v, label: t(`workshop.${prefix}.${v}`), on: v === cur }));
-const sheetChoices = (prefix, list) => Object.fromEntries(list.map((k) => [k, t(`sheet.${prefix}.${k}`)]));
 
 /** Состояния pf2e: slug -> UUID компендиума берём в рантайме у ConditionManager (id в коде не зашиты). */
 const conditions = () => game.pf2e.ConditionManager.conditions;
@@ -47,23 +47,9 @@ const workshopFolder = async (kind) => findFolder(kind) ?? await Folder.create({
 
 /* ---------- поля режима «Автоматизация»: описатели для шаблона (одна разметка на все виды) ---------- */
 
-const withCur = (opts, cur) => {
-  const list = Array.isArray(opts) ? opts : Object.entries(opts);
-  const out = list.map(([value, label]) => ({ value, label }));
-  return cur === undefined || cur === null || out.some((o) => String(o.value) === String(cur)) ? out : [...out, { value: cur, label: String(cur) }];
-};
-const F = {
-  seg: (path, label, cur, opts, extra = {}) => ({ path, label, ...extra, seg: opts.map(([value, l]) => ({ value, label: l, on: String(cur) === value })) }),
-  num: (path, label, value, extra = {}) => ({ path, label, type: "number", value, inpCls: "ws-num", ...extra }),
-  text: (path, label, value, extra = {}) => ({ path, label, type: "text", value, ...extra }),
-  sel: (path, label, value, opts, extra = {}) => ({ path, label, value, options: withCur(opts, value), ...extra }),
-  chk: (path, label, value, extra = {}) => ({ path, label, check: true, value, ...extra })
-};
+const { sheetChoices, chWhen, immFields, rollFieldsOf } = fieldKit(t);
 const TRI = ["auto", "yes", "no"];
 const triSeg = (path, label, cur) => F.seg(path, label, cur, TRI.map((k) => [k, t(`workshop.au.tri.${k}`)]));
-
-/** Условие испытания (предикат pf2e по целям): испытание проводится только для подходящих. */
-const chWhen = (p, c) => F.text(`${p}.when`, t("workshop.au.chWhen"), c.when, { cls: "ws-full", placeholder: "target:trait:undead", hint: t("workshop.au.chWhenHint") });
 
 /** Мультивыбор сегментами: obj — {ключ: bool} по пути path; каждая кнопка переключает свой ключ. */
 const multiSeg = (path, label, obj, keys, text) => ({ path, label, seg: keys.map((k) => ({ value: k, label: text(k), on: obj[k] === true || obj[k] === "true", path: `${path}.${k}` })) });
@@ -89,18 +75,9 @@ function reactFields(f) {
     if (d.mode === "redirect") out.push(F.seg(`${p}.part`, R("part"), d.part, [["all", R("partAll")], ["half", R("partHalf")]]));
     out.push(F.text(`${p}.hp`, R("cost"), d.hp, { inpCls: "ws-num", placeholder: "—" }), F.chk(`${p}.triggerOnly`, R("triggerOnly"), d.triggerOnly, { tip: R("triggerOnlyTip") }));
   }
+  out.push(F.chk(`${p}.notify.owner`, R("notifyOwner"), d.notify.owner, { tip: R("notifyTip") + (f.kind === "onFailed" ? ` ${R("notifyTipFailed")}` : "") }), F.chk(`${p}.notify.gm`, R("notifyGm"), d.notify.gm));
   return out;
 }
-
-/** Невосприимчивость после действия (испытание и проверка): p — путь модели (f.ch.imm | f.ck.imm), m — её значение. */
-const immFields = (p, m) => [
-  F.chk(`${p}.on`, t("workshop.au.immunity"), m.on),
-  ...(m.on ? [
-    F.text(`${p}.slug`, t("workshop.au.immSlug"), m.slug), F.text(`${p}.label`, t("sheet.label"), m.label), F.text(`${p}.uuid`, "UUID", m.uuid, { drop: "effect" }),
-    F.num(`${p}.value`, t("sheet.duration"), m.value, { min: 1 }), F.sel(`${p}.unit`, t("workshop.au.unit"), m.unit, sheetChoices("unit", ["minutes", "hours", "days"])),
-    ...DEGREES.map((d) => F.chk(`${p}.deg.${d}`, t(`workshop.au.immOn.${d}`), m.deg[d])), F.chk(`${p}.any`, t("workshop.au.immAny"), m.any)
-  ] : [])
-];
 
 /** Вид «яд на оружие» — только шаг onUse.apply верхнего уровня и один на правило (иначе coat.place); уже выбранный остаётся. */
 const coatOk = (row, p, f) => row.kind === "coat" || (p.startsWith("f.apply.") && !p.slice(8).includes(".") && !f.apply.some((r) => r.kind === "coat"));
@@ -197,6 +174,7 @@ function afflFields(row, p, { a, env, plates }) {
     F.sel(`${A}.save.statistic`, t("workshop.au.affl.save"), v.statistic, sheetChoices("stat", af.AFFLICTION_SAVES)),
     F.num(`${A}.save.dc`, t("workshop.au.affl.dc"), v.dc, { min: 1, tip: t("workshop.au.affl.dcTip") }),
     dur("maxDuration", v.maxDuration, t("workshop.au.affl.max")), dur("onset", v.onset, t("workshop.au.affl.onset")),
+    F.text(`${A}.traits`, t("workshop.au.affl.traits"), v.traits, { cls: "ws-full", tip: t("workshop.au.affl.traitsTip") }),
     F.text(`${A}.note`, t("workshop.au.affl.note"), v.note, { cls: "ws-full", tip: t("workshop.au.affl.noteTip") }),
     F.chk(`${A}.virulent`, t("workshop.au.affl.virulent"), v.virulent, { tip: t("workshop.au.affl.virulentTip") }),
     F.sel(`${A}.stage`, t("workshop.au.affl.stage"), v.stage, Object.fromEntries(Array.from({ length: v.n }, (_, i) => [i + 1, String(i + 1)])), { tip: t("workshop.au.affl.stageTip") })
@@ -351,8 +329,10 @@ export class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
       addEvent() { this.#au.f.ev.push(blankEvent()); this.#au.open.events = true; this.#au.sel = null; this.#redraw(); },
       addCast() { this.#au.f.cast.push(blankCast()); this.#au.open.cast = true; this.#redraw(); },
       addChoice(_e, el) { this.#au.f.cast[Number(el.dataset.i)].choices.push(blankChoice()); this.#redraw(); },
-      removeChoice(_e, el) { this.#au.f.cast[Number(el.dataset.i)].choices.splice(Number(el.dataset.j), 1); this.#redraw(); },
-      removeCast(_e, el) { this.#au.f.cast.splice(Number(el.dataset.i), 1); this.#redraw(); },
+      removeChoice(_e, el) { this.#au.f.cast[Number(el.dataset.i)].choices.splice(Number(el.dataset.j), 1); au.resetCast(this.#au); this.#redraw(); },
+      removeCast(_e, el) { this.#au.f.cast.splice(Number(el.dataset.i), 1); au.resetCast(this.#au); this.#redraw(); },
+      intoUse(_e, el) { const a = this.#au; au.resetCast(a); a.into = el.dataset.into; a.open.outcome = true; this.#redraw(); },
+      intoBack() { au.resetCast(this.#au); this.#redraw(); },
       removeEvent(_e, el) { this.#au.f.ev.splice(Number(el.dataset.i), 1); this.#au.sel = null; this.#redraw(); },
       addTrigger() { this.#au.f.zone.trig.push(blankTrigger()); this.#au.sel = null; this.#redraw(); },
       removeTrigger(_e, el) { this.#au.f.zone.trig.splice(Number(el.dataset.i), 1); this.#au.sel = null; this.#redraw(); },
@@ -437,7 +417,7 @@ export class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
     if (!res) f.kind = "onUse";
     const area = au.initialArea({ isSpell: item.type === "spell", area: item._source.system.area, description: item._source.system.description?.value });
     const hints = res?.source === "markup" && game.user.isGM ? hintsView(res.hints, { condLabel, degLabel: (d) => t(`sheet.degree.${d}`).toLowerCase() }) : null;
-    this.#au = { hints, f, base: JSON.stringify(f), area, baseArea: { ...area }, open: prev?.open ?? { when: false, targets: false, roll: true, outcome: true, zone: false, macros: false, events: true, cast: true }, sel: prev?.sel ?? null, picker: null, card: null, probeDc: prev?.probeDc ?? "" };
+    this.#au = { hints, f, base: JSON.stringify(f), area, baseArea: { ...area }, open: prev?.open ?? { when: false, targets: false, roll: true, outcome: true, zone: false, macros: false, events: true, cast: true }, sel: prev?.sel ?? null, picker: null, card: null, into: prev?.into ?? null, probeDc: prev?.probeDc ?? "" };
   }
 
   #dirty() {
@@ -450,10 +430,12 @@ export class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
   /** Записать значение поля: путь — от состояния окна (`f.ch.statistic`, `area.size`), особые пути — со связанными правками. */
   #setAuto(path, v) {
     const a = this.#au, f = a.f;
-    if (path === "roll") {
-      au.setRollMode(f, v);
-      if (v === "save" && f.ch.dcType === "value" && !String(f.ch.dcText ?? "").trim() && this.#item.type === "spell") f.ch.dcType = "source";   // как разбор разметки: СЛ заклинателя
-      if (v === "check" && f.targets === "self") f.targets = "selected";   // проверка автора против защиты цели: цель — не он сам
+    const roll = path === "roll" ? "f" : au.ROLL_RE.exec(path)?.[1];   // «Кто бросает»: корень — правило или шаги активации
+    if (roll) {
+      const m = foundry.utils.getProperty(a, roll);
+      au.setRollMode(m, v);
+      if (roll === "f" && v === "save" && m.ch.dcType === "value" && !String(m.ch.dcText ?? "").trim() && this.#item.type === "spell") m.ch.dcType = "source";   // как разбор разметки: СЛ заклинателя (в активации СЛ — только число)
+      if (v === "check" && m.targets === "self") m.targets = "selected";   // проверка автора против защиты цели: цель — не он сам
       a.sel = null;
       return;
     }
@@ -462,8 +444,8 @@ export class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
     // поля, которых нет в строке формы как есть: «Дополнительно» (row.keep), свойства эффекта и варианты выбора (JSON в row.text), источник эффекта, вид макроса
     const sub = [[/^(.*?)\.affl\.(.+)$/, (r, n, x) => af.afflSet(f, r, n, x, { valued: condValued })], [/^(.*)\.keep\.(.+)$/, au.keepEdit], [/^(.*)\.mods\.(\d+\.\w+)$/, (r, n, x) => { const [i, field] = n.split("."); au.modSet(r, Number(i), field, x); }], [/^(.*)\.choose\.(.+)$/, au.chooseSet], [/^(.*)\.src$/, (r, _n, x) => au.setEffectSource(r, x)]];   // недуг: правка определения уходит во все шаги его группы (сессионной)
     for (const [re, fn] of sub) { const hit = re.exec(path); if (hit) return fn(foundry.utils.getProperty(a, hit[1]), hit[2], v); }
-    const ck = /^(f\.cast\.\d+)\.kind$/.exec(path);   // «Выбор» стартует с минимума вариантов
-    if (ck) { const c = foundry.utils.getProperty(a, ck[1]); c.kind = v; while (v === "choice" && c.choices.length < CHOICES_MIN) c.choices.push(blankChoice()); return; }
+    const ck = /^(f\.cast\.\d+(?:\.choices\.\d+)?)\.kind$/.exec(path);   // «Выбор» стартует с минимума вариантов
+    if (ck) { const c = foundry.utils.getProperty(a, ck[1]); c.kind = v; au.resetCast(a); while (v === "choice" && c.choices.length < CHOICES_MIN) c.choices.push(blankChoice()); return; }
     const mac = /^f\.macros\.(\d+)\.form$/.exec(path);
     if (mac) return au.macroSetForm(f.macros[Number(mac[1])], v);
     const m = /^(.*)\.(kind|text)$/.exec(path);
@@ -472,19 +454,21 @@ export class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
       if (m[2] === "kind") { au.setStepKind(row, v); if (v === "affliction") af.afflInit(row, f); }
       else au.setStepText(row, v, row.kind === "condition" && condValued(v));
     } else foundry.utils.setProperty(a, path, v);
-    if (path === "f.targets" && v === "self") a.sel = null;
+    if (new RegExp(String.raw`^${au.ROOT}\.targets$`).test(path) && v === "self") a.sel = null;
     // событие без цели (ход, эффект, урон по носителю): сторона «цель броска» невозможна — вернуть «владелец»
     const ev = /^(f\.ev\.\d+)\.on$/.exec(path);
     if (ev) { const e = foundry.utils.getProperty(a, ev[1]); if (e.side === "target" && !EVENT_TARGETED.has(v)) e.side = "self"; if (!EVENT_AFTER_USE.has(v)) e.afterUse = false; if (v === "enter") e.side = "near"; else if (e.side === "near" && !NEAR_ON.includes(v)) e.side = "self"; }
     const sd = /^(f\.ev\.\d+)\.side$/.exec(path);   // скрытый флажок «после использования» не должен давать ошибку валидации
     if (sd) { const e = foundry.utils.getProperty(a, sd[1]); if (v !== "self") e.afterUse = false; }
     // проверка без цели бросается на себя; вернули цель — «на выбранных»
-    if (path === "f.ck.vsType") { if (v === "none") { f.targets = "self"; f.ck.imm.on = false; } else if (f.targets === "self") f.targets = "selected"; }
+    const vs = new RegExp(String.raw`^(${au.ROOT})\.ck\.vsType$`).exec(path)?.[1];
+    if (vs) { const m = foundry.utils.getProperty(a, vs); if (v === "none") { m.targets = "self"; m.ck.imm.on = false; } else if (m.targets === "self") m.targets = "selected"; }
   }
 
   #addStep(list, { kind, text }) {
     // шаг записи события — по умолчанию владельцу; шаги по степеням её испытания — тому, кто бросает
-    const a = this.#au, rows = foundry.utils.getProperty(a, list), row = { ...blankRow(), kind, text, to: /^f\.ev\.\d+\.apply$/.test(list) || (a.f.targets === "self" && !/\.coat\.ch\.deg\./.test(list)) ? "self" : "target" };   // степени испытания яда — цели, даже когда у предмета targets: self
+    const a = this.#au, rows = foundry.utils.getProperty(a, list), root = foundry.utils.getProperty(a, /^(f\.cast\.\d+(?:\.choices\.\d+)?\.use)\./.exec(list)?.[1] ?? "f");   // шаги активации — по цели активации, остальные — по цели правила
+    const row = { ...blankRow(), kind, text, to: /^f\.ev\.\d+\.apply$/.test(list) || (root.targets === "self" && !/\.coat\.ch\.deg\./.test(list)) ? "self" : "target" };   // степени испытания яда — цели, даже когда у предмета targets: self
     if (kind === "condition" && condValued(text)) row.value = "1";
     if (kind === "persistent" || kind === "damage") row.text = "1d6";
     if (kind === "move") Object.assign(row, { text: "10", to: "target" });
@@ -597,13 +581,16 @@ export class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
   /** Контекст режима «Автоматизация»: плашки, поля строк, сводки, правая панель, подвал. */
   async #autoCtx() {
     const a = this.#au, item = this.#item, f = a.f, mode = au.rollMode(f);
+    if (a.into && !foundry.utils.getProperty(a, a.into)) a.into = null;
+    const P = a.into ?? "f", into = P !== "f", m = into ? foundry.utils.getProperty(a, P) : f, rmode = au.rollMode(m);   // m — корень строк «Цели / Бросок / Исход»: правило или шаги активации
     const raw = formToRule(f), v = validateRule(raw), rule = v.ok ? v.rule : raw;
     const need = this.#typing ? [] : ruleUuids(raw).filter((u) => !this.#names.has(u));
     await Promise.all(need.map(async (u) => this.#names.set(u, await uuidLabel(u))));
     const base = await reportEnv(item, rule, Object.fromEntries(this.#names));
     const area = { shape: a.area.shape, size: au.clampSize(a.area.size) };
     const env = { ...base, uuidName: (u) => this.#names.get(u) ?? null, valued: condValued, area };
-    const sums = au.summaries(f, env), story = au.story(f, env);
+    const sums = { ...au.summaries(f, env), ...au.useSummaries(f.cast, env) }, story = au.story(f, env);
+    const S = into ? au.useSummary(m, env, foundry.utils.getProperty(a, P.replace(/\.use$/, ""))) : sums;   // сводки строк «Цели / Бросок / Исход»
     const probeDc = String(a.probeDc ?? "").trim(), needDc = mode === "save" && env.dc == null;
     const penv = needDc && probeDc !== "" && Number.isFinite(Number(probeDc)) ? { ...env, dc: Number(probeDc) } : env;   // СЛ только для пробы, в правило не пишется
     const res = resolveRule(item), slug = res?.slug ?? slugOf(null, item), sourceUuid = res?.sourceUuid ?? sourceOf(null, item);
@@ -622,11 +609,11 @@ export class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
     const okGhost = new Set(grantable().map((c) => c.slug));
     const lst = (path, label, deg = "", hints = true) => {   // hints: false — без призрачных подсказок основного испытания (колонки яда)
       const steps = stepsOf(path), have = new Set((foundry.utils.getProperty(a, path) ?? []).filter((r) => r.kind === "condition").map((r) => r.text));
-      const ghosts = hints && deg && a.hints ? a.hints.possible.filter((h) => h.deg === deg && okGhost.has(h.slug) && !have.has(h.slug)).map((h) => ({ slug: h.slug, timed: h.timed, text: t("workshop.au.hintPossible", { name: h.label }), tip: t(h.timed ? "workshop.au.hintTimedTip" : "workshop.au.hintPossibleTip", { name: h.label }) })) : [];
+      const ghosts = hints && deg && a.hints && !into ? a.hints.possible.filter((h) => h.deg === deg && okGhost.has(h.slug) && !have.has(h.slug)).map((h) => ({ slug: h.slug, timed: h.timed, text: t("workshop.au.hintPossible", { name: h.label }), tip: t(h.timed ? "workshop.au.hintTimedTip" : "workshop.au.hintPossibleTip", { name: h.label }) })) : [];
       return { list: path, label, deg, steps, ghosts, picker: a.picker === path, coat: path === "f.apply" && !a.f.apply.some((r) => r.kind === "coat") };   // coat — только в onUse.apply
     };
     let edit = null;
-    if (a.sel) {
+    if (a.sel && (into ? a.sel.startsWith(`${P}.`) : !a.sel.startsWith("f.cast."))) {   // редактор шага — только своего корня
       const row = foundry.utils.getProperty(a, a.sel);
       if (row) edit = { path: a.sel, title: au.plateText(au.plate(row, env)), fields: stepFields(row, a.sel, this.#names, a.card, { a, env: { t, damageLabel, conditionLabel: condLabel }, plates, lst }), back: coatBack(a.sel) };
       else a.sel = null;
@@ -644,11 +631,13 @@ export class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
     );
 
     const shapes = Object.fromEntries([...au.SHAPES, a.area.shape].map((s) => [s, t(`workshop.au.shape.${s}`)]));
-    const targetFields = [F.seg("f.targets", t("workshop.au.whoLabel"), f.targets, ["self", "selected", "area"].map((k) => [k, t(`workshop.au.targetsBtn.${k}`)]))];
-    if (f.targets === "area") targetFields.push(
-      F.seg("area.shape", t("workshop.au.shapeLabel"), a.area.shape, Object.entries(shapes)), F.num("area.size", t("workshop.au.sizeLabel"), a.area.size, { min: 5, step: 5 }),
-      triSeg("f.excludeSelf", t("workshop.au.authorIn"), f.excludeSelf)
+    const targetFields = [F.seg(`${P}.targets`, t("workshop.au.whoLabel"), m.targets, ["self", "selected", "area"].map((k) => [k, t(`workshop.au.targetsBtn.${k}`)]))];
+    if (m.targets === "area") targetFields.push(
+      ...(into ? [{ note: t("workshop.au.cast.areaFromDesc") }] : [F.seg("area.shape", t("workshop.au.shapeLabel"), a.area.shape, Object.entries(shapes)), F.num("area.size", t("workshop.au.sizeLabel"), a.area.size, { min: 5, step: 5 })]),
+      triSeg(`${P}.excludeSelf`, t("workshop.au.authorIn"), m.excludeSelf)
     );
+    const zn = au.zoneNote(m, t);   // zone пишется только при цели «Область»: без слова она бы пропала
+    if (zn) targetFields.push(zn);
     const isSpell = item.type === "spell", html = item._source.system.description?.value, have = au.parseTemplate(html), tag = au.templateTag(area.shape, area.size);
     const same = have && have.shape === area.shape && have.size === area.size, unparsed = au.templateState(html) === "unparsed";
     const areaNote = f.targets !== "area" ? null : {
@@ -656,27 +645,7 @@ export class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
       insert: !isSpell && !same && !unparsed, locked: !item.isOwner || !!item.compendium?.locked
     };
 
-    const rollFields = [F.seg("roll", t("workshop.au.whoRolls"), mode, ["save", "check", "none"].map((k) => [k, t(`workshop.au.rollBtn.${k}`)]))];
-    if (mode === "save") {
-      const c = f.ch;
-      rollFields.push(
-        F.text("f.ch.statistic", t("sheet.statistic"), c.statistic, { list: "ws-skills" }), F.sel("f.ch.dcType", t("sheet.dcLabel"), c.dcType, sheetChoices("dc", ["value", "expr", "markup", "source", "against"]))
-      );
-      if (["value", "expr", "against"].includes(c.dcType)) rollFields.push(F.text("f.ch.dcText", t("workshop.au.dcValue"), c.dcText, { inpCls: "ws-num" }));
-      rollFields.push(F.chk("f.ch.basic", t("sheet.basic"), c.basic), F.text("f.ch.traits", t("sheet.traits"), c.traits), F.text("f.ch.options", t("sheet.options"), c.options), chWhen("f.ch", c), ...immFields("f.ch.imm", c.imm));
-    } else if (mode === "check") {
-      const k = f.ck, defs = sheetChoices("stat", ["fortitude", "reflex", "will", "perception"]);
-      rollFields.push(
-        F.text("f.ck.statistic", t("workshop.au.checkStat"), k.statistic, { list: "ws-skills", placeholder: "athletics, acrobatics" }), F.sel("f.ck.vsType", t("sheet.vsLabel"), k.vsType, sheetChoices("vs", ["defense", "dc", "against", "none"]))
-      );
-      if (k.vsType === "none") { /* СЛ задаёт система: поля защиты нет */ }
-      else if (k.vsType === "defense") rollFields.push(F.sel("f.ck.vsText", t("workshop.au.vsWhat"), k.vsText, { ac: t("checks.ac"), ...defs }));
-      else rollFields.push(F.text("f.ck.vsText", t("workshop.au.vsWhat"), k.vsText, { inpCls: "ws-num" }));
-      rollFields.push(
-        F.sel("f.ck.map", t("sheet.map"), k.map, [["", "—"], ["0", "0"], ["1", "1"], ["2", "2"]]), F.text("f.ck.traits", t("sheet.traits"), k.traits), F.text("f.ck.options", t("sheet.options"), k.options),
-        chWhen("f.ck", k), ...(k.vsType === "none" ? [] : [F.chk("f.ck.one", t("sheet.oneRoll"), k.one), ...immFields("f.ck.imm", k.imm)])
-      );
-    }
+    const rollFields = [F.seg(into ? `${P}.roll` : "roll", t("workshop.au.whoRolls"), rmode, ["save", "check", "none"].map((k) => [k, t(`workshop.au.rollBtn.${k}`)])), ...rollFieldsOf(P, m, { mode: rmode, activation: into })];
 
     const allConds = Object.keys(CONFIG.PF2E.conditionTypes ?? {}).map((s) => [s, condLabel(s)]).sort((x, y) => x[1].localeCompare(y[1]));
     const z = f.zone, zoneFields = f.targets !== "area" ? [] : [F.chk("f.zone.on", t("sheet.zoneOn"), z.on)];
@@ -698,13 +667,7 @@ export class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
           F.sel(`${p}.on`, t("workshop.au.trg.onLabel"), e.on, choices(TRIGGER_ON, "au.trg.on")),
           F.sel(`${p}.per`, t("workshop.au.trg.perLabel"), e.per, { "": t("workshop.au.trg.perNone"), ...choices(TRIGGER_PER, "au.trg.per") }),
           F.chk(`${p}.ch.on`, t("workshop.au.trg.challenge"), c.on),
-          ...(c.on ? [
-            F.text(`${p}.ch.statistic`, t("sheet.statistic"), c.statistic, { list: "ws-skills" }), F.sel(`${p}.ch.dcType`, t("sheet.dcLabel"), c.dcType, sheetChoices("dc", ["value", "expr", "markup", "source", "against"])),
-            ...(["value", "expr", "against"].includes(c.dcType) ? [F.text(`${p}.ch.dcText`, t("workshop.au.dcValue"), c.dcText, { inpCls: "ws-num" })] : []),
-            F.chk(`${p}.ch.basic`, t("sheet.basic"), c.basic),
-            F.text(`${p}.ch.traits`, t("sheet.traits"), c.traits), F.text(`${p}.ch.options`, t("sheet.options"), c.options), chWhen(`${p}.ch`, c),
-            ...immFields(`${p}.ch.imm`, c.imm)
-          ] : [])
+          ...(c.on ? rollFieldsOf(p, e, { mode: "save" }) : [])
         ],
         apply: lst(`${p}.apply`, t("workshop.au.trg.apply")),
         cols: c.on ? au.COLS.map((d) => lst(`${p}.ch.deg.${d}`, t(`sheet.degree.${d}`), d)) : null
@@ -739,13 +702,7 @@ export class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
           ...(e.cost ? [F.text(`${p}.free`, t("workshop.au.ev.free"), e.free, { placeholder: "skill:intimidation:rank:4", hint: t("workshop.au.ev.freeHint") })] : []),
           ...(EVENT_AFTER_USE.has(e.on) && e.side === "self" ? [F.chk(`${p}.afterUse`, t("workshop.au.ev.afterUse"), e.afterUse)] : []),
           F.chk(`${p}.ch.on`, t("workshop.au.ev.challenge"), c.on),
-          ...(c.on ? [
-            F.text(`${p}.ch.statistic`, t("sheet.statistic"), c.statistic, { list: "ws-skills" }), F.sel(`${p}.ch.dcType`, t("sheet.dcLabel"), c.dcType, sheetChoices("dc", ["value", "expr", "markup", "source", "against"])),
-            ...(["value", "expr", "against"].includes(c.dcType) ? [F.text(`${p}.ch.dcText`, t("workshop.au.dcValue"), c.dcText, { inpCls: "ws-num" })] : []),
-            F.chk(`${p}.ch.basic`, t("sheet.basic"), c.basic),
-            F.text(`${p}.ch.traits`, t("sheet.traits"), c.traits), F.text(`${p}.ch.options`, t("sheet.options"), c.options), chWhen(`${p}.ch`, c),
-            ...immFields(`${p}.ch.imm`, c.imm)
-          ] : [])
+          ...(c.on ? rollFieldsOf(p, e, { mode: "save" }) : [])
         ],
         apply: lst(`${p}.apply`, t("workshop.au.ev.apply")),
         cols: c.on ? au.COLS.map((d) => lst(`${p}.ch.deg.${d}`, t(`sheet.degree.${d}`), d)) : null
@@ -754,7 +711,7 @@ export class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
 
     // активации: вид (заклинание / свои шаги / выбор / заклинание + шаги), ранг, СЛ, частота, требование к предмету
     const spellF = (p, o) => F.text(`${p}.spell`, t("workshop.au.cast.spell"), o.spell, { drop: "spell", cls: "ws-spell", hint: this.#names.get(o.spell) ?? "", placeholder: "Compendium.pf2e.spells-srd.Item.…" });
-    const stepsF = (p, o) => F.text(`${p}.onUse`, t("workshop.au.cast.onUse"), o.onUse, { cls: "ws-full", area: true, inpCls: "ws-mono", hint: t("workshop.au.cast.onUseHint"), placeholder: '{"targets":"selected","apply":[…]}' });
+    const stepsF = (p, o) => ({ steps: { key: `${p.slice(2)}`, sum: sums[p.slice(2)], into: `${p}.use`, btn: t("workshop.au.cast.steps") }, label: t("workshop.au.cast.stepsLabel") });   // сводка шагов и вход «внутрь»
     const rkFields = (p, o, spell) => [
       ...(spell ? [F.sel(`${p}.rankMode`, t("workshop.au.cast.rank"), o.rankMode, choices(["base", "value", "half-actor", "half-item"], "au.cast.rankMode")),
         ...(o.rankMode === "value" ? [F.num(`${p}.rank`, t("workshop.au.cast.rankValue"), o.rank, { min: 1, max: 10 })] : []),
@@ -795,20 +752,21 @@ export class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
       };
     });
 
-    const onUse = f.kind === "onUse" || au.isReaction(f), R = (key, o) => ({ key, label: t(`workshop.au.row.${key}`), fold: true, open: !!a.open[key], sum: sums[key], hot: key === "outcome", ...o });
-    const rows = [
+    const onUse = f.kind === "onUse" || au.isReaction(f), R = (key, o) => ({ key, label: t(`workshop.au.row.${key}`), fold: true, open: !!a.open[key], sum: S[key], hot: key === "outcome", ...o });
+    const outcome = R("outcome", { is_outcome: true, hintExcluded: !into && a.hints?.excluded.length ? t("workshop.au.hintExcluded", { list: hintList(a.hints.excluded) }) : null, cols: rmode === "none" ? null : au.COLS.map((d) => lst(`${au.degPath(rmode, P)}.${d}`, t(`sheet.degree.${d}`), d)), imm: ((l) => ({ ...l, quiet: rmode !== "none" && !l.steps.length && !l.picker }))(lst(`${P}.apply`, t(rmode === "none" ? "workshop.au.immediate" : "workshop.au.immediateExtra"))), edit: evSel || trgSel ? null : edit });
+    const rows = into ? [R("targets", { fields: targetFields }), R("roll", { fields: rollFields }), outcome] : [
       R("when", { fields: whenFields }),
       ...(f.kind === "onEvent" || f.ev.length ? [R("events", { is_events: true, evs, hot: true, edit: evSel ? edit : null })] : []),
       ...(f.kind === "cast" || f.cast.length ? [R("cast", { is_cast: true, casts, hot: true })] : []),
       ...(onUse ? [
         ...(au.isReaction(f) ? [] : [R("targets", { fields: targetFields, area: areaNote })]),   // у реакции цель подставляет механизм; onUse.targets в правиле остаётся как есть
         R("roll", { fields: rollFields }),
-        R("outcome", { is_outcome: true, hintExcluded: a.hints?.excluded.length ? t("workshop.au.hintExcluded", { list: hintList(a.hints.excluded) }) : null, cols: mode === "none" ? null : au.COLS.map((d) => lst(`${au.degPath(mode)}.${d}`, t(`sheet.degree.${d}`), d)), imm: ((l) => ({ ...l, quiet: mode !== "none" && !l.steps.length && !l.picker }))(lst("f.apply", t(mode === "none" ? "workshop.au.immediate" : "workshop.au.immediateExtra"))), edit: evSel || trgSel ? null : edit }),
+        outcome,
         R("zone", { fold: f.targets === "area", fields: zoneFields, ...(f.targets === "area" && z.on && { is_trig: true, trgs, edit: trgSel ? edit : null }) })
       ] : []),
       R("macros", { is_macros: true, macros })
     ];
-    this.#live = { sums, plates };
+    this.#live = { sums: { ...sums, ...(into ? S : {}) }, plates };
 
     // правая панель: связный текст, строка про режим применения, пробный запуск
     const tokens = pickedTokens();
@@ -832,12 +790,19 @@ export class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
         src: { ...(res ? { label: t(`sheet.src.${res.source}`), low: res.confidence === "low", canAccept: res.source !== "flag", locked: lockedFlag } : { label: t("workshop.au.noRule") }), diverged: divergedHint(res?.diverged ?? divergedOf(item)) }
       },
       skills: [...sheetStat, ...Object.keys(CONFIG.PF2E.skills ?? {})], conds: grantable().map((c) => ({ ...c, q: c.label.toLowerCase() })),
-      rows, doubleWarn: !!groups.length && (f.yield === "no" || (f.yield === "auto" && !setting)) ? t("sheet.doubleWarn") + ` «${groups.join(", ")}»` : "",
+      rows, into: into ? this.#intoView(P) : null, doubleWarn: !!groups.length && (f.yield === "no" || (f.yield === "auto" && !setting)) ? t("sheet.doubleWarn") + ` «${groups.join(", ")}»` : "",
       probeMsg: t(onUse ? "workshop.au.probeBlocked" : "workshop.au.probeOnlyUse"), story, applyNote: onUse ? t(`workshop.au.applyMode.${modeOf("apply")}`) : "", probe,
       errors, error: errors[0] ? errors[0] + (errors.length > 1 ? ` ${t("workshop.err.more", { n: errors.length - 1 })}` : "") : "",
       dirty, status: t(dirty ? "workshop.au.dirty" : res?.source === "flag" ? "workshop.au.savedState" : "workshop.au.notInItem"),
       lockedFlag, noSource: !sourceUuid, noSlug: !slug, isWorld: res?.source === "world", canUnset: res?.source === "flag" && !lockedFlag
     };
+  }
+
+  /** Заголовок режима «внутри»: номер активации (и варианта), название заклинания из документа; label каталога не показываем. */
+  #intoView(P) {
+    const [, n, m] = /^f\.cast\.(\d+)(?:\.choices\.(\d+))?\.use$/.exec(P), e = foundry.utils.getProperty(this.#au, P.replace(/\.use$/, ""));
+    const name = e.kind === "both" ? this.#names.get(e.spell) : null;
+    return { back: t("workshop.au.cast.back"), title: [t("workshop.au.cast.useTitle", { n: Number(n) + 1 }), name, m !== undefined && t("workshop.au.cast.useVariant", { n: Number(m) + 1 })].filter(Boolean).join(" · ") };
   }
 
   /** Сводки и плашки на месте: ввод текста не перерисовывает поля (иначе теряется фокус). */
@@ -921,9 +886,9 @@ export class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
     }
     const field = ev.target.closest("[data-drop=effect], [data-drop=condition], [data-drop=spell]");
     if (field && spec.kind === field.dataset.drop) { this.#setAuto(field.dataset.a, spec.text); return this.#redraw(); }
-    if (spec.kind === "spell") { a.f.cast.push({ ...blankCast(), spell: spec.text }); a.open.cast = true; return this.#redraw(); }   // заклинание мимо поля — новая активация
+    if (spec.kind === "spell") { au.resetCast(a); a.f.cast.push({ ...blankCast(), spell: spec.text }); a.open.cast = true; return this.#redraw(); }   // заклинание мимо поля — новая активация
     if (spec.kind === "condition" && (!conditions().has(spec.text) || NOT_GRANTABLE.has(spec.text))) return ui.notifications.warn(t("workshop.dropBad"));
-    const list = ev.target.closest(".ws-dcol, .ws-dimm")?.querySelector("[data-list]")?.dataset.list ?? (au.rollMode(a.f) === "none" && (a.f.kind === "onUse" || au.isReaction(a.f)) ? "f.apply" : null);
+    const list = ev.target.closest("[data-list]")?.dataset.list ?? ev.target.closest(".ws-dcol, .ws-dimm")?.querySelector("[data-list]")?.dataset.list ?? null;
     if (!list) return ui.notifications.warn(t("workshop.au.dropColumn"));
     this.#addStep(list, spec);
   }

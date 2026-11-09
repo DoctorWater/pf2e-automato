@@ -90,6 +90,10 @@
   {{/each}}
   <div class="ws-adds"><button type="button" class="ws-add" data-action="rowOp" data-path="{{opts.add.path}}" data-op="{{opts.add.op}}" name="addOpt-{{opts.add.path}}"><i class="fa-solid fa-plus" inert></i> {{localize "PF2E_AUTOMATO.workshop.au.chs.add"}}</button><span class="ws-note">{{opts.hint}}</span></div>
 </div>
+{{else if steps}}
+<div class="ws-fld ws-full"><span class="ws-lbl">{{label}}</span>
+  <div class="ws-adds"><span class="ws-sum" data-sum="{{steps.key}}">{{steps.sum}}</span><button type="button" class="ws-add" data-action="intoUse" data-into="{{steps.into}}" name="into-{{steps.into}}">{{steps.btn}}</button></div>
+</div>
 {{else if group}}
 <div class="ws-fld"><span class="ws-lbl">{{group.label}}</span><div class="ws-chks">{{#each group.fields}}{{> fld}}{{/each}}</div></div>
 {{else if note}}
@@ -156,6 +160,7 @@
 {{/inline}}
 <datalist id="ws-skills">{{#each skills}}<option value="{{this}}"></option>{{/each}}</datalist>
 {{#if doubleWarn}}<p class="ws-warn">{{doubleWarn}}</p>{{/if}}
+{{#if into}}<div class="ws-adds"><button type="button" class="ws-btn ws-btn-g" data-action="intoBack" name="intoBack">{{into.back}}</button><span class="ws-lbl ws-accent">{{into.title}}</span></div>{{/if}}
 <h2 class="ws-h">{{localize "PF2E_AUTOMATO.workshop.au.pipeline"}}</h2>
 <div class="ws-pipe">
   {{#each rows as |r|}}

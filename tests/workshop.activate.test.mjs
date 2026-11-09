@@ -2,7 +2,8 @@
 import test from "node:test";
 import { readFileSync, readdirSync } from "node:fs";
 import assert from "node:assert/strict";
-import { ruleToForm, formToRule, blankCast, blankChoice, buildReport } from "../scripts/sheet.mjs";
+import { isDeepStrictEqual } from "node:util";
+import { ruleToForm, formToRule, blankCast, blankChoice, blankUse, useRule, buildReport } from "../scripts/sheet.mjs";
 import { validateRule } from "../scripts/rules.mjs";
 import { roundTrip } from "../tools/validate.mjs";
 import { castLine } from "../scripts/workshop/automation.mjs";
@@ -54,7 +55,7 @@ test("форма: dcType не auto при against, rankMode по виду ран
 test("правка формы: вид, ранг, СЛ, варианты доходят до правила", () => {
   const f = ruleToForm({ v: 1 });
   f.kind = "cast";
-  f.cast.push({ ...blankCast(), kind: "choice", id: "pick", label: "Pick", choices: [{ ...blankChoice(), id: "a", spell: ARC, rankMode: "half-actor", rankMin: "2", dcType: "class" }, { ...blankChoice(), id: "b", label: "B", kind: "steps", onUse: JSON.stringify(U()) }] });
+  f.cast.push({ ...blankCast(), kind: "choice", id: "pick", label: "Pick", choices: [{ ...blankChoice(), id: "a", spell: ARC, rankMode: "half-actor", rankMin: "2", dcType: "class" }, { ...blankChoice(), id: "b", label: "B", kind: "steps", use: ruleToForm({ v: 1, onUse: ok([{ id: "n", label: "n", onUse: U() }]).activate[0].onUse }) }] });
   const r = validateRule(formToRule(f));
   assert.deepEqual(r.errors, []);
   assert.deepEqual(r.rule.activate[0].choices[0], { id: "a", spell: ARC, rank: { half: "actor", min: 2 }, dc: { against: "class-spell" } });
@@ -63,11 +64,10 @@ test("правка формы: вид, ранг, СЛ, варианты дохо
   assert.equal(formToRule(f).activate[0].choices, undefined);
 });
 
-test("ошибки: битый JSON и пустые шаги говорят валидатор, а не молчание", () => {
+test("ошибки: пустые шаги говорят валидатор, а не молчание", () => {
   const f = ruleToForm({ v: 1 });
-  f.cast.push({ ...blankCast(), kind: "steps", id: "s", label: "S", onUse: "{oops" });
-  assert.notDeepEqual(validateRule(formToRule(f)).errors, []);
-  f.cast[0].onUse = "";
+  f.cast.push({ ...blankCast(), kind: "steps", id: "s", label: "S" });
+  assert.equal(useRule(f.cast[0].use), undefined);
   assert.match(String(validateRule(formToRule(f)).errors[0]), /activate\.kind/);
   const g = ruleToForm({ v: 1 });
   g.cast.push({ ...blankCast(), kind: "choice", id: "c", label: "C", choices: [blankChoice()] });
@@ -93,7 +93,47 @@ test("смена вида «заклинание» -> «выбор»: ранг �
   assert.deepEqual([r.rule.activate[0].rank, r.rule.activate[0].dc], [undefined, 21]);
 });
 
-test("onUse в форме без null-ключей валидатора", () => {
+test("шаги активации: use -> onUse без null-ключей валидатора", () => {
   const f = ruleToForm(ok([{ id: "s", label: "S", onUse: U() }]));
-  assert.doesNotMatch(f.cast[0].onUse, /null/);
+  assert.doesNotMatch(JSON.stringify(useRule(f.cast[0].use)), /null/);
+  assert.equal(f.cast[0].onUse, undefined);
+});
+
+test("шаги активации: condition в apply и в степени, dc пусто/число, choices независимы", () => {
+  const f = ruleToForm(ok([{ id: "c", label: "C", choices: [{ id: "a", label: "A", onUse: U() }, { id: "b", label: "B", onUse: U() }] }, { id: "s", label: "S", onUse: U() }]));
+  const s = f.cast[1].use;
+  s.apply.push({ ...ruleToForm(ok([{ id: "x", label: "x", onUse: { targets: "self", apply: [{ to: "self", condition: { slug: "prone" } }] } }])).cast[0].use.apply[0] });
+  s.ch.deg.failure.push({ ...s.apply[0], to: "target" });
+  assert.deepEqual(useRule(s).apply.map((a) => a.condition.slug), ["prone"]);
+  assert.equal(useRule(s).challenge.byDegree.failure.at(-1).condition.slug, "prone");
+  s.ch.dcText = "";
+  assert.equal("dc" in useRule(s).challenge, false);
+  s.ch.dcText = "31";
+  assert.deepEqual(useRule(s).challenge.dc, { value: 31 });
+  f.cast[0].choices[0].use.ch.dcText = "20";
+  assert.equal(useRule(f.cast[0].choices[1].use).challenge.dc.value, 27);
+  assert.deepEqual(validateRule(formToRule(f)).errors, []);
+});
+
+test("шаги активации: пустая модель — undefined; бросок или зона без шагов — уже активация", () => {
+  assert.equal(useRule(blankUse()), undefined);
+  const u = blankUse(); u.ch.on = true;
+  assert.equal(useRule(u).challenge.statistic, "reflex");
+});
+
+test("круговой проход: 98 правил каталога с шагами активации — тождество через use", () => {
+  let n = 0, bad = [];
+  for (const file of readdirSync(new URL("../rules/", import.meta.url)).filter((x) => /^catalog.*\.json$/.test(x))) {
+    const cat = JSON.parse(readFileSync(new URL(`../rules/${file}`, import.meta.url), "utf8"));
+    const rules = [...Object.values(cat.bySource ?? {}), ...Object.values(cat.bySlug ?? {}), ...Object.values(cat.byName ?? {})].map((e) => e.rule ?? e);
+    for (const raw of rules) {
+      const v = validateRule(raw);
+      if (!v.ok || !(v.rule.activate ?? []).some((c) => c.onUse || c.choices?.some((x) => x.onUse))) continue;
+      n++;
+      const back = validateRule(formToRule(ruleToForm(v.rule)));
+      if (!back.ok || !isDeepStrictEqual(back.rule.activate, v.rule.activate)) bad.push(`${file}:${raw.label}`);
+    }
+  }
+  assert.deepEqual(bad, []);
+  assert.ok(n >= 98, `правил с шагами активации: ${n}`);
 });

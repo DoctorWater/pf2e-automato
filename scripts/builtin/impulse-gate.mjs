@@ -1,6 +1,7 @@
 // Лимиты использования, о которых pf2e знает только из описаний: таблица LIMITS «признак -> требование/лимит», следующий лимит — одна строка.
 //   импульс — только при активной кинетической ауре; переполнение — одно за раунд; Проведение стихийной энергии — только без активной ауры;
-//   наговор (hex) — один за ход; реакция с листа — одна за раунд (флаг reactionSpent, его же ставят реакции и Блок щитом модуля).
+//   наговор (hex) — один за ход; реакция с листа — одна за раунд (флаг reactionSpent, его же ставят реакции и Блок щитом модуля);
+//   частота (system.frequency) исчерпана — pf2e сам её списывает (createUseActionMessage), но на нуле действие не запрещает.
 // Делаем как досягаемость (melee-reach.mjs): действия нет, предупреждение; Alt при клике — решение ГМа; unchecked() — свои сценарии модуля.
 // Точки: (1) SpellcastingEntry#cast до списания слота/фокуса, (2) preCreateChatMessage — карточка использования любого пути (лист, cast.mjs).
 // Атаку Стихийным взрывом без ауры pf2e не даёт сам («No kinetic gate», pf2e.mjs:24492).
@@ -31,6 +32,9 @@ export const LIMITS = [
   { reason: "auraActive", applies: (c) => c.slug === "channel-elements", fails: (c) => c.auraEffect },   // «Your kinetic gate isn't active»
   { reason: "torches", applies: (c) => c.slug === "eternal-torch", fails: (c) => c.torches >= c.conMod },   // «maximum number of Eternal Torches equal to your Constitution modifier»; единственный предмет с таким лимитом (группы нет)
   { reason: "hex", applies: (c) => c.traits.includes("hex"), fails: (c) => !!c.turn && c.hexTurn === c.turn, mark: (c) => c.turn && ["hexTurn", c.turn] },
+  // «за ход/раунд» pf2e восстанавливает только в бою (в начале хода): вне боя такого ограничения нет, как у roundKey
+  // pf2e списывает частоту ДО карточки: законное использование приходит в preCreate уже с 0 — его отличает свежее списание (justSpent)
+  { reason: "frequency", applies: (c) => !!c.frequency && (c.inCombat || !["turn", "round"].includes(c.frequency.per)), fails: (c) => c.frequency.value <= 0 && !c.justSpent },
   { reason: "reaction", applies: (c) => c.reaction && c.actorType === "character", fails: (c) => c.reactionSpent, mark: (c) => c.round && c.inCombat && ["reactionSpent", c.reactionFlag] }   // NPC: реакций бывает несколько
 ];
 
@@ -65,6 +69,7 @@ function ctxOf(actor, item) {
     reactionSpent: !!rs && inCombat && rs.combat === combat.id && rs.round === combat.round,
     reactionFlag: inCombat ? { combat: combat.id, round: combat.round } : null,
     conMod: actor.abilities?.con?.mod ?? 0,
+    frequency: item.system?.frequency ?? null, justSpent: spent.get(item.uuid) > Date.now(),
     // действующие факелы автора: эффект может висеть на ком угодно в сцене (на союзнике) — смотрим его самого и токены сцены
     get torches() {
       const holders = new Set([actor, ...(globalThis.canvas?.scene?.tokens ?? []).map((t) => t.actor).filter(Boolean)]);
@@ -94,6 +99,21 @@ export async function unchecked(actor, item, fn) {
 }
 
 const PASS_MS = 15000;
+const spent = new Map();   // uuid предмета -> срок: pf2e только что списал частоту, карточка этого использования законна
+export const MOD_OPT = "pf2eAutomato";
+/** Блок по другой строке LIMITS: pf2e уже списал частоту (до preCreate) — вернуть и погасить отметку. Синхронно: обновление уходит без ожидания, возврат отметку не открывает. */
+export function refundSpent(item) {
+  if (!(spent.get(item.uuid) > Date.now())) return;
+  spent.delete(item.uuid);
+  const f = item.system?.frequency;
+  if (f && f.value < f.max) item.update({ "system.frequency.value": f.value + 1 }, { [MOD_OPT]: true }).catch((e) => console.warn(`${MOD} | use-limits refund`, e));
+}
+/** preUpdateItem: частота уменьшается — отметка «только что списано». */
+export function onPreUpdateItem(item, changes, options) {
+  if (options?.[MOD_OPT]) return;   // свои списания/возвраты модуля — не использование
+  const v = foundry.utils.getProperty(changes, "system.frequency.value"), cur = item.system?.frequency?.value;
+  if (typeof v === "number" && typeof cur === "number" && v < cur) spent.set(item.uuid, Date.now() + PASS_MS);
+}
 /** Разовый пропуск: wrapCast уже решил (проверка или Alt), preCreate после списания фокуса не проверяет второй раз. Короткий срок — на случай, если карточки не будет. */
 export const grantPass = (actor, item) => passes.set(key(actor, item), Date.now() + PASS_MS);
 const takePass = (actor, item) => { const k = key(actor, item), t = passes.get(k); passes.delete(k); return t > Date.now(); };
@@ -131,7 +151,8 @@ export function preCreate(message, data, options, userId) {
   if (item.type === "spell" && !message.flags?.pf2e?.origin?.rollOptions?.includes(CAST)) return;
   if (skips.get(key(actor, item))) return;
   try { wrapEphemeral([actor]); } catch { /* лимит всё равно проверит preCreate */ }
-  if (!takePass(actor, item) && blocked(actor, item)) return false;
+  if (!takePass(actor, item) && blocked(actor, item)) { refundSpent(item); return false; }
+  spent.delete(item.uuid);   // одно списание pf2e — одна законная карточка: следующее использование на нуле уже блокируется
   try {
     const marks = marksFor(ctxOf(actor, item));
     if (Object.keys(marks).length) {
@@ -185,6 +206,7 @@ export function install() {
   if (installed || !P?.cast) return;
   installed = true;
   Hooks.on("createChatMessage", onCreate);
+  Hooks.on("preUpdateItem", onPreUpdateItem);
   const fail = (e) => { console.warn(`${MOD} | use-limits wrap`, e); if (game.user?.isGM) ui.notifications.warn(L("builtin.wrapFailed", { what: "use-limits", error: e?.message ?? e })); };
   try {
     wrapEphemeral(game.actors);

@@ -81,7 +81,8 @@
         "auraActive": "{name}: your kinetic aura is already active (requires your kinetic gate to be inactive). Dismiss it first. Alt-click to use anyway.",
         "torches": "{name}: the maximum number of torches is already active (Constitution modifier, {n}). Dismiss one. Alt-click to use anyway.",
         "hex": "{name}: you already used a hex this turn (one per turn, a second attempt fails). Alt-click to use anyway.",
-        "reaction": "{name}: your reaction is already spent this round. Alt-click to use anyway."
+        "reaction": "{name}: your reaction is already spent this round. Alt-click to use anyway.",
+        "frequency": "{name}: no uses left (frequency exhausted). Reset it by hand on the sheet or wait for it to recharge. Alt-click to use anyway."
       },
       "wrapFailed": "pf2e-automato: the «{what}» check is not installed (conflict with another module: {error}). The restriction is off.",
       "reachName": "melee reach",

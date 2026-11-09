@@ -209,7 +209,7 @@ export async function useOnce(owner, item, token) {
   const used = last() !== before;
   // частоту pf2e списывает только в createUseActionMessage (pf2e.mjs:54101), не в toMessage — повторяем его
   const f = item.system?.frequency;
-  if (used && !item.isOfType?.("spell") && f && f.value > 0) await item.update({ "system.frequency.value": f.value - 1 });
+  if (used && !item.isOfType?.("spell") && f && f.value > 0) await item.update({ "system.frequency.value": f.value - 1 }, { pf2eAutomato: true });
   return used;
 }
 

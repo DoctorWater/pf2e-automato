@@ -3,9 +3,9 @@ import { summonPacks } from "./summon-index.mjs";
 
 const MODES = {
   "mode.zone": "auto", "mode.effect": "auto", "mode.challenge": "auto",
-  "mode.apply": "button", "mode.reaction": "auto", "mode.macro": "auto", "mode.limits": "auto", "mode.shieldBlock": "auto", "mode.damageGate": "auto", "mode.frightened": "auto", "mode.sickened": "auto"
+  "mode.apply": "button", "mode.reaction": "auto", "mode.macro": "auto", "mode.limits": "auto", "mode.shieldBlock": "auto", "mode.damageGate": "auto", "mode.frightened": "auto", "mode.sickened": "auto", "mode.computed": "auto"
 };
-const TWO_STATE = new Set(["mode.reaction", "mode.macro", "mode.limits", "mode.damageGate", "mode.shieldBlock", "mode.frightened", "mode.sickened"]);   // auto | off
+const TWO_STATE = new Set(["mode.reaction", "mode.macro", "mode.limits", "mode.damageGate", "mode.shieldBlock", "mode.frightened", "mode.sickened", "mode.computed"]);   // auto | off
 
 export const S = {
   get: (key) => game.settings.get(MOD, key),

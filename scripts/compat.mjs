@@ -41,6 +41,8 @@ export const groupsCovering = (index, { slug, sourceUuid } = {}) => index.filter
 
 let index = null;   // null = перестроить при следующем обращении
 
+export const resetIndex = () => { index = null; };
+
 function getIndex() {
   if (index) return index;
   const active = globalThis.game?.modules?.get(AUTOMATIONS)?.active;
@@ -90,7 +92,7 @@ function teleportGhost(effect) {
  * (двойной путь к урону, §3.5), поэтому все они — здесь, а при ready проверяются (selfCheck). verified — major.minor, под которые проверено.
  */
 export const EXTERNAL = {
-  verified: { pf2e: "8.6", "pf2e-toolbelt": "3.59", "xdy-pf2e-workbench": "7.7", "pf2e-auto-action-tracker": "0.19", "fa-nexus": "0.5" },
+  verified: { pf2e: "8.7", "pf2e-toolbelt": "3.61", "xdy-pf2e-workbench": "7.7", "pf2e-auto-action-tracker": "0.19", "fa-nexus": "0.5" },
   // FA Nexus (nexus-tokens.mjs): настройка папки скачанных токенов (scripts/settings.js) и её значение по умолчанию
   nexus: { dirSetting: "cloudDownloadDirTokens", dirDefault: "fa-nexus-tokens" },
   selectors: {

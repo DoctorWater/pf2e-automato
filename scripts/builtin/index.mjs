@@ -38,6 +38,10 @@ import * as damageLink from "./damage-link.mjs";
 import * as apparitionSense from "./apparition-sense.mjs";
 import * as preyShare from "./prey-share.mjs";
 import * as smite from "./smite.mjs";
+import * as neutralize from "./neutralize-rules.mjs";
+import * as computed from "./computed-options.mjs";
+import * as turnFlight from "./turn-flight.mjs";
+import * as dualWield from "./dual-wield.mjs";
 
 const DIALOG_MS = 180000;
 
@@ -58,7 +62,7 @@ export const BUILTIN = {
 };
 
 // Обработчики по сообщениям чата без правила: кровь — тег заклинания, статуэтка — карточка предмета (kind "card" конвейер не исполняет).
-const MESSAGE_HOOKS = [["blood-magic", bloodMagic.onMessage], ["reactive-strike", reactiveStrike.onMessage], ["onyx-dog", onyxDog.onMessage], ["one-shot-one-kill", oneShot.onMessage], ["surprise-attack", surprise.onMessage], ["spellshape", spellshape.onMessage], ["tentacular-limbs", tentacles.onMessage], ["strike-effects", strikeEffects.onMessage], ["hunt-prey", huntPrey.onMessage], ["oscillating-wave", oscillatingWave.onMessage], ["shield-ward", shieldWard.onMessage], ["damage-link", damageLink.onMessage], ["apparition-sense", apparitionSense.onMessage], ["prey-share", preyShare.onMessage], ["smite", smite.onMessage], ["rage", rage.onMessage], ["kinetic-aura", kineticAura.onMessage]];
+const MESSAGE_HOOKS = [["blood-magic", bloodMagic.onMessage], ["reactive-strike", reactiveStrike.onMessage], ["onyx-dog", onyxDog.onMessage], ["one-shot-one-kill", oneShot.onMessage], ["surprise-attack", surprise.onMessage], ["spellshape", spellshape.onMessage], ["tentacular-limbs", tentacles.onMessage], ["strike-effects", strikeEffects.onMessage], ["hunt-prey", huntPrey.onMessage], ["oscillating-wave", oscillatingWave.onMessage], ["shield-ward", shieldWard.onMessage], ["damage-link", damageLink.onMessage], ["apparition-sense", apparitionSense.onMessage], ["prey-share", preyShare.onMessage], ["smite", smite.onMessage], ["rage", rage.onMessage], ["kinetic-aura", kineticAura.onMessage], ["turn-flight", turnFlight.onMessage]];
 
 // независимо: обработчик с окном (Магия крови ждёт ответа) не должен задерживать остальные; записи в актёра — через queue
 export function dispatchBuiltin(message, hooks = MESSAGE_HOOKS) {
@@ -124,9 +128,12 @@ export function initBuiltinHooks() {
   Hooks.on("updateCombat", (combat, changes) => { damaged.onCombat(combat, changes).catch((e) => console.error(`${MOD} | builtin damaged combat`, e)); });
   Hooks.on("updateChatMessage", (message, changes) => { damaged.onUpdate(message, changes).catch((e) => console.error(`${MOD} | builtin damaged revert`, e)); });
   Hooks.on("preCreateChatMessage", impulseGate.preCreate);   // лимиты использования (таблица LIMITS): импульс без ауры, переполнение, наговор, реакция — карточки нет
+  Hooks.on("preCreateChatMessage", turnFlight.preCreate);   // полёт на перемещение: строка про падение в карточке использования
   Hooks.on("deleteChatMessage", (m) => { impulseGate.onDelete(m).catch((e) => console.warn(`${MOD} | use-limits delete`, e)); });
   Hooks.once("ready", impulseGate.install);   // то же до списания слота/фокуса при сотворении с листа
   Hooks.once("ready", tahInert.init);   // Token Action HUD: «пустые» действия (Стихийный взрыв как действие) неактивны
+  Hooks.once("init", () => { neutralize.init(); computed.init(); });   // до подготовки актёров: переключатели вычисляемых опций гасятся, опции подставляются в урон (CLAUDE.md §1.5)
+  dualWield.init();   // «по одному в каждой руке»: пункт меню, значок, кость two-hand не растёт
   Hooks.once("ready", meleeReach.install);   // Удар вблизи по цели вне досягаемости — броска нет, как у pf2e с дальним оружием
   // нехватка воздуха и конец ярости: хуки pf2e / документов, исполняет только активный ведущий
   const gmMacro = (id, fn) => (...a) => { if (isActiveGM() && modeOf("macro") !== "off") Promise.resolve().then(() => fn(...a)).catch((e) => console.error(`${MOD} | builtin ${id}`, e)); };
@@ -143,6 +150,7 @@ export function initBuiltinHooks() {
   Hooks.on("moveToken", (doc, movement) => {
     if (!isActiveGM() || modeOf("macro") === "off") return;
     reactiveStrike.onMove(doc, movement).catch((e) => console.error(`${MOD} | builtin reactive-strike move`, e));
+    turnFlight.onMove(doc, movement).catch((e) => console.error(`${MOD} | builtin turn-flight move`, e));
   });
 }
 

@@ -2,6 +2,7 @@
   "PF2E_AUTOMATO": {
     "builtin": {
       "unknown": "built-in handler not found",
+      "dual": { "menu": "Held, one in each hand", "icon": "Two identical weapons, one in each hand" },
       "gear": { "askShield": "A hand is free: also create the shield?", "yes": "Create", "no": "No", "proficiency": "Temporary armor: best proficiency" },
       "suffocation": {
         "effect": "Effect: Suffocating",
@@ -61,6 +62,10 @@
         "button": "Rage",
         "concentrate": "<p><b>{name}</b> is raging: “{what}” has the concentrate trait without rage — not allowed while raging (Seek is).</p>"
       },
+      "flight": {
+        "hint": "The fly Speed applies to this movement: the effect ends after the first movement or at the end of the turn.",
+        "fall": "<p><b>Falling:</b> if you aren't on solid ground at the end of this movement, you fall.</p>"
+      },
       "oneShot": {
         "effect": "One Shot, One Kill: ready",
         "hint": "<p><b>One Shot, One Kill</b>: {name} rolled Stealth for initiative. Interact to draw a firearm or crossbow; the first Strike with it deals extra precision damage.</p>"
@@ -85,6 +90,9 @@
         "frequency": "{name}: no uses left (frequency exhausted). Reset it by hand on the sheet or wait for it to recharge. Alt-click to use anyway."
       },
       "wrapFailed": "pf2e-automato: the «{what}» check is not installed (conflict with another module: {error}). The restriction is off.",
+      "neutralizeName": "hiding toggles of computed options",
+      "computedName": "computed roll options",
+      "computedNoNeutralize": "pf2e-automato: the toggle of a computed option (Pack Attack) is not hidden — the option is not added to damage. Likely cause: a conflict with another module or the pf2e version. The «Computed roll options» mode can be turned off.",
       "reachName": "melee reach",
       "inertAction": "This action only describes the ability — attack and roll damage with its strike buttons below.",
       "reach": { "out": "{name} is out of reach: {d} ft, reach {r} ft. Alt-click to strike anyway." },

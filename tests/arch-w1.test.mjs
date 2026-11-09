@@ -7,7 +7,7 @@ globalThis.game = { user: { isActiveGM: true }, users: [], modules: { get: () =>
 const { EXTERNAL, externalProblems } = await import("../scripts/compat.mjs");
 const bd = await import("../scripts/builtin/basic-damage.mjs");
 
-const good = { "pf2e-toolbelt": "3.59.1", "xdy-pf2e-workbench": "7.7.5", pf2e: "8.6.1" };
+const good = { "pf2e-toolbelt": "3.61.3", "xdy-pf2e-workbench": "7.7.5", pf2e: "8.7.0" };
 const tpl = { [EXTERNAL.templates[0].path]: EXTERNAL.templates[0].needles.join(" ") };
 
 test("externalProblems: совпало — пусто; не установлено — не расхождение", () => {
@@ -16,9 +16,9 @@ test("externalProblems: совпало — пусто; не установлен
 });
 
 test("externalProblems: версия, пропавшая строка шаблона, шаблон не загрузился", () => {
-  const v = externalProblems(EXTERNAL, { ...good, pf2e: "8.7.0" }, tpl);
+  const v = externalProblems(EXTERNAL, { ...good, pf2e: "8.8.0" }, tpl);
   assert.equal(v.length, 1);
-  assert.match(v[0], /pf2e 8\.7\.0/);
+  assert.match(v[0], /pf2e 8\.8\.0/);
   assert.match(v[0], /spell-damage/);
   assert.equal(externalProblems(EXTERNAL, good, { [EXTERNAL.templates[0].path]: "<button>" }).length, 2);
   assert.match(externalProblems(EXTERNAL, good, {})[0], /не загрузился/);

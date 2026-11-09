@@ -16,13 +16,18 @@ test("nextMap: после двух атак — третья", () => {
   assert.equal(ds.nextMap(1), 2);
 });
 
-const weapon = (id, o = {}) => ({ item: { id, isOfType: (t) => t === "weapon", isMelee: o.melee ?? true, system: { quantity: o.qty ?? 1, equipped: { carryType: o.carry ?? "held", handsHeld: o.hands ?? 1 } } } });
+const weapon = (id, o = {}) => ({ item: { id, isOfType: (t) => t === "weapon", isMelee: o.melee ?? true, system: { quantity: o.qty ?? 1, usage: { hands: o.usage ?? 1 }, equipped: { carryType: o.carry ?? "held", handsHeld: o.hands ?? 1 } } } });
 
 test("candidates: только удерживаемое одной рукой оружие ближнего боя, без дублей", () => {
   const list = [weapon("a"), weapon("a"), weapon("b", { hands: 2 }), weapon("c", { carry: "worn" }), weapon("d", { melee: false }), weapon("e")];
   assert.deepEqual(ds.candidates(list).map((s) => s.item.id), ["a", "e"]);
   assert.equal(ds.candidates([{ item: { isOfType: () => false } }]).length, 0);
   assert.deepEqual(ds.candidates([weapon("pair", { qty: 2 }), weapon("pair", { qty: 2 })]).map((s) => s.item.id), ["pair", "pair"]);   // пара одной строкой
+  // два одинаковых меча по одному в каждой руке: стопка ×2, pf2e пишет handsHeld 2 (Меллик Легкоступ, Двойной финт)
+  assert.deepEqual(ds.candidates([weapon("swords", { qty: 2, hands: 2 })]).map((s) => s.item.id), ["swords", "swords"]);
+  // двуручное ×2 в двух руках — одно оружие; одно одноручное в двух руках — тоже не пара
+  assert.equal(ds.candidates([weapon("great", { qty: 2, hands: 2, usage: 2 })]).length, 0);
+  assert.equal(ds.candidates([weapon("one", { qty: 1, hands: 2 })]).length, 0);
 });
 
 test("stripFlavor: узлы precision заменяются нулём, остальное нетронуто", () => {

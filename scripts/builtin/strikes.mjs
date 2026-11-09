@@ -3,22 +3,25 @@
 import { L, sharedDialog } from "../util.mjs";
 import { esc } from "./lib.mjs";
 import { settledDegree } from "../hold.mjs";
+import { isPair } from "./dual-wield.mjs";
 
 /** Чистая: 0..3 -> попал ли Удар. */
 export const isHit = (degree) => degree >= 2;
 
 /**
  * Чистая: оружие ближнего боя, удерживаемое одной рукой («по одному в каждой руке»); один предмет — один раз, а пара одной строкой
- * инвентаря (количество ≥ 2, напр. «Клинок-коготь» ×2) — дважды. strike: {item}.
+ * инвентаря (количество ≥ 2, напр. «Клинок-коготь» ×2) — дважды: стопка одноручного оружия в одной руке или в двух
+ * (по одному в каждой руке: флаг dual модуля, либо handsHeld 2 без two-hand-*; см. dual-wield.mjs isPair). Одно одноручное в двух руках — не пара. strike: {item}.
  */
 export function twoWeaponCandidates(strikes) {
   const seen = new Set();
   return strikes.flatMap((s) => {
-    const it = s.item;
-    if (!it?.isOfType?.("weapon") || !it.isMelee || it.system?.equipped?.carryType !== "held" || it.system.equipped.handsHeld !== 1) return [];
+    const it = s.item, eq = it?.system?.equipped, pair = isPair(it);
+    if (!it?.isOfType?.("weapon") || !it.isMelee) return [];
+    if (!pair && !(eq?.carryType === "held" && eq.handsHeld === 1 && (it.system.usage?.hands ?? 1) === 1)) return [];
     if (seen.has(it.id)) return [];
     seen.add(it.id);
-    return (it.system.quantity ?? 1) >= 2 ? [s, s] : [s];
+    return pair ? [s, s] : [s];
   });
 }
 

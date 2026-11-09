@@ -286,28 +286,43 @@ async () => {
     t.ok(notes.slice(n0).some((n) => /досягаем|reach/i.test(n)), `предупреждение о досягаемости (${notes.slice(n0).join(" / ")})`);
   });
 
-  sc("pack-attack", "Стайный: один союзник у цели — без 1d4; два — +1d4; ушёл союзник — снова без; переключатель не трогаем руками", async (e, t) => {
+  sc("pack-attack", "Стайный без переключателя: опция считается в момент урона — один союзник у цели без 1d4, два +1d4; цель урона (карточка и targets) решает; Phantom Wolf — порог 1", async (e, t) => {
     openChat();
-    const F1 = await copyFoe(e, EN.fox, "лиса 1"), F2 = await copyFoe(e, EN.fox, "лиса 2"), S0 = await copyFoe(e, EN.spirit), V0 = await victim(e, "жертва");
-    const tF1 = await e.tok(F1, 1000, 1000, -1), tV = await e.tok(V0, 1100, 1000, 1), tF2 = await e.tok(F2, 1200, 1000, -1);
+    const F1 = await copyFoe(e, EN.fox, "лиса 1"), F2 = await copyFoe(e, EN.fox, "лиса 2"), S0 = await copyFoe(e, EN.spirit), V0 = await victim(e, "жертва"), V2 = await victim(e, "одинокая жертва");
+    const tF1 = await e.tok(F1, 1000, 1000, -1), tV = await e.tok(V0, 1100, 1000, 1), tF2 = await e.tok(F2, 1200, 1000, -1), tV2 = await e.tok(V2, 1100, 1800, 1);
     await wait(700);
-    const A = () => e.A(tF1), on = () => !!(A().rollOptions?.damage?.["pack-attack"] || A().rollOptions?.all?.["pack-attack"]);
-    const round = async (want, label) => {
-      const att = await e.hit(tF1, tV);
-      t.ok(!!att, `${label}: атака`);
-      t.ok(await waitFor(() => on() === want, 6000) !== null || on() === want, `${label}: переключатель ${want ? "вкл" : "выкл"} (сейчас ${on()})`);
-      await wait(800);
-      const dm = await dmgOf(e, tF1);
-      const f = dm?.rolls?.[0]?.formula ?? "";
-      const d4 = [...f.matchAll(/(\d+)d4/g)].reduce((n, x) => n + Number(x[1]), 0);   // pf2e складывает кубы: Укус 1d4 + Стайный 1d4 = 2d4
-      t.ok(d4 === (want ? 2 : 1), `${label}: урон ${f}`);
+    const toggles = (a) => Object.values(a.synthetics.toggles ?? {}).flatMap((d) => Object.keys(d)).filter((o) => o === "pack-attack");
+    t.ok(toggles(e.A(tF1)).length === 0, `переключателя нет в synthetics.toggles (${toggles(e.A(tF1))})`);
+    const d4 = (dm) => [...(dm?.rolls?.[0]?.formula ?? "").matchAll(/(\d+)d4/g)].reduce((n, x) => n + Number(x[1]), 0);   // pf2e складывает кубы: Укус 1d4 + Стайный 1d4 = 2d4
+    const round = async (tAtt, tDef, want, label) => {
+      t.ok(!!(await e.hit(tAtt, tDef)), `${label}: атака`);
+      const dm = await dmgOf(e, tAtt);   // сразу после попадания, без ожидания переключателя
+      t.ok(d4(dm) === want, `${label}: урон ${dm?.rolls?.[0]?.formula}`);
     };
-    await round(false, "один союзник");
+    await round(tF1, tV, 1, "один союзник");
     const tS = await e.tok(S0, 1100, 900, -1);
     await wait(700);
-    await round(true, "два союзника");
+    await round(tF1, tV, 2, "два союзника");
+    // цель урона: targets.first() переключена на одинокую жертву между атакой и уроном
+    await e.hit(tF1, tV);
+    await e.aim(tF1, tV2);
+    t.ok(d4(await dmgOf(e, tF1)) === 1, "targets: цель урона — одинокая жертва, без Стайного");
+    // путь кнопки карточки pf2e: цель карточки (c.target) приоритетнее targets
+    const t0 = e.since();
+    await bound("урон по цели карточки", e.strike(e.A(tF1)).damage({ event: SHIFT(), target: e.T(tV).object }));
+    const cm = await waitFor(() => e.msgs(t0).find((m) => m.flags?.pf2e?.context?.type === "damage-roll"), 8000);
+    t.ok(d4(cm) === 2, `карточка: цель карточки — жертва с двумя союзниками (${cm?.rolls?.[0]?.formula})`);
     await e.T(tS).update({ x: 1600, y: 300 }, { animate: false }); await wait(1200);
-    await round(false, "союзник ушёл");
+    await round(tF1, tV, 1, "союзник ушёл");
+    // Phantom Wolf: тот же slug pack-attack, порог 1 по источнику актёра
+    const PW = "Compendium.pf2e.season-of-ghosts-bestiary.Actor.R805QpID53EycZ5E";
+    const W = await copyFoe(e, EN.fox, "призрачный волк"); await W.update({ "_stats.compendiumSource": PW });
+    const V3 = await victim(e, "жертва волка"), F3 = await copyFoe(e, EN.fox, "союзник волка");
+    const tW = await e.tok(W, 400, 400, -1), tV3 = await e.tok(V3, 500, 400, 1);
+    await wait(700);
+    await round(tW, tV3, 1, "волк без союзников");
+    await e.tok(F3, 500, 300, -1); await wait(700);
+    await round(tW, tV3, 2, "волк: один союзник — порог 1");
   });
 
   sc("voices", "Лесные голоса: эманация 15 фт, Воля СЛ 17 — провал испуг 1, крит. провал испуг 2 (и у союзной лисы); нежить и сам дух не участвуют; второе использование — блок, Alt — карточка", async (e, t) => {
@@ -374,9 +389,9 @@ async () => {
     t.ok(notes.slice(n0).some((n) => /частота|использований не осталось/i.test(n)), "предупреждение о частоте");
   });
 
-  sc("passive", "В лесу как дома, Осквернить ритуал, Обвить святилище: карточка без кнопок модуля (сюжетное не автоматизируем)", async (e, t) => {
+  sc("passive", "В лесу как дома, Осквернить ритуал, Опутать камень: карточка без кнопок модуля (сюжетное не автоматизируем)", async (e, t) => {
     openChat();
-    for (const [key, slug] of [["spirit", "woodland-stride"], ["guard", "defile-ritual"], ["sprout", "entwine-shrine"]]) {
+    for (const [key, slug] of [["spirit", "woodland-stride"], ["guard", "defile-ritual"], ["sprout", "entangle-stone"]]) {
       const a = await copyFoe(e, EN[key]);
       const tk = await e.tok(a, 600, 600, -1); await wait(500);
       const it = bySlug(e.A(tk), slug);

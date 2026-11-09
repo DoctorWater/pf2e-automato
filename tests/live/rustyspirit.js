@@ -40,13 +40,17 @@ async () => {
     const test = (n) => typeof n === "string" && n.startsWith(PFX);
     const mine = (n) => test(n) || (typeof n === "string" && n.startsWith("Тест: "));   // копии героев: «AF тест: » и «Тест: »
     // бои сцены (до её удаления), а также бои без сцены, чьи участники — наши копии
-    for (const c of game.combats.filter((c) => test(c.scene?.name) || (!c.scene && c.combatants.some((x) => mine(x.actor?.name) || mine(x.name))) || c.combatants.some((x) => test(x.actor?.name) || test(x.name) || test(game.scenes.get(x.sceneId)?.name)))) await killCombat(c);
+    const fights = game.combats.filter((c) => test(c.scene?.name) || (!c.scene && c.combatants.some((x) => mine(x.actor?.name) || mine(x.name))) || c.combatants.some((x) => test(x.actor?.name) || test(x.name) || test(game.scenes.get(x.sceneId)?.name)));
+    for (const c of fights) await killCombat(c);
     const scenes = game.scenes.filter((s) => test(s.name));
     const actorIds = new Set(game.actors.filter((a) => test(a.name)).map((a) => a.id));
     const sceneIds = new Set(scenes.map((s) => s.id));
     const msgIds = new Set([...extraMsgIds, ...game.messages.filter((m) => actorIds.has(m.speaker?.actor) || sceneIds.has(m.speaker?.scene)).map((m) => m.id)]);
     const ids = [...msgIds].filter((id) => game.messages.has(id));
     if (ids.length) await ChatMessage.deleteDocuments(ids).catch(() => {});
+    // удалённая карточка Поддержания (Сглаз, наговор фамильяра) завершает его: модуль асинхронно снимает связанные эффекты с токенов сцены —
+    // сцену удаляем после этого, иначе удаление эффекта уходит на сервер уже без сцены («The Scene … does not exist»)
+    if (ids.length || fights.length) await wait(1500);
     for (const s of scenes) await s.delete().catch(() => {});
     for (const a of game.actors.filter((a) => test(a.name))) await a.delete().catch(() => {});
     return game.actors.filter((a) => test(a.name)).length + game.scenes.filter((s) => test(s.name)).length;

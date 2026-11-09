@@ -28,7 +28,7 @@ const { applyByDegree } = await import("../scripts/saves.mjs");
 const { buildViewModel } = await import("../scripts/chat.mjs");
 
 const read = (p) => JSON.parse(readFileSync(fileURLToPath(new URL(p, import.meta.url)), "utf8"));
-rules.initCatalog([read("../rules/catalog.json"), read("../rules/catalog.campaign.json")], read("../rules/labels.json"));
+rules.initCatalog([read("../rules/catalog.json")], read("../rules/labels.json"));
 
 /** Реальный вид: Trip из листа (skill-check, athletics) по выбранной цели. */
 const tripCtx = (over = {}) => ({

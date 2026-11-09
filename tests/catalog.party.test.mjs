@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 import { validateRule, buildCatalog, initCatalog, resolveRule } from "../scripts/rules.mjs";
 
 const read = (p) => JSON.parse(readFileSync(fileURLToPath(new URL(p, import.meta.url)), "utf8"));
-const builtin = read("../rules/catalog.json"), campaign = read("../rules/catalog.campaign.json"), labels = read("../rules/labels.json");
+const builtin = read("../rules/catalog.json"), labels = read("../rules/labels.json");
 const inv = read("../party-inventory.json");
 
 const PARTY_NEW = {
@@ -16,16 +16,16 @@ const PARTY_NEW = {
 test("party: новые записи проходят validateRule и есть у героев в инвентаре", () => {
   for (const [slug, uuid] of Object.entries(PARTY_NEW)) {
     for (const [f, k] of [["bySource", uuid], ["bySlug", slug]]) {
-      const v = validateRule(campaign[f][k]);
+      const v = validateRule(builtin[f][k]);
       assert.ok(v.ok, `${f}.${k}: ${v.errors}`);
     }
     assert.ok(inv.items.some((i) => i.compendiumSource === uuid && i.slug === slug), `${slug} нет в инвентаре`);
   }
-  assert.deepEqual(buildCatalog([builtin, campaign]).errors, []);
+  assert.deepEqual(buildCatalog([builtin]).errors, []);
 });
 
 test("party: resolveRule по данным инвентаря — каталог перекрывает разметку", () => {
-  initCatalog([builtin, campaign], labels);
+  initCatalog([builtin], labels);
   globalThis.game = { pf2e: { ConditionManager: { conditions: new Map() } } };
   try {
     const R = (i) => resolveRule({ item: {

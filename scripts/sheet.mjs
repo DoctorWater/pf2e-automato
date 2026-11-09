@@ -544,7 +544,7 @@ function buildContext(item, draft) {
     f, slug, sourceUuid, groups, covered: groups.length > 0, settingYield: S.get("yieldToAutomations"),
     res: res && {
       source: T(`src.${res.source}`), src: res.source, low: res.confidence === "low", json: JSON.stringify(res.rule, null, 1),
-      canAccept: res.source !== "flag", ruleAttr: JSON.stringify(res.rule),
+      canAccept: res.source !== "flag", acceptLabel: T(res.source === "markup" ? "accept" : "acceptCatalog"), ruleAttr: JSON.stringify(res.rule),
       hints: res.source === "markup" && game.user.isGM ? hintLines(res.hints) : null
     },
     diverged: divergedHint(dv),
@@ -656,7 +656,9 @@ async function inject(app, $html) {
       if (act === "test") { const r = build(); if (r) await testRun(item, r); }
       else if (act === "save-flag") { const r = build(); if (r) { app._afDraft = null; await item.update(forcedReplace(`flags.${MOD}.rule`, r)); ui.notifications.info(L("sheet.saved")); } }
       else if (act === "reset-flag") { app._afDraft = null; await item.unsetFlag(MOD, "rule"); }
-      else if (act === "accept") { app._afDraft = null; await item.update(forcedReplace(`flags.${MOD}.rule`, JSON.parse(b.dataset.rule))); }
+      else if (act === "accept") {
+        if (app._afDraft && !(await foundry.applications.api.DialogV2.confirm({ window: { title: L("workshop.au.switchTitle") }, content: `<p>${foundry.utils.escapeHTML(L("workshop.au.acceptAsk", { name: item.name }))}</p>`, rejectClose: false }))) return;
+        app._afDraft = null; await item.update(forcedReplace(`flags.${MOD}.rule`, JSON.parse(b.dataset.rule))); }
       else if (act === "save-world") { const r = build(); if (r) toast(await callGM("saveCatalogRule", worldKey(b.dataset.scope), r)); }
       else if (act === "open-workshop") await game.modules.get(MOD).api.openWorkshop({ item, mode: "automation" });
       else if (act === "delete-world") { toast(await callGM("saveCatalogRule", worldKey(b.dataset.scope), null)); app._afDraft = null; app.render(); }

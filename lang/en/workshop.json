@@ -506,6 +506,7 @@
         "probeDcHint": "The DC cannot be determined (no owner). Only for the test, not saved in the rule.",
         "areaUnparsed": "The description has an @Template tag we cannot parse; it is left untouched. The area is not a rule field.",
         "closeAsk": "The rule of “{name}” has unsaved changes. Close and discard them?",
+        "acceptAsk": "The rule of “{name}” has unsaved changes. Overwrite them and save the source rule into the item?",
         "pickKinds": "Other steps",
         "pickConds": "Conditions",
         "kindEffect": "Effect",

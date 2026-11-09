@@ -108,7 +108,7 @@ test("формулы: подстановка круга/уровня и вычи
 });
 
 test("каталог: Фантомная боль — продолжительный урон на провале и крит. провале", () => {
-  const cat = buildCatalog([read("rules/catalog.campaign.json")]);
+  const cat = buildCatalog([read("rules/catalog.json")]);
   assert.deepEqual(cat.errors, []);
   const bd = cat.bySlug.get("phantom-pain").onUse.challenge.byDegree;
   for (const deg of ["failure", "criticalFailure"]) assert.deepEqual(bd[deg].find((a) => a.persistent).persistent, { formula: "(@item.rank)d4", damageType: "mental" });

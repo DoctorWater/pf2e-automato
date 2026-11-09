@@ -32,7 +32,7 @@ test("пак: источники — Item/effect, _key и имя файла со
 });
 
 test("пак: все ссылки на Compendium.pf2e-automato.effects (в правилах каталогов и внутри самих эффектов) есть в источниках", () => {
-  const texts = [["источники", JSON.stringify(docs)], ...["catalog.json", "catalog.campaign.json", "catalog.pa.json"].map((f) => [f, readFileSync(root(`rules/${f}`), "utf8")])];
+  const texts = [["источники", JSON.stringify(docs)], ...["catalog.json", "catalog.pa.json"].map((f) => [f, readFileSync(root(`rules/${f}`), "utf8")])];
   let n = 0;
   for (const [where, t] of texts) for (const m of t.matchAll(OWN)) { n++; assert.ok(ids.has(m[1]), `${where}: нет ${m[1]}`); }
   assert.ok(n > 20);

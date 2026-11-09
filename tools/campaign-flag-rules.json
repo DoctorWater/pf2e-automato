@@ -1,0 +1,187 @@
+{
+  "_doc": "Не загружается каталогом (ключ flagRules игнорируется). Правила для предметов БЕЗ slug и без источника: записываются в flags.pf2e-automato.rule по имени предмета (см. inventory-report.md, скрипт). Файл только для инструментов и тестов (tools/), в релиз не входит.",
+  "Гипнотический приказ": {
+    "v": 1,
+    "label": "Гипнотический приказ",
+    "onUse": {
+      "targets": "selected",
+      "zone": null,
+      "challenge": {
+        "statistic": "will",
+        "dc": {
+          "value": 25
+        },
+        "basic": false,
+        "traits": [
+          "auditory",
+          "occult",
+          "mental"
+        ],
+        "rollerRole": "target",
+        "byDegree": {
+          "success": [
+            {
+              "to": "target",
+              "note": "Застигнута врасплох для следующего Удара агента до конца его следующего хода (переключатель на Финте, вручную)"
+            }
+          ],
+          "failure": [
+            {
+              "to": "target",
+              "condition": {
+                "slug": "stunned",
+                "value": 1
+              }
+            }
+          ],
+          "criticalFailure": [
+            {
+              "to": "target",
+              "condition": {
+                "slug": "stunned",
+                "value": 2
+              }
+            }
+          ]
+        }
+      },
+      "apply": [
+        {
+          "to": "target",
+          "note": "После испытания цель невосприимчива к Гипнотическому приказу этого агента 24 часа (вручную)"
+        }
+      ]
+    }
+  },
+  "Отвести глаза": {
+    "v": 1,
+    "label": "Отвести глаза",
+    "onUse": {
+      "targets": "selected",
+      "zone": null,
+      "challenge": {
+        "statistic": "will",
+        "dc": {
+          "value": 25
+        },
+        "basic": false,
+        "traits": [
+          "mental",
+          "visual"
+        ],
+        "rollerRole": "target",
+        "byDegree": {
+          "success": [
+            {
+              "to": "target",
+              "visibility": {
+                "level": "concealed",
+                "of": "self",
+                "until": [
+                  "turn-end"
+                ]
+              }
+            }
+          ],
+          "failure": [
+            {
+              "to": "target",
+              "visibility": {
+                "level": "hidden",
+                "of": "self",
+                "until": [
+                  "turn-end"
+                ]
+              }
+            }
+          ],
+          "criticalFailure": [
+            {
+              "to": "target",
+              "visibility": {
+                "level": "undetected",
+                "of": "self",
+                "until": [
+                  "next-turn-end"
+                ]
+              }
+            }
+          ]
+        }
+      },
+      "apply": []
+    }
+  },
+  "Вкрадчивое слово": {
+    "v": 1,
+    "label": "Вкрадчивое слово",
+    "onUse": {
+      "targets": "selected",
+      "zone": null,
+      "challenge": {
+        "statistic": "will",
+        "dc": {
+          "value": 20
+        },
+        "basic": false,
+        "traits": [
+          "auditory",
+          "linguistic",
+          "mental"
+        ],
+        "rollerRole": "target",
+        "byDegree": {
+          "success": [
+            {
+              "to": "target",
+              "note": "Застигнута врасплох для следующего Удара агента до конца этого его хода (переключатель на Финте, вручную)"
+            }
+          ],
+          "failure": [
+            {
+              "to": "target",
+              "note": "Застигнута врасплох для атак агента до конца его следующего хода (переключатель на Финте, вручную)"
+            }
+          ],
+          "criticalFailure": [
+            {
+              "to": "target",
+              "condition": {
+                "slug": "fascinated"
+              }
+            },
+            {
+              "to": "target",
+              "note": "Как провал + Заворожённость от агента до конца его следующего хода (снять вручную)"
+            }
+          ]
+        }
+      },
+      "apply": [
+        {
+          "to": "target",
+          "note": "После испытания цель невосприимчива к Вкрадчивому слову этого агента 10 минут (вручную)"
+        }
+      ]
+    }
+  },
+  "Дымовая завеса": {
+    "v": 1,
+    "label": "Дымовая завеса",
+    "onUse": {
+      "targets": "area",
+      "zone": {
+        "condition": {
+          "slug": "concealed"
+        },
+        "effect": null,
+        "duration": {
+          "seconds": 12,
+          "rounds": 2
+        }
+      },
+      "challenge": null,
+      "apply": []
+    }
+  }
+}

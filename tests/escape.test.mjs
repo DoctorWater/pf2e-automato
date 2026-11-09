@@ -47,7 +47,7 @@ test("escape: удаляются документ шага и выданное �
 });
 
 test("каталог: лиана (крит. успех и успех) и захват несут escape", () => {
-  const cat = JSON.parse(readFileSync(new URL("../rules/catalog.campaign.json", import.meta.url), "utf8"));
+  const cat = JSON.parse(readFileSync(new URL("../rules/catalog.json", import.meta.url), "utf8"));
   const steps = (r) => Object.values(r.onUse.check.byDegree).flat().filter((s) => s.escape);
   assert.deepEqual(steps(cat.bySlug["tangle-vine"]).map((s) => s.escape), [{ dcStat: "spell" }, { dcStat: "spell" }]);
   assert.deepEqual(steps(cat.bySlug.grapple).map((s) => s.condition.slug), ["restrained", "grabbed"]);

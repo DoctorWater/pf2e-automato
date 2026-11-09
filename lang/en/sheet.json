@@ -22,6 +22,7 @@
       "automationsBadge": "Handled by pf2e-automations",
       "doubleWarn": "Double application: disable the group in pf2e-automations or enable \"Yield\".",
       "accept": "Accept recognized",
+      "acceptCatalog": "Take from catalog",
       "label": "Label",
       "yieldLabel": "Yield to pf2e-automations",
       "yield": { "auto": "per setting", "yes": "yes", "no": "no (always run)" },

@@ -33,7 +33,7 @@ test("каталог: факел бросается на выбранную це
 });
 
 test("Вымысел: label служебный, английский", () => {
-  const c = json("catalog.campaign.json");
+  const c = json("catalog.json");
   assert.ok(!JSON.stringify(c).includes('"label":"Вымысел"'));
   assert.equal(c.bySlug.figment.label, "Figment");
 });

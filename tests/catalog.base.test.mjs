@@ -4,18 +4,19 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { validateRule, buildCatalog } from "../scripts/rules.mjs";
 
-const cat = JSON.parse(readFileSync(fileURLToPath(new URL("../rules/catalog.campaign.json", import.meta.url)), "utf8"));
+const cat = JSON.parse(readFileSync(fileURLToPath(new URL("../rules/catalog.json", import.meta.url)), "utf8"));
+const flagRules = JSON.parse(readFileSync(fileURLToPath(new URL("../tools/campaign-flag-rules.json", import.meta.url)), "utf8"));
 
-test("catalog.campaign: все записи (bySource, bySlug, flagRules) проходят validateRule", () => {
-  for (const f of ["bySource", "bySlug", "flagRules"])
-    for (const [k, r] of Object.entries(cat[f])) {
+test("catalog.json: все записи (bySource, bySlug, flagRules) проходят validateRule", () => {
+  for (const f of ["bySource", "bySlug", "byName", "flagRules"])
+    for (const [k, r] of Object.entries({ ...cat, flagRules }[f])) {
       if (k === "_doc") continue;
       const v = validateRule(r);
       assert.ok(v.ok, `${f}.${k}: ${v.errors}`);
     }
 });
 
-test("catalog.campaign: загрузчик не отбрасывает записи, ключи bySource — UUID компендия", () => {
+test("catalog.json: загрузчик не отбрасывает записи, ключи bySource — UUID компендия", () => {
   const { bySource, bySlug, errors } = buildCatalog([cat]);
   assert.deepEqual(errors, []);
   assert.ok(bySource.size >= 4);

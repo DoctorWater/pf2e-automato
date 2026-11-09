@@ -134,7 +134,18 @@
 .pf2e-automato-workshop .ws-areanote i { flex: none; }
 
 /* Исход: колонки степеней, плашки шагов */
-.pf2e-automato-workshop .ws-dgrid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+/* 4 колонки -> 2 -> 1 по ширине блока (не 3+1); выпадающий список у правых колонок — к правому краю */
+.pf2e-automato-workshop :has(> .ws-dgrid) { container-type: inline-size; }
+.pf2e-automato-workshop .ws-dgrid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; }
+@container (min-width: 380px) {
+  .pf2e-automato-workshop .ws-dgrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .pf2e-automato-workshop .ws-dcol:nth-child(even) .ws-pick { left: auto; right: 0; }
+}
+@container (min-width: 720px) {
+  .pf2e-automato-workshop .ws-dgrid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .pf2e-automato-workshop .ws-dcol:nth-child(2) .ws-pick { left: 0; right: auto; }
+  .pf2e-automato-workshop .ws-dcol:nth-child(3) .ws-pick { left: auto; right: 0; }
+}
 .pf2e-automato-workshop .ws-dcol, .pf2e-automato-workshop .ws-lst { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
 .pf2e-automato-workshop .ws-dhead { padding-bottom: 3px; border-bottom: 2px solid currentColor; }
 .pf2e-automato-workshop .ws-d-criticalSuccess { color: #1d6b1d; }
@@ -202,7 +213,7 @@
 /* Плашка: имя целиком, управление под ним (узкая колонка) */
 .pf2e-automato-workshop .ws-plate { flex-wrap: wrap; }
 .pf2e-automato-workshop .ws-plate-t { height: auto; min-height: 28px; padding-block: 4px; }
-.pf2e-automato-workshop .ws-plate-n { overflow: visible; white-space: normal; overflow-wrap: break-word; word-break: normal; hyphens: auto; text-align: left; }
+.pf2e-automato-workshop .ws-plate-n { overflow: visible; white-space: normal; overflow-wrap: break-word; word-break: normal; hyphens: none; text-align: left; }
 .pf2e-automato-workshop .ws-plate.has-stp .ws-plate-t { flex-basis: 100%; padding-bottom: 0; }
 .pf2e-automato-workshop .ws-plate.has-stp .ws-stp { margin: 0 0 3px 6px; }
 .pf2e-automato-workshop .ws-plate.has-stp .ws-x { margin: 0 0 3px auto; }
@@ -214,7 +225,6 @@
 .pf2e-automato-workshop .ws-check input[type="checkbox"]::before { outline: 1px solid #786452; }
 
 /* Список добавления: у правых колонок — от правого края, поле поиска светлое */
-.pf2e-automato-workshop .ws-dcol:nth-child(n+3) .ws-pick { left: auto; right: 0; }
 .pf2e-automato-workshop .ws-pick input[type="search"] { padding: 0 8px; font: inherit; color: #2a2420; background: #fff; border: 1px solid #baa991; border-radius: 3px; box-shadow: none; }
 .pf2e-automato-workshop .ws-pick-h { padding: 6px 8px 2px; font: 700 11px "Roboto Condensed", Roboto, sans-serif; letter-spacing: .06em; text-transform: uppercase; color: #786452; }
 .pf2e-automato-workshop .ws-pick-h:not(:first-child) { margin-top: 4px; border-top: 1px solid #ddd2c0; }

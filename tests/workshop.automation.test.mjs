@@ -204,7 +204,7 @@ test("проверка автора: MAP снижает модификатор, 
 
 test("круг правило -> форма -> правило без потерь по ВСЕМ валидным правилам каталогов", () => {
   let n = 0;
-  for (const file of ["catalog.json", "catalog.campaign.json"]) {
+  for (const file of ["catalog.json"]) {
     const j = JSON.parse(readFileSync(new URL(`../rules/${file}`, import.meta.url)));
     for (const field of ["bySource", "bySlug", "byName"]) for (const [key, raw] of Object.entries(j[field] ?? {})) {
       const v = validateRule(raw);

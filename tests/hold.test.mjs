@@ -35,7 +35,7 @@ const { allowedDamage } = await import("../scripts/damage-gate.mjs");
 const { dispatchBuiltin } = await import("../scripts/builtin/index.mjs");
 
 const validate = rules.validateRule;
-const catalog = JSON.parse(readFileSync(fileURLToPath(new URL("../rules/catalog.campaign.json", import.meta.url)), "utf8"));
+const catalog = JSON.parse(readFileSync(fileURLToPath(new URL("../rules/catalog.json", import.meta.url)), "utf8"));
 const CARRIER_KEY = "Compendium.pf2e-automato.effects.Item.SnctuaryEffect01";
 const CARRIER = validate(catalog.bySource[CARRIER_KEY]).rule;
 const MARK = (id) => `Compendium.pf2e-automato.effects.Item.${id}`;

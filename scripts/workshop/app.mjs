@@ -341,7 +341,12 @@ export class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
       saveItem() { return this.#guard(() => this.#saveItem()); },
       resetDraft() { this.#loadAu(); this.render(); },
       unsetRule() { return this.#guard(async () => { await this.#item.update(forcedDelete(flagPath("rule"))); this.#loadAu(); this.render(); }); },
-      accept() { return this.#guard(async () => { await this.#item.update(forcedReplace(flagPath("rule"), resolveRule(this.#item).rule)); this.#loadAu(); this.render(); }); },
+      accept() {
+        return this.#guard(async () => {
+          if (this.#dirty() && !(await foundry.applications.api.DialogV2.confirm({ window: { title: t("workshop.au.switchTitle") }, content: `<p>${foundry.utils.escapeHTML(t("workshop.au.acceptAsk", { name: this.#item.name }))}</p>`, rejectClose: false }))) return;
+          await this.#item.update(forcedReplace(flagPath("rule"), resolveRule(this.#item).rule)); this.#loadAu(); this.render();
+        });
+      },
       worldSave(_e, el) { return this.#guard(() => this.#world(el.dataset.scope, true)); },
       worldDel(_e, el) { return this.#guard(() => this.#world(el.dataset.scope, false)); }
     }
@@ -530,7 +535,14 @@ export class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
     this.#redraw();
     return b;
   }
-  #redraw() { this.#typing = false; return this.render({ parts: this.#mode === "item" ? ["header", "main", "aside", "footer"] : ["main", "aside", "footer"] }); }
+  /** Перерисовка; фокус возвращается элементу с тем же name, а при открытии списка — в его поиск. */
+  async #redraw() {
+    this.#typing = false;
+    const prev = this.element?.contains(document.activeElement) ? document.activeElement : null, name = prev?.name, opens = /^(togglePicker|toggleTraits)$/.test(prev?.dataset.action ?? "");
+    await this.render({ parts: this.#mode === "item" ? ["header", "main", "aside", "footer"] : ["main", "aside", "footer"] });
+    const el = this.element;
+    ((opens && el?.querySelector(".ws-pick input[data-filter]")) || (name && el?.querySelector(`[name="${CSS.escape(name)}"]`)))?.focus();   // список закрыт повторным кликом — фокус остаётся на кнопке
+  }
   #set(el, v) {
     if (el.dataset.i !== undefined) return this.#setIt(el.dataset.i, v);
     if (el.dataset.a !== undefined) return this.#setAuto(el.dataset.a, v);
@@ -787,7 +799,7 @@ export class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
         img: item.img, name: item.name, covered: groups.join(", "),
         kind: [game.i18n.localize(`TYPES.Item.${item.type}`), isSpell ? item.rank : item.system.level?.value].filter((x) => x !== undefined && x !== null).join(" "),
         traits: (item.system.traits?.value ?? []).map(traitLabel),
-        src: { ...(res ? { label: t(`sheet.src.${res.source}`), low: res.confidence === "low", canAccept: res.source !== "flag", locked: lockedFlag } : { label: t("workshop.au.noRule") }), diverged: divergedHint(res?.diverged ?? divergedOf(item)) }
+        src: { ...(res ? { label: t(`sheet.src.${res.source}`), low: res.confidence === "low", canAccept: res.source !== "flag", acceptLabel: t(res.source === "markup" ? "sheet.accept" : "sheet.acceptCatalog"), locked: lockedFlag } : { label: t("workshop.au.noRule") }), diverged: divergedHint(res?.diverged ?? divergedOf(item)) }
       },
       skills: [...sheetStat, ...Object.keys(CONFIG.PF2E.skills ?? {})], conds: grantable().map((c) => ({ ...c, q: c.label.toLowerCase() })),
       rows, into: into ? this.#intoView(P) : null, doubleWarn: !!groups.length && (f.yield === "no" || (f.yield === "auto" && !setting)) ? t("sheet.doubleWarn") + ` «${groups.join(", ")}»` : "",
@@ -847,6 +859,17 @@ export class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
     el.addEventListener("click", (ev) => {
       if (this.#au?.picker && !ev.target.closest(".ws-pick, [data-action=togglePicker]")) { this.#au.picker = null; this.#redraw(); }
       if (this.#mode === "item" && this.#wiz.picker && !ev.target.closest(".ws-pick, [data-action=toggleTraits]")) { this.#wiz.picker = false; this.#redraw(); }
+    });
+    // Esc закрывает открытый список/меню, а не всё окно
+    el.addEventListener("keydown", (ev) => {
+      if (ev.key !== "Escape") return;
+      const menu = el.querySelector(".ws-menu[open]"), ap = this.#au?.picker, wp = this.#mode === "item" && this.#wiz.picker;
+      if (!menu && !ap && !wp) return;
+      ev.preventDefault(); ev.stopPropagation();
+      menu?.removeAttribute("open");
+      if (ap) this.#au.picker = null;
+      if (wp) this.#wiz.picker = false;
+      if (ap || wp) this.#redraw().then(() => el.querySelector(`[name="${CSS.escape(ap ? `add-${ap}` : "addTrait")}"]`)?.focus());   // фокус — на кнопку, открывшую список
     });
     el.addEventListener("dragover", (ev) => ev.preventDefault());
     el.addEventListener("drop", (ev) => ({ automation: () => this.#dropAuto(ev), item: () => this.#dropItem(ev) }[this.#mode] ?? (() => this.#drop(ev)))().catch((e) => console.error(`${MOD} | workshop`, e)));

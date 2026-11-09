@@ -35,8 +35,8 @@ async () => {
 
   // ---------- каталог ----------
   const getJson = async (f) => { try { const r = await fetch(foundry.utils.getRoute(`modules/${MOD}/rules/${f}`)); return r.ok ? await r.json() : null; } catch { return null; } };
-  const [model, cat, camp] = await Promise.all([getJson("catalog.model.json"), getJson("catalog.json"), getJson("catalog.campaign.json")]);
-  const merged = { ...(model?.bySource ?? {}), ...(cat?.bySource ?? {}), ...(camp?.bySource ?? {}) };   // порядок как в rules.mjs: побеждает последний
+  const [model, cat] = await Promise.all([getJson("catalog.model.json"), getJson("catalog.json")]);
+  const merged = { ...(model?.bySource ?? {}), ...(cat?.bySource ?? {}) };   // порядок как в rules.mjs: побеждает последний
   const entries = [];
   for (const [uuid, v] of Object.entries(merged)) for (const rule of Array.isArray(v) ? v : [v]) {
     for (const kind of ["damaged", "failed"]) if (rule?.[kind === "damaged" ? "onDamaged" : "onFailed"]) entries.push({ kind, uuid, rule, label: rule.label ?? uuid, tail: uuid.split(".").at(-1) });

@@ -12,7 +12,7 @@ const { isOverflowUse, isAura } = await import("../scripts/builtin/kinetic-aura.
 
 const read = (n) => JSON.parse(readFileSync(new URL(`../rules/${n}`, import.meta.url), "utf8"));
 const catalog = read("catalog.json");
-initCatalog([read("catalog.model.json"), catalog, read("catalog.campaign.json")], read("labels.json"));
+initCatalog([read("catalog.model.json"), catalog], read("labels.json"));
 const WF11 = catalog.bySource["Compendium.pf2e.familiar-abilities.Item.mu9OL8v4rmr9311e"];
 const COLUMN = catalog.bySource["Compendium.pf2e.feats-srd.Item.XqtJVBwnxBsSo9Py"];
 const GUST = catalog.bySource["Compendium.pf2e.spells-srd.Item.1Yoipc5jNcMehtEW"];

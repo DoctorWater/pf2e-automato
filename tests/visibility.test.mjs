@@ -86,12 +86,13 @@ test("applyOps/undoOps: visibility ставит источник и откаты
 
 test("каталог: Отвлекающий манёвр и Отвести глаза используют visibility", async () => {
   const { readFileSync } = await import("node:fs");
-  const cat = JSON.parse(readFileSync(new URL("../rules/catalog.campaign.json", import.meta.url), "utf8"));
+  const cat = JSON.parse(readFileSync(new URL("../rules/catalog.json", import.meta.url), "utf8"));
+  const flag = JSON.parse(readFileSync(new URL("../tools/campaign-flag-rules.json", import.meta.url), "utf8"));
   const vis = (bd, d) => bd[d].find((a) => a.visibility)?.visibility;
   const div = cat.bySlug["create-a-diversion"].onUse.check.byDegree;
   assert.deepEqual(vis(div, "success"), V);
   assert.deepEqual(vis(div, "criticalSuccess"), V);
-  const eyes = cat.flagRules["Отвести глаза"].onUse.challenge.byDegree;
+  const eyes = flag["Отвести глаза"].onUse.challenge.byDegree;
   assert.deepEqual([vis(eyes, "success"), vis(eyes, "failure"), vis(eyes, "criticalFailure")].map((v) => [v.level, v.of, v.until[0]]),
     [["concealed", "self", "turn-end"], ["hidden", "self", "turn-end"], ["undetected", "self", "next-turn-end"]]);
 });

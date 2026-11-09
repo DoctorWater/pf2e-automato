@@ -1694,11 +1694,11 @@ export async function loadCatalog() {
     if (!resp.ok) { if (!optional) warn(`не загружен rules/${name}: ${resp.status}`); return null; }
     try { return await resp.json(); } catch (e) { warn(`rules/${name}: битый JSON`, e); if (!optional) throw e; return null; }   // битый необязательный файл не должен ронять остальные каталоги
   };
-  const [cat, campaign, pa, model, onhit, labels, ranges, degrees, summons] = await Promise.all([get("catalog.json"), get("catalog.campaign.json", true), get("catalog.pa.json", true), get("catalog.model.json", true), get("catalog.onhit.json", true), get("labels.json"), get("ranges.json", true), get("damage-degrees.json", true), get("summons.json", true)]);
+  const [cat, pa, model, onhit, labels, ranges, degrees, summons] = await Promise.all([get("catalog.json"), get("catalog.pa.json", true), get("catalog.model.json", true), get("catalog.onhit.json", true), get("labels.json"), get("ranges.json", true), get("damage-degrees.json", true), get("summons.json", true)]);
   initOverlays(ranges, degrees, summons);
   // при совпадении ключа побеждает последний: автоматический перенос PA — первым, проверенные вручную — после
   // model (tools/drafts.mjs): черновики пачек от Haiku/Sonnet, прошедшие валидатор и выборку
-  return initCatalog([pa, model, onhit, cat, campaign].filter(Boolean), labels);   // onhit (tools/onhit.mjs): «при попадании Удара — состояние» по тексту; ручные каталоги главнее
+  return initCatalog([pa, model, onhit, cat].filter(Boolean), labels);   // onhit (tools/onhit.mjs): «при попадании Удара — состояние» по тексту; ручные каталоги главнее
 }
 export const ready = loadCatalog;
 

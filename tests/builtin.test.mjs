@@ -188,8 +188,9 @@ test("runMacroRef: таймаут builtin по timeoutMs обработчика"
 
 /* ---------- каталог ---------- */
 
-test("catalog.campaign: все builtin-ссылки указывают на существующий обработчик", () => {
-  const cat = JSON.parse(readFileSync(fileURLToPath(new URL("../rules/catalog.campaign.json", import.meta.url)), "utf8"));
+test("catalog.json и flagRules: все builtin-ссылки указывают на существующий обработчик", () => {
+  const cat = JSON.parse(readFileSync(fileURLToPath(new URL("../rules/catalog.json", import.meta.url)), "utf8"));
+  cat.flagRules = JSON.parse(readFileSync(fileURLToPath(new URL("../tools/campaign-flag-rules.json", import.meta.url)), "utf8"));
   const ids = [];
   for (const sec of ["bySource", "bySlug", "byName", "flagRules"]) for (const [k, r] of Object.entries(cat[sec])) {
     if (k === "_doc") continue;

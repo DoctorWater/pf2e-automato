@@ -114,7 +114,7 @@ export function init() {
   });
   Hooks.on("updateSetting", (s) => {   // режим «макросы» сменили: пересобрать актёров с dual-предметами и перерисовать их листы
     if (s.key !== `${MOD}.mode.macro`) return;
-    const toks = (game.scenes ?? []).flatMap((sc) => [...sc.tokens].filter((t) => !t.actorLink).map((t) => t.actor));
+    const toks = (game.scenes?.contents ?? []).flatMap((sc) => [...sc.tokens].filter((t) => !t.actorLink).map((t) => t.actor));
     for (const a of [...(game.actors ?? []), ...toks]) {
       if (!a?.items?.some((i) => i.flags?.[MOD]?.dual)) continue;
       try { a.reset(); for (const app of Object.values(a.apps ?? {})) app.render?.(); } catch (e) { warn("reset")(e); }

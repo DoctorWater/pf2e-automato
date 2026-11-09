@@ -1,0 +1,43 @@
+# Релиз по тегу vX.Y.Z: паки LevelDB собираются из packs/_source, в zip — только то, что нужно Foundry.
+# Манифест в module.json смотрит на releases/latest — поэтому релиз не prerelease (latest пропускает prerelease).
+name: Release
+on:
+  push:
+    tags: ["v*"]
+permissions:
+  contents: write
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - name: Tag matches module.json
+        run: |
+          node -e '
+            const m = require("./module.json"), tag = process.env.GITHUB_REF_NAME;
+            if (`v${m.version}` !== tag) throw new Error(`version ${m.version} != tag ${tag}`);
+            if (!m.download.includes(`/download/${tag}/`)) throw new Error(`download не на ${tag}: ${m.download}`);
+          '
+      # юнит-тесты — локально перед тегом: часть читает tools/out и rules/drafts, которых нет в git
+      - name: Build packs
+        run: |
+          npm install --prefix "$RUNNER_TEMP/cl" classic-level@3 --no-audit --no-fund
+          FOUNDRY_NODE_MODULES="$RUNNER_TEMP/cl/node_modules/" node tools/build-packs.mjs
+          test -f packs/effects/CURRENT && test -f packs/equipment/CURRENT
+      - name: Zip
+        run: |
+          D=dist/pf2e-automato
+          mkdir -p $D/rules $D/packs
+          cp -r scripts templates styles lang module.json LICENSE NOTICE README.md $D/
+          cp rules/*.json $D/rules/
+          cp -r packs/effects packs/equipment $D/packs/
+          rm -f $D/packs/*/LOCK $D/packs/*/LOG*
+          (cd $D && zip -qr ../../pf2e-automato.zip .)
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            pf2e-automato.zip
+            module.json
+          make_latest: true

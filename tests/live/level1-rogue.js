@@ -1,5 +1,5 @@
 async () => {
-  // Живые сценарии плута 1 уровня (plan.md §13.7, волна 2): Организатор, Пройдоха, Вовлекающий финт. Правила — rules/catalog.json и catalog.campaign.json (Финт).
+  // Живые сценарии плута 1 уровня (plan.md §13.7, волна 2): Организатор, Пройдоха, Вовлекающий финт. Правила — rules/catalog.json и catalog.json (Финт).
   // Герои — временные копии «AF тест: …» из папки «Герои 1 ур. (автоматизация)» (сами герои не меняются). Эффекты — пак модуля (MstrmindOffGrd01, ScndrlOffGuard01, OvrxtFeint*).
   // Вкладка активного ГМа-лидера, ничего вручную не нажимать. mode.effect/apply/challenge = auto на время прогона (прежние — window.__afL1RogueModesPrev).
   // Параметры: window.__afL1Rogue = { only: [...], skip: [...], cleanOnly: true }. Результат: { summary, table, rows } и window.__afL1RogueResult.

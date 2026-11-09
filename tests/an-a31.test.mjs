@@ -7,14 +7,14 @@ import { testPredicate } from "../scripts/predicate.mjs";
 /* A31 Gift of the Anemos, первая часть (docs/plan-animist.md): запись заклинания (эффект под Поддержанием) + запись эффекта (крит. промах Ударом по автору). */
 
 const layer = (n) => JSON.parse(readFileSync(new URL(`../rules/catalog${n}.json`, import.meta.url), "utf8")).bySource ?? {};
-const merged = Object.assign({}, ...[".pa", ".model", ".onhit", "", ".campaign"].map(layer));
+const merged = Object.assign({}, ...[".pa", ".model", ".onhit", ""].map(layer));
 const SPELL = "Compendium.pf2e.spells-srd.Item.x2Gf3lt64eoMocMd", FX = "Compendium.pf2e-automato.effects.Item.";
 const pack = (id) => { const d = new URL("../packs/_source/effects/", import.meta.url); return JSON.parse(readFileSync(new URL(readdirSync(d).find((f) => f.endsWith(`_${id}.json`)), d), "utf8")); };
 const ok = (r) => { const v = validateRule(r); assert.equal(v.ok, true, JSON.stringify(v.errors)); return v.rule; };
 
-test("A31: заклинание — в catalog.json, запись эффекта (ключ вне pf2e, как Sanctuary) — в catalog.campaign.json; других слоёв нет", () => {
+test("A31: заклинание — в catalog.json, там же запись эффекта (ключ вне pf2e, как Sanctuary); других слоёв нет", () => {
   for (const n of [".pa", ".model", ".onhit"]) assert.ok(!layer(n)[SPELL] && !layer(n)[FX + "AnemosGiftEf0001"], n);
-  assert.ok(layer("")[SPELL] && layer(".campaign")[FX + "AnemosGiftEf0001"]);
+  assert.ok(layer("")[SPELL] && layer("")[FX + "AnemosGiftEf0001"]);
 });
 
 test("A31: сотворение — эффект ауры на себя под Поддержанием, остальное (Step/Shove/Прыжок) — заметка", () => {

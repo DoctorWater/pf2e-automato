@@ -22,6 +22,7 @@
       "automationsBadge": "Выполняет pf2e-automations",
       "doubleWarn": "Двойное применение: отключите группу в pf2e-automations или включите «Уступать».",
       "accept": "Принять распознанное",
+      "acceptCatalog": "Взять из каталога",
       "label": "Подпись",
       "yieldLabel": "Уступать pf2e-automations",
       "yield": { "auto": "по настройке", "yes": "да", "no": "нет (выполнять всегда)" },

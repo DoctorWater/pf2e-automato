@@ -8,7 +8,6 @@ const path = (p) => fileURLToPath(new URL(`../${p}`, import.meta.url));
 const rd = (p) => JSON.parse(readFileSync(path(p), "utf8"));
 const catalog = rd("rules/catalog.json");
 const labels = rd("rules/labels.json");
-const campaign = existsSync(path("rules/catalog.campaign.json")) ? rd("rules/catalog.campaign.json") : null;
 
 const COND = { TBSH: "frightened", AdPV: "fascinated", fesd: "sickened", cond: "concealed" };
 const condSlug = (uuid) => (uuid.includes("conditionitems") ? COND[uuid.split(".").pop().slice(0, 4)] ?? null : null);
@@ -17,8 +16,8 @@ const EFF = "Compendium.pf2e.equipment-effects.Item.eff00000000000x";
 
 /* ---------- validateRule ---------- */
 
-test("каталог и кампания проходят validateRule", () => {
-  for (const cat of [catalog, campaign].filter(Boolean))
+test("каталог проходит validateRule", () => {
+  for (const cat of [catalog])
     for (const f of ["bySource", "bySlug"])
       for (const [k, r] of Object.entries(cat[f])) {
         const v = validateRule(r);

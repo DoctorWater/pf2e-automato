@@ -261,7 +261,7 @@ async () => {
       if (k === "dark") t.ok(!r?.rule?.onUse?.zone && !!r?.rule?.onUse?.apply?.[0]?.note, "darkness: заметка без зоны");
     }
     const shield = resolveRule(await fromUuid(SP + U.shield));
-    t.ok(!!shield?.rule?.onUse?.apply?.[0]?.unlessEffect, `Shield: у шага есть unlessEffect (source=${shield?.source}); если нет — добавить в catalog.campaign.json (он перекрывает catalog.json)`);
+    t.ok(!!shield?.rule?.onUse?.apply?.[0]?.unlessEffect, `Shield: у шага есть unlessEffect (source=${shield?.source}); если нет — добавить в catalog.json`);
   });
 
   sc("heal-undead", "Heal (3 действия, область): Стойкость бросает только нежить; живой не бросает", async (e, t) => {

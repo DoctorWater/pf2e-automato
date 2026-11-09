@@ -901,7 +901,7 @@ function main() {
   const html = readOut("html.json"), refs = readOut("refs.json"), tri = readOut("triage.json").items;
   const triBy = new Map(tri.map((t) => [t.uuid, t])), itBy = new Map(items.map((i) => [i.uuid, i]));
   const config = readJson(AUTOMATIONS_CONFIG);
-  const catalogJsons = ["catalog.json", "catalog.campaign.json"].map((f) => readJson(join(ROOT, "rules", f)));
+  const catalogJsons = ["catalog.json"].map((f) => readJson(join(ROOT, "rules", f)));
   const mSrc = new Set(catalogJsons.flatMap((c) => Object.keys(c.bySource ?? {}))), mSlug = new Set(catalogJsons.flatMap((c) => Object.keys(c.bySlug ?? {})));
   const canonOf = (slug) => { const k = ctx.slugKind?.get(slug); return k ? items.find((i) => !i.embedded && i.slug === slug && i.type === k.type && i.pack === k.pack) : null; };
   const tierN = {};

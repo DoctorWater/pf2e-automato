@@ -64,7 +64,7 @@
     {{#if res}}
       <details><summary>JSON</summary><pre>{{res.json}}</pre></details>
       {{#if res.canAccept}}
-        <button type="button" class="paf-primary" data-action="accept" data-rule="{{res.ruleAttr}}" {{#if lockedFlag}}disabled{{/if}}>{{localize "PF2E_AUTOMATO.sheet.accept"}}</button>
+        <button type="button" data-action="accept" data-rule="{{res.ruleAttr}}" {{#if lockedFlag}}disabled{{/if}}>{{res.acceptLabel}}</button>
       {{/if}}
     {{/if}}
   </div>

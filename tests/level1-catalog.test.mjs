@@ -50,10 +50,9 @@ test("Information Overload и Clinging Ice: срок привязан к Под�
 
 /* ---------- плут: Организатор, Пройдоха, Вовлекающий финт (plan §13, L1-R1/R2) ---------- */
 
-const campaign = JSON.parse(readFileSync(new URL("../rules/catalog.campaign.json", import.meta.url), "utf8"));
 const FX = "Compendium.pf2e-automato.effects.Item.";
 const pack = (id) => { const d = new URL("../packs/_source/effects/", import.meta.url); return JSON.parse(readFileSync(new URL(readdirSync(d).find((f) => f.endsWith(`_${id}.json`)), d), "utf8")); };
-const feint = campaign.bySource["Compendium.pf2e.actionspf2e.Item.QNAVeNKtHA0EUw4X"];
+const feint = catalog.bySource["Compendium.pf2e.actionspf2e.Item.QNAVeNKtHA0EUw4X"];
 /** Исполняемые шаги степени Финта при опциях автора (feat/feature) и выборе. Заметка без when — текст плана карточки, не шаг. */
 const live = (deg, opts) => feint.onUse.check.byDegree[deg].filter((s) => s.when ? testPredicate(s.when, new Set(opts)) : !s.note);
 const kinds = (list) => list.map((s) => s.choose ? "choose" : s.condition ? `cond:${s.duration.value}` : s.effect ? s.effect.uuid.replace(FX, "") : "note");
@@ -63,8 +62,8 @@ test("плут: правила Организатора, Вовлекающег�
     const v = validateRule(r);
     assert.equal(v.ok, true, JSON.stringify(v.errors));
   }
-  assert.deepEqual(buildCatalog([catalog, campaign]).errors, []);
-  assert.deepEqual(campaign.bySlug.feint, feint);
+  assert.deepEqual(buildCatalog([catalog]).errors, []);
+  assert.deepEqual(catalog.bySlug.feint, feint);
 });
 
 test("Организатор: успех — метка до начала хода, крит — 1 минута; эффект — off-guard только против помеченного", () => {
@@ -120,9 +119,9 @@ test("hasEffect: тот же эффект с меткой на другого в
   assert.ok(hasEffect(actor, U, "Actor.r"));   // без метки — прежний дедуп
 });
 
-test("Tumble Behind: действующая запись (campaign поверх pa) снимает эффект только при метке цели", () => {
+test("Tumble Behind: действующая запись (catalog поверх pa) снимает эффект только при метке цели", () => {
   const pa = JSON.parse(readFileSync(new URL("../rules/catalog.pa.json", import.meta.url), "utf8"));
-  const built = buildCatalog([pa, campaign]);
+  const built = buildCatalog([pa, catalog]);
   assert.deepEqual(built.errors, []);
   const rule = built.bySource.get("Compendium.pf2e.feats-srd.Item.YKqMuuC8j35NFh92");
   const rules = [rule.rule ?? rule, ...["tumble-behind-rogue", "tumble-behind"].map((s) => built.bySlug.get(s)).map((r) => r.rule ?? r)];
@@ -137,10 +136,10 @@ test("Tumble Behind: действующая запись (campaign поверх 
   }
 });
 
-/* ---------- наговоры ведьмы, первая партия (docs/plan-hexes.md): действующая запись = слои pa → model → onhit → cat → campaign, ключ заменяется целиком ---------- */
+/* ---------- наговоры ведьмы, первая партия (docs/plan-hexes.md): действующая запись = слои pa → model → onhit → cat, ключ заменяется целиком ---------- */
 
 const layer = (n) => JSON.parse(readFileSync(new URL(`../rules/catalog${n}.json`, import.meta.url), "utf8")).bySource ?? {};
-const merged = Object.assign({}, ...[".pa", ".model", ".onhit", "", ".campaign"].map(layer));
+const merged = Object.assign({}, ...[".pa", ".model", ".onhit", ""].map(layer));
 const SP = "Compendium.pf2e.spells-srd.Item.";
 const hex = (id) => { const r = merged[SP + id]; const v = validateRule(r); assert.equal(v.ok, true, JSON.stringify(v.errors)); return r.onUse; };
 const flat = (u) => [...(u.apply ?? []), ...Object.values(u.challenge?.byDegree ?? {}).flat()];
@@ -209,8 +208,8 @@ test("последняя партия ведьмы: Forbidding Ward под По�
 });
 
 test("Толчок: подсказка Подкидывания улик — только Головорезу с чертой, на успехе и крит. успехе; bySlug совпадает", () => {
-  const shove = campaign.bySource["Compendium.pf2e.actionspf2e.Item.7blmbDrQFNfdT731"];
-  assert.deepEqual(campaign.bySlug.shove, shove);
+  const shove = catalog.bySource["Compendium.pf2e.actionspf2e.Item.7blmbDrQFNfdT731"];
+  assert.deepEqual(catalog.bySlug.shove, shove);
   const by = shove.onUse.check.byDegree;
   for (const d of ["success", "criticalSuccess"]) {
     const n = by[d].filter((s) => /Подкидывание улик/.test(s.note ?? ""));

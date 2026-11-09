@@ -32,7 +32,7 @@ test("validateRule: who/mark/unlessEffect в шаге apply", () => {
 });
 
 test("каталог: Запрещающая защита — эффект союзнику с меткой на врага; Наставление — не при иммунитете", () => {
-  const cat = JSON.parse(readFileSync(fileURLToPath(new URL("../rules/catalog.campaign.json", import.meta.url)), "utf8"));
+  const cat = JSON.parse(readFileSync(fileURLToPath(new URL("../rules/catalog.json", import.meta.url)), "utf8"));
   const fw = cat.bySlug["forbidding-ward"].onUse.apply.find((a) => a.effect);
   assert.deepEqual([fw.who, fw.mark], ["ally", "enemy"]);
   for (const a of cat.bySlug.guidance.onUse.apply) assert.equal(a.unlessEffect, "Compendium.pf2e.spell-effects.Item.3LyOkV25p7wA181H");
@@ -51,7 +51,7 @@ test("chooserOf: окно выбора — у автора-игрока онла
 
 test("каталог byName: Танец клинков — способность NPC без slug и источника; не перебивает предмет со slug", async () => {
   const { initCatalog, resolveRule } = await import("../scripts/rules.mjs");
-  const cat = JSON.parse(readFileSync(fileURLToPath(new URL("../rules/catalog.campaign.json", import.meta.url)), "utf8"));
+  const cat = JSON.parse(readFileSync(fileURLToPath(new URL("../rules/catalog.json", import.meta.url)), "utf8"));
   initCatalog([cat], null);
   assert.equal(resolveRule({ item: { name: "Танец клинков", system: { slug: null }, _stats: {} } })?.rule?.macros?.[0]?.builtin, "blade-dance");
   assert.equal(resolveRule({ item: { name: "Танец клинков", system: { slug: "other" }, _stats: {} } }), null);

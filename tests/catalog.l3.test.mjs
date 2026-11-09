@@ -20,7 +20,7 @@ test("catalog.json: все записи проходят validateRule, ключ�
   for (const f of ["bySource", "bySlug"]) for (const [k, r] of Object.entries(cat[f])) assert.ok(validateRule(r).ok, `${f}.${k}`);
   const { errors, bySource } = buildCatalog([cat]);
   assert.deepEqual(errors, []);
-  for (const k of bySource.keys()) assert.match(k, /^Compendium\.pf2e\.[\w-]+\.Item\.\w{16}$/);
+  for (const k of bySource.keys()) assert.match(k, /^Compendium\.pf2e(?:-automato)?.[\w-]+\.Item\.\w{16}$/);
 });
 
 test("Heal: бросает только нежить; Grim Tendrils: область и только живые", () => {

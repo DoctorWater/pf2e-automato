@@ -12,7 +12,7 @@ const { buildPaCatalog } = await import("../tools/pa-port.mjs");
 const { roundTrip } = await import("../tools/validate.mjs");
 
 const read = (p) => JSON.parse(readFileSync(fileURLToPath(new URL(p, import.meta.url)), "utf8"));
-const pa = read("../rules/catalog.pa.json"), builtin = read("../rules/catalog.json"), campaign = read("../rules/catalog.campaign.json");
+const pa = read("../rules/catalog.pa.json"), builtin = read("../rules/catalog.json");
 
 test("catalog.pa: собирается без ошибок, каждое правило проходит round-trip", () => {
   const c = buildCatalog([pa]);
@@ -22,8 +22,8 @@ test("catalog.pa: собирается без ошибок, каждое пра�
 });
 
 test("catalog.pa: ручные каталоги побеждают при склейке (порядок как в loadCatalog)", () => {
-  const c = buildCatalog([pa, builtin, campaign]);
-  for (const m of [builtin, campaign]) {
+  const c = buildCatalog([pa, builtin]);
+  for (const m of [builtin]) {
     for (const f of ["bySource", "bySlug"]) for (const [k, raw] of Object.entries(m[f] ?? {})) assert.deepEqual(c[f].get(k), buildCatalog([{ [f]: { [k]: raw } }])[f].get(k), `${f}.${k}`);
   }
 });
@@ -37,7 +37,7 @@ test("catalog.pa: исключения PA_OVERRIDDEN не устарели (кл
   for (const k of PA_OVERRIDDEN) assert.ok(k in pa.bySource || k in pa.bySlug, `${k} нет в pa — уберите из PA_OVERRIDDEN`);
 });
 test("catalog.pa: ни один ключ не пересекается с ручными (источник и slug)", () => {
-  for (const f of ["bySource", "bySlug"]) for (const m of [builtin, campaign]) for (const k of Object.keys(m[f] ?? {})) assert.ok(!(k in pa[f]) || PA_OVERRIDDEN.has(k), `${f}.${k}`);
+  for (const f of ["bySource", "bySlug"]) for (const m of [builtin]) for (const k of Object.keys(m[f] ?? {})) assert.ok(!(k in pa[f]) || PA_OVERRIDDEN.has(k), `${f}.${k}`);
 });
 
 test("buildPaCatalog: slug только если однозначен, конфликт источника и ручной каталог", () => {

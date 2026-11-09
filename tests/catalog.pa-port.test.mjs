@@ -1,4 +1,4 @@
-// Перенос pf2e-automations: сущности кампании и общие действия в rules/catalog.campaign.json (pa-port-report.md).
+// Перенос pf2e-automations: сущности кампании и общие действия в rules/catalog.json (pa-port-report.md).
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync, existsSync } from "node:fs";
@@ -17,7 +17,7 @@ const { BUILTIN } = await import("../scripts/builtin/index.mjs");
 const strike = await import("../scripts/builtin/intimidating-strike.mjs");
 
 const read = (p) => JSON.parse(readFileSync(fileURLToPath(new URL(p, import.meta.url)), "utf8"));
-const builtin = read("../rules/catalog.json"), campaign = read("../rules/catalog.campaign.json"), labels = read("../rules/labels.json");
+const builtin = read("../rules/catalog.json"), labels = read("../rules/labels.json");
 const inv = [...read("../inventory-campaign.json").items, ...read("../party-inventory.json").items];
 
 const SP = "Compendium.pf2e.spells-srd.Item.", FT = "Compendium.pf2e.feats-srd.Item.", AC = "Compendium.pf2e.actionspf2e.Item.", EQ = "Compendium.pf2e.equipment-srd.Item.";
@@ -38,7 +38,7 @@ const ENT = {
 };
 const PORTED = Object.keys(ENT).filter((s) => s !== "breathe-fire");   // Дыхание огнём уже в catalog.json
 
-const cat = buildCatalog([builtin, campaign]);
+const cat = buildCatalog([builtin]);
 const rule = (slug) => cat.bySlug.get(slug);
 const steps = (slug, deg) => rule(slug).onUse.check.byDegree[deg] ?? [];
 const conds = (list) => list.filter((s) => s.condition);
@@ -53,7 +53,7 @@ test("pa-port: каталог собирается без ошибок; кажд
 });
 
 test("pa-port: resolveRule на предметах (инвентарь героев/мира или синтетический по slug+источнику) даёт каталог", () => {
-  initCatalog([builtin, campaign], labels);
+  initCatalog([builtin], labels);
   try {
     for (const [slug, [src, type]] of Object.entries(ENT)) {
       const real = inv.find((i) => i.slug === slug && (i.compendiumSource ?? null) === src);

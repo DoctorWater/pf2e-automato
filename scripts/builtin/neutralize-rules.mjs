@@ -78,7 +78,7 @@ const hasRegistered = (a) => (a?._source?.items ?? []).some((i) => (i.system?.ru
 /** Пересобрать актёров с регистровыми переключателями (смена режима или уступки): правила построятся заново и пройдут через обёртку. */
 export function resetActors() {
   marks = new WeakMap(); ownedCache = null;
-  const toks = (game.scenes ?? []).flatMap((sc) => [...sc.tokens].filter((t) => !t.actorLink).map((t) => t.actor));
+  const toks = (game.scenes?.contents ?? []).flatMap((sc) => [...sc.tokens].filter((t) => !t.actorLink).map((t) => t.actor));
   for (const a of [...(game.actors ?? []), ...toks]) if (hasRegistered(a)) try { a.reset(); } catch (e) { console.warn(`${MOD} | neutralize-rules reset`, e); }
 }
 

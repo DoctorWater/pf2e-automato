@@ -1,11 +1,12 @@
 // Общее для конвейера: пути, ввод-вывод, текст без HTML. Только stdlib.
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
 import { dirname, join } from "node:path";
+import { homedir } from "node:os";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 export const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 export const OUT = join(ROOT, "tools", "out");
-export const DATA = process.env.PF2E_DATA ?? "C:/Users/USER/AppData/Local/FoundryVTT/Data";
+export const DATA = process.env.PF2E_DATA ?? join(homedir(), "AppData/Local/FoundryVTT/Data");   // Windows: данные Foundry в профиле пользователя
 export const PF2RU = join(DATA, "modules/pf2ru-translation");
 // запасной источник (json 8.4.1), если LevelDB 8.6.1 не открылся (tools/packs.mjs). Другой каталог: PF2E_PACKS=...
 export const PACKS = process.env.PF2E_PACKS ?? join(PF2RU, "sources/pf2e-8.4.1/packs");

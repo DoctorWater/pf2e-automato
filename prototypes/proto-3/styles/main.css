@@ -1,9 +1,0 @@
-.pf2e-autoflow { margin-top: 6px; padding: 4px 6px; border-top: 1px solid var(--color-border-light-tertiary, #999); font-size: var(--font-size-12, 12px); }
-.pf2e-autoflow h4 { margin: 0 0 4px; font-size: 12px; }
-.pf2e-autoflow .row { display: flex; justify-content: space-between; align-items: center; gap: 6px; padding: 1px 0; }
-.pf2e-autoflow button { width: auto; line-height: 1.4; margin: 2px 0; }
-.pf2e-autoflow .d0 { color: #8b0000; font-weight: bold; }
-.pf2e-autoflow .d1 { color: #c0562a; }
-.pf2e-autoflow .d2 { color: #2a6e2a; }
-.pf2e-autoflow .d3 { color: #0b7a0b; font-weight: bold; }
-.pf2e-autoflow .muted { opacity: .7; font-style: italic; }

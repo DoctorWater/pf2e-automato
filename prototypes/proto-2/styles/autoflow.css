@@ -1,8 +1,0 @@
-.af2-block { border: 1px solid var(--color-border-dark-4, #555); border-radius: 3px; padding: 4px 6px; }
-.af2-block h4 { margin: 0 0 4px; border-bottom: 1px solid var(--color-border-light-2, #999); }
-.af2-block ul { margin: 0 0 4px; padding: 0; list-style: none; }
-.af2-block .af2-d3 { color: #2a7d2a; font-weight: bold; }
-.af2-block .af2-d2 { color: #2a7d2a; }
-.af2-block .af2-d1 { color: #a05a00; }
-.af2-block .af2-d0 { color: #b00020; font-weight: bold; }
-.af2-block button { width: auto; margin: 2px 2px 0 0; }

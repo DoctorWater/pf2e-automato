@@ -1,4 +1,4 @@
-import { MOD, L, setSocket, guardActiveGM, flagPath, callGM, degreeFromTotal, debug, queue, allowed } from "./util.mjs";
+import { MOD, setSocket, guardActiveGM, flagPath, callGM, degreeFromTotal, debug, queue, allowed } from "./util.mjs";
 import * as settings from "./settings.mjs";
 import * as compat from "./compat.mjs";
 import * as rules from "./rules.mjs";
@@ -159,8 +159,6 @@ Hooks.once("init", () => {
 });
 
 Hooks.once("ready", async () => {
-  const protos = game.modules.filter((m) => m.active && m.id.startsWith("pf2e-autoflow-proto"));
-  if (protos.length) ui.notifications.warn(`${L("protoWarning")} (${protos.map((m) => m.id).join(", ")})`);
   await rules.ready(); await chat.ready(); compat.ready(); cast.ready();
   // При каждом переходе в лидеры (первый — после ready, потом — когда прежний лидер закрыт/перезагружен): подхватить его работу.
   leader.onLead(async () => {

@@ -4,7 +4,6 @@
     "inline": { "name": "Effect: {name}" },
     "nexus": { "name": "Download tokens from the FA Nexus catalog", "hint": "Summoned creatures get a token from FA Nexus: files you already downloaded are always used; with this option on, a matching free token is also downloaded from the Nexus catalog (needs FA Nexus synced). Off by default." },
     "noGM": "No active GM: the action was not performed.",
-    "protoWarning": "A pf2e-autoflow-proto-* prototype is active: disable it, otherwise pf2e-automato will double-apply effects.",
     "mode": { "auto": "Automatic", "button": "On button", "off": "Off" },
     "messageMode": { "public": "Public", "gm": "GM only" }
   }

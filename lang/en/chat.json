@@ -13,6 +13,7 @@
       "waiting": "Waiting for the GM",
       "resume": "Resume",
       "outOfRange": "\"{name}\" is out of range ({d} ft > {r} ft): not applied.",
+      "flatFailed": "\"{name}\": failed the flat check — the spell has no effect.",
       "awaitingRegion": "Waiting for the area to be placed",
       "awaitingActions": "Waiting for the number of actions",
       "challengeOff": "Challenges are handled by Toolbelt",

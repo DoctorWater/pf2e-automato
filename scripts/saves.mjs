@@ -285,6 +285,7 @@ export async function acceptToolbeltSave({ data, message, roll, target, isReroll
 export async function recordToolbeltResult(messageId, tokenKey, { degree, total, isReroll }) {
   // Toolbelt пишет результат любой своей цели: challenge.when проверяем здесь (у решённой цели challengeTargets его не пересчитывает)
   const message = game.messages.get(messageId);
+  if (useOf(message)?.targets?.some((t) => t.key === tokenKey && t.far)) return { ok: false, reason: "not-target" };   // вне дальности / провал чистой проверки
   if (challengeOf(useOf(message))?.when && !(await challengeTargets(message)).some((t) => t.key === tokenKey)) return { ok: false, reason: "not-target" };
   return recordResult(messageId, tokenKey, { degree, total, by: game.user.id, rollMessageId: null, src: "toolbelt", isReroll: !!isReroll });
 }

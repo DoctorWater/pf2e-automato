@@ -153,7 +153,7 @@ export async function applyInline(messageId, spec, degrees, tokenUuids = []) {
   // цели: испытания модуля; иначе снимка карточки; иначе нажавшего
   let list = challenge ? (await saves.challengeTargets(msg)).map((t) => ({ key: t.key, token: t.token, name: t.token?.name, r: results[t.key] })) : [];
   if (!list.length) {
-    const uuids = (use?.targets ?? []).map((t) => t.uuid).filter(Boolean);
+    const uuids = (use?.targets ?? []).filter((t) => !t.far).map((t) => t.uuid).filter(Boolean);
     list = (uuids.length ? uuids : tokenUuids).map((u) => fromUuidSync(u)).filter(Boolean).map((d) => ({ key: d.id, token: d, name: d.name }));
   }
   const plan = planPersistent(list, degrees, challenge);

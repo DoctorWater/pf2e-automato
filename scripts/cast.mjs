@@ -1,6 +1,6 @@
 // cast: активация снаряжения «вы сотворяете X» (plan-cast-activation.md). Эфемерное заклинание с ленивой записью заклинателя, ранг, мягкая частота, сброс отдыхом.
 // Исполняет клиент, нажавший кнопку (владелец актёра или ведущий): запись заклинателя и карточка строятся одинаково на любом клиенте, ведущий применяет результат из сообщения.
-import { MOD, L, flagPath, forcedDelete } from "./util.mjs";
+import { MOD, L, flagPath, forcedDelete, useTargetOverride } from "./util.mjs";
 import { trackerFlags } from "./compat.mjs";
 import * as rules from "./rules.mjs";
 import { combatOf } from "./builtin/lib.mjs";
@@ -240,7 +240,7 @@ export async function castItem(item, id) {
   const useId = foundry.utils.randomID(), flag = { item: item.uuid, id: rec.id, ...(c.choice && { choice: c.choice }), useId };
   const rank = rankOf(c.rank, { actorLevel: actor.level, itemLevel: item.level });
   const options = [];
-  let card = null, missiles = null;
+  let card = null, missiles = null, flat = null;
 
   if (c.spell) {
     const spell = await fromUuid(c.spell);
@@ -259,6 +259,9 @@ export async function castItem(item, id) {
     const eph = new CONFIG.PF2E.Item.documentClasses.spell(src, { parent: actor, parentItem: item });   // как ConsumablePF2e#embeddedSpell (pf2e:50994)
     const msg = await eph.toMessage(null, { actualCast: true, create: false });
     if (!msg) return { ok: false, reason: "no-message" };
+    // PF2e Vision (если есть): чистая проверка целей до карточки, сообщения о ней — после
+    flat = await game.modules.get("pf2e-vision")?.api?.rollSpellFlat?.(eph, [...(useTargetOverride.get(actor.uuid) ?? game.user.targets ?? [])]).catch((e) => { console.error(`${MOD} | vision flat`, e); return null; }) ?? null;
+    if (flat?.failed?.length) msg.updateSource({ "flags.pf2e-vision.flatFailed": flat.failed });
     flag.rank = eph.rank;   // ранг сотворения: сообщение активации не несёт origin.castRank, applyOps берёт ранг отсюда
     msg.updateSource({
       "flags.pf2e.origin.rollOptions": [...(msg.flags.pf2e?.origin?.rollOptions ?? []), "origin:item:cast-by-activation", ...options],
@@ -268,6 +271,7 @@ export async function castItem(item, id) {
     });
     card = await ChatMessage.create(msg.toObject());
     if (!card) return { ok: false, reason: "no-message" };   // preCreateChatMessage отменил: добавку не создаём, частоту не списываем
+    await flat?.publish?.().catch((e) => console.error(`${MOD} | vision flat publish`, e));
     missiles = actions && MISSILE_SLUGS.has(spell.slug) ? { spell: eph, actions } : null;   // eph: у заклинания из компендиума нет владельца — rollDamage молча не бросит
     options.unshift("origin:item:cast-by-activation");
   }
@@ -282,7 +286,7 @@ export async function castItem(item, id) {
       speaker,
       ...use.activationUse({
         item, resolved, onUse: c.onUse, dc: activationDc(c.onUse, info, item.level), activation: flag, rollOptions: options,
-        targets: use.liveTargets(c.onUse, speaker, item), actor: actor.uuid, token: use.speakerToken(speaker)?.uuid ?? null,
+        targets: use.liveTargets(c.onUse, speaker, item, [], flat?.failed), actor: actor.uuid, token: use.speakerToken(speaker)?.uuid ?? null,
         content: `<p><strong>${esc(item.name)}</strong>: ${esc(c.label ?? title)}</p>${text}`
       })
     });

@@ -108,18 +108,21 @@ export function snapTargets(message) {
 async function missileTargets(message) {
   const own = message.flags?.[MOD]?.castTargets;
   const all = message.flags?.[MOD]?.use?.targets ?? [], snap = inRange(all);   // все вне дальности — целей нет, а не «текущие цели»
+  // провал чистой проверки PF2e Vision: у заклинания без правила снимка use нет, поэтому флаг читаем прямо с карточки
+  const far = new Set([...all.filter((t) => t.far).map((t) => t.uuid), ...(message.flags?.["pf2e-vision"]?.flatFailed ?? [])]);
   if (own) {   // пустой снимок — сотворили без целей
-    const far = new Set(all.filter((t) => t.far).map((t) => t.uuid));
     return (await Promise.all(own.filter((u) => !far.has(u)).map((u) => fromUuid(u)))).filter((d) => d?.actor);
   }
   const docs = all.length ? await Promise.all(snap.map((t) => fromUuid(t.uuid))) : [...(game.user.targets ?? [])].map((t) => t.document ?? t);
-  return docs.filter((d) => d?.actor);
+  return docs.filter((d) => d?.actor && !far.has(d.uuid));
 }
 
 export async function rollMissiles(message, spell, actions) {
   const castRank = message.flags?.pf2e?.origin?.castRank ?? spell.rank;
   const total = missileCount(actions, castRank, spell.baseRank ?? 1);
   const all = await missileTargets(message);
+  // снимок был, но все цели отсеяны — не бросать «в никуда» (пустой снимок — сотворили без целей, тогда бросок без цели законен)
+  if (!all.length && message.flags?.[MOD]?.castTargets?.length) return ui.notifications.warn(L("builtin.cast.noLiveTargets"));
   let plan;
   if (all.length <= 1) plan = [[all[0] ?? null, total]];
   else {

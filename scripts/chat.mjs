@@ -193,7 +193,7 @@ export function buildViewModel(message, user, env = null) {
 
   // все цели вне дальности: проверять и применять не к кому — хватает пометки выше (без «нет целей» и без кнопки СЛ)
   const allFar = on.targets !== "area" && !!use.targets?.length && use.targets.every((x) => x.far);
-  if (on.targets !== "area") for (const x of use.targets ?? []) if (x.far) vm.warnings.push(t("chat.outOfRange", { name: x.name, d: x.far.d, r: x.far.r }));
+  if (on.targets !== "area") for (const x of use.targets ?? []) if (x.far) vm.warnings.push(x.far.flat ? t("chat.flatFailed", { name: x.name }) : t("chat.outOfRange", { name: x.name, d: x.far.d, r: x.far.r }));
 
   const isUse = use.kind === "use", isRoll = use.kind === "roll";   // roll — бросок действия из листа: результат уже есть
   const hasState = ["zone", "area", "challenge", "apply", "derived", "macros"].some((k) => !isEmpty(state[k]));

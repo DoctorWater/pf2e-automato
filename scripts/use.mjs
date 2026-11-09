@@ -124,7 +124,7 @@ function onPreCreateMessage(message, data, options, userId) {
   const sp = message.speaker ?? {};
   const tokenDoc = speakerToken(sp);
   const actor = origin.actor ?? tokenDoc?.actor?.uuid ?? (sp.actor ? game.actors.get(sp.actor)?.uuid : null);
-  const targets = liveTargets(resolved.rule.onUse, sp, item, origin.rollOptions);
+  const targets = liveTargets(resolved.rule.onUse, sp, item, origin.rollOptions, message.flags?.["pf2e-vision"]?.flatFailed);
   const chDc = resolved.rule.onUse?.challenge?.dc;
   let dc = (message.flags?.[MOD]?.activation ?? message.flags?.[MOD]?.cast)?.dc ?? chDc?.value ?? null;   // СЛ активации (cast.mjs) приоритетнее СЛ правила заклинания
   if (dc == null && !resolved.rule.onUse?.check && (!chDc || chDc.source === "spell")) {   // СЛ заклинателя — только если правило её и просит (K7 п.7)
@@ -141,11 +141,19 @@ function onPreCreateMessage(message, data, options, userId) {
   message.updateSource({ [flagPath("use")]: snapshot });
 }
 
+/** Автор: цели Toolbelt (targetHelper) без провалившихся чистую проверку PF2e Vision — иначе его кнопки спасброска и урона остаются по ним.
+ *  После создания: порядок хуков preCreate AuTOMATO и Toolbelt не гарантирован. */
+function dropFlatFromToolbelt(message) {
+  const failed = new Set(message.flags?.["pf2e-vision"]?.flatFailed), tb = message.flags?.["pf2e-toolbelt"]?.targetHelper?.targets;
+  if (!message.isAuthor || !failed.size || !tb?.some((u) => failed.has(u))) return;
+  message.update({ "flags.pf2e-toolbelt.targetHelper.targets": tb.filter((u) => !failed.has(u)) }).catch((e) => console.error(`${MOD} | toolbelt flat`, e));
+}
+
 /** Токен автора сообщения по speaker. */
 export const speakerToken = (sp) => (sp?.scene && sp.token ? game.scenes.get(sp.scene)?.tokens.get(sp.token) : null);
 
 /** Цели нажавшего в снимок; для шагов по цели вне дальности — пометка far и предупреждение (область цели не берёт). */
-export function liveTargets(onUse, sp, item, rollOptions = []) {
+export function liveTargets(onUse, sp, item, rollOptions = [], flatFailed = []) {
   const tokenDoc = speakerToken(sp);
   const forced = useTargetOverride.get(item?.actor?.uuid ?? tokenDoc?.actor?.uuid);
   const targets = [...(forced ?? game.user.targets ?? [])].map((t) => t.document ?? t).map((d) => ({
@@ -156,7 +164,13 @@ export function liveTargets(onUse, sp, item, rollOptions = []) {
     for (const t of far) targets.find((x) => x.key === t.key).far = t.far;
     if (far.length) ui.notifications?.warn(far.map((t) => L("chat.outOfRange", { name: t.name, d: t.far.d, r: t.far.r })).join(" "));
   }
-  return targets;
+  return markFlat(targets, flatFailed);
+}
+
+/** Чистая: цели, провалившие чистую проверку PF2e Vision (UUID из flags["pf2e-vision"].flatFailed), — far {flat:true}, как цели вне дальности. */
+export function markFlat(targets, flatFailed) {
+  const failed = new Set(flatFailed ?? []);
+  return failed.size ? targets.map((t) => (failed.has(t.uuid) ? { ...t, far: { flat: true } } : t)) : targets;
 }
 
 /**
@@ -273,6 +287,7 @@ async function onDeleteRegion(region) {
 
 export function init() {
   Hooks.on("preCreateChatMessage", onPreCreateMessage);
+  Hooks.on("createChatMessage", dropFlatFromToolbelt);
   Hooks.on("preCreateRegion", onPreCreateRegion);
   Hooks.on("createChatMessage", onCreateMessage);
   replayers.add(onCreateMessage);

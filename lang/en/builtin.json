@@ -204,6 +204,7 @@
         "split": "Missiles: {total}. Split them among the targets (the sum must be {total}).",
         "roll": "Done",
         "splitBad": "The missile counts must add up to {total}.",
+        "noLiveTargets": "Every target was dropped (out of range or failed flat check) — no one to send the missiles at.",
         "volley": "Missiles: {n} → {target}"
       }
     }

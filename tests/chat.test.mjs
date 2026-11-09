@@ -302,6 +302,19 @@ test("все цели вне дальности: пометка есть, СЛ �
   assert.deepEqual(near.challenge.rows.map((r) => r.key), ["b"]);
 });
 
+test("цель с проваленной чистой проверкой (far.flat): нет строки, нет «Применить», своя строка-предупреждение, allFar", () => {
+  const flat = { flat: true };
+  const rule = { ...fear, onUse: { ...fear.onUse, challenge: { ...fear.onUse.challenge, dc: { source: "spell" } } } };
+  const one = buildViewModel(mkMsg({ targets: [{ key: "a", name: "Orc", far: flat }], dc: null, rule }), gm, mkEnv());
+  assert.deepEqual(one.warnings.filter((w) => w.startsWith("chat.")).map((w) => w.replace(/\{.*/, "")), ["chat.flatFailed"]);
+  assert.equal(one.challenge.rows.length, 0);
+  assert.equal(one.challenge.canSetDC, false);   // allFar
+  const two = buildViewModel(mkMsg({ targets: [{ key: "a", name: "Orc", far: flat }, { key: "b", name: "Bob" }] }), gm, mkEnv());
+  assert.deepEqual(two.challenge.rows.map((r) => r.key), ["b"]);
+  const apply = { ...fear, onUse: { ...fear.onUse, apply: [{ to: "target", ops: [] }] } };
+  assert.equal(buildViewModel(mkMsg({ targets: [{ key: "a", name: "Orc", far: flat }], rule: apply }), gm, mkEnv()).useApply?.canApply ?? false, false);
+});
+
 test("low + испытание: кнопка применения у ГМа при mode.apply=auto без autoTried; high — только после попытки; off — нет", () => {
   const withResult = (confidence) => mkMsg({ confidence, state: { challenge: { results: { a: { degree: 1 } } } } });
   const can = (confidence, apply) => buildViewModel(withResult(confidence), gm, mkEnv({ modes: { apply } })).challenge.rows[0].canApply;

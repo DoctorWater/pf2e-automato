@@ -141,7 +141,7 @@ export const heldSlug = (actor, slugs) => {
 /** Токены-цели сообщения: снимок правила (use.targets), иначе цели автора (ядро синхронизирует User#targets между клиентами). */
 export function messageTargets(message) {
   const snap = message.flags?.[MOD]?.use?.targets;
-  return (snap ? snap.map((t) => fromUuidSync(t.uuid)) : [...(message.author?.targets ?? [])]).map(docOf).filter((t) => t?.actor);
+  return (snap ? snap.filter((t) => !t.far).map((t) => fromUuidSync(t.uuid)) : [...(message.author?.targets ?? [])]).map(docOf).filter((t) => t?.actor);
 }
 
 /**

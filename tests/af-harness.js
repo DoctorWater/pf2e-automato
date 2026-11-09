@@ -127,7 +127,7 @@ async () => {
     const bf = pyro.items.find((i) => i.system.slug === "breathe-fire");
     step("setup", { tokens: scene.tokens.map((t) => t.name), stubs: report.stubs });
 
-    // Персонажей игроков и владение игроку не трогаем: PC-бросок — только ручной чек-лист (README)
+    // Персонажей игроков и владение игроку не трогаем: PC-бросок — только ручной чек-лист (docs/dev/development.md)
 
     const shot = { circle: (x, y, r) => ({ type: "circle", radius: r, x, y }), cone: (x, y) => ({ type: "cone", radius: 350, angle: 90, rotation: 180, x, y }) };
     // Путь A (inline @Template, pf2e:28795) / путь B (placeRegionFromItem, pf2e:3379)
@@ -258,7 +258,7 @@ async () => {
       await api.runUse(m.id); await api.runUse(m.id); await wait(1500);
       eq(S, "повторный runUse не меняет результаты", before, JSON.stringify(useOf(m)?.state?.challenge));
       eq(S, "повторный runUse не плодит документы", cnt, ourCount([A1(), A2()]));
-      skip(S, "PC-бросок: ручной чек-лист (README, клиент игрока) — харнесс персонажей игроков не создаёт");
+      skip(S, "PC-бросок: ручной чек-лист (docs/dev/development.md, клиент игрока) — харнесс персонажей игроков не создаёт");
       await cone.delete(); await wait(800);
     });
 

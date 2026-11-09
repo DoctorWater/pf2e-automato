@@ -1,5 +1,5 @@
 // Сборка пака эффектов модуля: packs/_source/effects/*.json -> LevelDB packs/effects (формат Foundry: ключ `!items!<id>`, значение — документ без _key).
-// packs/effects в git не лежит (Foundry переписывает базу при открытии мира, а папка модуля — junction на репозиторий): собирается локально и для релиза, см. README.
+// packs/effects в git не лежит (Foundry переписывает базу при открытии мира, а папка модуля — junction на репозиторий): собирается локально и для релиза, см. docs/dev/development.md.
 // Пересборка пропускается, если источники не менялись (хеш в packs/.effects.hash); занятая Foundry база или нет classic-level — предупреждение, не ошибка.
 import { readdirSync, readFileSync, rmSync, mkdirSync, writeFileSync, existsSync } from "node:fs";
 import { createHash } from "node:crypto";

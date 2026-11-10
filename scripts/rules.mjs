@@ -3,6 +3,7 @@ import { S, rev } from "./settings.mjs";
 import { isPredicate } from "./predicate.mjs";
 import { normalizeMods } from "./inline-effect.mjs";
 import { lookupRange, setRangeSource } from "./range.mjs";
+import { reqSig } from "./builtin/limit-text.mjs";
 
 export const RULE_VERSION = 1;
 
@@ -971,6 +972,26 @@ export function sourceOf(origin, item = null) {
   return isStr(s) ? s : null;
 }
 
+/** Источник актёра; запасной путь — синтетический актёр несвязанного токена (baseActor, flags.core.sourceId). */
+export const sourceOfActor = (a) => a?._stats?.compendiumSource ?? a?.flags?.core?.sourceId ?? a?.baseActor?._stats?.compendiumSource ?? null;
+
+/** Ключ для поиска в bySource/оверлеях: собственный источник предмета, иначе выведенный `${источник актёра}.Item.${id}` (у предметов NPC и ловушек из пака свой источник пуст, id тот же, что в исходном актёре). Защиты от тёзок его не используют. */
+export function lookupSourceOf(item) {
+  const own = sourceOf(null, item);
+  if (own) return own;
+  const a = sourceOfActor(item?.actor ?? item?.parent);
+  return isStr(a) && isStr(item?.id) ? `${a}.Item.${item.id}` : null;
+}
+
+/** Ключ мирового правила «по источнику»: тот же, под которым resolveBase его найдёт (res — результат resolveRule): собственный источник предмета, иначе выведенный от существа. */
+export const sourceKeyOf = (item, res) => res?.lookupKey ?? res?.sourceUuid ?? lookupSourceOf(item);
+
+/** Ключ для saveWorldRule: scope "source" — sourceKeyOf, иначе slug. */
+export const worldKeyOf = (item, res, scope) => (scope === "source" ? { source: sourceKeyOf(item, res) } : { slug: slugOf(null, item) });
+
+/** Ключ выведен от существа (своего источника у предмета нет): мировое правило касается всех копий существа, не одного предмета. */
+export const keyDerived = (item, res) => !sourceOf(null, item) && !!sourceKeyOf(item, res);
+
 /* ---------- Вывод из разметки (§1.3), синхронно ---------- */
 
 // valued-состояния pf2e (значение берётся из подписи; у остальных value не ставится)
@@ -1686,8 +1707,8 @@ export function initCatalog(jsons, labels) {
 }
 
 // Оверлеи (tools/ranges.mjs, tools/damage-degrees.mjs): самый нижний слой каскада — поля onUse.range и onUse.challenge.damageByDegree под флагом, миром и каталогами (§1.2)
-let overlays = { ranges: null, degrees: null, summons: null };
-export function initOverlays(ranges, degrees, summons) { overlays = { ranges: ranges ?? null, degrees: degrees ?? null, summons: summons ?? null }; rev.n++; }
+let overlays = { ranges: null, degrees: null, summons: null, limits: null };
+export function initOverlays(ranges, degrees, summons, limits) { overlays = { ranges: ranges ?? null, degrees: degrees ?? null, summons: summons ?? null, limits: limits ?? null }; rev.n++; }
 
 export async function loadCatalog() {
   const get = async (name, optional = false) => {
@@ -1695,11 +1716,11 @@ export async function loadCatalog() {
     if (!resp.ok) { if (!optional) warn(`не загружен rules/${name}: ${resp.status}`); return null; }
     try { return await resp.json(); } catch (e) { warn(`rules/${name}: битый JSON`, e); if (!optional) throw e; return null; }   // битый необязательный файл не должен ронять остальные каталоги
   };
-  const [cat, pa, model, onhit, labels, ranges, degrees, summons] = await Promise.all([get("catalog.json"), get("catalog.pa.json", true), get("catalog.model.json", true), get("catalog.onhit.json", true), get("labels.json"), get("ranges.json", true), get("damage-degrees.json", true), get("summons.json", true)]);
-  initOverlays(ranges, degrees, summons);
+  const [cat, pa, model, onhit, rusthenge, labels, ranges, degrees, summons, limits] = await Promise.all([get("catalog.json"), get("catalog.pa.json", true), get("catalog.model.json", true), get("catalog.onhit.json", true), get("catalog.rusthenge.json", true), get("labels.json"), get("ranges.json", true), get("damage-degrees.json", true), get("summons.json", true), get("use-limits.json", true)]);
+  initOverlays(ranges, degrees, summons, limits);
   // при совпадении ключа побеждает последний: автоматический перенос PA — первым, проверенные вручную — после
   // model (tools/drafts.mjs): черновики пачек от Haiku/Sonnet, прошедшие валидатор и выборку
-  return initCatalog([pa, model, onhit, cat].filter(Boolean), labels);   // onhit (tools/onhit.mjs): «при попадании Удара — состояние» по тексту; ручные каталоги главнее
+  return initCatalog([pa, model, onhit, rusthenge, cat].filter(Boolean), labels);   // onhit (tools/onhit.mjs): «при попадании Удара — состояние» по тексту; rusthenge — существа приключения Rusthenge (перекрывает model); ручные каталоги главнее
 }
 let loading = null;
 /** Один общий промис загрузки каталога: main ждёт его на ready, Мастерская и лист — до первого рендера. Неудача сбрасывает его. */
@@ -1992,7 +2013,7 @@ export function resolveRule(source) {
   const res = resolveBase(source);
   const u = res?.rule?.onUse;
   if (!u) return res;
-  const ch = u.challenge, e = !u.range && lookupRange(overlays.ranges, res.sourceUuid, res.slug), sm = !u.summon && lookupRange(overlays.summons, res.sourceUuid, res.slug), dd = ch &&!ch.basic && !ch.damageByDegree && res.sourceUuid && overlays.degrees?.[res.sourceUuid];
+  const ch = u.challenge, e = !u.range && lookupRange(overlays.ranges, res.lookupKey ?? res.sourceUuid, res.slug), sm = !u.summon && lookupRange(overlays.summons, res.lookupKey ?? res.sourceUuid, res.slug), dd = ch &&!ch.basic && !ch.damageByDegree && (res.lookupKey ?? res.sourceUuid) && overlays.degrees?.[res.lookupKey ?? res.sourceUuid];
   if (!e && !dd && !sm) return res;
   // правило каталога отдаётся по ссылке — копия; недостающие поля берутся из оверлея, заданные правилом остаются
   return { ...res, rule: { ...res.rule, onUse: { ...u, ...(e && { range: e }), ...(sm && { summon: sm }), ...(dd && { challenge: { ...ch, damageByDegree: dd } }) } } };
@@ -2001,14 +2022,28 @@ export function resolveRule(source) {
 /** Запись дальности для предмета: из правила (onUse.range), у предметов без правила — прямо из оверлея. Для range.mjs и zone.mjs. */
 export function rangeEntry(item) {
   const res = resolveRule(item);
-  return res?.rule?.onUse?.range ?? lookupRange(overlays.ranges, res?.sourceUuid ?? item?._stats?.compendiumSource ?? item?.flags?.core?.sourceId, res?.slug ?? item?.slug);
+  return res?.rule?.onUse?.range ?? lookupRange(overlays.ranges, res?.lookupKey ?? res?.sourceUuid ?? lookupSourceOf(item), res?.slug ?? item?.slug);
 }
 setRangeSource(rangeEntry);
 
 /** Запись призыва предмета: onUse.summon правила, у предметов без правила — прямо из оверлея rules/summons.json (по uuid источника: заклинания spells-srd). */
 export function summonEntry(item) {
   const res = resolveRule(item);
-  return res?.rule?.onUse?.summon ?? lookupRange(overlays.summons, res?.sourceUuid ?? item?._stats?.compendiumSource ?? item?.flags?.core?.sourceId, res?.slug ?? item?.slug);
+  return res?.rule?.onUse?.summon ?? lookupRange(overlays.summons, res?.lookupKey ?? res?.sourceUuid ?? lookupSourceOf(item), res?.slug ?? item?.slug);
+}
+
+/** Запись лимита предмета из оверлея rules/use-limits.json (tools/use-limits.mjs): {req:{any:[клаузы]}}. Сначала по uuid источника (у предметов NPC — выведенный),
+ *  затем по "slug@тип" (общий slug делят действия и армейские способности): у slug несколько вариантов {sig, req}, берётся тот, чья подпись абзаца требований
+ *  (reqSig, без языка) совпала с описанием предмета — одноимённая способность другого вида (без такого абзаца) и переписанный текст записи не получают. */
+export function limitEntry(item) {
+  const t = overlays.limits;
+  if (!t) return null;
+  const src = lookupSourceOf(item);
+  if (src && t.bySource?.[src]) return { req: t.bySource[src] };
+  const slug = slugOf(null, item), vs = slug && item?.type === "action" ? t.bySlug?.[slugTypeKey(slug, item.type)] : null;
+  if (!vs) return null;
+  const sig = reqSig(item.system?.description?.value);
+  return sig === null ? null : vs.find((v) => v.sig === sig) ?? null;
 }
 
 function resolveBase(source) {
@@ -2018,17 +2053,18 @@ function resolveBase(source) {
   const item = liveItem(origin, isDoc ? source : (source?.item ?? null));
   const slug = slugOf(origin, item);
   const sourceUuid = sourceOf(origin, item);
-  const found = (rule, src, confidence = "high", hints) => ({ rule, source: src, slug, sourceUuid, confidence, ...(hints && { hints }) });
+  const key = sourceUuid ?? lookupSourceOf(item);   // только для bySource и оверлеев; ограждения тёзок, byName и guardCopy — по собственному sourceUuid
+  const found = (rule, src, confidence = "high", hints) => ({ rule, source: src, slug, sourceUuid, ...(key !== sourceUuid && { lookupKey: key }), confidence, ...(hints && { hints }) });
 
   const flag = itemFlagRule(item);
   if (flag) return found(flag, "flag");
   const w = worldCatalog();
   const type = item?.type ?? origin?.type ?? null;
-  const r = (sourceUuid && w.bySource.get(sourceUuid)) || (slug && bySlugOf(w.bySlug, slug, type));
+  const r = (key && w.bySource.get(key)) || (slug && bySlugOf(w.bySlug, slug, type));
   if (r) return found(r, "world");
   // byName — способности NPC без slug и источника (имя предмета как в мире; slug pf2e из имени ненадёжен для кириллицы)
   const named = !sourceUuid && !(item?.system?.slug) ? (item?.name ?? origin?.name ?? null) : null;
-  const bySrc = sourceUuid ? builtin.bySource.get(sourceUuid) : null;
+  const bySrc = key ? builtin.bySource.get(key) : null;
   let memo, memoed = false;   // вывод из разметки один раз на вызов (ограждение тёзок, голова испытания и сам вывод)
   const derive = () => {
     if (!memoed) {

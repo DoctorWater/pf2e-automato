@@ -10,13 +10,14 @@ import * as macros from "./macros.mjs";
 import * as reactions from "./reactions.mjs";
 import * as actions from "./actions.mjs";
 import { itemRange, markFar, inRange, TENTACLES } from "./range.mjs";
-import { recentShape, spentOptions } from "./builtin/spellshape.mjs";
+import { recentShape, spentOptions, optionOf } from "./builtin/spellshape.mjs";
 import { moveOrder, areaPoint } from "./move.mjs";
 import { asksActions, pf2eVariants, variantActions } from "./builtin/variable-cast.mjs";
 import { isHeld, replayers } from "./hold.mjs";
 import * as sustain from "./sustain.mjs";
 import { whisper, esc } from "./builtin/lib.mjs";
 import { spellDcOf } from "./familiar.mjs";
+import { strikeLinked } from "./strike-link.mjs";
 
 const CAST = "origin:action:slug:cast-a-spell";
 const CARD_TYPES = new Set(["consumable", "equipment", "spell", "weapon", "armor", "treasure", "backpack", "shield", "ammo"]);   // ammo: активация боеприпаса (Golden-Cased Bullet) — с карточки
@@ -117,6 +118,9 @@ function onPreCreateMessage(message, data, options, userId) {
   const origin = message.flags.pf2e.origin;
   const item = message.item ?? (origin.uuid ? fromUuidSync(origin.uuid) : null);
   if (item?.system?.selfEffect) return;   // делает система (pf2e:54140)
+  // способность, которую модуль запускает сам по урону Удара (strike-link.mjs): карточка без кнопок, обход — Alt (решение ГМа); иначе ручной путь дал бы второе применение
+  const linked = kind === "use" && item && strikeLinked(item);
+  if (linked && !game.keyboard?.isModifierActive?.("Alt")) { ui.notifications.info(L("events.strike.linked", { item: item.name, strike: linked.strikes.map((s) => s.name).join(", ") })); return; }
   const found = rules.resolveRule({ origin, item });
   const resolved = found && { ...found, rule: rules.withActivation(found.rule, message.flags?.[MOD]?.activation) };   // срок/иммунитет записи активации поверх правила заклинания (копия)
   if (!resolved || !wantsSnapshot(kind, resolved.rule)) return;
@@ -193,7 +197,7 @@ function casterOptions(caster) {
   if (!caster) return [];
   const spent = spentOptions(caster.items ?? []);
   const own = Object.entries(caster.rollOptions?.all ?? {}).filter(([o, on]) => on && !spent.includes(o) && (o.startsWith("spellshape:") || o === TENTACLES)).map(([o]) => o);
-  const recent = recentShape(game.messages.contents, caster.uuid, (uuid) => { const f = fromUuidSync(uuid); return f?.parent === caster ? f.flags?.[MOD]?.spellshape : null; });
+  const recent = recentShape(game.messages.contents, caster.uuid, (uuid) => { const f = fromUuidSync(uuid); return f?.parent === caster ? optionOf(f) : null; });
   return recent ? [...own, recent] : own;
 }
 

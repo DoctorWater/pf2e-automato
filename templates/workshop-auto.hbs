@@ -161,6 +161,24 @@
 <datalist id="ws-skills">{{#each skills}}<option value="{{this}}"></option>{{/each}}</datalist>
 {{#if doubleWarn}}<p class="ws-warn">{{doubleWarn}}</p>{{/if}}
 {{#if into}}<div class="ws-adds"><button type="button" class="ws-btn ws-btn-g" data-action="intoBack" name="intoBack">{{into.back}}</button><span class="ws-lbl ws-accent">{{into.title}}</span></div>{{/if}}
+{{#if mechs.length}}
+<h2 class="ws-h">{{localize "PF2E_AUTOMATO.workshop.mech.title"}}</h2>
+<div class="ws-pipe ws-mech">
+  {{#each mechs as |r|}}
+  <div class="ws-prow" data-mech="{{r.id}}">
+    <div class="ws-prail"><span class="ws-pchip" data-tooltip="{{r.tip}}">{{r.chip}}</span></div>
+    <div class="ws-pbody">
+      {{#if r.fields.length}}
+      <button type="button" class="ws-psum" data-action="toggleRow" data-row="mech.{{r.id}}" aria-expanded="{{r.open}}" name="mech-{{r.id}}"><span class="ws-sum">{{r.sum}}</span>{{#if r.state}}<span class="ws-pill ws-pill-static {{#if r.state.warn}}ws-pill-warn{{/if}}">{{r.state.text}}</span>{{/if}}<i class="fa-solid fa-chevron-down ws-chev" inert></i></button>
+      {{else}}
+      <div class="ws-psum ws-psum-static"><span class="ws-sum">{{r.sum}}</span>{{#if r.state}}<span class="ws-pill ws-pill-static {{#if r.state.warn}}ws-pill-warn{{/if}}">{{r.state.text}}</span>{{/if}}</div>
+      {{/if}}
+      {{#if r.open}}<div class="ws-pfields">{{#each r.fields}}{{> fld}}{{/each}}</div>{{/if}}
+    </div>
+  </div>
+  {{/each}}
+</div>
+{{/if}}
 <h2 class="ws-h">{{localize "PF2E_AUTOMATO.workshop.au.pipeline"}}</h2>
 <div class="ws-pipe">
   {{#each rows as |r|}}

@@ -57,7 +57,11 @@
     {{/if}}
     {{#if diverged}}<p class="af-hints">{{diverged}}</p>{{/if}}
     <p class="af-meta">slug: <code>{{#if slug}}{{slug}}{{else}}&mdash;{{/if}}</code>
-      &middot; source: <code>{{#if sourceUuid}}{{sourceUuid}}{{else}}&mdash;{{/if}}</code></p>
+      &middot; source: <code>{{#if sourceKey}}{{sourceKey}}{{else}}&mdash;{{/if}}</code>{{#if derived}} ({{localize "PF2E_AUTOMATO.sheet.sourceDerived"}}){{/if}}</p>
+    {{#if mech.length}}
+      <h4>{{localize "PF2E_AUTOMATO.workshop.mech.title"}}</h4>
+      <ul class="af-mech">{{#each mech}}<li><b>{{chip}}:</b> {{sum}}{{#if state}} <span class="paf-chip {{#if state.warn}}paf-chip-low{{/if}}">{{state.text}}</span>{{/if}}</li>{{/each}}</ul>
+    {{/if}}
     {{#if covered}}
       <p class="af-badge">{{localize "PF2E_AUTOMATO.sheet.automationsBadge"}}: {{#each groups}}{{this}}{{#unless @last}}, {{/unless}}{{/each}}</p>
     {{/if}}
@@ -268,10 +272,10 @@
       <button type="button" class="paf-primary" data-action="save-flag" {{#if lockedFlag}}disabled{{/if}}>{{localize "PF2E_AUTOMATO.sheet.saveFlag"}}</button>
       <button type="button" data-action="test">{{localize "PF2E_AUTOMATO.sheet.test.button"}}</button>
       <button type="button" class="paf-ghost" data-action="reset-flag" {{#if lockedFlag}}disabled{{/if}}>{{localize "PF2E_AUTOMATO.sheet.resetFlag"}}</button>
-      <button type="button" data-action="save-world" data-scope="source" {{#if noSource}}disabled{{/if}}>{{localize "PF2E_AUTOMATO.sheet.worldSource"}}</button>
+      <button type="button" data-action="save-world" data-scope="source" {{#if noSource}}disabled title="{{noSourceHint}}"{{/if}}>{{worldSourceLabel}}</button>
       <button type="button" data-action="save-world" data-scope="slug" {{#if noSlug}}disabled{{/if}}>{{localize "PF2E_AUTOMATO.sheet.worldSlug"}}</button>
       {{#if isWorld}}
-        <button type="button" data-action="delete-world" data-scope="source" {{#if noSource}}disabled{{/if}}>{{localize "PF2E_AUTOMATO.sheet.delWorldSource"}}</button>
+        <button type="button" data-action="delete-world" data-scope="source" {{#if noSource}}disabled{{/if}}>{{delWorldSourceLabel}}</button>
         <button type="button" data-action="delete-world" data-scope="slug" {{#if noSlug}}disabled{{/if}}>{{localize "PF2E_AUTOMATO.sheet.delWorldSlug"}}</button>
       {{/if}}
     </div>

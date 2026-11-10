@@ -1,7 +1,7 @@
 // 0.5g3: onEvent — правило на предмете актёра (черта, эффект, снаряжение) срабатывает по событию: бросок, урон, ход, эффект, сотворение. plan.md §1.1b.
 // Исполняет только активный ГМ. Шаги идут через apply.applyOps на сообщении-двойнике (в чат не пишется): снимок use и запись ops живут в нём,
 // а в самом сообщении события — только свой флаг `events` (журнал для переброса). Испытание (challenge) получает свою карточку со снимком use — дальше всё как у onUse.
-import { MOD, L, DEGREES, flagPath, guardActiveGM, queue, debug, sluggify } from "./util.mjs";
+import { MOD, L, DEGREES, flagPath, guardActiveGM, queue, debug } from "./util.mjs";
 import { modeOf, rev } from "./settings.mjs";
 import * as compat from "./compat.mjs";
 import * as rules from "./rules.mjs";
@@ -20,6 +20,9 @@ import { armedAt } from "./coat.mjs";
 import { levelDc } from "./cast.mjs";
 import * as hold from "./hold.mjs";
 import { reactionAvailable, spendReaction } from "./reactions.mjs";
+import { carrierSlug, strikeLinkEntry, meleeOf, claimedBy } from "./strike-link.mjs";
+
+export { carrierSlug };
 
 /* ---------- чистые функции ---------- */
 
@@ -40,8 +43,6 @@ export function eventOfMessage(message) {
 export const AFTER_USE_MS = 10 * 60000;   // вне боя / нет начала хода: карточка не старше; ponytail: без боя «залежавшуюся» карточку отличает только время
 const actorUuidOf = (m) => m?.flags?.pf2e?.origin?.actor ?? m?.actor?.uuid ?? null;   // не speaker.actor: он общий у несвязанных копий NPC
 const cardSlug = (m) => rules.slugOf(m?.flags?.pf2e?.origin ?? null, null);
-/** Slug предмета-носителя: так же схлопываются action и feat одного slug в eventItems. */
-export const carrierSlug = (item) => rules.slugOf(null, item) || sluggify(item?.name ?? "") || null;
 
 /**
  * Карточка предмета, к которой относится бросок message, или null. before — сообщения чата до него (по возрастанию),
@@ -62,6 +63,29 @@ export function strikeCardFor(before, message, item, { stopId = null, slugOf = c
     if (card) return (item.uuid && m.flags?.pf2e?.origin?.uuid === item.uuid) || (item.slug && slugOf(m) === item.slug) ? m : null;
   }
   return null;
+}
+
+/**
+ * Атака, к которой относится бросок урона message (повторный клик «Урон»/«Критический» — новое сообщение той же атаки), или null. before — сообщения чата до него
+ * (по возрастанию). Ближайший бросок атаки того же актёра, того же предмета и по той же цели; чего-то из этого в сообщениях нет — сравнение пропускается,
+ * но без предмета у урона атаки не найти: null (прежнее поведение, ключ по сообщению). Каждый урон занимает ближайшую ещё не занятую атаку (атака 1, атака 2, урон 1, урон 2 — у уронов разные ключи).
+ */
+export function attackOf(before, message) {
+  const isDmg = (m) => m?.flags?.pf2e?.context?.type === "damage-roll";
+  if (!isDmg(message) || !actorUuidOf(message) || !(message.flags.pf2e.origin?.uuid ?? message.item?.uuid)) return null;
+  const tgt = (m) => m.flags?.pf2e?.context?.target?.token ?? m.flags?.pf2e?.context?.target?.actor ?? null;
+  const list = [...before].slice(-50), claimed = new Set();
+  // кандидаты урона d среди атак до позиции `end`: тот же актёр, предмет, цель; исход (попадание/крит) — если известен у обоих. Ближние — первыми
+  const cands = (d, end) => {
+    const who = actorUuidOf(d), uuid = d.flags.pf2e.origin?.uuid ?? d.item?.uuid, mine = tgt(d), out = d.flags.pf2e.context.outcome;
+    return list.slice(0, end).filter((m) => m.id !== d.id && actorUuidOf(m) === who && eventOfMessage(m) === "attack-roll" && (m.flags?.pf2e?.origin?.uuid ?? m.item?.uuid) === uuid
+      && !(tgt(m) && mine && tgt(m) !== mine) && !(out && m.flags.pf2e.context.outcome && out !== m.flags.pf2e.context.outcome)).reverse();
+  };
+  // занятость: по ленте (каждый прежний урон занял ближайшую свободную атаку) и по журналам events (ключ записи начинается с id атаки) — переживает перезагрузку ГМа
+  const journaled = (a) => list.some((m) => m.flags?.[MOD]?.events?.some((r) => String(r.key).startsWith(`${a.id}:`)));
+  const pick = (d, end) => { const c = cands(d, end); return c.find((a) => !claimed.has(a.id) && !journaled(a)) ?? c.find((a) => !claimed.has(a.id)) ?? c[0] ?? null; };   // все заняты — повтор: ближайшая
+  list.forEach((d, i) => { if (isDmg(d) && d.id !== message.id && actorUuidOf(d)) { const a = pick(d, i); if (a) claimed.add(a.id); } });
+  return pick(message, list.length);
 }
 
 const turnStarts = new Map();   // actor uuid -> id последнего сообщения ленты на начало его хода (в памяти ГМа, из pf2e.startTurn); не состояние мира
@@ -151,17 +175,29 @@ const ruleCache = new Map();   // uuid -> { mt, rv, rule }; ponytail: растё
  * Носитель правила: тот же порядок, что у resolveRule (флаг -> мировой -> встроенный, bySource/bySlug/byName), поэтому мировое правило перекрывает встроенное целиком.
  * Физический предмет — не брошенный и не в рюкзаке. Разбор разметки при этом не нужен, но дёшев после первого раза (кэш по предмету и версии каталогов).
  */
+function resolvedOf(item) {
+  const mt = item?._stats?.modifiedTime ?? 0, rv = rev.n, hit = ruleCache.get(item.uuid);
+  let res = hit && hit.mt === mt && hit.rv === rv && !item.flags?.[MOD]?.rule ? hit.res : undefined;
+  if (res === undefined) {
+    res = null;
+    try { res = rules.resolveRule(item) ?? null; } catch (e) { console.warn(`${MOD} | events: правило ${item.name}`, e); }
+    // кэш — только то, из чего что-то выводится: правило с onEvent или модельное onUse (M3); прочее не держим
+    if (res && !res.rule?.onEvent?.length && !res.rule?.onUse) res = null;
+    ruleCache.set(item.uuid, { mt, rv, res });
+  }
+  return res;
+}
+
 export function eventRuleOf(item) {
   const eq = item?.system?.equipped?.carryType;
   if (eq === "dropped" || eq === "stowed") return null;
   if (item?.flags?.[MOD]?.coat && item.isExpired) return null;   // носитель яда с истёкшим сроком (Envenom) при выключенном автоистечении pf2e не работает
-  const mt = item?._stats?.modifiedTime ?? 0, rv = rev.n, hit = ruleCache.get(item.uuid);
-  if (hit && hit.mt === mt && hit.rv === rv && !item.flags?.[MOD]?.rule) return hit.rule;
-  let rule = null;
-  try { rule = rules.resolveRule(item)?.rule ?? null; } catch (e) { console.warn(`${MOD} | events: правило ${item.name}`, e); }
-  rule = rule?.onEvent?.length ? rule : null;
-  ruleCache.set(item.uuid, { mt, rv, rule });
-  return rule;
+  const res = resolvedOf(item);
+  if (!res) return null;
+  if (res.rule.onEvent?.length) return res.rule;
+  // M3: пассивная способность, на которую ссылается attackEffects Удара того же актёра, срабатывает по урону этого Удара; Удары актёра читаем каждый раз (добавили Удар — кэш не стареет).
+  // Запись про этот attackEffect уже есть у другого предмета актёра (Hand Crossbow у Lethargy Poison, Rust Creep на самой способности) — не дублируем
+  return item.actor && ["action", "feat"].includes(item.type) ? strikeLinkEntry(res, item, meleeOf(item.actor), (slug) => claimedBy(item, slug, resolvedOf)) : null;
 }
 
 /** Предметы актёра с правилами onEvent; дубль способности (action и feat с одним slug) — одна запись. -> [{item, rule}] */
@@ -602,6 +638,7 @@ const rerollKey = (actorUuid, on) => `${actorUuid}|${on}`;
 
 async function undoLog(log) {
   for (const rec of log) {
+    fired.delete(rec.key);   // ключ урона — по атаке: откатанное исполнение не должно закрывать новое (переброс урона)
     for (const { tk, ops } of rec.recs ?? []) {
       const twin = makeTwin(`ev:${rec.key}`, { state: { apply: { [tk]: { ops } } } });
       await apply.undoOps(twin, tk);
@@ -693,7 +730,9 @@ export async function onMessage(message) {
       // страховка: нет ни карточки испытания, ни шага hold (носитель исчез, режимы выключены, карточка не создалась) — атака выпускается (ниже, вне очереди: replay снова зайдёт в onMessage)
       if (held && hold.isHeld(message) && !log.some((r) => r.host) && !hold.hostOf(message)) stuck = true;
     };
-    for (const t of cast.length ? cast : [null]) await go(t, cast.length > 1 ? `${message.id}@${t.id}` : message.id, false);
+    // урон: ключ — бросок атаки, а не сообщение: второй клик «Урон»/«Критический» той же атаки не запускает записи повторно (ручные onEvent damage-roll — тоже)
+    const all = on === "damage-roll" ? game.messages.contents : null, at = all?.indexOf(message), atk = all && attackOf(all.slice(0, at < 0 ? all.length : at), message);
+    for (const t of cast.length ? cast : [null]) await go(t, cast.length > 1 ? `${message.id}@${t.id}` : atk?.id ?? message.id, false);
     if (on === "spell-cast") await go(null, message.id, true);   // записи с check: один запуск на сообщение (СЛ считает сама запись), не по разу на цель
   }));
   if (stuck && hold.isHeld(message)) await hold.resolve(message, "release");

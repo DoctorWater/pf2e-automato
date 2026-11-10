@@ -69,7 +69,7 @@ export async function isImmune(use, token, check) {
 }
 
 /** Номер MAP (0..2) у автора для атакующего манёвра с карточки; null — отмена. */
-async function askMap() {
+export async function askMap() {
   const id = await ask(L("checks.mapTitle"), `<p>${L("checks.mapPrompt")}</p>`, [0, 1, 2].map((n) => ({ id: String(n), label: L(`checks.mapOption${n}`) })));
   return id == null ? null : Number(id);
 }

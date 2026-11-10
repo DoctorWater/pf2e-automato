@@ -2,6 +2,7 @@
   "PF2E_AUTOMATO": {
     "chat": {
       "byButton": "Roll this with the button under the card",
+      "rechargeAuto": "The module already rolled the recharge (whisper) — don't roll it by hand",
       "afterArea": "Roll damage after placing the area",
       "damageRolled": "Damage for this card has already been rolled",
       "basicUnlinked": "<p>Damage not linked: the card for “{item}” already has a damage roll ({roll}). Apply this roll by hand.</p>",

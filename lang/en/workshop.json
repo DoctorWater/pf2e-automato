@@ -213,6 +213,44 @@
         "item": "Item"
       },
       "modes": "Workshop mode",
+      "mech": {
+        "title": "Works on its own",
+        "whereToken": "Saved to: token (unlinked)",
+        "whereActor": "Saved to: actor",
+        "unsetHint": "Removes the rule only. Overrides from \"Works on its own\" are kept.",
+        "chip": { "recharge": "Recharge", "req": "Requirement", "strike": "Strike → ability", "maneuvers": "Spell maneuver", "permanent": "Permanent condition", "spirit": "HP transfer" },
+        "tip": {
+          "recharge": "From the description text (the #Recharge roll).",
+          "req": "From the module's requirement table (by source, or by slug and the Requirements paragraph).",
+          "strike": "From the attackEffects of the Strike \"{strike}\".",
+          "maneuvers": "By spell slug (the module's maneuver table).",
+          "permanent": "By ability slug (the module's table).",
+          "spirit": "By spell slug.",
+          "shape": "From the item's spellshape mark or the creature ability slug."
+        },
+        "sum": {
+          "recharge": "After use the ability is unavailable: roll {dice} — that many rounds (in combat only).",
+          "rechargeCrit": "A critical Strike recharges the Breath.",
+          "req": "Needed: {need}. Without it there is no action — a warning; Alt overrides.",
+          "strike": "Triggers by itself from the damage of the Strike \"{strike}\": {line}",
+          "strikeShort": "Triggers by itself from the damage of the Strike \"{strike}\".",
+          "maneuvers": "Buttons on the casting card: {list} — a spell attack roll; one maneuver per casting.",
+          "permanent": "Always the \"{cond}\" condition, reactions unavailable — applied by the module, no effect in the item.",
+          "permanentOwn": "The \"{cond}\" condition is already in the pf2e data (the ability or the creature); the module only adds the reaction ban (in memory, not written to the item).",
+          "spirit": "Transfers HP on casting and at the start of each of the caster's turns: a target below max HP gains {n} HP (rank {rank}), the caster loses as much; at 0 HP the link ends. The GM sees a whisper.",
+          "shape": "Using \"{name}\" enables the metamagic for the next casting; it is removed by the next action, a casting, or the end of the turn."
+        },
+        "state": { "flag": "Off in the item", "mode": "Off: mode \"{mode}\"", "yield": "Yields to pf2e-automations", "needRule": "The rule needs accepting" },
+        "f": {
+          "dice": "Recharge time (dice)", "diceHint": "From the text: {dice}. Rounds only, e.g. 1d4+1.", "rechargeOff": "Do not limit by recharge",
+          "reqOff": "Do not check the requirement", "strikeOff": "Do not trigger from the Strike", "permanentOff": "Do not apply the permanent condition",
+          "maneuvers": "Maneuvers", "auto": "Auto (from the text)", "manual": "Choose manually", "maneuversPick": "Which maneuvers to offer"
+        },
+        "err": {
+          "dice": "Recharge time must be dice in Latin letters, e.g. 1d6 or 1d4+1.",
+          "maneuvers": "Pick at least one maneuver or go back to \"Auto\"."
+        }
+      },
       "au": {
         "chWhen": "When (challenge condition)",
         "chWhenHint": "pf2e predicate: the challenge is made only for matching targets. Roll options separated by commas (all must hold) or JSON.",

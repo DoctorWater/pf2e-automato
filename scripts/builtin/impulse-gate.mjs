@@ -1,15 +1,20 @@
 // Лимиты использования, о которых pf2e знает только из описаний: таблица LIMITS «признак -> требование/лимит», следующий лимит — одна строка.
 //   импульс — только при активной кинетической ауре; переполнение — одно за раунд; Проведение стихийной энергии — только без активной ауры;
 //   наговор (hex) — один за ход; реакция с листа — одна за раунд (флаг reactionSpent, его же ставят реакции и Блок щитом модуля);
-//   частота (system.frequency) исчерпана — pf2e сам её списывает (createUseActionMessage), но на нуле действие не запрещает.
+//   частота (system.frequency) исчерпана — pf2e сам её списывает (createUseActionMessage), но на нуле действие не запрещает;
+//   перезарядка — встроенный бросок «#Recharge» в описании: модуль бросает N раундов (rc_<id> на авторе) и до их конца не пускает; в бою;
+//   требования к автору (rules/use-limits.json): прошлое действие — успешный Удар (штамп act на сообщениях), держит существо, свободная рука.
 // Делаем как досягаемость (melee-reach.mjs): действия нет, предупреждение; Alt при клике — решение ГМа; unchecked() — свои сценарии модуля.
 // Точки: (1) SpellcastingEntry#cast до списания слота/фокуса, (2) preCreateChatMessage — карточка использования любого пути (лист, cast.mjs).
 // Атаку Стихийным взрывом без ауры pf2e не даёт сам («No kinetic gate», pf2e.mjs:24492).
 // Файл по-прежнему зовётся impulse-gate: roundKey импортирует kinetic-aura.mjs (не наш файл).
 import { L, MOD, guardActiveGM } from "../util.mjs";
 import { modeOf } from "../settings.mjs";
-import { combatOf } from "./lib.mjs";
+import { combatOf, recipients, whisper } from "./lib.mjs";
+import { slugOf, limitEntry } from "../rules.mjs";
 import { AURA_SLUG } from "./kinetic-aura.mjs";
+import { mechOf, rechargeEntry, isUseItem } from "../mech.mjs";
+import { critRecharges, isBreath, rollDice, rollData, rechargeLeft, hitOf, lastAct, reqFails, holdsFrom } from "./limit-text.mjs";
 
 const traitsOf = (item) => item?.system?.traits?.value ?? [];
 export const TORCH_EFFECT = "Compendium.pf2e.feat-effects.Item.61qS86bjxg8HCJBY";
@@ -26,13 +31,17 @@ export const turnKey = (combat) => (combat?.started ? `${combat.id}:${combat.rou
  * Порядок важен: первая сработавшая строка — причина (ключ builtin.limit.<reason>). c.kinetic === false — у актёра нет Channel Elements (строки импульса молчат).
  */
 export const LIMITS = [
-  { reason: "noAura", applies: (c) => c.kinetic !== false && c.traits.includes("impulse"), fails: (c) => !c.aura },
+  { reason: "noAura", applies: (c) => c.kinetic !== false && c.traits.includes("impulse"), fails: (c) => !c.aura, vars: (c) => ({ channel: c.channelName }) },
   { reason: "noHand", applies: (c) => c.kinetic !== false && c.traits.includes("impulse"), fails: (c) => c.handsFree === 0 },   // описание черты impulse: «only if you have a hand free»; pf2e считает hands.free по ancestry.hands и удерживаемым предметам (pf2e.mjs:35351)
   { reason: "overflow", applies: (c) => c.kinetic !== false && c.traits.includes("impulse") && c.traits.includes("overflow"), fails: (c) => !!c.round && c.overflowRound === c.round, mark: (c) => c.round && ["overflowRound", c.round] },
   { reason: "auraActive", applies: (c) => c.slug === "channel-elements", fails: (c) => c.auraEffect },   // «Your kinetic gate isn't active»
-  { reason: "torches", applies: (c) => c.slug === "eternal-torch", fails: (c) => c.torches >= c.conMod },   // «maximum number of Eternal Torches equal to your Constitution modifier»; единственный предмет с таким лимитом (группы нет)
+  { reason: "torches", applies: (c) => c.slug === "eternal-torch", fails: (c) => c.torches >= c.conMod, vars: (c) => ({ n: c.conMod }) },   // «maximum number of Eternal Torches equal to your Constitution modifier»; единственный предмет с таким лимитом (группы нет)
   { reason: "hex", applies: (c) => c.traits.includes("hex"), fails: (c) => !!c.turn && c.hexTurn === c.turn, mark: (c) => c.turn && ["hexTurn", c.turn] },
   // «за ход/раунд» pf2e восстанавливает только в бою (в начале хода): вне боя такого ограничения нет, как у roundKey
+  // перезарядка: только в бою, у NPC и персонажей; срок бросает модуль (число на флаге), «ещё N» — раундов до нового использования. mode.limits=off — не бросаем и не ставим
+  { reason: "recharge", applies: (c) => !!c.rc && c.inCombat && c.limitsOn, fails: (c) => rechargeLeft(c.rcLock, c.combatId, c.roundNum) > 0, vars: (c) => ({ n: rechargeLeft(c.rcLock, c.combatId, c.roundNum), until: c.rcLock.until }), mark: (c) => [`rc_${c.itemId}`, c.rcMark] },
+  // требования к автору (оверлей use-limits.json): «любое из» клауз; ложный блок хуже пропуска — неизвестное состояние клаузы не блокирует
+  { reason: "req", applies: (c) => !!c.req, fails: (c) => reqFails(c.req, c), vars: (c) => ({ need: c.req.any.map((cl) => needText(cl, c.actor)).join(L("builtin.limit.or")) }) },
   // pf2e списывает частоту ДО карточки: законное использование приходит в preCreate уже с 0 — его отличает свежее списание (justSpent)
   { reason: "frequency", applies: (c) => !!c.frequency && (c.inCombat || !["turn", "round"].includes(c.frequency.per)), fails: (c) => c.frequency.value <= 0 && !c.justSpent },
   { reason: "reaction", applies: (c) => c.reaction && c.actorType === "character", fails: (c) => c.reactionSpent, mark: (c) => c.round && c.inCombat && ["reactionSpent", c.reactionFlag] }   // NPC: реакций бывает несколько
@@ -58,10 +67,44 @@ export function channelPending(messages, actorId) {
 
 const isReaction = (item) => item?.system?.time?.value === "reaction" || item?.system?.actionType?.value === "reaction";
 
+/** Подпись клаузы требования для предупреждения. */
+export function needText(cl, actor) {
+  if (cl.k === "holds") return L("builtin.limit.needHolds");
+  if (cl.k === "hand") return L("builtin.limit.needHand");
+  if (!cl.fx) return L("builtin.limit.needStrike");
+  // имя эффекта Удара: предмет актёра с этим slug (перевод уже применён), иначе подпись pf2e (PF2E.AttackEffect*), иначе без имени — сырой slug игроку не показываем
+  const label = globalThis.CONFIG?.PF2E?.attackEffects?.[cl.fx];
+  const fx = actor?.items?.find((i) => slugOf(null, i) === cl.fx)?.name ?? (label && game.i18n.localize(label));
+  return fx ? L("builtin.limit.needStrikeFx", { fx }) : L("builtin.limit.needStrikeSpecial");
+}
+
+/** Имя Удара: slug или оригинальное имя (у 11362 из 13060 Ударов NPC slug пуст); кириллица (перевод) — неизвестно. «melee»/«ranged» — тип, не имя. */
+const strikeSlug = (item) => { const s = slugOf(null, item); return s && !/[Ѐ-ӿ]/.test(s) ? s : null; };
+
+/** Сцена автора: сцена его токена, не canvas.scene (на неё мог переключиться другой экран). */
+const sceneOf = (actor) => actor.token?.parent ?? actor.getActiveTokens?.()[0]?.document?.parent ?? null;
+
+/** Состояния grabbed/restrained у других актёров сцены автора: [{uuid, origin}] (кто выдал — origin.actor эффекта-источника, null — не знаем). */
+function heldStates(actor) {
+  const out = [];
+  for (const t of sceneOf(actor)?.tokens ?? []) {
+    const a = t.actor;
+    if (!a || a === actor) continue;
+    for (const cond of a.itemTypes?.condition ?? []) {
+      if (!["grabbed", "restrained"].includes(cond.slug) || cond.active === false || cond.isActive === false) continue;
+      out.push({ uuid: a.uuid, origin: (cond.grantedBy ?? cond).system?.context?.origin?.actor ?? cond.system?.context?.origin?.actor ?? null });
+    }
+  }
+  return out;
+}
+
+const rnd = () => globalThis.CONFIG?.Dice?.randomUniform?.() ?? Math.random();
+
 /** Контекст для таблицы; тяжёлое (аура, лента) — лениво. */
 function ctxOf(actor, item) {
   const combat = combatOf(game.combats, actor), f = withPending(actor.flags?.[MOD], pendingOf(actor)), rs = f.reactionSpent, round = roundKey(combat);
   const inCombat = !!round;
+  let rcRolled = null;
   return {
     traits: traitsOf(item), slug: item.slug, actorType: actor.type, reaction: isReaction(item), round, turn: turnKey(combat), inCombat,
     kinetic: actor.type === "character" && actor.itemTypes.action.some((a) => a.slug === "channel-elements"),
@@ -70,6 +113,17 @@ function ctxOf(actor, item) {
     reactionFlag: inCombat ? { combat: combat.id, round: combat.round } : null,
     conMod: actor.abilities?.con?.mod ?? 0,
     frequency: item.system?.frequency ?? null, justSpent: spent.get(item.uuid) > Date.now(),
+    actor, itemId: item.id, combatId: combat?.id, roundNum: combat?.round, limitsOn: modeOf("limits") !== "off", rcLock: f[`rc_${item.id}`],
+    channelName: actor.itemTypes.action.find((a) => a.slug === "channel-elements")?.name,
+    get rc() { return rechargeEntry(item); },
+    // бросок один на контекст: число на флаге — то, что видит ГМ в шёпоте
+    get rcMark() {
+      if (!rcRolled) { const dice = this.rc.dice, r = rollDice(dice, rnd); rcRolled = { c: combat.id, until: combat.round + r.n, n: r.n, dice, r: r.r, mod: r.mod }; }
+      return rcRolled;
+    },
+    get req() { return mechOf(item).req === false ? null : limitEntry(item)?.req ?? null; },
+    get act() { return inCombat ? lastAct(game.messages.contents.slice(-60), actor.uuid, MOD) : null; },
+    get holds() { return holdsFrom(heldStates(actor), actor.uuid); },
     // действующие факелы автора: эффект может висеть на ком угодно в сцене (на союзнике) — смотрим его самого и токены сцены
     get torches() {
       const holders = new Set([actor, ...(globalThis.canvas?.scene?.tokens ?? []).map((t) => t.actor).filter(Boolean)]);
@@ -82,8 +136,17 @@ function ctxOf(actor, item) {
   };
 }
 
+/** {reason, vars} первой сработавшей строки или null; vars — переменные строки для текста предупреждения. */
+function check(actor, item) {
+  const c = ctxOf(actor, item), l = LIMITS.find((x) => x.applies(c) && x.fails(c));
+  if (!l) return null;
+  let vars = {};
+  try { vars = l.vars?.(c) ?? {}; } catch (e) { console.warn(`${MOD} | use-limits vars`, e); }   // текст не вышел — блок остаётся
+  return { reason: l.reason, vars };
+}
+
 export function whyNot(actor, item) {
-  return actor && item ? reasonOf(ctxOf(actor, item)) : null;
+  return actor && item ? check(actor, item)?.reason ?? null : null;
 }
 
 const altHeld = () => !!globalThis.game?.keyboard?.isModifierActive?.("Alt");
@@ -122,8 +185,8 @@ const takePass = (actor, item) => { const k = key(actor, item), t = passes.get(k
 export function blocked(actor, item) {
   if (skips.get(key(actor, item)) || altHeld() || modeOf("limits") === "off") return false;
   let why = null;
-  try { why = whyNot(actor, item); } catch (e) { console.warn(`${MOD} | use-limits`, e); }
-  if (why) ui.notifications.warn(L(`builtin.limit.${why}`, { name: item.name, channel: actor.itemTypes.action.find((a) => a.slug === "channel-elements")?.name, n: actor.abilities?.con?.mod ?? 0 }));   // названия — как на листе (перевод)
+  try { why = check(actor, item); } catch (e) { console.warn(`${MOD} | use-limits`, e); }
+  if (why) ui.notifications.warn(L(`builtin.limit.${why.reason}`, { name: item.name, ...why.vars }));   // названия — как на листе (перевод)
   return !!why;
 }
 
@@ -143,17 +206,48 @@ export const marksFor = (c) => {
 /** Чистая: какие отметки с карточки ещё стоят на актёре в том же значении (их и откатываем при удалении карточки). */
 export const staleMarks = (marks, flags) => Object.keys(marks ?? {}).filter((k) => JSON.stringify(flags?.[k]) === JSON.stringify(marks[k]));
 
+const STRIKE_TYPES = new Set(["attack-roll", "spell-attack-roll"]);
+/** Тратит ли предмет действие: свободные действия, реакции и пассивки «последнее действие» не сбивают (решение ГМа). */
+const spendsAction = (item) => (item.type === "spell" ? !/^(free|reaction)$/.test(item.system?.time?.value) : item.system?.actionType?.value === "action");
+
+/** Штамп действия на сообщении (журнал для требований «последнее действие»): едет с самим сообщением, удаление карточки откатывает его. Только в бою. */
+function stamp(message, actor, act) {
+  const turn = turnKey(combatOf(game.combats, actor));
+  if (turn) message.updateSource({ [`flags.${MOD}.act`]: { who: actor.uuid, turn, ...act } });
+}
+
+/** Бросок атаки: Удар (attack-roll) штампуется с итогом, именем и эффектами; атака заклинанием — как использование заклинания, не Удар. */
+function stampAttack(message) {
+  const actor = message.actor, item = message.item;
+  if (!actor || !item) return;
+  if (message.flags.pf2e.context.type === "spell-attack-roll") return void stamp(message, actor, { kind: "use" });
+  stamp(message, actor, { kind: "strike", hit: hitOf(message.flags.pf2e.context.outcome), fx: (item.system?.attackEffects?.value ?? []).filter((e) => typeof e === "string"), slug: strikeSlug(item) });
+  if (message.flags.pf2e.context.outcome === "criticalSuccess") critClear(message, actor);
+}
+
+/** Критический Удар у актёра с «Драконьим импульсом» и подобным: перезарядка Дыхания снимается (замок rc_* едет с сообщением в limitClear; onCreate снимает, onDelete возвращает). */
+function critClear(message, actor) {
+  const f = actor.flags?.[MOD] ?? {};
+  if (!actor.items.some((i) => ["action", "feat", "effect"].includes(i.type) && critRecharges(slugOf(null, i), i.system?.description?.value))) return;
+  const clear = Object.fromEntries(actor.items.filter((i) => f[`rc_${i.id}`] && isBreath(traitsOf(i), slugOf(null, i))).map((i) => [`rc_${i.id}`, f[`rc_${i.id}`]]));
+  if (Object.keys(clear).length) message.updateSource({ [`flags.${MOD}.limitClear`]: clear });
+}
+
 /** preCreateChatMessage: карточка использования. false — сообщения нет. */
 export function preCreate(message, data, options, userId) {
-  if (userId !== game.user.id || !USE_TYPES.has(message.flags?.pf2e?.context?.type)) return;
+  if (userId !== game.user.id) return;
+  const type = message.flags?.pf2e?.context?.type;
+  if (STRIKE_TYPES.has(type)) { try { stampAttack(message); } catch (e) { console.warn(`${MOD} | use-limits stamp`, e); } return; }
+  if (!USE_TYPES.has(type)) return;
   const actor = message.actor, item = message.item;
-  if (!actor || !item || !["spell", "action", "feat"].includes(item.type)) return;
+  if (!actor || !item || !isUseItem(item)) return;
   if (item.type === "spell" && !message.flags?.pf2e?.origin?.rollOptions?.includes(CAST)) return;
   if (skips.get(key(actor, item))) return;
   try { wrapEphemeral([actor]); } catch { /* лимит всё равно проверит preCreate */ }
   if (!takePass(actor, item) && blocked(actor, item)) { refundSpent(item); return false; }
   spent.delete(item.uuid);   // одно списание pf2e — одна законная карточка: следующее использование на нуле уже блокируется
   try {
+    if (spendsAction(item)) stamp(message, actor, { kind: "use" });
     const marks = marksFor(ctxOf(actor, item));
     if (Object.keys(marks).length) {
       message.updateSource({ [`flags.${MOD}.limitMarks`]: marks });   // на актёра пишет onCreate, когда карточка создана; откат при удалении карточки
@@ -164,19 +258,39 @@ export function preCreate(message, data, options, userId) {
 
 /** createChatMessage у автора: карточка создана — отметки записываются на актёра. Чужой preCreate отменил карточку — отметки нет (pending истечёт сам). */
 export async function onCreate(message) {
-  const marks = message?.flags?.[MOD]?.limitMarks, actor = message?.actor;
+  const marks = message?.flags?.[MOD]?.limitMarks, clear = message?.flags?.[MOD]?.limitClear, actor = message?.actor;
+  if (clear && actor && message.isAuthor) await actor.update(Object.fromEntries(Object.keys(clear).map((k) => [`flags.${MOD}.-=${k}`, null]))).catch((e) => console.warn(`${MOD} | use-limits crit recharge`, e));
   if (!marks || !actor || !message.isAuthor) return;
   try { await actor.update(Object.fromEntries(Object.entries(marks).map(([k, v]) => [`flags.${MOD}.${k}`, v]))); }
   catch (e) { console.warn(`${MOD} | use-limits mark`, e); }
   finally { if (JSON.stringify(pending.get(actor.uuid)?.marks) === JSON.stringify(marks)) pending.delete(actor.uuid); }
+  if (modeOf("limits") === "off") return;
+  for (const [k, v] of Object.entries(marks)) if (k.startsWith("rc_")) await showRecharge(actor, message.item, v, message.id);
+}
+
+/** Шёпот перезарядки с готовым броском (грани уже выпали в preCreate — второго броска нет): ГМ и владельцы персонажа; у NPC — только ГМ. */
+async function showRecharge(actor, item, m, cardId) {
+  const flavor = L("builtin.limit.rechargeRoll", { name: item?.name ?? "", dice: m.dice, n: m.n, until: m.until });
+  try {
+    const roll = Roll.fromData(rollData(m.dice, m.r, m.mod));
+    await ChatMessage.create({ speaker: ChatMessage.getSpeaker({ actor }), flavor, rolls: [roll], content: String(roll.total), whisper: recipients(actor, actor.type === "character" ? ["gm", "owner"] : ["gm"]), sound: CONFIG.sounds?.dice, flags: { [MOD]: { builtin: "recharge", rechargeFor: cardId } } });   // rechargeFor: удаление карточки убирает и этот шёпот
+  } catch (e) {
+    console.warn(`${MOD} | use-limits recharge roll`, e);
+    await whisper(actor, flavor, "recharge", { rechargeFor: cardId }, "", actor.type === "character" ? null : "gm");
+  }
 }
 
 /** deleteChatMessage (активный ГМ): карточка использования удалена — вернуть поставленные ею отметки, если флаг всё ещё тот же. */
 export async function onDelete(message) {
-  const marks = message?.flags?.[MOD]?.limitMarks, actor = message?.actor;
-  if (!marks || !actor || !guardActiveGM()) return;
+  const marks = message?.flags?.[MOD]?.limitMarks, clear = message?.flags?.[MOD]?.limitClear, actor = message?.actor;
+  if (!(marks || clear) || !actor || !guardActiveGM()) return;
   const stale = staleMarks(marks, actor.flags?.[MOD]);
-  if (stale.length) await actor.update(Object.fromEntries(stale.map((k) => [`flags.${MOD}.-=${k}`, null])));
+  // крит-перезарядка откатывается вместе с карточкой: замок возвращается, если его не поставили заново
+  const back = Object.entries(clear ?? {}).filter(([k]) => actor.flags?.[MOD]?.[k] === undefined);
+  const upd = { ...Object.fromEntries(stale.map((k) => [`flags.${MOD}.-=${k}`, null])), ...Object.fromEntries(back.map(([k, v]) => [`flags.${MOD}.${k}`, v])) };
+  if (Object.keys(upd).length) await actor.update(upd);
+  const notes = (game.messages?.contents ?? []).filter((m) => m.flags?.[MOD]?.rechargeFor === message.id).map((m) => m.id);   // шёпот «снова доступно с раунда N»
+  if (notes.length) await ChatMessage.deleteDocuments(notes);
 }
 
 // SpellcastingEntry#cast: слот/фокус списывает consume ДО карточки (pf2e.mjs:53700) — блокируем раньше, иначе заклинание потрачено зря.

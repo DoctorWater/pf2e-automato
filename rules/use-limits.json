@@ -1,0 +1,1931 @@
+{
+ "v": 1,
+ "bySource": {
+  "Compendium.pf2e.feats-srd.Item.07TYbc4cOQi5tduT": {
+   "any": [
+    {
+     "k": "holds"
+    }
+   ]
+  },
+  "Compendium.pf2e.feats-srd.Item.0EY2WQC3Hb6Mitgz": {
+   "any": [
+    {
+     "k": "holds"
+    }
+   ]
+  },
+  "Compendium.pf2e.feats-srd.Item.2HoDwBAmPIAoKUVF": {
+   "any": [
+    {
+     "k": "holds"
+    }
+   ]
+  },
+  "Compendium.pf2e.feats-srd.Item.9yko78REsaw7i2gr": {
+   "any": [
+    {
+     "k": "holds"
+    }
+   ]
+  },
+  "Compendium.pf2e.feats-srd.Item.E1WXnYE2QwhHQxQb": {
+   "any": [
+    {
+     "k": "holds"
+    }
+   ]
+  },
+  "Compendium.pf2e.feats-srd.Item.FtnFytJxa2ix1r5z": {
+   "any": [
+    {
+     "k": "hand"
+    }
+   ]
+  },
+  "Compendium.pf2e.feats-srd.Item.TtAvM02UvfNaXeXd": {
+   "any": [
+    {
+     "k": "hand"
+    }
+   ]
+  },
+  "Compendium.pf2e.feats-srd.Item.UEqntGzFrFA7ncUO": {
+   "any": [
+    {
+     "k": "holds"
+    }
+   ]
+  },
+  "Compendium.pf2e.feats-srd.Item.ZXaDS4OJvsQYvhBZ": {
+   "any": [
+    {
+     "k": "holds"
+    }
+   ]
+  },
+  "Compendium.pf2e.feats-srd.Item.bPMYOiiqhrb098s6": {
+   "any": [
+    {
+     "k": "hand"
+    }
+   ]
+  },
+  "Compendium.pf2e.feats-srd.Item.fYD0SrZhMyJVQgvl": {
+   "any": [
+    {
+     "k": "hand"
+    }
+   ]
+  },
+  "Compendium.pf2e.feats-srd.Item.gxzTEt37M0z1WY1M": {
+   "any": [
+    {
+     "k": "holds"
+    }
+   ]
+  },
+  "Compendium.pf2e.feats-srd.Item.hENWnoZNljeJnZBR": {
+   "any": [
+    {
+     "k": "holds"
+    }
+   ]
+  },
+  "Compendium.pf2e.feats-srd.Item.iMeXYpghydBEt2Q6": {
+   "any": [
+    {
+     "k": "holds"
+    }
+   ]
+  },
+  "Compendium.pf2e.feats-srd.Item.iqUYhZNcixYw0xUW": {
+   "any": [
+    {
+     "k": "holds"
+    }
+   ]
+  },
+  "Compendium.pf2e.feats-srd.Item.lMA3F9SGzGV79P5C": {
+   "any": [
+    {
+     "k": "holds"
+    }
+   ]
+  },
+  "Compendium.pf2e.feats-srd.Item.mOWtfL7lhW9XpdBN": {
+   "any": [
+    {
+     "k": "holds"
+    }
+   ]
+  },
+  "Compendium.pf2e.feats-srd.Item.mXQG0WtHHGVyJfZf": {
+   "any": [
+    {
+     "k": "holds"
+    }
+   ]
+  },
+  "Compendium.pf2e.feats-srd.Item.u5ykPSdzrTTOvQ34": {
+   "any": [
+    {
+     "k": "hand"
+    }
+   ]
+  },
+  "Compendium.pf2e.feats-srd.Item.vDeG0N4kzTBDTC2b": {
+   "any": [
+    {
+     "k": "hand"
+    }
+   ]
+  },
+  "Compendium.pf2e.feats-srd.Item.w0nSRBNwexM5Dh0D": {
+   "any": [
+    {
+     "k": "holds"
+    }
+   ]
+  },
+  "Compendium.pf2e.feats-srd.Item.xfbPSP9tl1N95xDF": {
+   "any": [
+    {
+     "k": "holds"
+    }
+   ]
+  },
+  "Compendium.pf2e.agents-of-edgewatch-bestiary.Actor.8jjEOs99Bmo1v0Qc.Item.8qsC3gMbkSTTQOdY": {
+   "any": [
+    {
+     "k": "holds"
+    }
+   ]
+  },
+  "Compendium.pf2e.book-of-the-dead-bestiary.Actor.Y2Fiu9T1xwSBPVTV.Item.u35onovz82ogkm7o": {
+   "any": [
+    {
+     "k": "holds"
+    }
+   ]
+  },
+  "Compendium.pf2e.blood-lords-bestiary.Actor.zYY1lFk4tole9Lx5.Item.JMxq3ADBC01HJnMz": {
+   "any": [
+    {
+     "k": "holds"
+    }
+   ]
+  },
+  "Compendium.pf2e.extinction-curse-bestiary.Actor.gN8VuDZ8b9dp0Ep0.Item.ltyVtPkBGAreDacY": {
+   "any": [
+    {
+     "k": "strike",
+     "name": "proboscis"
+    }
+   ]
+  },
+  "Compendium.pf2e.lost-omens-bestiary.Actor.2N2f6ENAUP8ep1oC.Item.ziLlC72C8I0Wzi0O": {
+   "any": [
+    {
+     "k": "strike",
+     "fx": "pull"
+    }
+   ]
+  },
+  "Compendium.pf2e.lost-omens-bestiary.Actor.AIQMB0ysHNeodKG4.Item.L6SWQmnHWcKt4MuR": {
+   "any": [
+    {
+     "k": "strike",
+     "name": "fist"
+    }
+   ]
+  },
+  "Compendium.pf2e.lost-omens-bestiary.Actor.JX7k6wFmZLqNjK0k.Item.pMQ28lQ60vVdkeIJ": {
+   "any": [
+    {
+     "k": "holds"
+    }
+   ]
+  },
+  "Compendium.pf2e.lost-omens-bestiary.Actor.Oefb1ZCYp2DolpZr.Item.vudcfpUT9un2pDOP": {
+   "any": [
+    {
+     "k": "holds"
+    }
+   ]
+  },
+  "Compendium.pf2e.lost-omens-bestiary.Actor.qcdNzMiO3XxPHLPJ.Item.4iaxu838e8rhts74": {
+   "any": [
+    {
+     "k": "holds"
+    }
+   ]
+  },
+  "Compendium.pf2e.outlaws-of-alkenstar-bestiary.Actor.e2YnAE6qJUkGRS6p.Item.o79s9vYvX3SrjnM9": {
+   "any": [
+    {
+     "k": "strike",
+     "name": "towing-anchor"
+    }
+   ]
+  },
+  "Compendium.pf2e.kingmaker-bestiary.Actor.Cj2zn7JazTB9ZnIq.Item.XU7E8CJIc6dwyRml": {
+   "any": [
+    {
+     "k": "strike"
+    }
+   ]
+  },
+  "Compendium.pf2e.kingmaker-bestiary.Actor.lZtkMlyix3kaTO0j.Item.vudcfpUT9un2pDOP": {
+   "any": [
+    {
+     "k": "holds"
+    }
+   ]
+  },
+  "Compendium.pf2e.kingmaker-bestiary.Actor.xqTVUqUs5UsGcSuH.Item.vudcfpUT9un2pDOP": {
+   "any": [
+    {
+     "k": "holds"
+    }
+   ]
+  },
+  "Compendium.pf2e.pathfinder-bestiary.Actor.X03vq2RWi2jiA6Ri.Item.vudcfpUT9un2pDOP": {
+   "any": [
+    {
+     "k": "holds"
+    }
+   ]
+  },
+  "Compendium.pf2e.pathfinder-bestiary-2.Actor.8IyfadYYpYXBvlXN.Item.DxgiMoyx7wyltYqp": {
+   "any": [
+    {
+     "k": "strike",
+     "name": "fangs"
+    }
+   ]
+  },
+  "Compendium.pf2e.pathfinder-bestiary-2.Actor.e0PXAtnDnJo4ggFX.Item.pTjXZs6ZwSF31KLb": {
+   "any": [
+    {
+     "k": "strike",
+     "name": "fangs"
+    }
+   ]
+  },
+  "Compendium.pf2e.pathfinder-bestiary-2.Actor.j43O2vBu8eu2wC5z.Item.cjFyZppcDxVUaRJD": {
+   "any": [
+    {
+     "k": "strike",
+     "name": "fangs"
+    }
+   ]
+  },
+  "Compendium.pf2e.pathfinder-monster-core.Actor.2rMLYkUR47ZCQMUg.Item.WLCM7iPJWfoRusL5": {
+   "any": [
+    {
+     "k": "holds"
+    }
+   ]
+  },
+  "Compendium.pf2e.pathfinder-monster-core.Actor.MXSKccQqbQqQ77Ii.Item.rhepats7ajh5230c": {
+   "any": [
+    {
+     "k": "strike",
+     "name": "longspear"
+    }
+   ]
+  },
+  "Compendium.pf2e.pathfinder-monster-core.Actor.pH2yNe16EnoJ8R0i.Item.qtXj0TB36n30L7my": {
+   "any": [
+    {
+     "k": "strike",
+     "name": "claw"
+    }
+   ]
+  },
+  "Compendium.pf2e.pathfinder-monster-core-2.Actor.zstEJQKVAKoMskcM.Item.4OphdUKxBpxPyBKN": {
+   "any": [
+    {
+     "k": "holds"
+    }
+   ]
+  },
+  "Compendium.pf2e.pfs-season-2-bestiary.Actor.M1mbQnk40lu1lxdr.Item.0Vv2R9JCAdMBeLqh": {
+   "any": [
+    {
+     "k": "holds"
+    }
+   ]
+  },
+  "Compendium.pf2e.pfs-season-4-bestiary.Actor.2rEw46Ye8jWPkXys.Item.cYpzRpaINHeW2XxC": {
+   "any": [
+    {
+     "k": "hand"
+    }
+   ]
+  },
+  "Compendium.pf2e.pfs-season-5-bestiary.Actor.6H1jqrmwgQhOECTD.Item.WLCM7iPJWfoRusL5": {
+   "any": [
+    {
+     "k": "holds"
+    }
+   ]
+  },
+  "Compendium.pf2e.pfs-season-6-bestiary.Actor.5M7E6bf3IrkcXjiN.Item.mdX3CwGRpvkhQnKY": {
+   "any": [
+    {
+     "k": "strike",
+     "name": "jaws"
+    }
+   ]
+  },
+  "Compendium.pf2e.pfs-season-6-bestiary.Actor.r0vzF6pSDGQ44FvX.Item.mdX3CwGRpvkhQnKY": {
+   "any": [
+    {
+     "k": "strike",
+     "name": "jaws"
+    }
+   ]
+  },
+  "Compendium.pf2e.quest-for-the-frozen-flame-bestiary.Actor.jNv046Jhoq4yEMey.Item.t7j1dxqs40ckaf13": {
+   "any": [
+    {
+     "k": "strike",
+     "name": "jaws"
+    }
+   ]
+  },
+  "Compendium.pf2e.season-of-ghosts-bestiary.Actor.ZzKbQTDlUuyCd0PF.Item.u35onovz82ogkm7o": {
+   "any": [
+    {
+     "k": "holds"
+    }
+   ]
+  },
+  "Compendium.pf2e.spore-war-bestiary.Actor.akkpxUPNsOTHcvSH.Item.UVQZGjvKG09Z25q9": {
+   "any": [
+    {
+     "k": "strike",
+     "fx": "pull"
+    }
+   ]
+  },
+  "Compendium.pf2e.spore-war-bestiary.Actor.eRDf6xNphDUQ1Gox.Item.CI0xauhT4sblIMa8": {
+   "any": [
+    {
+     "k": "hand"
+    }
+   ]
+  },
+  "Compendium.pf2e.strength-of-thousands-bestiary.Actor.vVjsaFfYREz7bflO.Item.rhepats7ajh5230c": {
+   "any": [
+    {
+     "k": "strike",
+     "name": "spear"
+    }
+   ]
+  },
+  "Compendium.pf2e.the-slithering-bestiary.Actor.Fd9l3UtiMLIRAjhO.Item.KX4M0Z52AqjzYfNK": {
+   "any": [
+    {
+     "k": "hand"
+    }
+   ]
+  },
+  "Compendium.pf2e.night-of-the-gray-death-bestiary.Actor.7jALXqInrmh428DW.Item.qlj226n45f0wl98g": {
+   "any": [
+    {
+     "k": "hand"
+    }
+   ]
+  },
+  "Compendium.pf2e.shades-of-blood-bestiary.Actor.2CTbUmwKQUL2Wlqm.Item.DxgiMoyx7wyltYqp": {
+   "any": [
+    {
+     "k": "strike",
+     "name": "fangs"
+    }
+   ]
+  },
+  "Compendium.pf2e.shades-of-blood-bestiary.Actor.tRD9nT9535e4p1oH.Item.suwNVlYl1ar7dia7": {
+   "any": [
+    {
+     "k": "holds"
+    }
+   ]
+  },
+  "Compendium.pf2e.stolen-fate-bestiary.Actor.pFs3lFkXrwNNUsDf.Item.OGCCwJwB8NCFE7As": {
+   "any": [
+    {
+     "k": "hand"
+    }
+   ]
+  },
+  "Compendium.pf2e.stolen-fate-bestiary.Actor.zw2JQhb4cHkDk2zb.Item.u35onovz82ogkm7o": {
+   "any": [
+    {
+     "k": "holds"
+    }
+   ]
+  },
+  "Compendium.pf2e.paizo-pregens.Actor.tezqwX42Nw6WjGA0.Item.80H22YkCdKD21gYV": {
+   "any": [
+    {
+     "k": "hand"
+    }
+   ]
+  }
+ },
+ "bySlug": {
+  "improved-push@action": [
+   {
+    "sig": "",
+    "req": {
+     "any": [
+      {
+       "k": "strike",
+       "fx": "improved-push"
+      }
+     ]
+    }
+   },
+   {
+    "sig": "loc:ImprovedPush",
+    "req": {
+     "any": [
+      {
+       "k": "strike",
+       "fx": "improved-push"
+      }
+     ]
+    }
+   }
+  ],
+  "knockdown@action": [
+   {
+    "sig": "",
+    "req": {
+     "any": [
+      {
+       "k": "strike",
+       "fx": "knockdown"
+      }
+     ]
+    }
+   },
+   {
+    "sig": "loc:Knockdown",
+    "req": {
+     "any": [
+      {
+       "k": "strike",
+       "fx": "knockdown"
+      }
+     ]
+    }
+   }
+  ],
+  "pull@action": [
+   {
+    "sig": "loc:Pull",
+    "req": {
+     "any": [
+      {
+       "k": "strike",
+       "fx": "pull"
+      }
+     ]
+    }
+   }
+  ],
+  "improved-knockdown@action": [
+   {
+    "sig": "",
+    "req": {
+     "any": [
+      {
+       "k": "strike",
+       "fx": "improved-knockdown"
+      }
+     ]
+    }
+   },
+   {
+    "sig": "loc:ImprovedKnockdown",
+    "req": {
+     "any": [
+      {
+       "k": "strike",
+       "fx": "improved-knockdown"
+      }
+     ]
+    }
+   }
+  ],
+  "grab@action": [
+   {
+    "sig": "kWc1fhmv9LBiTuei,VcDeM8A5oI6VqhbM",
+    "req": {
+     "any": [
+      {
+       "k": "strike",
+       "fx": "grab"
+      },
+      {
+       "k": "holds"
+      }
+     ]
+    }
+   },
+   {
+    "sig": "loc:Grab",
+    "req": {
+     "any": [
+      {
+       "k": "strike",
+       "fx": "grab"
+      },
+      {
+       "k": "holds"
+      }
+     ]
+    }
+   }
+  ],
+  "improved-grab@action": [
+   {
+    "sig": "kWc1fhmv9LBiTuei,VcDeM8A5oI6VqhbM",
+    "req": {
+     "any": [
+      {
+       "k": "strike",
+       "fx": "improved-grab"
+      },
+      {
+       "k": "holds"
+      }
+     ]
+    }
+   },
+   {
+    "sig": "loc:ImprovedGrab",
+    "req": {
+     "any": [
+      {
+       "k": "strike",
+       "fx": "improved-grab"
+      },
+      {
+       "k": "holds"
+      }
+     ]
+    }
+   }
+  ],
+  "push@action": [
+   {
+    "sig": "",
+    "req": {
+     "any": [
+      {
+       "k": "strike",
+       "fx": "push"
+      }
+     ]
+    }
+   },
+   {
+    "sig": "loc:Push",
+    "req": {
+     "any": [
+      {
+       "k": "strike",
+       "fx": "push"
+      }
+     ]
+    }
+   }
+  ],
+  "vampire-vrykolakas-drink-blood@action": [
+   {
+    "sig": "",
+    "req": {
+     "any": [
+      {
+       "k": "strike",
+       "name": "fangs"
+      }
+     ]
+    }
+   }
+  ],
+  "vampire-nosferatu-overlord-paralytic-fear@action": [
+   {
+    "sig": "",
+    "req": {
+     "any": [
+      {
+       "k": "strike",
+       "name": "claw"
+      }
+     ]
+    }
+   }
+  ],
+  "vampire-nosferatu-drink-blood@action": [
+   {
+    "sig": "",
+    "req": {
+     "any": [
+      {
+       "k": "strike",
+       "name": "fangs"
+      }
+     ]
+    }
+   }
+  ],
+  "blood-drain@action": [
+   {
+    "sig": "kWc1fhmv9LBiTuei,VcDeM8A5oI6VqhbM",
+    "req": {
+     "any": [
+      {
+       "k": "holds"
+      }
+     ]
+    }
+   },
+   {
+    "sig": "kWc1fhmv9LBiTuei",
+    "req": {
+     "any": [
+      {
+       "k": "holds"
+      }
+     ]
+    }
+   }
+  ],
+  "sapping-squeeze@action": [
+   {
+    "sig": "kWc1fhmv9LBiTuei",
+    "req": {
+     "any": [
+      {
+       "k": "holds"
+      }
+     ]
+    }
+   }
+  ],
+  "tentacle-transfer@action": [
+   {
+    "sig": "kWc1fhmv9LBiTuei",
+    "req": {
+     "any": [
+      {
+       "k": "holds"
+      }
+     ]
+    }
+   }
+  ],
+  "bone-drink@action": [
+   {
+    "sig": "kWc1fhmv9LBiTuei,VcDeM8A5oI6VqhbM",
+    "req": {
+     "any": [
+      {
+       "k": "holds"
+      }
+     ]
+    }
+   }
+  ],
+  "smothering-grasp@action": [
+   {
+    "sig": "kWc1fhmv9LBiTuei,VcDeM8A5oI6VqhbM",
+    "req": {
+     "any": [
+      {
+       "k": "holds"
+      }
+     ]
+    }
+   }
+  ],
+  "submission-lock@action": [
+   {
+    "sig": "kWc1fhmv9LBiTuei,VcDeM8A5oI6VqhbM",
+    "req": {
+     "any": [
+      {
+       "k": "holds"
+      }
+     ]
+    }
+   }
+  ],
+  "teleporting-clothesline@action": [
+   {
+    "sig": "kWc1fhmv9LBiTuei,VcDeM8A5oI6VqhbM",
+    "req": {
+     "any": [
+      {
+       "k": "holds"
+      }
+     ]
+    }
+   }
+  ],
+  "onryos-rancor@action": [
+   {
+    "sig": "",
+    "req": {
+     "any": [
+      {
+       "k": "strike",
+       "name": "claw"
+      }
+     ]
+    }
+   }
+  ],
+  "ground-slam@action": [
+   {
+    "sig": "kWc1fhmv9LBiTuei,VcDeM8A5oI6VqhbM",
+    "req": {
+     "any": [
+      {
+       "k": "holds"
+      }
+     ]
+    }
+   }
+  ],
+  "devour-flesh@action": [
+   {
+    "sig": "kWc1fhmv9LBiTuei,VcDeM8A5oI6VqhbM",
+    "req": {
+     "any": [
+      {
+       "k": "holds"
+      }
+     ]
+    }
+   }
+  ],
+  "strangle@action": [
+   {
+    "sig": "kWc1fhmv9LBiTuei,VcDeM8A5oI6VqhbM",
+    "req": {
+     "any": [
+      {
+       "k": "holds"
+      }
+     ]
+    }
+   }
+  ],
+  "memory-drain@action": [
+   {
+    "sig": "kWc1fhmv9LBiTuei,VcDeM8A5oI6VqhbM",
+    "req": {
+     "any": [
+      {
+       "k": "holds"
+      }
+     ]
+    }
+   }
+  ],
+  "there-there@action": [
+   {
+    "sig": "kWc1fhmv9LBiTuei",
+    "req": {
+     "any": [
+      {
+       "k": "holds"
+      }
+     ]
+    }
+   }
+  ],
+  "produce-gold-coins@action": [
+   {
+    "sig": "",
+    "req": {
+     "any": [
+      {
+       "k": "hand"
+      }
+     ]
+    }
+   }
+  ],
+  "choke-slam@action": [
+   {
+    "sig": "",
+    "req": {
+     "any": [
+      {
+       "k": "holds"
+      }
+     ]
+    }
+   }
+  ],
+  "beak-crunch@action": [
+   {
+    "sig": "kWc1fhmv9LBiTuei",
+    "req": {
+     "any": [
+      {
+       "k": "holds"
+      }
+     ]
+    }
+   }
+  ],
+  "antler-toss@action": [
+   {
+    "sig": "kWc1fhmv9LBiTuei",
+    "req": {
+     "any": [
+      {
+       "k": "holds"
+      }
+     ]
+    }
+   }
+  ],
+  "improved-push-15ft@action": [
+   {
+    "sig": "",
+    "req": {
+     "any": [
+      {
+       "k": "strike",
+       "fx": "push"
+      }
+     ]
+    }
+   }
+  ],
+  "overwhelm@action": [
+   {
+    "sig": "kWc1fhmv9LBiTuei",
+    "req": {
+     "any": [
+      {
+       "k": "holds"
+      }
+     ]
+    }
+   }
+  ],
+  "bury-beneath-stone@action": [
+   {
+    "sig": "kWc1fhmv9LBiTuei",
+    "req": {
+     "any": [
+      {
+       "k": "holds"
+      }
+     ]
+    }
+   }
+  ],
+  "misty-mauling@action": [
+   {
+    "sig": "kWc1fhmv9LBiTuei",
+    "req": {
+     "any": [
+      {
+       "k": "holds"
+      }
+     ]
+    }
+   }
+  ],
+  "petrify-prey@action": [
+   {
+    "sig": "kWc1fhmv9LBiTuei",
+    "req": {
+     "any": [
+      {
+       "k": "holds"
+      }
+     ]
+    }
+   }
+  ],
+  "final-shake@action": [
+   {
+    "sig": "kWc1fhmv9LBiTuei",
+    "req": {
+     "any": [
+      {
+       "k": "holds"
+      }
+     ]
+    }
+   }
+  ],
+  "into-the-earth@action": [
+   {
+    "sig": "kWc1fhmv9LBiTuei",
+    "req": {
+     "any": [
+      {
+       "k": "holds"
+      }
+     ]
+    }
+   }
+  ],
+  "release-heat@action": [
+   {
+    "sig": "",
+    "req": {
+     "any": [
+      {
+       "k": "hand"
+      }
+     ]
+    }
+   }
+  ],
+  "portal-throw@action": [
+   {
+    "sig": "kWc1fhmv9LBiTuei,VcDeM8A5oI6VqhbM",
+    "req": {
+     "any": [
+      {
+       "k": "holds"
+      }
+     ]
+    }
+   }
+  ],
+  "assassins-poison@action": [
+   {
+    "sig": "",
+    "req": {
+     "any": [
+      {
+       "k": "hand"
+      }
+     ]
+    }
+   }
+  ],
+  "death-grip@action": [
+   {
+    "sig": "kWc1fhmv9LBiTuei,VcDeM8A5oI6VqhbM",
+    "req": {
+     "any": [
+      {
+       "k": "holds"
+      }
+     ]
+    }
+   }
+  ],
+  "push-15-feet@action": [
+   {
+    "sig": "",
+    "req": {
+     "any": [
+      {
+       "k": "strike",
+       "fx": "push"
+      }
+     ]
+    }
+   }
+  ],
+  "vex@action": [
+   {
+    "sig": "",
+    "req": {
+     "any": [
+      {
+       "k": "strike",
+       "name": "tail"
+      }
+     ]
+    }
+   }
+  ],
+  "push-10-feet@action": [
+   {
+    "sig": "",
+    "req": {
+     "any": [
+      {
+       "k": "strike",
+       "fx": "push"
+      }
+     ]
+    }
+   }
+  ],
+  "devour-wealth@action": [
+   {
+    "sig": "",
+    "req": {
+     "any": [
+      {
+       "k": "strike",
+       "name": "jaws"
+      }
+     ]
+    }
+   }
+  ],
+  "improved-vex@action": [
+   {
+    "sig": "",
+    "req": {
+     "any": [
+      {
+       "k": "strike",
+       "name": "tail"
+      }
+     ]
+    }
+   }
+  ],
+  "seize@action": [
+   {
+    "sig": "kWc1fhmv9LBiTuei",
+    "req": {
+     "any": [
+      {
+       "k": "holds"
+      }
+     ]
+    }
+   }
+  ],
+  "sparking-bite@action": [
+   {
+    "sig": "kWc1fhmv9LBiTuei",
+    "req": {
+     "any": [
+      {
+       "k": "holds"
+      }
+     ]
+    }
+   }
+  ],
+  "push-20-feet@action": [
+   {
+    "sig": "",
+    "req": {
+     "any": [
+      {
+       "k": "strike",
+       "fx": "push"
+      }
+     ]
+    }
+   }
+  ],
+  "improved-push-20-feet@action": [
+   {
+    "sig": "",
+    "req": {
+     "any": [
+      {
+       "k": "strike",
+       "fx": "improved-push"
+      }
+     ]
+    }
+   }
+  ],
+  "devour@action": [
+   {
+    "sig": "",
+    "req": {
+     "any": [
+      {
+       "k": "strike",
+       "name": "jaws"
+      }
+     ]
+    }
+   }
+  ],
+  "electric-eel-shock@action": [
+   {
+    "sig": "kWc1fhmv9LBiTuei,VcDeM8A5oI6VqhbM",
+    "req": {
+     "any": [
+      {
+       "k": "holds"
+      }
+     ]
+    }
+   }
+  ],
+  "symbiotic-assault@action": [
+   {
+    "sig": "kWc1fhmv9LBiTuei,VcDeM8A5oI6VqhbM",
+    "req": {
+     "any": [
+      {
+       "k": "holds"
+      }
+     ]
+    }
+   }
+  ],
+  "biting-constrict@action": [
+   {
+    "sig": "kWc1fhmv9LBiTuei",
+    "req": {
+     "any": [
+      {
+       "k": "holds"
+      }
+     ]
+    }
+   }
+  ],
+  "mortal-reflection@action": [
+   {
+    "sig": "kWc1fhmv9LBiTuei,VcDeM8A5oI6VqhbM",
+    "req": {
+     "any": [
+      {
+       "k": "holds"
+      }
+     ]
+    }
+   }
+  ],
+  "improved-push-10-feet@action": [
+   {
+    "sig": "",
+    "req": {
+     "any": [
+      {
+       "k": "strike",
+       "fx": "improved-push"
+      }
+     ]
+    }
+   }
+  ],
+  "bottoms-up@action": [
+   {
+    "sig": "kWc1fhmv9LBiTuei",
+    "req": {
+     "any": [
+      {
+       "k": "holds"
+      }
+     ]
+    }
+   }
+  ],
+  "constrict@action": [
+   {
+    "sig": "kWc1fhmv9LBiTuei,VcDeM8A5oI6VqhbM",
+    "req": {
+     "any": [
+      {
+       "k": "holds"
+      }
+     ]
+    }
+   }
+  ],
+  "deadly-throw@action": [
+   {
+    "sig": "kWc1fhmv9LBiTuei",
+    "req": {
+     "any": [
+      {
+       "k": "holds"
+      }
+     ]
+    }
+   },
+   {
+    "sig": "kWc1fhmv9LBiTuei,VcDeM8A5oI6VqhbM",
+    "req": {
+     "any": [
+      {
+       "k": "holds"
+      }
+     ]
+    }
+   }
+  ],
+  "toxic-bite@action": [
+   {
+    "sig": "kWc1fhmv9LBiTuei",
+    "req": {
+     "any": [
+      {
+       "k": "holds"
+      }
+     ]
+    }
+   }
+  ],
+  "chain-of-malebolge@action": [
+   {
+    "sig": "",
+    "req": {
+     "any": [
+      {
+       "k": "strike",
+       "name": "spiked-chain"
+      }
+     ]
+    }
+   }
+  ],
+  "vindictive-crush@action": [
+   {
+    "sig": "",
+    "req": {
+     "any": [
+      {
+       "k": "holds"
+      }
+     ]
+    }
+   }
+  ],
+  "twisting-thrash@action": [
+   {
+    "sig": "kWc1fhmv9LBiTuei",
+    "req": {
+     "any": [
+      {
+       "k": "holds"
+      }
+     ]
+    }
+   }
+  ],
+  "consume-thoughts@action": [
+   {
+    "sig": "",
+    "req": {
+     "any": [
+      {
+       "k": "strike",
+       "name": "hand"
+      }
+     ]
+    }
+   }
+  ],
+  "reclaim-life@action": [
+   {
+    "sig": "kWc1fhmv9LBiTuei,VcDeM8A5oI6VqhbM",
+    "req": {
+     "any": [
+      {
+       "k": "holds"
+      }
+     ]
+    }
+   }
+  ],
+  "mind-crush@action": [
+   {
+    "sig": "kWc1fhmv9LBiTuei",
+    "req": {
+     "any": [
+      {
+       "k": "holds"
+      }
+     ]
+    }
+   }
+  ],
+  "suck-blood@action": [
+   {
+    "sig": "kWc1fhmv9LBiTuei",
+    "req": {
+     "any": [
+      {
+       "k": "holds"
+      }
+     ]
+    }
+   }
+  ],
+  "shape-flesh@action": [
+   {
+    "sig": "",
+    "req": {
+     "any": [
+      {
+       "k": "strike",
+       "name": "claw"
+      }
+     ]
+    }
+   }
+  ],
+  "choking-pain@action": [
+   {
+    "sig": "",
+    "req": {
+     "any": [
+      {
+       "k": "strike",
+       "name": "fist"
+      }
+     ]
+    }
+   }
+  ],
+  "smother@action": [
+   {
+    "sig": "kWc1fhmv9LBiTuei,VcDeM8A5oI6VqhbM",
+    "req": {
+     "any": [
+      {
+       "k": "holds"
+      }
+     ]
+    }
+   }
+  ],
+  "haul-away@action": [
+   {
+    "sig": "kWc1fhmv9LBiTuei",
+    "req": {
+     "any": [
+      {
+       "k": "holds"
+      }
+     ]
+    }
+   }
+  ],
+  "encage-in-tentacles@action": [
+   {
+    "sig": "kWc1fhmv9LBiTuei,VcDeM8A5oI6VqhbM",
+    "req": {
+     "any": [
+      {
+       "k": "holds"
+      }
+     ]
+    }
+   }
+  ],
+  "arcane-slam@action": [
+   {
+    "sig": "kWc1fhmv9LBiTuei",
+    "req": {
+     "any": [
+      {
+       "k": "holds"
+      }
+     ]
+    }
+   }
+  ],
+  "spinning-toss@action": [
+   {
+    "sig": "",
+    "req": {
+     "any": [
+      {
+       "k": "holds"
+      }
+     ]
+    }
+   }
+  ],
+  "aquatic-drag@action": [
+   {
+    "sig": "kWc1fhmv9LBiTuei",
+    "req": {
+     "any": [
+      {
+       "k": "holds"
+      }
+     ]
+    }
+   }
+  ],
+  "drain-blood@action": [
+   {
+    "sig": "kWc1fhmv9LBiTuei,VcDeM8A5oI6VqhbM",
+    "req": {
+     "any": [
+      {
+       "k": "holds"
+      }
+     ]
+    }
+   }
+  ],
+  "crush-chitin@action": [
+   {
+    "sig": "kWc1fhmv9LBiTuei,VcDeM8A5oI6VqhbM",
+    "req": {
+     "any": [
+      {
+       "k": "holds"
+      }
+     ]
+    }
+   }
+  ],
+  "magic-hat@action": [
+   {
+    "sig": "",
+    "req": {
+     "any": [
+      {
+       "k": "hand"
+      }
+     ]
+    }
+   }
+  ],
+  "whirlwind-throw@action": [
+   {
+    "sig": "kWc1fhmv9LBiTuei",
+    "req": {
+     "any": [
+      {
+       "k": "holds"
+      }
+     ]
+    }
+   }
+  ],
+  "send-beyond@action": [
+   {
+    "sig": "kWc1fhmv9LBiTuei,VcDeM8A5oI6VqhbM",
+    "req": {
+     "any": [
+      {
+       "k": "holds"
+      }
+     ]
+    }
+   }
+  ],
+  "gore-grinder@action": [
+   {
+    "sig": "",
+    "req": {
+     "any": [
+      {
+       "k": "strike",
+       "name": "war-flail"
+      }
+     ]
+    }
+   }
+  ],
+  "mischief@action": [
+   {
+    "sig": "",
+    "req": {
+     "any": [
+      {
+       "k": "strike",
+       "name": "rapier"
+      }
+     ]
+    }
+   }
+  ],
+  "consume-fear@action": [
+   {
+    "sig": "kWc1fhmv9LBiTuei,VcDeM8A5oI6VqhbM",
+    "req": {
+     "any": [
+      {
+       "k": "holds"
+      }
+     ]
+    }
+   }
+  ],
+  "jaw-crush@action": [
+   {
+    "sig": "kWc1fhmv9LBiTuei",
+    "req": {
+     "any": [
+      {
+       "k": "holds"
+      }
+     ]
+    }
+   }
+  ],
+  "evisceration@action": [
+   {
+    "sig": "kWc1fhmv9LBiTuei,VcDeM8A5oI6VqhbM",
+    "req": {
+     "any": [
+      {
+       "k": "holds"
+      }
+     ]
+    }
+   }
+  ],
+  "crowd-control@action": [
+   {
+    "sig": "",
+    "req": {
+     "any": [
+      {
+       "k": "strike",
+       "name": "halberd"
+      }
+     ]
+    }
+   }
+  ],
+  "firearm-sabotage@action": [
+   {
+    "sig": "",
+    "req": {
+     "any": [
+      {
+       "k": "hand"
+      }
+     ]
+    }
+   }
+  ],
+  "stab-and-twist@action": [
+   {
+    "sig": "",
+    "req": {
+     "any": [
+      {
+       "k": "strike",
+       "name": "melee-trident"
+      }
+     ]
+    }
+   }
+  ],
+  "fireworks-barrage@action": [
+   {
+    "sig": "",
+    "req": {
+     "any": [
+      {
+       "k": "hand"
+      }
+     ]
+    }
+   }
+  ],
+  "pitch-bale@action": [
+   {
+    "sig": "",
+    "req": {
+     "any": [
+      {
+       "k": "strike",
+       "name": "pitchfork"
+      }
+     ]
+    }
+   }
+  ],
+  "following-spell@action": [
+   {
+    "sig": "",
+    "req": {
+     "any": [
+      {
+       "k": "strike"
+      }
+     ]
+    }
+   }
+  ],
+  "retract@action": [
+   {
+    "sig": "",
+    "req": {
+     "any": [
+      {
+       "k": "strike",
+       "name": "javelin"
+      }
+     ]
+    }
+   }
+  ],
+  "astral-thread-control@action": [
+   {
+    "sig": "",
+    "req": {
+     "any": [
+      {
+       "k": "strike",
+       "name": "thrown-rope-dart"
+      }
+     ]
+    }
+   }
+  ],
+  "mauling-throw@action": [
+   {
+    "sig": "kWc1fhmv9LBiTuei",
+    "req": {
+     "any": [
+      {
+       "k": "holds"
+      }
+     ]
+    }
+   }
+  ],
+  "worry@action": [
+   {
+    "sig": "kWc1fhmv9LBiTuei",
+    "req": {
+     "any": [
+      {
+       "k": "holds"
+      }
+     ]
+    }
+   }
+  ],
+  "overburden@action": [
+   {
+    "sig": "",
+    "req": {
+     "any": [
+      {
+       "k": "strike",
+       "name": "infested-touch"
+      }
+     ]
+    }
+   }
+  ],
+  "wall-slam@action": [
+   {
+    "sig": "kWc1fhmv9LBiTuei",
+    "req": {
+     "any": [
+      {
+       "k": "holds"
+      }
+     ]
+    }
+   }
+  ],
+  "mark-of-avarice@action": [
+   {
+    "sig": "",
+    "req": {
+     "any": [
+      {
+       "k": "strike",
+       "name": "tentacle"
+      }
+     ]
+    }
+   }
+  ],
+  "conjure-weapon@action": [
+   {
+    "sig": "",
+    "req": {
+     "any": [
+      {
+       "k": "hand"
+      }
+     ]
+    }
+   }
+  ],
+  "chupar@action": [
+   {
+    "sig": "kWc1fhmv9LBiTuei",
+    "req": {
+     "any": [
+      {
+       "k": "holds"
+      }
+     ]
+    }
+   }
+  ],
+  "killing-shake@action": [
+   {
+    "sig": "kWc1fhmv9LBiTuei",
+    "req": {
+     "any": [
+      {
+       "k": "holds"
+      }
+     ]
+    }
+   }
+  ],
+  "umbral-veil@action": [
+   {
+    "sig": "",
+    "req": {
+     "any": [
+      {
+       "k": "strike"
+      }
+     ]
+    }
+   }
+  ],
+  "oviposit@action": [
+   {
+    "sig": "kWc1fhmv9LBiTuei",
+    "req": {
+     "any": [
+      {
+       "k": "holds"
+      }
+     ]
+    }
+   }
+  ],
+  "venomous-bite@action": [
+   {
+    "sig": "kWc1fhmv9LBiTuei",
+    "req": {
+     "any": [
+      {
+       "k": "holds"
+      }
+     ]
+    }
+   }
+  ],
+  "ripping-maul@action": [
+   {
+    "sig": "kWc1fhmv9LBiTuei",
+    "req": {
+     "any": [
+      {
+       "k": "holds"
+      }
+     ]
+    }
+   }
+  ],
+  "piercing-fangs@action": [
+   {
+    "sig": "kWc1fhmv9LBiTuei",
+    "req": {
+     "any": [
+      {
+       "k": "holds"
+      }
+     ]
+    }
+   }
+  ],
+  "neck-snap@action": [
+   {
+    "sig": "",
+    "req": {
+     "any": [
+      {
+       "k": "holds"
+      }
+     ]
+    }
+   }
+  ],
+  "breath-of-smoke@action": [
+   {
+    "sig": "",
+    "req": {
+     "any": [
+      {
+       "k": "holds"
+      }
+     ]
+    }
+   }
+  ],
+  "draw-blood@action": [
+   {
+    "sig": "",
+    "req": {
+     "any": [
+      {
+       "k": "strike"
+      }
+     ]
+    }
+   }
+  ],
+  "tendril-feeding@action": [
+   {
+    "sig": "kWc1fhmv9LBiTuei",
+    "req": {
+     "any": [
+      {
+       "k": "holds"
+      }
+     ]
+    }
+   }
+  ],
+  "rip-out@action": [
+   {
+    "sig": "kWc1fhmv9LBiTuei",
+    "req": {
+     "any": [
+      {
+       "k": "holds"
+      }
+     ]
+    }
+   }
+  ],
+  "body-strike@action": [
+   {
+    "sig": "kWc1fhmv9LBiTuei",
+    "req": {
+     "any": [
+      {
+       "k": "holds"
+      }
+     ]
+    }
+   }
+  ],
+  "tear-fate@action": [
+   {
+    "sig": "",
+    "req": {
+     "any": [
+      {
+       "k": "strike"
+      }
+     ]
+    }
+   }
+  ],
+  "serve@action": [
+   {
+    "sig": "kWc1fhmv9LBiTuei",
+    "req": {
+     "any": [
+      {
+       "k": "holds"
+      }
+     ]
+    }
+   }
+  ],
+  "hooking-hurl@action": [
+   {
+    "sig": "",
+    "req": {
+     "any": [
+      {
+       "k": "strike",
+       "name": "ogre-hook"
+      }
+     ]
+    }
+   }
+  ],
+  "vitality-drain@action": [
+   {
+    "sig": "kWc1fhmv9LBiTuei",
+    "req": {
+     "any": [
+      {
+       "k": "holds"
+      }
+     ]
+    }
+   }
+  ]
+ }
+}

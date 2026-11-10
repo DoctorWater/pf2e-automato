@@ -6,6 +6,9 @@
 import { MOD, L } from "../util.mjs";
 import { modeOf } from "../settings.mjs";
 import { resetIndex, shouldYield } from "../compat.mjs";
+import { slugOf } from "../rules.mjs";
+import { NO_REACTIONS } from "../workshop/effect.mjs";
+import { mechOf } from "../mech.mjs";
 
 /** Подгруппа A «вид скорости на это перемещение» (8 фитов, pf2e 8.6.1): у каждого toggleable RollOption + BaseSpeed fly под ней; опция = slug фита. */
 export const FLIGHT = ["take-wing", "take-flight", "soaring-flight", "fledgling-flight", "winglet-flight", "evanescent-wings", "dragons-flight", "benefactors-wings"];
@@ -30,9 +33,41 @@ let marks = new WeakMap();   // актёр -> Map(опция -> Set(предме
 export const neutralizedOf = (actor) => marks.get(actor) ?? null;
 export const clearMarks = (actor) => { marks.delete(actor); };
 
+/** Постоянное состояние способности NPC (M6): slug -> uuid состояния для GrantItem inMemoryOnly (как у Zombie Hulk в pf2e) и запрет реакций. */
+export const PERMANENT = { slow: { grant: "Compendium.pf2e.conditionitems.Item.xYTAsEpcJE1Ccni3", cond: "slowed", noReactions: true } };   // cond — slug состояния для строки Мастерской
+
+/** Чистая: предмет (документ или _source) — способность NPC из таблицы PERMANENT -> запись таблицы | null. Актёр — явный (у _source предмета его нет). */
+export const permanentBase = (item, actorType) => (actorType === "npc" && (item?.type === "action" || item?.type === "feat") ? PERMANENT[slugOf(null, item)] ?? null : null);
+
+/** Как исполняет рантайм: mech.permanent:false (Мастерская: «не накладывать») — null. Читает и _source (флаги там же). */
+export const permanentOf = (item, actorType) => (mechOf(item).permanent === false ? null : permanentBase(item, actorType));
+
+/** Чистая: у актёра уже есть документ этого состояния (часть бестиариев кладёт Slowed прямо в существо: Ofalth Zombie, Zombie Owlbear). */
+export const hasCondDoc = (actor, cond) => !!cond && (actor?._source?.items ?? []).some((i) => i.type === "condition" && i.system?.slug === cond);
+
+/** Чистая: исходники синтетических правил. Состояние — только там, где его не выдаёт сам предмет (GrantItem у 9 Slow) и нет документа состояния у существа; запрет реакций — всем. */
+export function permanentSources(p, ownRules = [], hasDoc = false) {
+  return [
+    ...(p.noReactions ? [{ key: "RollOption", domain: "all", option: NO_REACTIONS }] : []),
+    ...(p.grant && !hasDoc && !ownRules.some((r) => r?.key === "GrantItem") ? [{ key: "GrantItem", uuid: p.grant, inMemoryOnly: true }] : [])
+  ];
+}
+
+/** Дописывает к правилам предмета синтетические (в памяти, в документы не пишутся: off -> resetActors вернёт чистые правила). */
+function addPermanent(rules, opts) {
+  const item = opts?.parent, p = permanentOf(item, item?.actor?.type);
+  if (!p || modeOf("effect") === "off") return;
+  const all = globalThis.game?.pf2e?.RuleElements?.all;
+  for (const src of permanentSources(p, item.system?.rules, hasCondDoc(item.actor, p.cond))) {
+    try { if (all?.[src.key]) rules.push(new all[src.key](src, { ...opts, sourceIndex: null })); }
+    catch (e) { console.warn(`${MOD} | permanent ${item.name}`, e); }
+  }
+}
+
 export function wrapRules(wrapped, ...args) {
   const rules = wrapped(...args);
   try {
+    addPermanent(rules, args[0]);
     const own = owned();
     if (!own.size) return rules;
     for (const r of rules) {
@@ -73,7 +108,7 @@ export function install() {
   return installed;
 }
 
-const hasRegistered = (a) => (a?._source?.items ?? []).some((i) => (i.system?.rules ?? []).some((r) => r?.key === "RollOption" && r.option in REGISTRY));
+const hasRegistered = (a) => (a?._source?.items ?? []).some((i) => permanentOf(i, a.type) || (i.system?.rules ?? []).some((r) => r?.key === "RollOption" && r.option in REGISTRY));
 
 /** Пересобрать актёров с регистровыми переключателями (смена режима или уступки): правила построятся заново и пройдут через обёртку. */
 export function resetActors() {
@@ -85,6 +120,6 @@ export function resetActors() {
 export function init() {
   install();
   Hooks.once("ready", () => { if (!installed && install()) resetActors(); });
-  const keys = new Set([...new Set(Object.values(REGISTRY))].map((k) => `${MOD}.mode.${k}`).concat(`${MOD}.yieldToAutomations`, "pf2e-automations.rulesV3"));
+  const keys = new Set([...new Set(Object.values(REGISTRY))].map((k) => `${MOD}.mode.${k}`).concat(`${MOD}.mode.effect`, `${MOD}.yieldToAutomations`, "pf2e-automations.rulesV3"));
   Hooks.on("updateSetting", (s) => { if (!keys.has(s.key)) return; resetIndex(); resetActors(); });   // индекс уступки — до пересборки (хук compat идёт раньше, но не полагаемся)
 }

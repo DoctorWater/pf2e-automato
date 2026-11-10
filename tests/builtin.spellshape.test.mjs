@@ -75,7 +75,16 @@ test("recentShape: метамагия без сотворения после н�
   const use = msg("feat"), cast = msg("spell", ["origin:action:slug:cast-a-spell"]);
   const opt = (u) => (u === "Item.f" ? "reach-spell" : null);
   assert.equal(ss.recentShape([use], "Actor.a", opt), "spellshape:reach-spell");
-  assert.equal(ss.recentShape([use, msg("feat", [], "Actor.a", "Item.x")], "Actor.a", opt), "spellshape:reach-spell");   // чужая черта без флага пропускается
+  assert.equal(ss.recentShape([use, msg("feat", [], "Actor.a", "Item.x")], "Actor.a", opt), null);   // другая способность после метамагии: срок вышел
+  assert.equal(ss.recentShape([use, msg("feat", [], "Actor.b", "Item.x")], "Actor.a", opt), "spellshape:reach-spell");   // чужая способность другого актёра не в счёт
+  const roll = (type, origin) => ({ actor: { uuid: "Actor.a" }, flags: { pf2e: { context: { type }, ...(origin && { origin }) } } });
+  assert.equal(ss.recentShape([use, roll("attack-roll")], "Actor.a", opt), null);   // Удар между метамагией и сотворением
+  const act = roll("skill-check"); act.flags.pf2e.context.options = ["action:grapple"];
+  assert.equal(ss.recentShape([use, act], "Actor.a", opt), null);   // проверка как действие
+  assert.equal(ss.recentShape([use, roll("skill-check")], "Actor.a", opt), "spellshape:reach-spell");   // запрос ГМа / тайная проверка — не действие
+  assert.equal(ss.recentShape([use, roll("saving-throw")], "Actor.a", opt), "spellshape:reach-spell");   // спасбросок и урон — не действия
+  assert.equal(ss.recentShape([use, roll("damage-roll")], "Actor.a", opt), "spellshape:reach-spell");
+  assert.equal(ss.recentShape([use, roll("spell-attack-roll", { type: "spell", actor: "Actor.a" })], "Actor.a", opt), "spellshape:reach-spell");   // бросок заклинания — не другое действие
   assert.equal(ss.recentShape([use, cast], "Actor.a", opt), null);   // после метамагии уже сотворяли
   assert.equal(ss.recentShape([use], "Actor.b", opt), null);
   assert.equal(ss.recentShape([use, msg("spell", [])], "Actor.a", opt), "spellshape:reach-spell");   // описание в чат — не сотворение
@@ -105,4 +114,78 @@ test("onMessage: черта без флага (переключатель ост
   globalThis.fromUuid = async () => feat(a, undefined);
   await ss.onMessage({ actor: a, flags: { pf2e: { origin: { type: "feat", uuid: "Item.f" } } } });
   assert.equal(effects(a).length, 0);
+});
+
+const npcFeat = (slug, { type = "action", rules = [], flag, actor = "npc" } = {}) => ({ type, slug, system: { rules }, parent: { type: actor }, flags: flag ? { [MOD]: { spellshape: flag } } : {} });
+
+test("optionOf: Reach Spell NPC без переключателя — по slug; флаг приоритетен; прочее — null", () => {
+  assert.equal(ss.optionOf(npcFeat("reach-spell")), "reach-spell");
+  assert.equal(ss.optionOf(npcFeat("reach-spell", { type: "feat" })), "reach-spell");
+  assert.equal(ss.optionOf(npcFeat("widen-spell", { flag: "widen-spell" })), "widen-spell");   // флаг миграции
+  assert.equal(ss.optionOf(npcFeat("quickened-casting")), null);
+  assert.equal(ss.optionOf(npcFeat("widen-spell")), null);
+  assert.equal(ss.optionOf(npcFeat("reach-spell", { actor: "character" })), null);   // у персонажа — флаг миграции
+  assert.equal(ss.optionOf(npcFeat("reach-spell", { rules: [toggle("reach-spell")] })), null);   // переключатель остался (миграция не сняла) — не двоим
+  assert.equal(ss.optionOf(npcFeat("reach-spell", { type: "spell" })), null);
+});
+
+test("optionOf: перевод без system.slug — по babele.originalName (slugOf)", () => {
+  const it = { ...npcFeat(undefined), name: "Дальнее заклинание", flags: { babele: { originalName: "Reach Spell" } } };
+  assert.equal(ss.optionOf(it), "reach-spell");
+});
+
+test("breaksShape: действие или бросок актёра — да; заклинание, спасбросок, урон, чат — нет", () => {
+  const m = (pf) => ({ flags: { pf2e: pf } });
+  assert.equal(ss.breaksShape(m({ origin: { type: "feat" } })), true);
+  assert.equal(ss.breaksShape(m({ origin: { type: "action" } })), true);
+  assert.equal(ss.breaksShape(m({ context: { type: "attack-roll" }, origin: { type: "weapon" } })), true);
+  assert.equal(ss.breaksShape(m({ context: { type: "attack-roll" } })), true);
+  assert.equal(ss.breaksShape(m({ origin: { type: "spell" } })), false);
+  assert.equal(ss.breaksShape(m({ context: { type: "spell-attack-roll" }, origin: { type: "spell" } })), false);
+  assert.equal(ss.breaksShape(m({ context: { type: "saving-throw" } })), false);
+  assert.equal(ss.breaksShape(m({ context: { type: "damage-roll" } })), false);
+  assert.equal(ss.breaksShape({ flags: {} }), false);
+  // проверки: только запрошенные как действие
+  assert.equal(ss.breaksShape(m({ context: { type: "skill-check", options: ["action:grapple", "check:statistic:athletics"] } })), true);
+  assert.equal(ss.breaksShape(m({ context: { type: "skill-check", options: ["check:statistic:athletics"], traits: [{ name: "attack" }] } })), true);
+  assert.equal(ss.breaksShape(m({ context: { type: "perception-check", options: ["action:seek"] } })), true);
+  assert.equal(ss.breaksShape(m({ context: { type: "perception-check", options: ["check:statistic:perception"], traits: [] } })), false, "тайная Внимательность");
+  assert.equal(ss.breaksShape(m({ context: { type: "skill-check", options: [] } })), false, "запрос ГМа без action-опций");
+  assert.equal(ss.breaksShape(m({ context: { type: "skill-check" } })), false);
+  // self-effect: действие без броска
+  assert.equal(ss.breaksShape(m({ context: { type: "self-effect" }, origin: { type: "action" } })), true, "Raise a Shield");
+  assert.equal(ss.breaksShape(m({ context: { type: "self-effect" }, origin: { type: "feat" } })), true);
+  assert.equal(ss.breaksShape(m({ context: { type: "self-effect" }, origin: { type: "equipment" } })), false);
+});
+
+test("onMessage: Удар после метамагии снимает непотраченный эффект; потраченный остаётся; сотворение после Удара — без эффекта", async () => {
+  const a = mkActor();
+  globalThis.fromUuid = async () => feat(a, "reach-spell");
+  await ss.onMessage({ actor: a, flags: { pf2e: { origin: { type: "feat", uuid: "Item.f" } } } });
+  assert.equal(effects(a).length, 1);
+  await ss.onMessage({ actor: a, flags: { pf2e: { context: { type: "attack-roll" }, origin: { type: "weapon", actor: "Actor.a" } } } });
+  assert.equal(effects(a).length, 0);   // Reach Spell -> Удар -> сотворение: +30 фт нет
+  await ss.onMessage({ actor: a, flags: { pf2e: { origin: { type: "feat", uuid: "Item.f" } } } });
+  await ss.onMessage({ id: "m1", actor: a, flags: { pf2e: { origin: { type: "spell", rollOptions: ["origin:action:slug:cast-a-spell"] } } } });
+  await ss.onMessage({ actor: a, flags: { pf2e: { context: { type: "attack-roll" } } } });
+  assert.equal(effects(a).length, 1);   // потраченный нужен уже брошенному сотворению
+});
+
+test("onMessage: NPC Reach Spell без флага и переключателя вешает эффект", async () => {
+  const a = mkActor();
+  a.type = "npc";
+  globalThis.fromUuid = async () => ({ ...npcFeat("reach-spell"), parent: a, name: "Reach Spell", img: "i", uuid: "Item.f" });
+  await ss.onMessage({ actor: a, flags: { pf2e: { origin: { type: "action", uuid: "Item.f" } } } });
+  assert.deepEqual(effects(a)[0]?.system.rules.map((r) => r.option), ["spellshape", "spellshape:reach-spell"]);
+});
+
+import { existsSync, readFileSync } from "node:fs";
+const ITEMS = new URL("../tools/out/items.json", import.meta.url);
+test("корпус: все NPC Reach Spell (21 уник. / 30 док.) без переключателя дают reach-spell, с переключателем — тоже (флага нет)", { skip: !existsSync(ITEMS) }, () => {
+  const all = JSON.parse(readFileSync(ITEMS, "utf8")).items.filter((i) => i.embedded && (i.type === "action" || i.type === "feat"));
+  const reach = all.filter((i) => i.slug === "reach-spell");
+  assert.ok(reach.length >= 21);
+  // ruleKeys несёт RollOption только у переключателя; без правил optionOf обязан дать опцию, с правилом-переключателем (isShape) — null до миграции
+  for (const i of reach.filter((i) => !i.ruleKeys.includes("RollOption"))) assert.equal(ss.optionOf({ type: i.type, slug: i.slug, system: { rules: [] }, parent: { type: "npc" }, flags: {} }), "reach-spell");
+  assert.equal(all.filter((i) => i.slug !== "reach-spell" && ss.optionOf({ type: i.type, slug: i.slug, system: { rules: [] }, parent: { type: "npc" }, flags: {} })).length, 0);
 });

@@ -9,7 +9,8 @@ export const BLOODLINE_SLUG = "bloodline-aberrant";
 // ItemAlteration наследия метит заклинания крови тегом; origin-опции предмета имеют префикс origin:item: (pf2e.mjs:45537)
 export const TAG_OPTION = "origin:item:tag:blood-magic-spell";
 
-export const isBloodSpell = (origin) => origin?.type === "spell" && (origin.rollOptions ?? []).includes(TAG_OPTION);
+// только настоящее сотворение: карточка «в чат» с листа (без actualCast) не несёт cast-a-spell
+export const isBloodSpell = (origin) => origin?.type === "spell" && (origin.rollOptions ?? []).includes(TAG_OPTION) && origin.rollOptions.includes("origin:action:slug:cast-a-spell");
 
 /** Варианты выбора: себе, по одной кнопке на цель, пропуск. */
 export const bloodOptions = (targets) => [

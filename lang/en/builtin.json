@@ -87,6 +87,15 @@
         "torches": "{name}: the maximum number of torches is already active (Constitution modifier, {n}). Dismiss one. Alt-click to use anyway.",
         "hex": "{name}: you already used a hex this turn (one per turn, a second attempt fails). Alt-click to use anyway.",
         "reaction": "{name}: your reaction is already spent this round. Alt-click to use anyway.",
+        "recharge": "{name}: recharging — {n} more (until round {until}). Alt-click to use anyway.",
+        "rechargeRoll": "{name}: recharge {dice} → {n}; available again from round {until}",
+        "req": "{name}: requirement not met — {need}. Alt-click to use anyway.",
+        "or": " or ",
+        "needStrike": "your last action must be a successful Strike",
+        "needStrikeFx": "your last action must be a successful Strike that lists {fx}",
+        "needStrikeSpecial": "your last action must be a successful Strike with a special effect",
+        "needHolds": "you have a creature Grabbed or Restrained",
+        "needHand": "you need a free hand",
         "frequency": "{name}: no uses left (frequency exhausted). Reset it by hand on the sheet or wait for it to recharge. Alt-click to use anyway."
       },
       "automationsConflict": "PF2e AuTOMATO is incompatible with pf2e-automations: everything it automates is already in AuTOMATO, and together they process items twice (double damage and effects). Disable pf2e-automations in Manage Modules.",
@@ -112,7 +121,14 @@
         "shareLife": "Share Life with {name}: the target takes half damage, the caster takes the rest.",
         "needTarget": "{name}: target the spell before casting.",
         "effect": "Effect: {name}",
-        "card": "<p>{spell}: {caster} takes {n} damage instead of {name} (no resistances).</p>"
+        "card": "<p>{spell}: {caster} takes {n} damage instead of {name} (no resistances).</p>",
+        "spiritLink": "{spell}, caster {name}: at the start of their turn the target regains HP and the caster loses as many (regeneration and fast healing of the caster are off: the GM tracks it).",
+        "spiritCard": "<p>{spell}: {target} regains {n} HP, {caster} loses {n} HP.</p>",
+        "spiritEnd": "<p>{spell}: {caster} is at 0 HP, the link with {target} has ended. Apply the caster's condition (unconscious, dying) by hand: the transfer writes HP directly.</p>"
+      },
+      "maneuver": {
+        "needTarget": "{name}: choose exactly one target (target it on the canvas).",
+        "far": "{name} is {d} ft away: out of range ({r} ft). Alt skips the check."
       },
       "channeling": {
         "title": "Channeling Block",

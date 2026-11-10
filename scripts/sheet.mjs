@@ -1,7 +1,8 @@
 // K6: вкладка «Автоматизация» в листе предмета (AppV1, plan.md §6). Только ГМ.
 import { MOD, L, errText, DEGREES, callGM, forcedReplace, sluggify, damageLabel, condValued } from "./util.mjs";
 import { S } from "./settings.mjs";
-import { ready as catalogReady, validateRule, activateSpells, activateUses, resolveRule, divergedOf, slugOf, sourceOf, DAMAGE_TYPES, FAILED_CHECK, FAILED_DEGREE } from "./rules.mjs";
+import { ready as catalogReady, validateRule, activateSpells, activateUses, resolveRule, divergedOf, slugOf, sourceOf, sourceKeyOf, worldKeyOf, keyDerived, DAMAGE_TYPES, FAILED_CHECK, FAILED_DEGREE } from "./rules.mjs";
+import { detectMechs, mechRows, liveEnv } from "./workshop/mechanisms.mjs";
 import { automationsGroups } from "./compat.mjs";
 import { hintsView, hintList } from "./hints.mjs";
 import { resolveDC, safeUuid, uuidLabel } from "./saves.mjs";
@@ -538,6 +539,9 @@ function buildContext(item, draft) {
   const groups = automationsGroups({ slug, sourceUuid });
   const f = draft ?? ruleToForm(res?.rule ?? null);
   const dv = res?.diverged ?? divergedOf(item);
+  const sourceKey = sourceKeyOf(item, res), derived = keyDerived(item, res);
+  let mech = [];   // «Работает само»: только чтение (правка — в Мастерской); сбой разбора лист не ломает
+  try { const env = liveEnv(item); mech = mechRows(detectMechs(item, env), item, env); } catch (e) { console.warn(`${MOD} | sheet mech`, e); }
   const T = (k) => L(`sheet.${k}`);
   const keys = (prefix, list) => Object.fromEntries(list.map((k) => [k, T(`${prefix}.${k}`)]));
   return {
@@ -550,7 +554,8 @@ function buildContext(item, draft) {
     diverged: divergedHint(dv),
     isWorld: res?.source === "world",
     lockedFlag: !item.isOwner || !!item.compendium?.locked,
-    noSource: !sourceUuid, noSlug: !slug,
+    noSource: !sourceKey, noSlug: !slug, sourceKey, derived, mech,
+    worldSourceLabel: T(derived ? "worldCreature" : "worldSource"), delWorldSourceLabel: T(derived ? "delWorldCreature" : "delWorldSource"), noSourceHint: T("noSourceHint"),
     ch: {
       kind: choices({ ...keys("kind", ["onUse", "onAttacked"]), onDamaged: L("workshop.au.kind.onDamaged"), onFailed: L("workshop.au.kind.onFailed"), ...keys("kind", ["onEvent", "cast", "none"]) }),
       dmWho: choices(Object.fromEntries(["self", "familiar", "ally"].map((k) => [k, L(`workshop.au.react.whoBtn.${k}`)]))),
@@ -618,7 +623,7 @@ async function inject(app, $html) {
     return v.ok ? v.rule : null;
   };
   const toast = (res) => (res?.ok ? ui.notifications.info(L("sheet.saved")) : ui.notifications.error(`${L("sheet.failed")}: ${res?.error ?? res?.reason ?? "?"}`));
-  const worldKey = (scope) => (scope === "source" ? { source: sourceOf(null, item) } : { slug: slugOf(null, item) });
+  const worldKey = (scope) => worldKeyOf(item, resolveRule(item), scope);
 
   // Бросок в нашу вкладку: глотаем событие, чтобы не дошло до drop-обработчиков листа pf2e (они навешены через ondrop на предков)
   sec.addEventListener("dragover", (ev) => { ev.preventDefault(); ev.stopPropagation(); });

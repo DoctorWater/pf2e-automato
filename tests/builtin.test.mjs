@@ -27,7 +27,8 @@ const lib = await import("../scripts/builtin/lib.mjs");
 /* ---------- X1 ---------- */
 
 test("X1: заклинание крови опознаётся по тегу наследия, только заклинание", () => {
-  assert.equal(blood.isBloodSpell({ type: "spell", rollOptions: ["origin:item:tag:blood-magic-spell"] }), true);
+  assert.equal(blood.isBloodSpell({ type: "spell", rollOptions: ["origin:item:tag:blood-magic-spell", "origin:action:slug:cast-a-spell"] }), true);
+  assert.equal(blood.isBloodSpell({ type: "spell", rollOptions: ["origin:item:tag:blood-magic-spell"] }), false);   // «в чат», не сотворение
   assert.equal(blood.isBloodSpell({ type: "spell", rollOptions: ["origin:item:trait:occult"] }), false);
   assert.equal(blood.isBloodSpell({ type: "feat", rollOptions: ["origin:item:tag:blood-magic-spell"] }), false);
   assert.equal(blood.isBloodSpell(null), false);

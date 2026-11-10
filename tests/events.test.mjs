@@ -852,3 +852,125 @@ test("spellTargets: самоприменяемое и в переводе pf2ru 
   assert.equal(ev.spellTargets(spell("1 существо")), true);
   assert.equal(ev.spellTargets(spell("вы", "30 футов")), true, "дальность — есть цель");
 });
+
+/* ---------- M3: Удар запускает способность из attackEffects ---------- */
+
+const { strikeLinkEntry, modesRun } = await import("../scripts/strike-link.mjs");
+const POISON = { v: 1, label: "Venom", onUse: { targets: "selected", challenge: { statistic: "fortitude", dc: { value: 20 }, basic: false, rollerRole: "target", byDegree: { failure: [{ to: "target", condition: { slug: "sickened", value: 1 } }] } } } };
+const passive = (slug, o = {}) => ({ type: "action", slug, name: slug, uuid: `Actor.hero.Item.${slug}`, system: { actionType: { value: "passive" }, frequency: null, description: { value: "" } }, flags: {}, ...o });
+const strikeOf = (...fx) => ({ type: "melee", system: { attackEffects: { value: fx } } });
+const res = (rule, source = "catalog") => ({ rule: validate(rule).rule, source });
+
+test("M3 strikeLinkEntry: пассивная способность со связью -> onEvent урона по Удару; копия, не ссылка", () => {
+  const r = res(POISON), e = strikeLinkEntry(r, passive("venom"), [strikeOf("venom")]);
+  assert.deepEqual(e.onEvent.map((x) => [x.on, x.side, x.when]), [["damage-roll", "self", ["target", "item:attack-effect:venom"]]]);
+  assert.equal(validate(e).ok, true);
+  assert.notEqual(e.onEvent[0].challenge, r.rule.onUse.challenge);   // каталог не мутируем
+  assert.deepEqual(e.onEvent[0].challenge, r.rule.onUse.challenge);
+  assert.equal(strikeLinkEntry(r, passive("venom"), [strikeOf("venom")]), e, "один раз на правило и slug");
+});
+
+test("M3 strikeLinkEntry: нет каталожного правила (разметка), нет связи, есть onEvent, частота, действие, Хватка Удара -> null", () => {
+  const item = passive("venom"), s = [strikeOf("venom")];
+  assert.equal(strikeLinkEntry(res(POISON, "markup"), item, s), null, "разметка сама не исполняется");
+  assert.equal(strikeLinkEntry(null, item, s), null);
+  assert.ok(strikeLinkEntry(res(POISON, "world"), item, s) && strikeLinkEntry(res(POISON, "flag"), item, s));
+  assert.equal(strikeLinkEntry(res(POISON), item, [strikeOf("other")]), null);
+  assert.equal(strikeLinkEntry(res(POISON), item, []), null);
+  assert.equal(strikeLinkEntry(res({ ...POISON, onEvent: [{ on: "damage-roll", when: ["target"], challenge: POISON.onUse.challenge }] }), item, s), null);
+  assert.equal(strikeLinkEntry(res(POISON), passive("venom", { system: { actionType: { value: "action" } } }), s), null);
+  assert.equal(strikeLinkEntry(res(POISON), passive("venom", { system: { actionType: { value: "passive" }, frequency: { max: 1, per: "day" } } }), s), null);
+  assert.equal(strikeLinkEntry(res(POISON), passive("venom", { type: "melee" }), s), null);
+  assert.equal(strikeLinkEntry(res(POISON), passive("grab"), [strikeOf("grab")]), null, "база strike-effects");
+  assert.equal(strikeLinkEntry(res(POISON), passive("venom"), s, () => true), null, "уже есть у другого предмета");
+});
+
+test("M3 корпус: каждое выведенное правило каталога проходит валидатор", async () => {
+  const { readFileSync } = await import("node:fs");
+  let n = 0;
+  for (const f of ["catalog.model.json", "catalog.json"]) {
+    const cat = JSON.parse(readFileSync(new URL(`../rules/${f}`, import.meta.url), "utf8"));
+    for (const raw of [...Object.values(cat.bySource ?? {}), ...Object.values(cat.bySlug ?? {})]) {
+      const v = validate(raw);
+      if (!v.ok || v.rule.onEvent?.length) continue;
+      const e = strikeLinkEntry({ rule: v.rule, source: "catalog" }, passive("x"), [strikeOf("x")]);
+      if (!e) continue;
+      n++;
+      assert.equal(validate(e).ok, true, `${f}: ${raw.label}`);
+      assert.ok(e.onEvent[0].challenge || e.onEvent[0].apply);
+    }
+  }
+  assert.ok(n > 100, `выведено ${n}`);
+});
+
+test("M3 eventItems: вывод у способности; если у другого предмета актёра уже есть onEvent по тому же attackEffect (Hand Crossbow) — без дубля", () => {
+  const ability = passive("venom", { uuid: "Actor.m3.Item.venom", flags: { [MOD]: { rule: POISON } } });
+  const weapon = { type: "melee", uuid: "Actor.m3.Item.w", name: "Hand Crossbow", slug: "hand-crossbow", system: { attackEffects: { value: ["venom"] } }, flags: { [MOD]: { rule: { v: 1, onEvent: [{ on: "damage-roll", when: ["target", "item:attack-effect:venom"], challenge: POISON.onUse.challenge }] } } } };
+  const alone = mkActor("Actor.m3", [ability, { ...weapon, flags: {} }]);
+  alone.itemTypes.melee = alone.items.filter((i) => i.type === "melee");
+  assert.deepEqual(ev.eventItems(alone).map((x) => x.item.slug), ["venom"]);
+  const both = mkActor("Actor.m3b", [{ ...ability, uuid: "Actor.m3b.Item.venom" }, { ...weapon, uuid: "Actor.m3b.Item.w" }]);
+  both.itemTypes.melee = both.items.filter((i) => i.type === "melee");
+  assert.deepEqual(ev.eventItems(both).map((x) => x.item.slug), ["hand-crossbow"], "ровно одна запись про attackEffect по всем предметам актёра");
+});
+
+test("M3 attackOf: два сообщения урона одной атаки — одна атака; вторая атака — своя", () => {
+  const uuid = "Actor.hero.Item.bite", pf = (type, tk = "T") => ({ context: { type, target: { token: tk } }, origin: { uuid, actor: "Actor.hero" } });
+  const a1 = { id: "A1", flags: { pf2e: pf("attack-roll") } }, d1 = { id: "D1", flags: { pf2e: pf("damage-roll") } }, a2 = { id: "A2", flags: { pf2e: pf("attack-roll", "T2") } };
+  const d1b = { id: "D1b", flags: { pf2e: pf("damage-roll") } }, d2 = { id: "D2", flags: { pf2e: pf("damage-roll", "T2") } };
+  assert.equal(ev.attackOf([a1], d1), a1);
+  assert.equal(ev.attackOf([a1, d1], d1b), a1);
+  assert.equal(ev.attackOf([a1, d1, a2], d1b), a1, "цель другая — чужую атаку не берём");
+  assert.equal(ev.attackOf([a1, d1, a2], d2), a2);
+  assert.equal(ev.attackOf([], d1), null);
+  assert.equal(ev.attackOf([a1], a1), null, "не урон");
+  assert.equal(ev.attackOf([{ ...a1, flags: { pf2e: { ...pf("attack-roll"), origin: { uuid: "Other", actor: "Actor.hero" } } } }], d1), null, "другой предмет");
+});
+
+test("M3 attackOf: атака 1, атака 2 по той же цели, урон 1, урон 2 — разные атаки; исход и журналы events учитываются", () => {
+  const uuid = "Actor.hero.Item.bite", pf = (type, outcome) => ({ context: { type, outcome, target: { token: "T" } }, origin: { uuid, actor: "Actor.hero" } });
+  const a1 = { id: "A1", flags: { pf2e: pf("attack-roll", "success") } }, a2 = { id: "A2", flags: { pf2e: pf("attack-roll", "success") } };
+  const d1 = { id: "D1", flags: { pf2e: pf("damage-roll", "success") } }, d2 = { id: "D2", flags: { pf2e: pf("damage-roll", "success") } };
+  assert.equal(ev.attackOf([a1, a2], d1), a2, "урон 1 — ближайшая свободная");
+  assert.equal(ev.attackOf([a1, a2, d1], d2), a1, "урон 2 — оставшаяся");
+  assert.equal(ev.attackOf([a1, a2, d1, d2], { ...d2, id: "D2b" }), a2, "все заняты — повтор: ближайшая");
+  assert.equal(ev.attackOf([a1, d1, a2], d2), a2, "порядок атака-урон-атака-урон");
+  // два урона одной атаки: второй — повтор
+  assert.equal(ev.attackOf([a1, d1], { ...d1, id: "D1b" }), a1);
+  // исход: крит-урон не берёт обычную атаку
+  const c = { id: "C", flags: { pf2e: pf("attack-roll", "criticalSuccess") } };
+  assert.equal(ev.attackOf([c, a1], { ...d1, id: "DC", flags: { pf2e: pf("damage-roll", "criticalSuccess") } }), c);
+  // журнал events у прежнего урона занимает атаку и без учёта ленты (перезагрузка ГМа: сообщения урона вне окна не нужны, журнал в ленте)
+  const logged = { id: "DL", flags: { pf2e: { context: { type: "chat" } }, [MOD]: { events: [{ key: "A2:Actor.hero.Item.x:0" }] } } };
+  assert.equal(ev.attackOf([a1, a2, logged], d2), a1, "A2 занята по журналу");
+});
+
+test("M3 modesRun: ручную карточку подавляем, только если режимы под шаги записи включены", () => {
+  const m = (c, e) => (k) => (k === "challenge" ? c : e);
+  const both = { challenge: {}, apply: [{}] };
+  assert.equal(modesRun(both, m("auto", "auto")), true);
+  assert.equal(modesRun(both, m("off", "auto")), false, "испытание выключено");
+  assert.equal(modesRun(both, m("auto", "button")), false, "применение не auto");
+  assert.equal(modesRun({ challenge: {} }, m("auto", "off")), true, "apply нет — mode.effect не нужен");
+  assert.equal(modesRun({ apply: [{}] }, m("off", "auto")), true, "испытания нет — mode.challenge не нужен");
+});
+
+test("M3 onMessage: два клика «Урон» одной атаки — одно исполнение (выведенная и ручная записи); следующая атака — своё", async () => {
+  const mk = (slug) => passive(slug, { uuid: `Actor.m3c.Item.${slug}`, flags: { [MOD]: { rule: { v: 1, onUse: { targets: "self", apply: [{ to: "self", removeEffect: { slug: "panache" } }] } } } } });
+  const manual = { type: "feat", slug: "creep", name: "creep", uuid: "Actor.m3c.Item.creep", system: {}, flags: { [MOD]: { rule: { v: 1, onEvent: [{ on: "damage-roll", when: ["target", "item:attack-effect:creep"], apply: [{ removeEffect: { slug: "mark" } }] }] } } } };
+  const hero = mkActor("Actor.m3c", [mk("venom"), manual, { ...strikeOf("venom", "creep"), uuid: "Actor.m3c.Item.bite", name: "Bite", slug: "bite" }]);
+  hero.itemTypes.melee = hero.items.filter((i) => i.type === "melee");
+  const fresh = (slug, id) => { const e = mkEffect({ id, slug, actor: "m3c" }); e.actor = hero; e.parent = hero; hero.items.push(e); hero.itemTypes.effect.push(e); return e; };
+  const o = { actor: "Actor.m3c", uuid: "Actor.m3c.Item.bite" }, opts = ["target", "item:attack-effect:venom", "item:attack-effect:creep"];
+  const side = (id, type, tk = "T") => mkMsg(id, { context: { type, options: type === "damage-roll" ? opts : [], target: { token: tk } }, origin: o }, { actor: hero });
+  side("A1", "attack-roll"); const d1 = side("D1", "damage-roll"), d1b = side("D1b", "damage-roll"); side("A2", "attack-roll", "T2"); const d2 = side("D2", "damage-roll", "T2");
+  const [p1, k1] = [fresh("panache", "p1"), fresh("mark", "k1")];
+  await ev.onMessage(d1);
+  assert.deepEqual([p1.deleted, k1.deleted], [true, true]);
+  assert.deepEqual(d1.flags[MOD].events.map((r) => r.key.split(":")[0]), ["A1", "A1"], "ключ — бросок атаки");
+  const [p2, k2] = [fresh("panache", "p2"), fresh("mark", "k2")];
+  await ev.onMessage(d1b);
+  assert.deepEqual([p2.deleted, k2.deleted], [false, false], "второй клик «Урон» — ни выведенной, ни ручной записи");
+  await ev.onMessage(d2);
+  assert.deepEqual([p2.deleted, k2.deleted], [true, true], "следующая атака — своё исполнение");
+});

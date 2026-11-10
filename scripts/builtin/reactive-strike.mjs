@@ -93,6 +93,7 @@ export async function onMessage(message) {
   }
 
   if (!pf.origin || (ctx && !["spell-cast", "attack-roll"].includes(ctx))) return;
+  if (pf.origin.type === "spell" && ctx !== "attack-roll" && !pf.origin.rollOptions?.includes("origin:action:slug:cast-a-spell")) return;   // карточка «в чат» — не сотворение, Реактивный удар не провоцирует
   const trigger = reactiveTrigger([...(pf.origin.rollOptions ?? []), ...(pf.context?.options ?? [])]);
   // бросок атаки заклинания несёт те же manipulate-опции, что и его каст: по атаке — только «дальняя атака»
   if (!trigger || (ctx === "attack-roll" && trigger !== "ranged")) return;

@@ -4,7 +4,7 @@
 import { MOD, L, errText, DEGREES, callGM, forcedReplace, forcedDelete, flagPath, damageLabel } from "../util.mjs";
 import { modeOf } from "../settings.mjs";
 import { DENY, DAMAGED_MODES, divergedHint, dropSpec, ruleToForm, formToRule, blankRow, blankEvent, blankTrigger, blankCast, blankChoice, reportEnv, pickedTokens, ruleUuids, buildReport } from "../sheet.mjs";
-import { ready as catalogReady, validateRule, resolveRule, divergedOf, slugOf, sourceOf, DAMAGE_TYPES, FAILED_CHECK, FAILED_DEGREE, EVENT_ON, EVENT_SIDES, EVENT_TARGETED, EVENT_AFTER_USE, NEAR_ON, TRIGGER_ON, TRIGGER_PER, ESCAPE_STATS, REPEAT_ON, CHOICES_MIN, CHOICES_MAX } from "../rules.mjs";
+import { ready as catalogReady, validateRule, resolveRule, divergedOf, slugOf, sourceOf, sourceKeyOf, worldKeyOf, keyDerived, DAMAGE_TYPES, FAILED_CHECK, FAILED_DEGREE, EVENT_ON, EVENT_SIDES, EVENT_TARGETED, EVENT_AFTER_USE, NEAR_ON, TRIGGER_ON, TRIGGER_PER, ESCAPE_STATS, REPEAT_ON, CHOICES_MIN, CHOICES_MAX } from "../rules.mjs";
 import { automationsGroups } from "../compat.mjs";
 import { safeUuid, uuidLabel } from "../saves.mjs";
 import * as fx from "./effect.mjs";
@@ -14,7 +14,8 @@ import * as af from "./affliction-edit.mjs";
 import * as im from "./item.mjs";
 import { BUILTIN } from "../builtin/index.mjs";
 import { hintsView, hintList } from "../hints.mjs";
-
+import { mechOf, mechToForm, formToMech, mechErrors, savePatch } from "../mech.mjs";
+import { detectMechs, mechRows, liveEnv } from "./mechanisms.mjs";
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
 const TPL = (n) => `modules/${MOD}/templates/workshop-${n}.hbs`;
 const ICONS = { bonus: "plus-minus", resist: "shield-halved", temphp: "heart", fastheal: "heart-pulse", dmg: "burst", speed: "person-running", sense: "eye", cond: "circle-exclamation", note: "note-sticky", aura: "circle-dot", light: "sun", raw: "code" };
@@ -259,6 +260,8 @@ export class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
   #mode = "effect";
   #item = null;
   #au = null;        // состояние режима «Автоматизация»: { f, base, area, baseArea, open, sel, picker }
+  #mech = null;      // черновик переопределений механизмов { form, base }: грузится отдельно от #loadAu (правило и mech сохраняются независимо)
+  #dets = null;      // найденные механизмы предмета (разбор один раз на загрузку: M3 читает правила актёра)
   #names = new Map();   // uuid -> имя документа | null (разрешённые заранее: fromUuidSync на вложенных UUID бросает)
   #typing = false;   // идёт ввод: имена документов не запрашиваем на каждую букву, догоняем по паузе
   #settle = foundry.utils.debounce(async () => { this.#typing = false; await this.render({ parts: ["aside", "footer"] }); this.#paint(); }, 500);
@@ -339,11 +342,11 @@ export class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
       insertTemplate() { return this.#guard(() => this.#insertTemplate()); },
       openSheet() { this.#item?.sheet.render(true); },
       saveItem() { return this.#guard(() => this.#saveItem()); },
-      resetDraft() { this.#loadAu(); this.render(); },
+      resetDraft() { this.#loadAu(); this.#loadMech(); this.render(); },
       unsetRule() { return this.#guard(async () => { await this.#item.update(forcedDelete(flagPath("rule"))); this.#loadAu(); this.render(); }); },
       accept() {
         return this.#guard(async () => {
-          if (this.#dirty() && !(await foundry.applications.api.DialogV2.confirm({ window: { title: t("workshop.au.switchTitle") }, content: `<p>${foundry.utils.escapeHTML(t("workshop.au.acceptAsk", { name: this.#item.name }))}</p>`, rejectClose: false }))) return;
+          if (this.#ruleDirty() && !(await foundry.applications.api.DialogV2.confirm({ window: { title: t("workshop.au.switchTitle") }, content: `<p>${foundry.utils.escapeHTML(t("workshop.au.acceptAsk", { name: this.#item.name }))}</p>`, rejectClose: false }))) return;
           await this.#item.update(forcedReplace(flagPath("rule"), resolveRule(this.#item).rule)); this.#loadAu(); this.render();
         });
       },
@@ -395,6 +398,7 @@ export class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
     }
     this.#item = item;
     if (!same || !this.#au) this.#loadAu();
+    if (!same || !this.#mech) this.#loadMech();
     return true;
   }
 
@@ -420,21 +424,43 @@ export class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
 
   #loadAu(keepView = false) {
     const item = this.#item, res = resolveRule(item), f = ruleToForm(res?.rule ?? null), prev = keepView ? this.#au : null;
+    this.#dets = null;
     if (!res) f.kind = "onUse";
     const area = au.initialArea({ isSpell: item.type === "spell", area: item._source.system.area, description: item._source.system.description?.value });
     const hints = res?.source === "markup" && game.user.isGM ? hintsView(res.hints, { condLabel, degLabel: (d) => t(`sheet.degree.${d}`).toLowerCase() }) : null;
     this.#au = { hints, f, base: JSON.stringify(f), area, baseArea: { ...area }, open: prev?.open ?? { when: false, targets: false, roll: true, outcome: true, zone: false, macros: false, events: true, cast: true }, sel: prev?.sel ?? null, picker: null, card: null, into: prev?.into ?? null, probeDc: prev?.probeDc ?? "" };
   }
 
-  #dirty() {
+  /** Загрузка черновика mech: смена предмета, «Сбросить», после записи. «В мир», «Снять правило», «Принять» и refresh его не трогают. */
+  #loadMech() {
+    const form = mechToForm(mechOf(this.#item));
+    this.#mech = { form, base: JSON.stringify(form) };
+  }
+
+  #ruleDirty() {
     const a = this.#au;
     return !!a && (JSON.stringify(a.f) !== a.base || (a.f.targets === "area" && (a.area.shape !== a.baseArea.shape || au.clampSize(a.area.size) !== au.clampSize(a.baseArea.size))));
+  }
+
+  #mechDirty() { return !!this.#mech && JSON.stringify(this.#mech.form) !== this.#mech.base; }
+
+  #dirty() { return this.#ruleDirty() || this.#mechDirty(); }
+
+  /** Путь `mech.*` — в черновик переопределений; «Авто» → «выбрать» манёвры стартует с вычисленного списка. */
+  #setMech(path, v) {
+    const m = this.#mech.form;
+    if (path === "mech.maneuvers.auto" && (v === "false" || v === false)) {
+      const auto = this.#dets?.find((d) => d.id === "maneuvers")?.data.auto ?? [];
+      m.maneuvers.list = Object.fromEntries(Object.keys(m.maneuvers.list).map((k) => [k, auto.includes(k)]));
+    }
+    foundry.utils.setProperty(m, path.slice("mech.".length), path.endsWith(".dice") ? v : v === "true" ? true : v === "false" ? false : v);
   }
 
   #split(path) { const i = path.lastIndexOf("."); return [path.slice(0, i), Number(path.slice(i + 1))]; }
 
   /** Записать значение поля: путь — от состояния окна (`f.ch.statistic`, `area.size`), особые пути — со связанными правками. */
   #setAuto(path, v) {
+    if (path.startsWith("mech.")) return this.#setMech(path, v);
     const a = this.#au, f = a.f;
     const roll = path === "roll" ? "f" : au.ROLL_RE.exec(path)?.[1];   // «Кто бросает»: корень — правило или шаги активации
     if (roll) {
@@ -505,17 +531,18 @@ export class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
   }
 
   async #saveItem() {
-    const a = this.#au, item = this.#item, v = validateRule(formToRule(a.f));
-    if (!v.ok) return;
-    const patch = au.areaPatch(this.#areaSrc(), a.area, a.baseArea, a.f.targets);
-    await item.update({ ...forcedReplace(flagPath("rule"), v.rule), ...patch });
+    const a = this.#au, item = this.#item, ruleDirty = this.#ruleDirty(), mechDirty = this.#mechDirty(), v = validateRule(formToRule(a.f));
+    if ((ruleDirty && !v.ok) || mechErrors(this.#mech.form).length || !(ruleDirty || mechDirty)) return;
+    const patch = savePatch({ ruleDirty, rule: v.rule, areaPatch: au.areaPatch(this.#areaSrc(), a.area, a.baseArea, a.f.targets), mechDirty, mech: formToMech(this.#mech.form) });   // каждая часть — только если менялась
+    await item.update(patch);
     ui.notifications.info(t("sheet.saved"));
     this.#loadAu();
+    this.#loadMech();
     this.render({ window: { title: this.title } });
   }
 
   async #world(scope, save) {
-    const item = this.#item, key = scope === "source" ? { source: sourceOf(null, item) } : { slug: slugOf(null, item) };
+    const item = this.#item, key = worldKeyOf(item, resolveRule(item), scope);   // у предмета NPC своего источника нет — ключ выведен от существа
     let rule = null;
     if (save) { const v = validateRule(formToRule(this.#au.f)); if (!v.ok) return; rule = v.rule; }
     const res = await callGM("saveCatalogRule", key, rule);
@@ -793,10 +820,16 @@ export class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
       });
       probe = { needDc, probeDc: a.probeDc ?? "", tokens: rows2, count: tokens.length, none: mode === "none", noTokens: !tokens.length, problems: rep.problems, legend: au.COLS.map((d) => ({ deg: d, label: t(`sheet.degree.${d}`) })) };
     }
-    const errors = v.errors.map(errText), dirty = this.#dirty();
+    const errors = [...v.errors.map(errText), ...mechErrors(this.#mech.form).map((k) => t(k))], dirty = this.#dirty(), ruleDirty = this.#ruleDirty();
     const lockedFlag = !item.isOwner || !!item.compendium?.locked;
+    this.#dets ??= detectMechs(item, liveEnv(item));
+    const evText = (r) => { try { const e = au.evLine(ruleToForm(r).ev[0], env); return `${e.head}: ${e.body}`; } catch { return ""; } };
+    const mechs = into ? [] : mechRows(this.#dets, item, liveEnv(item, { evText, locked: lockedFlag }), this.#mech.form).map((r) => ({ ...r, open: !!a.open[`mech.${r.id}`] && r.fields.length > 0 }));
+    const derived = keyDerived(item, res), mechSaved = Object.keys(mechOf(item)).length > 0;
     return {
+      mechs,
       head: {
+        where: item.actor ? t(item.actor.isToken ? "workshop.mech.whereToken" : "workshop.mech.whereActor") : "",   // куда пишется флаг: несвязанный токен хранит предметы в своей дельте
         img: item.img, name: item.name, covered: groups.join(", "),
         kind: [game.i18n.localize(`TYPES.Item.${item.type}`), isSpell ? item.rank : item.system.level?.value].filter((x) => x !== undefined && x !== null).join(" "),
         traits: (item.system.traits?.value ?? []).map(traitLabel),
@@ -806,8 +839,10 @@ export class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
       rows, into: into ? this.#intoView(P) : null, doubleWarn: !!groups.length && (f.yield === "no" || (f.yield === "auto" && !setting)) ? t("sheet.doubleWarn") + ` «${groups.join(", ")}»` : "",
       probeMsg: t(onUse ? "workshop.au.probeBlocked" : "workshop.au.probeOnlyUse"), story, applyNote: onUse ? t(`workshop.au.applyMode.${modeOf("apply")}`) : "", probe,
       errors, error: errors[0] ? errors[0] + (errors.length > 1 ? ` ${t("workshop.err.more", { n: errors.length - 1 })}` : "") : "",
-      dirty, status: t(dirty ? "workshop.au.dirty" : res?.source === "flag" ? "workshop.au.savedState" : "workshop.au.notInItem"),
-      lockedFlag, noSource: !sourceUuid, noSlug: !slug, isWorld: res?.source === "world", canUnset: res?.source === "flag" && !lockedFlag
+      dirty, status: t(dirty ? "workshop.au.dirty" : res?.source === "flag" || mechSaved ? "workshop.au.savedState" : "workshop.au.notInItem"),
+      saveOff: !!errors.length || lockedFlag || !dirty, noRuleSave: !res && !ruleDirty,   // «Сохранить» пишет только изменённое; у предмета без правила и без правки правила в мир писать нечего
+      worldSourceLabel: t(derived ? "sheet.worldCreature" : "sheet.worldSource"), delWorldSourceLabel: t(derived ? "sheet.delWorldCreature" : "sheet.delWorldSource"), noSourceHint: t("sheet.noSourceHint"),
+      lockedFlag, noSource: !sourceKeyOf(item, res), noSlug: !slug, isWorld: res?.source === "world", canUnset: res?.source === "flag" && !lockedFlag
     };
   }
 
@@ -1117,7 +1152,7 @@ export class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
     if (!app?.rendered || app.#mode !== "automation") return;
     if (item) {
       if (app.#item?.uuid !== item.uuid) return;
-      if (!app.#dirty()) app.#loadAu(true);
+      if (!app.#ruleDirty()) app.#loadAu(true);
       return app.render({ window: { title: app.title } });
     }
     app.render({ parts: ["aside"] });

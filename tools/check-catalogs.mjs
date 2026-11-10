@@ -1,6 +1,6 @@
 // Перекрытия: ручное правило catalog.json.bySlug[slug] vs сгенерированные bySource (model, pa) для документов с тем же slug.
 // Каталоги не правит. Запуск: node tools/check-catalogs.mjs [--all]   (по умолчанию печатает первые 20 конфликтов)
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
@@ -26,7 +26,7 @@ export function findConflicts(slugs, items, generated) {
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const manual = Object.keys(load("rules/catalog.json").bySlug ?? {});
   const generated = {};
-  for (const f of ["catalog.model.json", "catalog.pa.json"]) generated[f] = load("rules/" + f).bySource ?? {};
+  for (const f of ["catalog.model.json", "catalog.pa.json", "catalog.rusthenge.json"]) generated[f] = (existsSync(root + "rules/" + f) ? load("rules/" + f) : {}).bySource ?? {};
   const items = load("tools/out/items.json").items;   // 64 МБ, один раз
   const found = findConflicts(manual, items, generated);
   console.log(`ручных bySlug: ${manual.length}; конфликтов: ${found.length}`);

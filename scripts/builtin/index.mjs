@@ -43,6 +43,8 @@ import * as computed from "./computed-options.mjs";
 import * as turnFlight from "./turn-flight.mjs";
 import * as dualWield from "./dual-wield.mjs";
 import * as animations from "./animations.mjs";
+import * as maneuver from "./maneuver.mjs";
+import * as spiritLink from "./spirit-link.mjs";
 
 const DIALOG_MS = 180000;
 
@@ -63,7 +65,7 @@ export const BUILTIN = {
 };
 
 // Обработчики по сообщениям чата без правила: кровь — тег заклинания, статуэтка — карточка предмета (kind "card" конвейер не исполняет).
-const MESSAGE_HOOKS = [["blood-magic", bloodMagic.onMessage], ["reactive-strike", reactiveStrike.onMessage], ["onyx-dog", onyxDog.onMessage], ["one-shot-one-kill", oneShot.onMessage], ["surprise-attack", surprise.onMessage], ["spellshape", spellshape.onMessage], ["tentacular-limbs", tentacles.onMessage], ["strike-effects", strikeEffects.onMessage], ["hunt-prey", huntPrey.onMessage], ["oscillating-wave", oscillatingWave.onMessage], ["shield-ward", shieldWard.onMessage], ["damage-link", damageLink.onMessage], ["apparition-sense", apparitionSense.onMessage], ["prey-share", preyShare.onMessage], ["smite", smite.onMessage], ["rage", rage.onMessage], ["kinetic-aura", kineticAura.onMessage], ["turn-flight", turnFlight.onMessage]];
+const MESSAGE_HOOKS = [["blood-magic", bloodMagic.onMessage], ["reactive-strike", reactiveStrike.onMessage], ["onyx-dog", onyxDog.onMessage], ["one-shot-one-kill", oneShot.onMessage], ["surprise-attack", surprise.onMessage], ["spellshape", spellshape.onMessage], ["tentacular-limbs", tentacles.onMessage], ["strike-effects", strikeEffects.onMessage], ["hunt-prey", huntPrey.onMessage], ["oscillating-wave", oscillatingWave.onMessage], ["shield-ward", shieldWard.onMessage], ["damage-link", damageLink.onMessage], ["spirit-link", spiritLink.onMessage], ["apparition-sense", apparitionSense.onMessage], ["prey-share", preyShare.onMessage], ["smite", smite.onMessage], ["rage", rage.onMessage], ["kinetic-aura", kineticAura.onMessage], ["turn-flight", turnFlight.onMessage]];
 
 // независимо: обработчик с окном (Магия крови ждёт ответа) не должен задерживать остальные; записи в актёра — через queue
 export function dispatchBuiltin(message, hooks = MESSAGE_HOOKS) {
@@ -140,6 +142,8 @@ export function initBuiltinHooks() {
   // нехватка воздуха и конец ярости: хуки pf2e / документов, исполняет только активный ведущий
   const gmMacro = (id, fn) => (...a) => { if (isActiveGM() && modeOf("macro") !== "off") Promise.resolve().then(() => fn(...a)).catch((e) => console.error(`${MOD} | builtin ${id}`, e)); };
   Hooks.on("pf2e.endTurn", gmMacro("suffocation turn", suffocation.onEndTurn));
+  Hooks.on("pf2e.startTurn", gmMacro("spirit-link turn", spiritLink.onStartTurn));   // перенос ПЗ в начале хода заклинателя (исполняет лидер ГМа)
+  Hooks.on("renderChatMessageHTML", maneuver.bind);   // кнопки манёвров атакой заклинания
   Hooks.on("deleteItem", gmMacro("suffocation", suffocation.onDelete));
   Hooks.on("deleteItem", (item, options, ...rest) => { if (!options?.[MOD]?.undo) return gmMacro("rage", rage.onDelete)(item, options, ...rest); });   // откат модулем — ярости не было, иммунитета нет
   Hooks.on("createItem", gmMacro("prey-share hunt", preyShare.onCreate));

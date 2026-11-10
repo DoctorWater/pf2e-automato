@@ -207,7 +207,7 @@ function main() {
   const t0 = Date.now();
   const { meta, items } = readOut("items.json");
   const html = readOut("html.json"), refs = readOut("refs.json");
-  const catalogJsons = ["catalog.json"].map((f) => readJson(join(ROOT, "rules", f)));
+  const catalogJsons = ["catalog.json", "catalog.rusthenge.json"].filter((f) => existsSync(join(ROOT, "rules", f))).map((f) => readJson(join(ROOT, "rules", f)));
   const ar = existsSync(AUTOMATIONS_CONFIG) ? readJson(AUTOMATIONS_CONFIG).groups : null;
   const accepted = new Set(readdirSync(ACCEPTED).filter((f) => /^b\d+-.*\.json$/.test(f)).flatMap((f) => readJson(join(ACCEPTED, f)).items.map((d) => d.uuid)));
   const ctx = makeContext({ refs, catalogJsons, automationsRules: ar, labels: readJson(join(ROOT, "rules/labels.json")), items, accepted });

@@ -66,7 +66,7 @@ const lineOf = (txt, uuid) => txt.split(/\r?\n/).find((l) => l.trim().startsWith
 if (isMain(import.meta.url)) {
   const write = process.argv.includes("--write");
   const items = JSON.parse(readFileSync(join(ROOT, "tools/out/items.json"), "utf8")).items;
-  const files = ["catalog.model", "catalog"].map((n) => join(ROOT, "rules", `${n}.json`));
+  const files = ["catalog.model", "catalog.rusthenge", "catalog"].map((n) => join(ROOT, "rules", `${n}.json`));
   const texts = files.map((f) => { try { return readFileSync(f, "utf8"); } catch { return null; } });
   const stat = { parsed: 0, catalog: 0, overlay: 0 };
   const patches = files.map(() => new Map()), overlay = {};   // patches: файл -> uuid -> множители

@@ -8,6 +8,7 @@
 .tab.automato .af-degree h5 { margin: 0.4rem 0 0.1rem; }
 .tab.automato .af-hints { font-size: 0.85em; opacity: 0.8; }
 .tab.automato .af-meta { font-size: 0.85em; opacity: 0.8; word-break: break-all; }
+.tab.automato .af-mech { margin: 0.4em 0; padding-left: 1.2em; font-size: 0.9em; }
 .tab.automato .af-badge { font-weight: bold; }
 .tab.automato .af-warn { color: #fff; background: #a01818; padding: 0.4rem 0.6rem; border-radius: 3px; }
 .tab.automato .af-errors { color: #a01818; margin: 0.25rem 0; padding-left: 1.2rem; }

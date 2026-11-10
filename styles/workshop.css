@@ -343,6 +343,12 @@
 .pf2e-automato-workshop .ws-pill.is-bad { border-color: #8c1c1c; box-shadow: 0 0 0 1px #8c1c1c; }
 .pf2e-automato-workshop .ws-pill.is-off { color: #786452; border-style: dashed; cursor: not-allowed; }
 .pf2e-automato-workshop .ws-pill.is-off:hover { background: #fffdf9; border-color: #baa991; }
+/* Пилюля состояния (раздел «Работает само»): не кнопка */
+.pf2e-automato-workshop .ws-pill-static { flex: none; height: auto; padding: 2px 10px; cursor: default; }
+.pf2e-automato-workshop .ws-pill-static:hover { background: #fffdf9; border-color: #baa991; }
+.pf2e-automato-workshop .ws-pill-static.ws-pill-warn { color: #8c4a00; border-color: currentColor; }
+.pf2e-automato-workshop .ws-pill-static.ws-pill-warn:hover { border-color: currentColor; }
+.pf2e-automato-workshop .ws-mech { margin-bottom: 14px; }
 .pf2e-automato-workshop .ws-pop { box-sizing: border-box; width: 100%; max-width: 460px; margin-top: 8px; background: #f8f4f1; border: 1px solid #baa991; border-radius: 3px; }
 .pf2e-automato-workshop .ws-pop-h { padding: 6px 10px 5px; font: 600 15px/1.2 Eczar, Georgia, serif; background: #efe7dc; border-bottom: 1px solid #d8c384; border-radius: 3px 3px 0 0; }
 .pf2e-automato-workshop .ws-pop-b { display: flex; flex-direction: column; gap: 10px; padding: 10px; }

@@ -7,6 +7,7 @@
 // иначе RollOption.beforeRoll при выключенном переключателе снял бы её (44594), — тогда предупреждение ГМу и подстановки нет.
 import { MOD, L } from "../util.mjs";
 import { modeOf } from "../settings.mjs";
+import { sourceOfActor } from "../rules.mjs";
 import { clearMarks, isInstalled, neutralizedOf, resetActors, setReady, wrapMethod } from "./neutralize-rules.mjs";
 
 /** Чистая: сколько живых союзников бросавшего (не он сам: по uuid актёра и по id токена; не скрытые) держат цель в досягаемости.
@@ -30,8 +31,6 @@ const ONE_ACTORS = ["Compendium.pf2e.season-of-ghosts-bestiary.Actor.R805QpID53E
 
 /** Чистая: порог числа союзников для предмета с таким slug у актёра с таким источником. */
 export const packNeed = (slug, actorSource) => (ONE_SLUGS.has(slug) || (slug === "pack-attack" && ONE_ACTORS.includes(actorSource)) ? 1 : 2);
-
-const sourceOfActor = (a) => a?._stats?.compendiumSource ?? a?.flags?.core?.sourceId ?? a?.baseActor?._stats?.compendiumSource ?? null;
 
 /** Чистая: порог для опции — минимум по предметам актёра, у которых она погашена. */
 export const needFor = (actor, items) => Math.min(...[...items].map((i) => packNeed(i.slug, sourceOfActor(actor))));

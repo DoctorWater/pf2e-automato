@@ -1,6 +1,7 @@
 {
   "PF2E_AUTOMATO": {
     "events": {
+      "strike": { "linked": "\"{item}\" is applied automatically by the Strike: {strike}. Hold Alt when sending to chat to get the manual card." },
       "host": "\"{item}\": {target} must attempt a challenge against the ability's owner.",
       "repeat": "\"{item}\": {target} attempts the repeat save.",
       "zone": "\"{item}\": {target} is in the area and must attempt a challenge.",

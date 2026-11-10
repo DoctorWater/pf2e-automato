@@ -6,6 +6,7 @@
 // ДОЛГ: откат урона кнопкой pf2e цели перенос заклинателю не откатывает (урон заклинателю уже записан settle; связи между сообщениями нет).
 import { L, MOD } from "../util.mjs";
 import { castOrigin, effectSource, addEffect, esc, whisper, paHas, messageTargets, itemSlug, combatOf } from "./lib.mjs";
+import { kindOf } from "./spellshape.mjs";
 
 /** Таблица группы: slug заклинания -> эффект и способ переноса. cap: [ранг от, значение], по убыванию. */
 export const LINKS = {
@@ -48,7 +49,7 @@ export function linksOf(effects, targetUuid) {
 /** Сотворение (активный ведущий): эффект связи на цели. Повторное сотворение того же заклинателя заменяет прежний эффект. */
 export async function onMessage(message) {
   const origin = castOrigin(message);
-  if (origin?.type !== "spell") return;
+  if (kindOf(origin) !== "cast") return;   // настоящее сотворение, не карточка «в чат»
   const spell = await fromUuid(origin.uuid), slug = itemSlug(spell), def = LINKS[slug];
   if (!def || paHas(slug)) return;
   const caster = await fromUuid(origin.actor);

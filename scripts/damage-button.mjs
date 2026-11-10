@@ -11,6 +11,7 @@ import { EXTERNAL } from "./compat.mjs";
 import { applyPersistent } from "./apply.mjs";
 import * as saves from "./saves.mjs";
 import { asking } from "./builtin/variable-cast.mjs";
+import { maneuversOf } from "./builtin/maneuver.mjs";
 
 const SEL = EXTERNAL.selectors;
 
@@ -309,6 +310,8 @@ function rollsOf(message) {
 
 function attackOrder(message, html) {
   if (message.item?.type !== "spell" || !html.querySelector(ATTACK_SEL)) return;
+  // «Spell Attack» pf2e бросил бы атаку против КБ: у заклинаний-манёвров бросок — кнопки манёвров модуля (builtin/maneuver.mjs), против Рефлекса/Стойкости
+  if (maneuversOf(message.item).length) return void html.querySelectorAll(ATTACK_SEL).forEach((b) => { b.hidden = true; });
   const { attacks, damages } = rollsOf(message);
   const st = attackStage({ attacks: attacks.length, hits: attacks.filter(hitOf).length, damages: damages.length, multi: multiTarget(message.item.system?.target?.value) });
   if (st.hideDamage) for (const b of html.querySelectorAll(SEL.spellDamage)) b.hidden = true;
@@ -339,7 +342,14 @@ function refreshCard(m) {
   if (card) ui.chat?.updateMessage?.(card);
 }
 
+/** Ссылка «#Recharge» гасится только на карточке, где перезарядку уже бросил модуль (limitMarks.rc_*, builtin/impulse-gate): второй бросок сбил бы счёт. Вне боя и при mode.limits=off метки нет — ссылка живая. */
+export function quenchRecharge(message, html) {
+  if (!Object.keys(message.flags?.[MOD]?.limitMarks ?? {}).some((k) => k.startsWith("rc_"))) return;
+  for (const a of html.querySelectorAll("a.inline-roll, a[data-formula]")) if (RECHARGE.test(a.dataset?.flavor ?? "")) dim(a, L("chat.rechargeAuto"));
+}
+
 export function init() {
+  Hooks.on("renderChatMessageHTML", quenchRecharge);
   Hooks.on("renderChatMessageHTML", bind);
   Hooks.on("createChatMessage", refreshCard);
   Hooks.on("deleteChatMessage", refreshCard);

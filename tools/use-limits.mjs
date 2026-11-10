@@ -11,11 +11,11 @@ import { sluggify } from "../scripts/util.mjs";
 import { reqSig } from "../scripts/builtin/limit-text.mjs";
 
 // Подлежащее: «the monster», «your lash», «You», имя собственное («Sorvuth-ka's», «Nils Kelveken»). Союз/глагол — не подлежащее: «the assassin is wielding … and has a free hand» не разбирается.
-const W = String.raw`(?!(?:and|or|is|are|has|have|must|with|wielding|holding|was|that|hit|hits|damaged|damages)(?![\p{L}\p{N}'’_-]))[\p{L}\p{N}'’_-]+`;
+const W = String.raw`(?!(?:and|or|is|are|has|have|must|with|wielding|holding|was|that|hit|hits|damaged|damages|does|do|doesn['’]t|don['’]t|not|never|cannot|can['’]t)(?![\p{L}\p{N}'’_-]))[\p{L}\p{N}'’_-]+`;
 const SUBJ = String.raw`(?:you|(?:the |your )?${W}(?: ${W}){0,5}?)`;
 // Уточнения, которых клаузы выразить не могут (размер, «with its jaws», «in its jaws», тип оружия, «living»), в разбор не входят: записи нет, а не запись мягче текста.
-const STRIKE = new RegExp(String.raw`^${SUBJ} (?:last|previous|most recent) action(?: this turn)? (?:was|is) (?:an? )?(?:successful|success with an?) (?:(melee|ranged) )?(?:([\w -]+?) )?strike(?: that lists ([\w -]+?) in its damage entry)?\.?$`, "iu");
-const STRIKE_DMG = new RegExp(String.raw`^${SUBJ} (?:hit|damaged)(?: an? creature)? with an? (?:(melee|ranged) )?(?:([\w -]+?) )?strike (?:on|with) (?:its|his|her|their|your) (?:last|previous|most recent) action(?: this turn)?\.?$`, "iu");
+const STRIKE = new RegExp(String.raw`^${SUBJ} (?:last|previous|most recent) action(?: this turn)? (?:was|is) (?:(?:an? )?(?:successful|success with an?)|an?(?= (?:(?:melee|ranged) )?(?:[\w -]+? )?strike that hit)) (?:(melee|ranged) )?(?:([\w -]+?) )?strike(?: that lists ([\w -]+?) in its damage entry| that hit(?: an? (?:opponent|creature|enemy))?| (?:with|using) (?:its|his|her|their) ([\w'’ -]+?))?\.?$`, "iu");
+const STRIKE_DMG = new RegExp(String.raw`^${SUBJ} (?:hit|damaged)(?: an? creature)? with an? (?:(melee|ranged) )?(?:([\w -]+?) )?strike (?:on|with|during) (?:its|his|her|their|your) (?:last|previous|most recent) action(?: this turn)?\.?$`, "iu");
 const HOLDS = new RegExp(String.raw`^${SUBJ} (?:must )?(?:has|have) (?:an? )?creature grabbed(?: or restrained)?\.?$`, "iu");
 const HAND = new RegExp(String.raw`^${SUBJ} (?:must )?(?:has|have) a free hand\.?$`, "iu");
 const NAME_NOISE = /\b(?:a|an|the|or|and|weapon|with|against|another|any|unarmed|non)\b/i;   // «piercing or slashing weapon Strike» — не имя Удара
@@ -26,7 +26,7 @@ const plain = (s) => stripHtml(s ?? "").replace(/@UUID\[[^\]]*\]\{([^}]*)\}/g, "
 export function clauseOf(s) {
   const m = STRIKE.exec(s), d = m ? null : STRIKE_DMG.exec(s);   // «damaged/hit … with a jaws Strike on its last action» — Удар попал (hit), имя — jaws
   if (m || d) {
-    const [, kind, name, fx] = m ?? [d[0], d[1], d[2]];
+    const [, kind, name1, fx, name2] = m ?? [d[0], d[1], d[2]], name = name1 ?? name2;
     if (name && NAME_NOISE.test(name)) return null;
     return { k: "strike", ...(name && { name: sluggify(name) }), ...(fx && { fx: sluggify(fx) }), ...(kind && { melee: /^melee$/i.test(kind) }) };   // melee/ranged — тип Удара (item.isMelee)
   }
@@ -38,7 +38,8 @@ export function clauseOf(s) {
 /** Чистая: описание (markup) -> {any:[клаузы]} | null. Строка «Requirements»; хоть одна клауза не разобрана — null. */
 export function reqOf(descEn) {
   // абзац Requirements бывает вторым-третьим («flavor --- Requirements … --- Effect»): ищем в первых трёх секциях, дальше — Special/варианты
-  const line = /(?:^|\n)\s*(?:Requirements?|Trigger)\s+([^\n]*)/i.exec(stripHtml(descEn ?? "").replace(/<[^>]+>/g, "").split(/\n---\n/).slice(0, 3).join("\n"));
+  const text = stripHtml(descEn ?? "").replace(/<[^>]+>/g, "").split(/\n---\n/).slice(0, 3).join("\n");
+  const line = /(?:^|\n)\s*Requirements?\s+([^\n]*)/i.exec(text) ?? /(?:^|\n)\s*Trigger\s+([^\n]*)/i.exec(text);   // Trigger — только если Requirements нет: строка Trigger бывает выше Requirements
   if (!line) return null;
   const parts = plain(line[1]).split(/,\s+or\s+/i);
   const any = parts.map(clauseOf);

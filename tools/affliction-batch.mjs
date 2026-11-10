@@ -10,6 +10,7 @@ import { saveSegment, headSecondSave, afflictionRule, outsideText, coatOf, FLAVO
 import { roundTrip, semanticErrors, mergeAccepted } from "./validate.mjs";
 import { readModelAccepted } from "./drafts.mjs";
 import { pick } from "./sample.mjs";
+import { sluggify } from "../scripts/util.mjs";
 
 const CONV = "model: affliction converter", CONV_PARTIAL = `${CONV} (partial)`;
 const PARTIAL_OK = /^(?:text outside stages|stage \d+:)/;   // остальные «unsure» (onset, dc, срок, второй спасбросок) partial не делают
@@ -84,6 +85,7 @@ export function buildBatch() {
   const acc = new Map(readModelAccepted().map((d) => [d.uuid, d]));
   const byId = new Map(Object.entries(refs.conditions).map(([slug, c]) => [c.id, slug]));
   const condSlug = (u) => (u.includes(".conditionitems.") ? byId.get(u.split(".").pop()) ?? null : null);
+  const carried = new Set(items.filter((m) => m.type === "melee" && m.embedded?.actorUuid).flatMap((m) => String(m.descEn ?? "").split(/[,\s]+/).filter(Boolean).map((e) => `${m.embedded.actorUuid}|${e}`)));   // attackEffects Ударов актёра
   const ok = [], partial = [], debt = [];
   for (const it of items) {
     const h = html[it.uuid], t = tri.get(it.uuid), a = acc.get(it.uuid);
@@ -94,7 +96,11 @@ export function buildBatch() {
     const r = afflictionRule(h, { name: it.name, traits: it.traits ?? [], condSlug, save: it.defense ? { statistic: it.defense.save } : null, ignoreOutside: FLAVOR_OK.has(it.uuid), extraNote: EXTRA_NOTE.get(it.uuid), refineOk: REFINE_OK.get(it.uuid) });
     let why = null, diffs = [];
     const injury = it.type === "weapon" || (it.traits ?? []).includes("injury") || /@Check\[[^\]]*traits:[^\]|]*\binjury\b/.test(h);
-    if (injury && it.type !== "consumable") why = it.type === "weapon" ? "weapon activation" : /^(envenom|vishkanyan venom)$/i.test(it.name) ? "envenom" : "npc injury action, not coat";   // в `coat` идут только расходники
+    // способность NPC с injury — обычное правило недуга (его запускает Удар через scripts/strike-link.mjs), не coat; в `coat` идут только расходники
+    // и только если его доставляет Удар того же актёра (melee с attackEffect этой способности): аура/ловушка — не он
+    const envenom = /^(envenom|vishkanyan venom)$/i.test(it.name);
+    const npcAbility = !envenom && ["action", "feat"].includes(it.type) && carried.has(`${it.embedded?.actorUuid}|${it.slug || sluggify(it.name)}`);
+    if (injury && it.type !== "consumable" && !npcAbility) why = it.type === "weapon" ? "weapon activation" : envenom ? "envenom" : "injury action not delivered by a Strike, not coat";
     else if (!r) why = "no save/kind or stage marks";
     else if (it.type === "spell" && r.unsure.length) why = "spell with degree table: model batch";   // 17 заклинаний — отдельная пачка модели (план, шаг 5); partial им не делаем
     else if (!r.rule) why = `invalid rule: ${r.unsure.at(-1)?.slice(0, 80)}`;
@@ -102,11 +108,12 @@ export function buildBatch() {
     else if (r.debt.length) why = r.debt[0];
     else if ((diffs = checkAffliction(r.rule, h, it, refs, { partial: !!r.unsure.length || FLAVOR_OK.has(it.uuid) })).length) why = `check: ${diffs[0]}`;
     let rule = r?.rule;
-    if (!why && injury) {   // расходник-яд injury: недуг переносится в нанесение на оружие
+    if (!why && injury && !npcAbility) {   // расходник-яд injury: недуг переносится в нанесение на оружие
       ({ rule, why } = coatEntry(r.rule, h, refs));
     }
     if (why && oldDebt) continue;
-    if (why) debt.push({ ...d, status: "manual", confidence: "needs-primitive", reason: `needs-primitive: missing: affliction: ${why}`, rule: null });
+    const reason = `needs-primitive: missing: affliction: ${why}`;
+    if (why) debt.push({ ...d, status: "manual", confidence: "needs-primitive", reason: a?.reason?.startsWith(reason) ? a.reason : reason, rule: null });   // ручной суффикс прежней причины («; healing-modifier») не срезаем
     else if (partialGaps(r).length) partial.push({ ...d, status: "manual", confidence: "model", partial: partialGaps(r), group: r.group, reason: CONV_PARTIAL, rule });
     else ok.push({ ...d, status: "manual", confidence: "model", reason: CONV, rule });
   }

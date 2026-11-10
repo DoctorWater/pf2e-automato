@@ -332,3 +332,20 @@ test("M1 на уровне механизма (rechargeEntry на актёре):
   assert.deepEqual(rechargeEntry(pick(tl, "Corrosive Breath")).ids.sort(), ["Corrosive Breath", "Double Breath"]);
   assert.deepEqual(rechargeEntry(pick(tl, "Double Breath")).ids.sort(), ["Corrosive Breath", "Double Breath"]);
 });
+
+test("reqOf: уточнения Удара — «with the X», «that hit», «hit with a X Strike during its most recent action»; отрицание и несовпадение — null", () => {
+  assert.equal(reqOf("Requirements Your last action this turn was a successful Strike with the Noble Branch"), null, "икона/предмет — не имя Удара: штамп хранит slug оружия, запись дала бы ложный блок");
+  assert.deepEqual(reqOf("Requirements The drill sergeant's last action was a Strike that hit"), { any: [{ k: "strike" }] });
+  assert.deepEqual(reqOf("Requirements The fighter's last action was a Strike that hit an opponent"), { any: [{ k: "strike" }] });
+  assert.deepEqual(reqOf("Requirements The kadamel hit with a stone axe Strike during its most recent action"), { any: [{ k: "strike", name: "stone-axe" }] });
+  assert.deepEqual(reqOf("Requirements The etheroot's last action was a success with a Strike using its stalked bite."), { any: [{ k: "strike", name: "stalked-bite" }] });
+  assert.equal(reqOf("Requirements Fayati's last attack was a successful melee Strike with her rapier"), null, "«attack» — не «action»: между Ударом и использованием мог встать другой штамп");
+  assert.equal(reqOf("Requirements The graveknight's last action was a success with a Strike using a shove weapon."), null, "тип оружия — не имя Удара");
+  assert.equal(reqOf("Requirements The thrall's last action was a greatclub Strike that missed"), null);
+  assert.equal(reqOf("Requirements The olobigonde doesn't have a creature @UUID[Compendium.pf2e.conditionitems.Item.kWc1fhmv9LBiTuei]{Grabbed}"), null, "отрицание не превращается в «держит»");
+});
+
+test("reqOf: Requirements приоритетнее Trigger, даже если Trigger стоит выше; Trigger — только без Requirements", () => {
+  assert.deepEqual(reqOf("Trigger A creature leaves a square\nRequirements You have a free hand\n---\nEffect x"), { any: [{ k: "hand" }] });
+  assert.equal(reqOf("Trigger You have a free hand\nRequirements You are wielding a staff\n---\nEffect x"), null);
+});

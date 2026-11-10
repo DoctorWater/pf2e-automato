@@ -310,6 +310,35 @@ async () => {
     t.ok(!!alt, "с Alt: карточка со снимком use");
   });
 
+  // недуг инъекционного яда NPC (affliction-batch: способность injury — обычное правило каталога): Удар Ледяного линнорма запускает стадию 1
+  const LINNORM = "Compendium.pf2e.pathfinder-monster-core.Actor.Np5Z7RMQzvSNnH0h";
+  sc("strike-linnorm-venom", "M3: Удар Ice Linnorm с недугом (injury-способность NPC, правило каталога) запускает стадию 1", async (e, t) => {
+    openChat();
+    const d = (await fromUuid(LINNORM))?.toObject(); if (!d) throw new Skip(`нет в паках: ${LINNORM}`);
+    delete d._id;
+    const A0 = await e.add({ ...d, name: "линнорм" }), V0 = await victim(e, "жертва линнорма");
+    const tA = await e.tok(A0, 1000, 1000, -1), tV = await e.tok(V0, 1100, 1000, 1);
+    await wait(700);
+    const ab = bySlug(e.A(tA), "ice-linnorm-venom");
+    t.ok(!!ab, "у копии есть Ice Linnorm Venom");
+    const res = api().resolveRule(ab);
+    t.ok(res?.source === "catalog", `правило каталога (${res?.source})`);
+    t.ok(!!(await imp("strike-link.mjs")).strikeLinked(ab), "способность выведена на Удар (strikeLinked)");
+    const s = strikeWith(e.A(tA), ab.slug);
+    t.ok(!!s, "есть Удар с attackEffects этой способности");
+    await rigSave(e, e.A(tV), "fortitude", res.rule.onUse.challenge.dc.value, "failure");
+    await e.fix(10);
+    await e.aim(tA, tV);
+    const t0 = e.since();
+    await bound("Удар", s.variants[0].roll({ event: SHIFT() }));
+    const am = await waitFor(() => e.msgs(t0).find((m) => m.flags?.pf2e?.context?.type === "attack-roll"), 8000);
+    t.ok(["success", "criticalSuccess"].includes(am?.flags?.pf2e?.context?.outcome), `попадание (${am?.flags?.pf2e?.context?.outcome})`);
+    await bound("урон", s.damage({ event: SHIFT() }));
+    await waitFor(() => carrier(e.A(tV)), 15000);
+    const af = e.A(tV).items.filter((i) => i.flags?.[MOD]?.meta?.affliction);
+    t.ok(af.length === 1 && af[0].system.badge?.value === 1, `недуг один, стадия 1 (${af.length}; ${af[0]?.system?.badge?.value})`);
+  });
+
   sc("permanent-slow", "M6: зомби с Slow без правил — Slowed 1 и нет реакций; с готовым GrantItem — Slowed один, реакций нет; mode.effect off снимает", async (e, t) => {
     openChat();
     const prev = setting("mode.effect");

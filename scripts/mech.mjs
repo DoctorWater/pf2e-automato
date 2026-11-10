@@ -3,7 +3,7 @@
 //   recharge: false | "1d6" — «не ограничивать» / свой срок в раундах;  req: false — не проверять требование;  strike: false — не запускать Ударом;
 //   maneuvers: ["disarm", …] — подмножество таблицы манёвров;  permanent: false — не накладывать постоянное состояние.
 // Неизвестные и невалидные ключи отбрасываются молча (как itemFlagRule): чужой флаг ничего не ломает.
-import { MOD, flagPath, forcedReplace, forcedDelete } from "./util.mjs";
+import { MOD, sluggify, flagPath, forcedReplace, forcedDelete } from "./util.mjs";
 import { parseDice, rechargeFull, rechargeIds } from "./builtin/limit-text.mjs";
 
 export const MANEUVERS = ["disarm", "shove", "reposition", "trip"];
@@ -28,7 +28,12 @@ export function normalizeMech(raw) {
 /** Переопределения предмета (документ или _source). */
 export const mechOf = (item) => normalizeMech(item?.flags?.[MOD]?.mech);
 
-const namesOf = (i) => [i?.name, i?.slug, i?.flags?.babele?.originalName];   // перевод и исходное английское имя: подпись броска бывает на любом
+// Подпись броска в тексте не совпадает с именем единственной способности (другое название той же способности в описании): карта по slug, одна запись.
+// ponytail: вручную; новые случаи добавлять сюда, пока их меньше порога примитива.
+const RECHARGE_ALIAS = { "fog-of-chance": ["Fortune Fog"], "breath-weapon": ["Dragonstorm Breath"] };   // второе — Lesser Manifestation of Dahak (проверка названа Dragonstorm Breath)
+// slug предмета бывает пуст (system.slug null у способностей NPC): запасной путь — slug исходного английского имени
+const aliasOf = (i) => RECHARGE_ALIAS[i?.slug] ?? RECHARGE_ALIAS[sluggify(i?.flags?.babele?.originalName ?? i?.name ?? "")] ?? [];
+const namesOf = (i) => [i?.name, i?.slug, i?.flags?.babele?.originalName, ...aliasOf(i)];   // перевод и исходное английское имя: подпись броска бывает на любом
 
 /** M1 без переопределения: {dice, ids} по тексту описания; ids — предметы актёра, на которые ложится замок (подпись броска = имя своего предмета и/или другой способности актёра);
  *  null — перезарядки нет или она чужая и такой способности у актёра нет. Тип предмета — как у лимитов в рантайме. */

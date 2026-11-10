@@ -1,6 +1,13 @@
 {
  "v": 1,
  "bySource": {
+  "Compendium.pf2e.actionspf2e.Item.ur4AfegC9RqRgy3e": {
+   "any": [
+    {
+     "k": "hand"
+    }
+   ]
+  },
   "Compendium.pf2e.feats-srd.Item.07TYbc4cOQi5tduT": {
    "any": [
     {
@@ -1156,6 +1163,14 @@
     }
    ]
   },
+  "Compendium.pf2e.pathfinder-monster-core-2.Actor.jDJ5XzsSAMDasITG.Item.hrNpW5vBm1YlAgA4": {
+   "any": [
+    {
+     "k": "strike",
+     "name": "stone-axe"
+    }
+   ]
+  },
   "Compendium.pf2e.pathfinder-monster-core-2.Actor.kqbvkWsmrnlziWNp.Item.yVkFmFVbB6g9Iyno": {
    "any": [
     {
@@ -1247,6 +1262,13 @@
     }
    ]
   },
+  "Compendium.pf2e.pathfinder-npc-core.Actor.g4SvRClK7ftg3kSD.Item.ikCCX8LvQEbJMvmB": {
+   "any": [
+    {
+     "k": "strike"
+    }
+   ]
+  },
   "Compendium.pf2e.pathfinder-npc-core.Actor.gJBsgTZnZnImelP2.Item.gPCVs0CaoNk7Gcne": {
    "any": [
     {
@@ -1320,6 +1342,14 @@
     }
    ]
   },
+  "Compendium.pf2e.pfs-season-4-bestiary.Actor.Akq5V2jzJYUZXT8d.Item.2RwCLa2X9KcE2AZT": {
+   "any": [
+    {
+     "k": "strike",
+     "name": "stalked-bite"
+    }
+   ]
+  },
   "Compendium.pf2e.pfs-season-4-bestiary.Actor.c3YWo3zyPsybTYhC.Item.cVNNBjTmEEyKPfsI": {
    "any": [
     {
@@ -1333,6 +1363,14 @@
     {
      "k": "strike",
      "name": "fist"
+    }
+   ]
+  },
+  "Compendium.pf2e.pfs-season-4-bestiary.Actor.xY95sdnK1MMIyeee.Item.2RwCLa2X9KcE2AZT": {
+   "any": [
+    {
+     "k": "strike",
+     "name": "stalked-bite"
     }
    ]
   },
@@ -1428,11 +1466,25 @@
     }
    ]
   },
+  "Compendium.pf2e.pfs-season-6-bestiary.Actor.l2hVUFGqqmGPzPIy.Item.YmlswdyaBq4Tz5j4": {
+   "any": [
+    {
+     "k": "strike"
+    }
+   ]
+  },
   "Compendium.pf2e.pfs-season-6-bestiary.Actor.mSlZIP1LoLTz0q0B.Item.QlktgKrcecMqG2Sa": {
    "any": [
     {
      "k": "strike",
      "name": "tentacle"
+    }
+   ]
+  },
+  "Compendium.pf2e.pfs-season-6-bestiary.Actor.pHKWW2XeJ2MwGQnJ.Item.YmlswdyaBq4Tz5j4": {
+   "any": [
+    {
+     "k": "strike"
     }
    ]
   },
@@ -1675,6 +1727,18 @@
   }
  },
  "bySlug": {
+  "mystic-aegis@action": [
+   {
+    "sig": "",
+    "req": {
+     "any": [
+      {
+       "k": "hand"
+      }
+     ]
+    }
+   }
+  ],
   "improved-push@action": [
    {
     "sig": "",
@@ -2775,6 +2839,19 @@
     }
    }
   ],
+  "calcifying-cloud@action": [
+   {
+    "sig": "",
+    "req": {
+     "any": [
+      {
+       "k": "strike",
+       "name": "stone-axe"
+      }
+     ]
+    }
+   }
+  ],
   "consume-fear@action": [
    {
     "sig": "kWc1fhmv9LBiTuei,VcDeM8A5oI6VqhbM",
@@ -2863,6 +2940,18 @@
     }
    }
   ],
+  "keep-up-with-me@action": [
+   {
+    "sig": "",
+    "req": {
+     "any": [
+      {
+       "k": "strike"
+      }
+     ]
+    }
+   }
+  ],
   "following-spell@action": [
    {
     "sig": "",
@@ -2913,6 +3002,19 @@
     }
    }
   ],
+  "incite-emotion@action": [
+   {
+    "sig": "",
+    "req": {
+     "any": [
+      {
+       "k": "strike",
+       "name": "stalked-bite"
+      }
+     ]
+    }
+   }
+  ],
   "overburden@action": [
    {
     "sig": "",
@@ -2946,6 +3048,18 @@
       {
        "k": "strike",
        "name": "tentacle"
+      }
+     ]
+    }
+   }
+  ],
+  "create-opening@action": [
+   {
+    "sig": "",
+    "req": {
+     "any": [
+      {
+       "k": "strike"
       }
      ]
     }

@@ -270,3 +270,11 @@ test("M3 каталожное правило с крит-текстом запу
   } finally { initOverlays(null, null, null, null, null); }
   assert.ok(!st().includes("outcome:criticalSuccess"), "без записи оверлея текст предмета признак не задаёт");
 });
+
+test("M1: подпись броска ≠ имя единственной способности — карта по slug (Fog of Chance)", () => {
+  const one = (slug, name, type, html) => ({ id: "f1", type, slug, uuid: "I.f", name, system: { traits: { value: [] }, actionType: { value: "action" }, description: { value: html } } });
+  assert.deepEqual(mech.rechargeEntry(one("fog-of-chance", "Fog of Chance", "action", "The dragonet can't use Fortune Fog again for [[/r 1d4 #Recharge Fortune Fog]]{1d4 rounds}.")), { dice: "1d4", ids: ["f1"] });
+  assert.deepEqual(mech.rechargeEntry({ ...one("", "Фог удачи", "action", "It can't use Fortune Fog again for [[/r 1d4 #Recharge Fortune Fog]]{1d4 rounds}."), slug: null, flags: { babele: { originalName: "Fog of Chance" } } }), { dice: "1d4", ids: ["f1"] }, "slug пуст — алиас по исходному имени");
+  assert.deepEqual(mech.rechargeEntry(one("breath-weapon", "Breath Weapon", "action", "It can't use Dragonstorm Breath again for [[/gmr 1d4 #Recharge Dragonstorm Breath]]{1d4 rounds}.")), { dice: "1d4", ids: ["f1"] });
+  assert.equal(mech.rechargeEntry(one("other-thing", "Other Thing", "action", "The dragonet can't use Fortune Fog again for [[/r 1d4 #Recharge Fortune Fog]]{1d4 rounds}.")), null);
+});

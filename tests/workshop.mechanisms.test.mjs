@@ -8,7 +8,7 @@ const { MOD } = await import("../scripts/util.mjs");
 const { detectMechs, mechRows, mechanismsOf, footStatus, MECH_IDS } = await import("../scripts/workshop/mechanisms.mjs");
 const { mechToForm } = await import("../scripts/mech.mjs");
 const { LIMITS } = await import("../scripts/builtin/impulse-gate.mjs");
-const { rechargeOf } = await import("../scripts/builtin/limit-text.mjs");
+const { rechargeBase } = await import("../scripts/mech.mjs");
 const { maneuverList } = await import("../scripts/builtin/maneuver.mjs");
 const { permanentOf } = await import("../scripts/builtin/neutralize-rules.mjs");
 const { optionOf } = await import("../scripts/builtin/spellshape.mjs");
@@ -211,7 +211,7 @@ test("паритет: M1/M2/M5/M6/M7/M8 находятся ровно у тех 
       const d = { id: "x", type: i.type, slug: i.slug, name: i.name, rank: i.rank, system: { description: { value: i.descEn ?? "" }, traits: { value: i.traits ?? [] }, rules: [] }, _stats: { compendiumSource: i.uuid }, flags: {}, actor: { type: "npc", items: [] } };
       const got = new Set(detectMechs(d, e).map((x) => x.id)), req = reaches(d) ? rules.limitEntry(d)?.req : null;
       const want = {
-        recharge: reaches(d) && rc.applies({ rc: rechargeOf(d.system.description.value), inCombat: true, limitsOn: true }),
+        recharge: reaches(d) && rc.applies({ rc: rechargeBase(d), inCombat: true, limitsOn: true }),
         req: reaches(d) && rq.applies({ req }) && !!req?.any?.length,
         maneuvers: d.type === "spell" && maneuverList(d.slug, d.system.description.value, {}).length > 0,
         permanent: !!permanentOf(d, "npc"),
@@ -260,4 +260,15 @@ test("worldKeyOf: ключ совпадает с тем, под которым r
     assert.deepEqual(rules.worldKeyOf(it, res, "source"), { source: KEY });
     assert.equal(rules.keyDerived(it, res), true);
   } finally { delete globalThis.game; }
+});
+
+test("M1: Feed on Fear ставит замок на Consume Light — у источника строка называет «Consume Light», у Consume Light — пометка с источником и без полей", () => {
+  const feed = { id: "f1", type: "action", slug: "feed-on-fear", name: "Feed on Fear", system: { description: { value: "It can't use Consume Light again for [[/gmr 1d4 #Recharge Consume Light]]{1d4 rounds}." }, traits: { value: [] }, rules: [] }, flags: {} };
+  const light = { id: "l1", type: "action", slug: "consume-light", name: "Consume Light", system: { description: { value: "x" }, traits: { value: [] }, rules: [] }, flags: {} };
+  const actor = { items: [feed, light] };
+  feed.actor = light.actor = actor;
+  const src = mechanismsOf(feed, env())[0], tgt = mechanismsOf(light, env(), mechToForm({}))[0];
+  assert.match(src.sum, /rechargeOther\{.*«Consume Light»/);
+  assert.match(tgt.sum, /rechargeFrom\{.*«Feed on Fear»/);
+  assert.deepEqual(tgt.fields, [], "переключатель — на источнике");
 });

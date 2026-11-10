@@ -39,7 +39,7 @@ export const LIMITS = [
   { reason: "hex", applies: (c) => c.traits.includes("hex"), fails: (c) => !!c.turn && c.hexTurn === c.turn, mark: (c) => c.turn && ["hexTurn", c.turn] },
   // «за ход/раунд» pf2e восстанавливает только в бою (в начале хода): вне боя такого ограничения нет, как у roundKey
   // перезарядка: только в бою, у NPC и персонажей; срок бросает модуль (число на флаге), «ещё N» — раундов до нового использования. mode.limits=off — не бросаем и не ставим
-  { reason: "recharge", applies: (c) => !!c.rc && c.inCombat && c.limitsOn, fails: (c) => rechargeLeft(c.rcLock, c.combatId, c.roundNum) > 0, vars: (c) => ({ n: rechargeLeft(c.rcLock, c.combatId, c.roundNum), until: c.rcLock.until }), mark: (c) => [`rc_${c.itemId}`, c.rcMark] },
+  { reason: "recharge", applies: (c) => (!!c.rc || !!c.rcLock) && c.inCombat && c.limitsOn, fails: (c) => rechargeLeft(c.rcLock, c.combatId, c.roundNum) > 0, vars: (c) => ({ n: rechargeLeft(c.rcLock, c.combatId, c.roundNum), until: c.rcLock.until }), mark: (c) => c.rc?.ids.map((id) => [`rc_${id}`, rcNew(c, id)]) },
   // требования к автору (оверлей use-limits.json): «любое из» клауз; ложный блок хуже пропуска — неизвестное состояние клаузы не блокирует
   { reason: "req", applies: (c) => !!c.req, fails: (c) => reqFails(c.req, c), vars: (c) => ({ need: c.req.any.map((cl) => needText(cl, c.actor)).join(L("builtin.limit.or")) }) },
   // pf2e списывает частоту ДО карточки: законное использование приходит в preCreate уже с 0 — его отличает свежее списание (justSpent)
@@ -113,7 +113,7 @@ function ctxOf(actor, item) {
     reactionFlag: inCombat ? { combat: combat.id, round: combat.round } : null,
     conMod: actor.abilities?.con?.mod ?? 0,
     frequency: item.system?.frequency ?? null, justSpent: spent.get(item.uuid) > Date.now(),
-    actor, itemId: item.id, combatId: combat?.id, roundNum: combat?.round, limitsOn: modeOf("limits") !== "off", rcLock: f[`rc_${item.id}`],
+    actor, itemId: item.id, combatId: combat?.id, roundNum: combat?.round, limitsOn: modeOf("limits") !== "off", rcLock: mechOf(item).recharge === false ? null : f[`rc_${item.id}`], rcLocks: f,
     channelName: actor.itemTypes.action.find((a) => a.slug === "channel-elements")?.name,
     get rc() { return rechargeEntry(item); },
     // бросок один на контекст: число на флаге — то, что видит ГМ в шёпоте
@@ -196,10 +196,17 @@ const pending = new Map();   // uuid актёра -> {marks, until}: отмет�
 export const withPending = (flags, p, now = Date.now()) => (p && p.until > now ? { ...flags, ...p.marks } : flags ?? {});
 const pendingOf = (actor) => pending.get(actor?.uuid);
 
+/** Чистая: действующий замок rc_<id> другого использования (тот же бой, срок не вышел) или null. */
+const rcPrev = (c, id) => { const old = c.rcLocks?.[`rc_${id}`]; return rechargeLeft(old, c.combatId, c.roundNum) > 0 ? old : null; };
+/** Чистая: новый замок на id; уже стоящий более долгий замок не укорачиваем (until = max). */
+const rcNew = (c, id) => { const old = rcPrev(c, id); return old && old.until > c.rcMark.until ? { ...c.rcMark, until: old.until } : c.rcMark; };
+/** Чистая: замки, которые отметки перезапишут, — прежнее значение едет с карточкой в limitClear (удаление карточки возвращает его). */
+export const clearFor = (c, marks) => Object.fromEntries(Object.keys(marks).filter((k) => k.startsWith("rc_")).map((k) => [k, rcPrev(c, k.slice(3))]).filter(([, v]) => v));
+
 /** Чистая по ctx: отметки законного использования {флаг: значение} (и по Alt тоже: действие совершено). */
 export const marksFor = (c) => {
   const marks = {};
-  for (const l of LIMITS) { const m = l.applies(c) && l.mark?.(c); if (m) marks[m[0]] = m[1]; }
+  for (const l of LIMITS) { const m = l.applies(c) && l.mark?.(c); for (const [k, v] of Array.isArray(m?.[0]) ? m : m ? [m] : []) marks[k] = v; }   // mark — пара или список пар (перезарядка: замок и на другой способности)
   return marks;
 };
 
@@ -216,12 +223,19 @@ function stamp(message, actor, act) {
   if (turn) message.updateSource({ [`flags.${MOD}.act`]: { who: actor.uuid, turn, ...act } });
 }
 
+/** Чистая: тип Удара по опциям броска (item.isMelee = !system.range ошибается на метаемом кинжале): true/false или null — не известно, не блокируем. */
+export const meleeOf = (options) => {
+  const o = new Set(options ?? []);
+  if (o.has("item:ranged") || o.has("ranged")) return false;
+  return (o.has("item:melee") || o.has("melee")) && !o.has("item:thrown-melee") ? true : null;
+};
+
 /** Бросок атаки: Удар (attack-roll) штампуется с итогом, именем и эффектами; атака заклинанием — как использование заклинания, не Удар. */
 function stampAttack(message) {
   const actor = message.actor, item = message.item;
   if (!actor || !item) return;
   if (message.flags.pf2e.context.type === "spell-attack-roll") return void stamp(message, actor, { kind: "use" });
-  stamp(message, actor, { kind: "strike", hit: hitOf(message.flags.pf2e.context.outcome), fx: (item.system?.attackEffects?.value ?? []).filter((e) => typeof e === "string"), slug: strikeSlug(item) });
+  stamp(message, actor, { kind: "strike", hit: hitOf(message.flags.pf2e.context.outcome), fx: (item.system?.attackEffects?.value ?? []).filter((e) => typeof e === "string"), slug: strikeSlug(item), melee: meleeOf(message.flags.pf2e.context.options) });
   if (message.flags.pf2e.context.outcome === "criticalSuccess") critClear(message, actor);
 }
 
@@ -248,9 +262,9 @@ export function preCreate(message, data, options, userId) {
   spent.delete(item.uuid);   // одно списание pf2e — одна законная карточка: следующее использование на нуле уже блокируется
   try {
     if (spendsAction(item)) stamp(message, actor, { kind: "use" });
-    const marks = marksFor(ctxOf(actor, item));
+    const c = ctxOf(actor, item), marks = marksFor(c), prev = clearFor(c, marks);
     if (Object.keys(marks).length) {
-      message.updateSource({ [`flags.${MOD}.limitMarks`]: marks });   // на актёра пишет onCreate, когда карточка создана; откат при удалении карточки
+      message.updateSource({ [`flags.${MOD}.limitMarks`]: marks, ...(Object.keys(prev).length && { [`flags.${MOD}.limitClear`]: prev }) });   // на актёра пишет onCreate, когда карточка создана; откат при удалении карточки
       pending.set(actor.uuid, { marks, until: Date.now() + PENDING_MS });   // до записи второе использование уже видит отметку
     }
   } catch (e) { console.warn(`${MOD} | use-limits`, e); }
@@ -259,18 +273,19 @@ export function preCreate(message, data, options, userId) {
 /** createChatMessage у автора: карточка создана — отметки записываются на актёра. Чужой preCreate отменил карточку — отметки нет (pending истечёт сам). */
 export async function onCreate(message) {
   const marks = message?.flags?.[MOD]?.limitMarks, clear = message?.flags?.[MOD]?.limitClear, actor = message?.actor;
-  if (clear && actor && message.isAuthor) await actor.update(Object.fromEntries(Object.keys(clear).map((k) => [`flags.${MOD}.-=${k}`, null]))).catch((e) => console.warn(`${MOD} | use-limits crit recharge`, e));
+  if (clear && actor && message.isAuthor) await actor.update(Object.fromEntries(Object.keys(clear).filter((k) => !(marks && k in marks)).map((k) => [`flags.${MOD}.-=${k}`, null]))).catch((e) => console.warn(`${MOD} | use-limits crit recharge`, e));
   if (!marks || !actor || !message.isAuthor) return;
   try { await actor.update(Object.fromEntries(Object.entries(marks).map(([k, v]) => [`flags.${MOD}.${k}`, v]))); }
   catch (e) { console.warn(`${MOD} | use-limits mark`, e); }
   finally { if (JSON.stringify(pending.get(actor.uuid)?.marks) === JSON.stringify(marks)) pending.delete(actor.uuid); }
   if (modeOf("limits") === "off") return;
-  for (const [k, v] of Object.entries(marks)) if (k.startsWith("rc_")) await showRecharge(actor, message.item, v, message.id);
+  const rc = Object.entries(marks).filter(([k]) => k.startsWith("rc_"));   // один бросок на все замки использования: показываем один раз
+  if (rc.length) await showRecharge(actor, rc.map(([k]) => actor.items?.get?.(k.slice(3))?.name).filter(Boolean).join(" / ") || message.item?.name, rc[0][1], message.id);
 }
 
 /** Шёпот перезарядки с готовым броском (грани уже выпали в preCreate — второго броска нет): ГМ и владельцы персонажа; у NPC — только ГМ. */
-async function showRecharge(actor, item, m, cardId) {
-  const flavor = L("builtin.limit.rechargeRoll", { name: item?.name ?? "", dice: m.dice, n: m.n, until: m.until });
+async function showRecharge(actor, name, m, cardId) {
+  const flavor = L("builtin.limit.rechargeRoll", { name: name ?? "", dice: m.dice, n: m.n, until: m.until });
   try {
     const roll = Roll.fromData(rollData(m.dice, m.r, m.mod));
     await ChatMessage.create({ speaker: ChatMessage.getSpeaker({ actor }), flavor, rolls: [roll], content: String(roll.total), whisper: recipients(actor, actor.type === "character" ? ["gm", "owner"] : ["gm"]), sound: CONFIG.sounds?.dice, flags: { [MOD]: { builtin: "recharge", rechargeFor: cardId } } });   // rechargeFor: удаление карточки убирает и этот шёпот
@@ -286,8 +301,8 @@ export async function onDelete(message) {
   if (!(marks || clear) || !actor || !guardActiveGM()) return;
   const stale = staleMarks(marks, actor.flags?.[MOD]);
   // крит-перезарядка откатывается вместе с карточкой: замок возвращается, если его не поставили заново
-  const back = Object.entries(clear ?? {}).filter(([k]) => actor.flags?.[MOD]?.[k] === undefined);
-  const upd = { ...Object.fromEntries(stale.map((k) => [`flags.${MOD}.-=${k}`, null])), ...Object.fromEntries(back.map(([k, v]) => [`flags.${MOD}.${k}`, v])) };
+  const back = Object.entries(clear ?? {}).filter(([k]) => actor.flags?.[MOD]?.[k] === undefined || stale.includes(k));   // stale: замок, перезаписанный этой карточкой, возвращается прежним
+  const upd = { ...Object.fromEntries(stale.filter((k) => !back.some(([b]) => b === k)).map((k) => [`flags.${MOD}.-=${k}`, null])), ...Object.fromEntries(back.map(([k, v]) => [`flags.${MOD}.${k}`, v])) };
   if (Object.keys(upd).length) await actor.update(upd);
   const notes = (game.messages?.contents ?? []).filter((m) => m.flags?.[MOD]?.rechargeFor === message.id).map((m) => m.id);   // шёпот «снова доступно с раунда N»
   if (notes.length) await ChatMessage.deleteDocuments(notes);

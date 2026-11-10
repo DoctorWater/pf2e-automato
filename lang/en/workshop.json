@@ -241,6 +241,9 @@
         "sum": {
           "recharge": "After use the ability is unavailable: roll {dice} — that many rounds (in combat only). Alt on click — use it now.",
           "rechargeCrit": "A critical Strike recharges \"{name}\".",
+          "rechargeOther": "After use {names} is unavailable: roll {dice} — that many rounds (in combat only). Alt on click — use it now.",
+          "rechargeShared": "After use it and {names} are unavailable: roll {dice} — that many rounds (in combat only). Alt on click — use it now.",
+          "rechargeFrom": "The recharge is set by {from}: after it is used this ability is unavailable — roll {dice} rounds. Turn it off on that item.",
           "req": "Requirements: {need}. If not met, the module blocks the use and warns; Alt on click — use it anyway.",
           "strike": "When the Strike \"{strike}\" deals damage, the target rolls {stat} against DC {dc}: {fail}.",
           "onFail": "on a failure — {steps}",
@@ -254,7 +257,7 @@
           "spirit": "On casting and at the start of the caster's turn, moves {n} HP (rank {rank}) from the caster to a target below max HP; the link ends at 0 HP.",
           "shape": "Using \"{name}\" enables the metamagic for the next casting; it is removed by the next action, a casting, or the end of the turn."
         },
-        "state": { "flag": "Off in the item", "flagReact": "Reaction ban off in the item", "mode": "Off: mode \"{mode}\"", "modeButton": "Does not trigger: \"{mode}\" is not \"Automatic\"", "yield": "Yields to pf2e-automations", "needRule": "The rule needs accepting" },
+        "state": { "flag": "Off in the item", "flagReact": "Reaction ban off in the item", "mode": "Off: mode \"{mode}\"", "modeButton": "Does not trigger: \"{mode}\" is not \"Automatic\"", "yield": "Yields to pf2e-automations", "needRule": "The rule needs accepting", "needOutcome": "A rule is needed: the save outcome (condition, stage) was not recognised" },
         "f": {
           "dice": "Recharge time (dice)", "diceHint": "From the text: {dice}. Rounds only, e.g. 1d4+1. Permanent for this item; for one use — Alt.",
           "permanentOwn": "Turning it off removes only the reaction ban; \"{cond}\" from pf2e stays.",

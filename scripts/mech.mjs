@@ -4,7 +4,7 @@
 //   maneuvers: ["disarm", …] — подмножество таблицы манёвров;  permanent: false — не накладывать постоянное состояние.
 // Неизвестные и невалидные ключи отбрасываются молча (как itemFlagRule): чужой флаг ничего не ломает.
 import { MOD, flagPath, forcedReplace, forcedDelete } from "./util.mjs";
-import { parseDice, rechargeOf } from "./builtin/limit-text.mjs";
+import { parseDice, rechargeFull, rechargeIds } from "./builtin/limit-text.mjs";
 
 export const MANEUVERS = ["disarm", "shove", "reposition", "trip"];
 
@@ -28,13 +28,22 @@ export function normalizeMech(raw) {
 /** Переопределения предмета (документ или _source). */
 export const mechOf = (item) => normalizeMech(item?.flags?.[MOD]?.mech);
 
-/** M1 без переопределения: {dice} по тексту описания; тип предмета — как у лимитов в рантайме. */
-export const rechargeBase = (item) => (isUseItem(item) ? rechargeOf(item.system?.description?.value) : null);
+const namesOf = (i) => [i?.name, i?.slug, i?.flags?.babele?.originalName];   // перевод и исходное английское имя: подпись броска бывает на любом
+
+/** M1 без переопределения: {dice, ids} по тексту описания; ids — предметы актёра, на которые ложится замок (подпись броска = имя своего предмета и/или другой способности актёра);
+ *  null — перезарядки нет или она чужая и такой способности у актёра нет. Тип предмета — как у лимитов в рантайме. */
+export function rechargeBase(item) {
+  const r = isUseItem(item) ? rechargeFull(item.system?.description?.value) : null;
+  if (!r) return null;
+  const others = [...(item.actor?.items ?? [])].map((i) => ({ id: i.id, names: namesOf(i) }));
+  const ids = rechargeIds(r.label, namesOf(item), item.id, others, r.cant);
+  return ids.length ? { dice: r.dice, ids } : null;
+}
 
 /** M1 как исполняет рантайм: null — перезарядки нет (текста нет, «не ограничивать»); иначе {dice} с учётом своего срока. */
 export function rechargeEntry(item) {
   const r = rechargeBase(item), m = mechOf(item).recharge;
-  return r && m !== false ? { dice: m ?? r.dice } : null;
+  return r && m !== false ? { dice: m ?? r.dice, ids: r.ids } : null;
 }
 
 /** Форма окна: {recharge:{off,dice}, req:{off}, strike:{off}, maneuvers:{auto,list:{ключ: bool}}, permanent:{off}}. */

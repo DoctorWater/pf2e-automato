@@ -22,6 +22,14 @@
     }
    ]
   },
+  "Compendium.pf2e.feats-srd.Item.80TAzC8XeFKRl7t5": {
+   "any": [
+    {
+     "k": "strike",
+     "melee": true
+    }
+   ]
+  },
   "Compendium.pf2e.feats-srd.Item.9yko78REsaw7i2gr": {
    "any": [
     {
@@ -47,6 +55,14 @@
    "any": [
     {
      "k": "hand"
+    }
+   ]
+  },
+  "Compendium.pf2e.feats-srd.Item.U3A0kqJ2HKBYiu7X": {
+   "any": [
+    {
+     "k": "strike",
+     "name": "claw"
     }
    ]
   },
@@ -92,20 +108,6 @@
     }
    ]
   },
-  "Compendium.pf2e.feats-srd.Item.iMeXYpghydBEt2Q6": {
-   "any": [
-    {
-     "k": "holds"
-    }
-   ]
-  },
-  "Compendium.pf2e.feats-srd.Item.iqUYhZNcixYw0xUW": {
-   "any": [
-    {
-     "k": "holds"
-    }
-   ]
-  },
   "Compendium.pf2e.feats-srd.Item.lMA3F9SGzGV79P5C": {
    "any": [
     {
@@ -121,6 +123,20 @@
    ]
   },
   "Compendium.pf2e.feats-srd.Item.mXQG0WtHHGVyJfZf": {
+   "any": [
+    {
+     "k": "holds"
+    }
+   ]
+  },
+  "Compendium.pf2e.feats-srd.Item.pVLdMOqYwul745k3": {
+   "any": [
+    {
+     "k": "strike"
+    }
+   ]
+  },
+  "Compendium.pf2e.feats-srd.Item.si8FGX2ZRxetdVHp": {
    "any": [
     {
      "k": "holds"
@@ -155,7 +171,221 @@
     }
    ]
   },
+  "Compendium.pf2e.bestiary-ability-glossary-srd.Item.6l7e7CHQLESlI57U": {
+   "any": [
+    {
+     "k": "strike",
+     "fx": "improved-push"
+    }
+   ]
+  },
+  "Compendium.pf2e.bestiary-ability-glossary-srd.Item.BCLvAx4Pz4MLa2pu": {
+   "any": [
+    {
+     "k": "strike",
+     "fx": "knockdown"
+    }
+   ]
+  },
+  "Compendium.pf2e.bestiary-ability-glossary-srd.Item.BYF0XL1ZtdkRda3u": {
+   "any": [
+    {
+     "k": "strike",
+     "fx": "pull"
+    }
+   ]
+  },
+  "Compendium.pf2e.bestiary-ability-glossary-srd.Item.LbnsT8yXchHMQT3t": {
+   "any": [
+    {
+     "k": "strike",
+     "fx": "improved-knockdown"
+    }
+   ]
+  },
+  "Compendium.pf2e.bestiary-ability-glossary-srd.Item.Tkd8sH4pwFIPzqTr": {
+   "any": [
+    {
+     "k": "strike",
+     "fx": "grab"
+    },
+    {
+     "k": "holds"
+    }
+   ]
+  },
+  "Compendium.pf2e.bestiary-ability-glossary-srd.Item.i18TlebMzwONyPhI": {
+   "any": [
+    {
+     "k": "strike",
+     "fx": "improved-grab"
+    },
+    {
+     "k": "holds"
+    }
+   ]
+  },
+  "Compendium.pf2e.bestiary-ability-glossary-srd.Item.t6cx9FOODmeZQNYl": {
+   "any": [
+    {
+     "k": "strike",
+     "fx": "push"
+    }
+   ]
+  },
+  "Compendium.pf2e.bestiary-family-ability-glossary.Item.98twzz56mMGN5Ftw": {
+   "any": [
+    {
+     "k": "strike",
+     "name": "fangs"
+    }
+   ]
+  },
+  "Compendium.pf2e.bestiary-family-ability-glossary.Item.EsbdyB9DwvPvhCCC": {
+   "any": [
+    {
+     "k": "strike",
+     "name": "claw"
+    }
+   ]
+  },
+  "Compendium.pf2e.bestiary-family-ability-glossary.Item.GpKQH8hnSYWiyuQU": {
+   "any": [
+    {
+     "k": "strike",
+     "name": "fangs"
+    }
+   ]
+  },
+  "Compendium.pf2e.abomination-vaults-bestiary.Actor.5iuvJLceeLJPlR8O.Item.Hczu635vDDik3NIJ": {
+   "any": [
+    {
+     "k": "strike",
+     "fx": "grab"
+    },
+    {
+     "k": "holds"
+    }
+   ]
+  },
+  "Compendium.pf2e.abomination-vaults-bestiary.Actor.78Vf1Lk9ph2RGDgL.Item.9Eh0XQSnJ9rPgQ3d": {
+   "any": [
+    {
+     "k": "strike",
+     "fx": "push"
+    }
+   ]
+  },
+  "Compendium.pf2e.abomination-vaults-bestiary.Actor.Np787X9Z4aQxOdCg.Item.XrEqDkgs6eaCAzhM": {
+   "any": [
+    {
+     "k": "strike",
+     "name": "jaws"
+    }
+   ]
+  },
+  "Compendium.pf2e.abomination-vaults-bestiary.Actor.OTT7CCkonkfwhJ8Y.Item.dFO4VUU2D6u32L0j": {
+   "any": [
+    {
+     "k": "strike",
+     "name": "jaws"
+    }
+   ]
+  },
+  "Compendium.pf2e.abomination-vaults-bestiary.Actor.Sbxt8YT0AOFfVCPX.Item.N1zdZTTLXEp3x5eJ": {
+   "any": [
+    {
+     "k": "strike",
+     "name": "jaws"
+    }
+   ]
+  },
+  "Compendium.pf2e.abomination-vaults-bestiary.Actor.k4fVLtVrgIEg9xij.Item.eGvWOYTY1N6i6QpT": {
+   "any": [
+    {
+     "k": "holds"
+    }
+   ]
+  },
+  "Compendium.pf2e.abomination-vaults-bestiary.Actor.mrxDc0fj5t5CvjJQ.Item.QaDq4G70qrufNlS5": {
+   "any": [
+    {
+     "k": "holds"
+    }
+   ]
+  },
+  "Compendium.pf2e.abomination-vaults-bestiary.Actor.qXT1SQDtGqMkVl7Q.Item.taKy6ih4jlHzjBsw": {
+   "any": [
+    {
+     "k": "holds"
+    }
+   ]
+  },
+  "Compendium.pf2e.abomination-vaults-bestiary.Actor.qoyopMMlRdgPAbXZ.Item.7wW5Mpc0dnnQnoko": {
+   "any": [
+    {
+     "k": "strike",
+     "name": "jaws"
+    }
+   ]
+  },
+  "Compendium.pf2e.abomination-vaults-bestiary.Actor.tXfiVIThQlBT6B1H.Item.xze5oFK48fMv2xBU": {
+   "any": [
+    {
+     "k": "holds"
+    }
+   ]
+  },
+  "Compendium.pf2e.abomination-vaults-bestiary.Actor.tZCFmJonHkhGg1Vs.Item.WAo4NMhw8o3YpQGq": {
+   "any": [
+    {
+     "k": "strike",
+     "name": "jaws"
+    }
+   ]
+  },
+  "Compendium.pf2e.abomination-vaults-bestiary.Actor.xj1Qn0VA4H4aKSjW.Item.mSS5Nol0cifKQmxM": {
+   "any": [
+    {
+     "k": "strike",
+     "fx": "knockdown"
+    }
+   ]
+  },
+  "Compendium.pf2e.age-of-ashes-bestiary.Actor.5r2S6FeE6D1Oh66T.Item.dfNLOS9TpYGudTfO": {
+   "any": [
+    {
+     "k": "strike",
+     "fx": "improved-grab"
+    },
+    {
+     "k": "holds"
+    }
+   ]
+  },
+  "Compendium.pf2e.age-of-ashes-bestiary.Actor.sY47PB9b7nCJjgRq.Item.zhwIQhGc33778Khq": {
+   "any": [
+    {
+     "k": "strike",
+     "fx": "improved-push"
+    }
+   ]
+  },
   "Compendium.pf2e.agents-of-edgewatch-bestiary.Actor.8jjEOs99Bmo1v0Qc.Item.8qsC3gMbkSTTQOdY": {
+   "any": [
+    {
+     "k": "holds"
+    }
+   ]
+  },
+  "Compendium.pf2e.agents-of-edgewatch-bestiary.Actor.zrh3MrS68H2gPlVs.Item.zMxrSkK2U9CDEp0u": {
+   "any": [
+    {
+     "k": "holds"
+    }
+   ]
+  },
+  "Compendium.pf2e.battlecry-bestiary.Actor.JLIdUna25mDtAdLM.Item.R5Bjje08NjUYnNrh": {
    "any": [
     {
      "k": "holds"
@@ -169,10 +399,127 @@
     }
    ]
   },
+  "Compendium.pf2e.book-of-the-dead-bestiary.Actor.c6qRZuHQ7RHJEAtj.Item.ukiq9bqccfjpoc72": {
+   "any": [
+    {
+     "k": "holds"
+    }
+   ]
+  },
+  "Compendium.pf2e.book-of-the-dead-bestiary.Actor.c6qRZuHQ7RHJEAtj.Item.rt3cft7ln3rvinzi": {
+   "any": [
+    {
+     "k": "holds"
+    }
+   ]
+  },
+  "Compendium.pf2e.book-of-the-dead-bestiary.Actor.mL4l2kwPPSMKwzQo.Item.1cs7olyf6afhvxbc": {
+   "any": [
+    {
+     "k": "strike",
+     "name": "claw"
+    }
+   ]
+  },
+  "Compendium.pf2e.book-of-the-dead-bestiary.Actor.vOuiG3tRcr8yL4jh.Item.wbqipaniohqje45s": {
+   "any": [
+    {
+     "k": "holds"
+    }
+   ]
+  },
+  "Compendium.pf2e.book-of-the-dead-bestiary.Actor.vvxnRuYBU2uCBPPI.Item.fzpmews5ufzi1k6e": {
+   "any": [
+    {
+     "k": "holds"
+    }
+   ]
+  },
+  "Compendium.pf2e.blood-lords-bestiary.Actor.SUTCBq10R5kEdvon.Item.ADrQBVUQrZ1uGx5s": {
+   "any": [
+    {
+     "k": "holds"
+    }
+   ]
+  },
+  "Compendium.pf2e.blood-lords-bestiary.Actor.duqhXs5SXmvSC1uI.Item.VV1cgiDjco87IMUF": {
+   "any": [
+    {
+     "k": "holds"
+    }
+   ]
+  },
   "Compendium.pf2e.blood-lords-bestiary.Actor.zYY1lFk4tole9Lx5.Item.JMxq3ADBC01HJnMz": {
    "any": [
     {
      "k": "holds"
+    }
+   ]
+  },
+  "Compendium.pf2e.blog-bestiary.Actor.PVLDkCH0syWw8ArW.Item.Vt0eJprvNyKKYKAO": {
+   "any": [
+    {
+     "k": "holds"
+    }
+   ]
+  },
+  "Compendium.pf2e.curtain-call-bestiary.Actor.ftKv0WsRlX7uasez.Item.ULXJv8rgzPh8vlRK": {
+   "any": [
+    {
+     "k": "hand"
+    }
+   ]
+  },
+  "Compendium.pf2e.dawn-of-the-frogs.Actor.rB5PGOKN1b8SukWs.Item.ZjdvKd95B10scSVO": {
+   "any": [
+    {
+     "k": "holds"
+    }
+   ]
+  },
+  "Compendium.pf2e.extinction-curse-bestiary.Actor.5G8Iokror8QtBhbx.Item.L7PvaYLhErs0eOxg": {
+   "any": [
+    {
+     "k": "strike",
+     "name": "jaws"
+    }
+   ]
+  },
+  "Compendium.pf2e.extinction-curse-bestiary.Actor.DJyAXPHQy7OUUw00.Item.IeoEKCfC28dShDCr": {
+   "any": [
+    {
+     "k": "holds"
+    }
+   ]
+  },
+  "Compendium.pf2e.extinction-curse-bestiary.Actor.I31kJb0DRkzTn8iX.Item.wnbjJLnvmvIEGia9": {
+   "any": [
+    {
+     "k": "holds"
+    }
+   ]
+  },
+  "Compendium.pf2e.extinction-curse-bestiary.Actor.IRon2oG76IG28Z4m.Item.fQBkHuE4KEzg86Bk": {
+   "any": [
+    {
+     "k": "strike",
+     "name": "jaws"
+    }
+   ]
+  },
+  "Compendium.pf2e.extinction-curse-bestiary.Actor.PYvtflsrA9ITevEq.Item.AKIZnRoLY7lsf9VG": {
+   "any": [
+    {
+     "k": "strike",
+     "name": "jaws"
+    }
+   ]
+  },
+  "Compendium.pf2e.extinction-curse-bestiary.Actor.f4H9d0b1vJvxeFqs.Item.68ILx13H6RgkuEJO": {
+   "any": [
+    {
+     "k": "strike",
+     "fx": "improved-knockdown"
     }
    ]
   },
@@ -184,11 +531,173 @@
     }
    ]
   },
+  "Compendium.pf2e.fists-of-the-ruby-phoenix-bestiary.Actor.9WcpNMJJqF3cLTqT.Item.fkempowsMrEXyJXO": {
+   "any": [
+    {
+     "k": "holds"
+    }
+   ]
+  },
+  "Compendium.pf2e.fists-of-the-ruby-phoenix-bestiary.Actor.9WcpNMJJqF3cLTqT.Item.9IuYBABfjiSu0kC2": {
+   "any": [
+    {
+     "k": "holds"
+    }
+   ]
+  },
+  "Compendium.pf2e.fists-of-the-ruby-phoenix-bestiary.Actor.DW4UFHXzExWwvEuH.Item.P5b8rs3EYXgPccBp": {
+   "any": [
+    {
+     "k": "strike",
+     "fx": "push"
+    }
+   ]
+  },
+  "Compendium.pf2e.fists-of-the-ruby-phoenix-bestiary.Actor.XN2uksGMgndh1jSP.Item.fkempowsMrEXyJXO": {
+   "any": [
+    {
+     "k": "holds"
+    }
+   ]
+  },
+  "Compendium.pf2e.fists-of-the-ruby-phoenix-bestiary.Actor.XN2uksGMgndh1jSP.Item.J5cP8MRBTAdyZFDq": {
+   "any": [
+    {
+     "k": "holds"
+    }
+   ]
+  },
+  "Compendium.pf2e.fists-of-the-ruby-phoenix-bestiary.Actor.qW8stNdPqQwibYQz.Item.Wq0tXT7R1PLOveLy": {
+   "any": [
+    {
+     "k": "holds"
+    }
+   ]
+  },
+  "Compendium.pf2e.fists-of-the-ruby-phoenix-bestiary.Actor.sXtwJyM7sWWDQDOU.Item.u7scaVmZv7OcdftY": {
+   "any": [
+    {
+     "k": "holds"
+    }
+   ]
+  },
+  "Compendium.pf2e.fists-of-the-ruby-phoenix-bestiary.Actor.tu64qeuTiIGHtvgR.Item.h9ndHHINJMlDfWGF": {
+   "any": [
+    {
+     "k": "holds"
+    }
+   ]
+  },
+  "Compendium.pf2e.howl-of-the-wild-bestiary.Actor.IaTdqm2wFMKkogEC.Item.sSN3mmNLTMy2tN16": {
+   "any": [
+    {
+     "k": "strike",
+     "name": "trident"
+    }
+   ]
+  },
+  "Compendium.pf2e.howl-of-the-wild-bestiary.Actor.NYRk2xqxid0lfNka.Item.9y73RR8Oukdu0LR2": {
+   "any": [
+    {
+     "k": "holds"
+    }
+   ]
+  },
+  "Compendium.pf2e.howl-of-the-wild-bestiary.Actor.TMYd4qao23PYSnOT.Item.1rzp0hsF26PBfH7z": {
+   "any": [
+    {
+     "k": "holds"
+    }
+   ]
+  },
+  "Compendium.pf2e.howl-of-the-wild-bestiary.Actor.iTEmT3ld9s0w0luF.Item.zaf8s9pW0xZzJfak": {
+   "any": [
+    {
+     "k": "holds"
+    }
+   ]
+  },
+  "Compendium.pf2e.howl-of-the-wild-bestiary.Actor.ljcMqo6PKDxsmoth.Item.wxslfNkCD8uhnRZR": {
+   "any": [
+    {
+     "k": "holds"
+    }
+   ]
+  },
+  "Compendium.pf2e.hells-destiny-bestiary.Actor.GCaffz5WyKsrVPpo.Item.STEyNXW7QT0KWkEd": {
+   "any": [
+    {
+     "k": "hand"
+    }
+   ]
+  },
+  "Compendium.pf2e.hells-destiny-bestiary.Actor.Gl5VnhnelHLLaYlg.Item.yuHtd3dZiga0Vher": {
+   "any": [
+    {
+     "k": "holds"
+    }
+   ]
+  },
+  "Compendium.pf2e.hells-destiny-bestiary.Actor.NR6G3uioSuMeR3IP.Item.laK5xcmidx9ZfWhW": {
+   "any": [
+    {
+     "k": "holds"
+    }
+   ]
+  },
+  "Compendium.pf2e.bastion-of-blasphemies-bestiary.Actor.YUJG5Ou3TJvt1eGI.Item.hRe9IdRSmE4txuXv": {
+   "any": [
+    {
+     "k": "strike",
+     "name": "claw"
+    }
+   ]
+  },
   "Compendium.pf2e.lost-omens-bestiary.Actor.2N2f6ENAUP8ep1oC.Item.ziLlC72C8I0Wzi0O": {
    "any": [
     {
      "k": "strike",
      "fx": "pull"
+    }
+   ]
+  },
+  "Compendium.pf2e.lost-omens-bestiary.Actor.2N2f6ENAUP8ep1oC.Item.PtitKdSjt0bwPURn": {
+   "any": [
+    {
+     "k": "strike",
+     "fx": "push"
+    }
+   ]
+  },
+  "Compendium.pf2e.lost-omens-bestiary.Actor.3sbe5lTQfIZkPquh.Item.65AQUaUatqsU92AG": {
+   "any": [
+    {
+     "k": "strike",
+     "name": "tail"
+    }
+   ]
+  },
+  "Compendium.pf2e.lost-omens-bestiary.Actor.6K4chQTwgPmgCbP2.Item.IzXjSv67lZ3QUDrN": {
+   "any": [
+    {
+     "k": "strike",
+     "fx": "push"
+    }
+   ]
+  },
+  "Compendium.pf2e.lost-omens-bestiary.Actor.7RTjMCDWQVc6MKNI.Item.IIeAsY2cfPE6Y8lf": {
+   "any": [
+    {
+     "k": "strike",
+     "name": "jaws"
+    }
+   ]
+  },
+  "Compendium.pf2e.lost-omens-bestiary.Actor.9nlzGyizQI7E5fwg.Item.65AQUaUatqsU92AG": {
+   "any": [
+    {
+     "k": "strike",
+     "name": "tail"
     }
    ]
   },
@@ -200,21 +709,96 @@
     }
    ]
   },
-  "Compendium.pf2e.lost-omens-bestiary.Actor.JX7k6wFmZLqNjK0k.Item.pMQ28lQ60vVdkeIJ": {
+  "Compendium.pf2e.lost-omens-bestiary.Actor.Bi6bi9Ko5x9OJfDT.Item.gcojaca3fqyl8xym": {
    "any": [
     {
      "k": "holds"
     }
    ]
   },
-  "Compendium.pf2e.lost-omens-bestiary.Actor.Oefb1ZCYp2DolpZr.Item.vudcfpUT9un2pDOP": {
+  "Compendium.pf2e.lost-omens-bestiary.Actor.GP61YtH3RvicMTkf.Item.bOckATMy7Gg6950n": {
    "any": [
     {
      "k": "holds"
+    }
+   ]
+  },
+  "Compendium.pf2e.lost-omens-bestiary.Actor.Jj1jy7fA2Dl0MT3w.Item.XBIGgIOOW7lMHfXX": {
+   "any": [
+    {
+     "k": "strike",
+     "fx": "push"
+    }
+   ]
+  },
+  "Compendium.pf2e.lost-omens-bestiary.Actor.K3jY2g1WUk17Of8U.Item.B3ruyvS6l8vioWPg": {
+   "any": [
+    {
+     "k": "strike",
+     "fx": "improved-push"
+    }
+   ]
+  },
+  "Compendium.pf2e.lost-omens-bestiary.Actor.KcwFM5tI2R4jDalx.Item.7LYmhvwzlBlTvNPX": {
+   "any": [
+    {
+     "k": "strike",
+     "name": "jaws"
+    }
+   ]
+  },
+  "Compendium.pf2e.lost-omens-bestiary.Actor.LIW4SiPSJptMfg8H.Item.wH0ytU3YH1xHLlxr": {
+   "any": [
+    {
+     "k": "holds"
+    }
+   ]
+  },
+  "Compendium.pf2e.lost-omens-bestiary.Actor.LIW4SiPSJptMfg8H.Item.xZNEdv6GiUIkDBZV": {
+   "any": [
+    {
+     "k": "holds"
+    }
+   ]
+  },
+  "Compendium.pf2e.lost-omens-bestiary.Actor.N3OJ0wxik4wEgTg7.Item.4zyl6wd0lae8unq2": {
+   "any": [
+    {
+     "k": "holds"
+    }
+   ]
+  },
+  "Compendium.pf2e.lost-omens-bestiary.Actor.Rv00aMx8DbRcDAEj.Item.dT3FOZRWs8QKOU64": {
+   "any": [
+    {
+     "k": "strike",
+     "fx": "improved-push"
     }
    ]
   },
   "Compendium.pf2e.lost-omens-bestiary.Actor.qcdNzMiO3XxPHLPJ.Item.4iaxu838e8rhts74": {
+   "any": [
+    {
+     "k": "holds"
+    }
+   ]
+  },
+  "Compendium.pf2e.malevolence-bestiary.Actor.YSL27Oq2xFIzrq9u.Item.5RVQgrRnkm4C0Y2q": {
+   "any": [
+    {
+     "k": "strike",
+     "name": "hand-drill"
+    }
+   ]
+  },
+  "Compendium.pf2e.outlaws-of-alkenstar-bestiary.Actor.Lck0FIlp4kLFeLfg.Item.yilyxv07jwc7n5mn": {
+   "any": [
+    {
+     "k": "holds"
+    }
+   ]
+  },
+  "Compendium.pf2e.outlaws-of-alkenstar-bestiary.Actor.e2YnAE6qJUkGRS6p.Item.tQjMpBeQj8FRSFqM": {
    "any": [
     {
      "k": "holds"
@@ -229,28 +813,59 @@
     }
    ]
   },
-  "Compendium.pf2e.kingmaker-bestiary.Actor.Cj2zn7JazTB9ZnIq.Item.XU7E8CJIc6dwyRml": {
+  "Compendium.pf2e.kingmaker-bestiary.Actor.AjpJNvt4nwzDAhqT.Item.klmOYsNgGYaAMROh": {
    "any": [
     {
      "k": "strike"
     }
    ]
   },
-  "Compendium.pf2e.kingmaker-bestiary.Actor.lZtkMlyix3kaTO0j.Item.vudcfpUT9un2pDOP": {
+  "Compendium.pf2e.kingmaker-bestiary.Actor.Cj2zn7JazTB9ZnIq.Item.XU7E8CJIc6dwyRml": {
+   "any": [
+    {
+     "k": "strike",
+     "melee": true
+    }
+   ]
+  },
+  "Compendium.pf2e.kingmaker-bestiary.Actor.L6ANJQoCyk5dWcdH.Item.MGX1U8Kv59BVYAOI": {
+   "any": [
+    {
+     "k": "strike",
+     "fx": "push"
+    }
+   ]
+  },
+  "Compendium.pf2e.kingmaker-bestiary.Actor.NSY6VAGs9VrKzyRX.Item.2c38HSvjdnaJgeI2": {
+   "any": [
+    {
+     "k": "strike"
+    }
+   ]
+  },
+  "Compendium.pf2e.kingmaker-bestiary.Actor.UqUj1IF3vCFuXYqb.Item.tDvcon2bK9xEGh90": {
    "any": [
     {
      "k": "holds"
     }
    ]
   },
-  "Compendium.pf2e.kingmaker-bestiary.Actor.xqTVUqUs5UsGcSuH.Item.vudcfpUT9un2pDOP": {
+  "Compendium.pf2e.kingmaker-bestiary.Actor.pfvUhfy0VHNlTyvN.Item.sfWdhP3dRBdtmiol": {
    "any": [
     {
      "k": "holds"
     }
    ]
   },
-  "Compendium.pf2e.pathfinder-bestiary.Actor.X03vq2RWi2jiA6Ri.Item.vudcfpUT9un2pDOP": {
+  "Compendium.pf2e.pathfinder-bestiary.Actor.6UczvqBDlGNXcIlW.Item.Y9YG23TX2Se8zYaw": {
+   "any": [
+    {
+     "k": "strike",
+     "fx": "push"
+    }
+   ]
+  },
+  "Compendium.pf2e.pathfinder-bestiary.Actor.aD76W2uEQhFFUrom.Item.uOtLx35G2OFWHztX": {
    "any": [
     {
      "k": "holds"
@@ -265,11 +880,26 @@
     }
    ]
   },
+  "Compendium.pf2e.pathfinder-bestiary-2.Actor.WxSpfUReYJb4StxG.Item.mqsn67bFzywwGQ10": {
+   "any": [
+    {
+     "k": "holds"
+    }
+   ]
+  },
   "Compendium.pf2e.pathfinder-bestiary-2.Actor.e0PXAtnDnJo4ggFX.Item.pTjXZs6ZwSF31KLb": {
    "any": [
     {
      "k": "strike",
      "name": "fangs"
+    }
+   ]
+  },
+  "Compendium.pf2e.pathfinder-bestiary-2.Actor.i8C4jqI3VdozylBL.Item.rQn75QJUJH2hQKpE": {
+   "any": [
+    {
+     "k": "strike",
+     "name": "spiked-chain"
     }
    ]
   },
@@ -281,8 +911,78 @@
     }
    ]
   },
+  "Compendium.pf2e.pathfinder-bestiary-3.Actor.V9SxfxUgljJR9xx5.Item.S7uNAygkE7sTVfcL": {
+   "any": [
+    {
+     "k": "holds"
+    }
+   ]
+  },
+  "Compendium.pf2e.pathfinder-bestiary-3.Actor.gQkqsdfkmws4oADW.Item.3SJ0K1VlKcITVMvi": {
+   "any": [
+    {
+     "k": "holds"
+    }
+   ]
+  },
+  "Compendium.pf2e.pathfinder-bestiary-3.Actor.sgZGrUQrfH3QPdXF.Item.yipkwbXsFDd1t15w": {
+   "any": [
+    {
+     "k": "strike",
+     "name": "hand"
+    }
+   ]
+  },
+  "Compendium.pf2e.pathfinder-monster-core.Actor.1AZoRkLec47xrTqY.Item.kZqLmEhJGdtImTFg": {
+   "any": [
+    {
+     "k": "strike",
+     "fx": "push"
+    }
+   ]
+  },
   "Compendium.pf2e.pathfinder-monster-core.Actor.2rMLYkUR47ZCQMUg.Item.WLCM7iPJWfoRusL5": {
    "any": [
+    {
+     "k": "holds"
+    }
+   ]
+  },
+  "Compendium.pf2e.pathfinder-monster-core.Actor.9rXYGu7D3umIW1sv.Item.a4bag8JDNGO7xCiD": {
+   "any": [
+    {
+     "k": "strike",
+     "name": "jaws"
+    }
+   ]
+  },
+  "Compendium.pf2e.pathfinder-monster-core.Actor.BPznJcLvfkpfeQ2q.Item.tDvcon2bK9xEGh90": {
+   "any": [
+    {
+     "k": "holds"
+    }
+   ]
+  },
+  "Compendium.pf2e.pathfinder-monster-core.Actor.D2Pe38jYbeBxUaxU.Item.LuxUX599os0xTuFk": {
+   "any": [
+    {
+     "k": "holds"
+    }
+   ]
+  },
+  "Compendium.pf2e.pathfinder-monster-core.Actor.Hl1Nnnda8KSf0Obp.Item.abGmJgduMKED2VeX": {
+   "any": [
+    {
+     "k": "holds"
+    }
+   ]
+  },
+  "Compendium.pf2e.pathfinder-monster-core.Actor.KH1GkazaI59zftst.Item.iThujq9Fhag6Jad2": {
+   "any": [
+    {
+     "k": "strike",
+     "fx": "grab"
+    },
     {
      "k": "holds"
     }
@@ -296,6 +996,48 @@
     }
    ]
   },
+  "Compendium.pf2e.pathfinder-monster-core.Actor.R427CMT90S7fv7MY.Item.MGX1U8Kv59BVYAOI": {
+   "any": [
+    {
+     "k": "strike",
+     "fx": "push"
+    }
+   ]
+  },
+  "Compendium.pf2e.pathfinder-monster-core.Actor.VDm2XhfNwhgiJOxD.Item.2ptgmxQgkaL3QGYF": {
+   "any": [
+    {
+     "k": "strike",
+     "name": "claw"
+    }
+   ]
+  },
+  "Compendium.pf2e.pathfinder-monster-core.Actor.XZWUQklzWF6YFPmG.Item.uvteCuJBp9CEBvPJ": {
+   "any": [
+    {
+     "k": "strike",
+     "name": "fist"
+    }
+   ]
+  },
+  "Compendium.pf2e.pathfinder-monster-core.Actor.aYDbWuOj66nve8r4.Item.kvbp3xXviiIXnVhS": {
+   "any": [
+    {
+     "k": "strike",
+     "fx": "grab"
+    },
+    {
+     "k": "holds"
+    }
+   ]
+  },
+  "Compendium.pf2e.pathfinder-monster-core.Actor.hvVFocY8r72XEaqQ.Item.p4F4jzZzQp6LGCex": {
+   "any": [
+    {
+     "k": "holds"
+    }
+   ]
+  },
   "Compendium.pf2e.pathfinder-monster-core.Actor.pH2yNe16EnoJ8R0i.Item.qtXj0TB36n30L7my": {
    "any": [
     {
@@ -304,28 +1046,326 @@
     }
    ]
   },
-  "Compendium.pf2e.pathfinder-monster-core-2.Actor.zstEJQKVAKoMskcM.Item.4OphdUKxBpxPyBKN": {
+  "Compendium.pf2e.pathfinder-monster-core.Actor.uNNOQFvuMq8ZsQkn.Item.6inoR3FiOAzUbSZ8": {
+   "any": [
+    {
+     "k": "strike",
+     "name": "jaws"
+    }
+   ]
+  },
+  "Compendium.pf2e.pathfinder-monster-core-2.Actor.8bis5VcFFHugSfK0.Item.1142CqLLygLktTLn": {
    "any": [
     {
      "k": "holds"
     }
    ]
   },
-  "Compendium.pf2e.pfs-season-2-bestiary.Actor.M1mbQnk40lu1lxdr.Item.0Vv2R9JCAdMBeLqh": {
+  "Compendium.pf2e.pathfinder-monster-core-2.Actor.8bis5VcFFHugSfK0.Item.ODWvzxWcMmuzxAtP": {
    "any": [
     {
      "k": "holds"
     }
    ]
   },
-  "Compendium.pf2e.pfs-season-4-bestiary.Actor.2rEw46Ye8jWPkXys.Item.cYpzRpaINHeW2XxC": {
+  "Compendium.pf2e.pathfinder-monster-core-2.Actor.BiIAxNkNqSlDf8Mp.Item.2JP7ZbSsTYsLb6ux": {
+   "any": [
+    {
+     "k": "holds"
+    }
+   ]
+  },
+  "Compendium.pf2e.pathfinder-monster-core-2.Actor.Fyzj8WVOlsuTWTTU.Item.LdhQrUO09um9htY6": {
+   "any": [
+    {
+     "k": "holds"
+    }
+   ]
+  },
+  "Compendium.pf2e.pathfinder-monster-core-2.Actor.H9P2QB311Qi5IwUo.Item.M7bSwayItCZu1H43": {
+   "any": [
+    {
+     "k": "holds"
+    }
+   ]
+  },
+  "Compendium.pf2e.pathfinder-monster-core-2.Actor.Hc3WmoUIoGTKttiP.Item.iUp9yAT10jv9n1Wu": {
    "any": [
     {
      "k": "hand"
     }
    ]
   },
+  "Compendium.pf2e.pathfinder-monster-core-2.Actor.Jxp6YG8S7st2MZ3p.Item.h2NpqvLh1k4IP42K": {
+   "any": [
+    {
+     "k": "strike",
+     "name": "jaws"
+    }
+   ]
+  },
+  "Compendium.pf2e.pathfinder-monster-core-2.Actor.LwpPOXWeDY2KkL9l.Item.XHAPOvUbe2eKOW7E": {
+   "any": [
+    {
+     "k": "holds"
+    }
+   ]
+  },
+  "Compendium.pf2e.pathfinder-monster-core-2.Actor.Pmgt9aAtUiLEagD6.Item.rp7W1idjRAxDkaW3": {
+   "any": [
+    {
+     "k": "strike",
+     "name": "jaws"
+    }
+   ]
+  },
+  "Compendium.pf2e.pathfinder-monster-core-2.Actor.TWr3kyBo1FhAX2oH.Item.6KvIkhBbUU6e1rTa": {
+   "any": [
+    {
+     "k": "holds"
+    }
+   ]
+  },
+  "Compendium.pf2e.pathfinder-monster-core-2.Actor.V96EY8vLy7alnun9.Item.sfWdhP3dRBdtmiol": {
+   "any": [
+    {
+     "k": "holds"
+    }
+   ]
+  },
+  "Compendium.pf2e.pathfinder-monster-core-2.Actor.XVEpt8dz9fMBXROb.Item.OB3ZWGUreeenpfwH": {
+   "any": [
+    {
+     "k": "holds"
+    }
+   ]
+  },
+  "Compendium.pf2e.pathfinder-monster-core-2.Actor.dZEC0cMT0CvCOrl2.Item.ycGzzDkl7WG1FIsA": {
+   "any": [
+    {
+     "k": "strike",
+     "name": "war-flail"
+    }
+   ]
+  },
+  "Compendium.pf2e.pathfinder-monster-core-2.Actor.hfrQX3e691B8sgTR.Item.c1QNAgPGujN03z8P": {
+   "any": [
+    {
+     "k": "strike",
+     "name": "rapier"
+    }
+   ]
+  },
+  "Compendium.pf2e.pathfinder-monster-core-2.Actor.kqbvkWsmrnlziWNp.Item.yVkFmFVbB6g9Iyno": {
+   "any": [
+    {
+     "k": "holds"
+    }
+   ]
+  },
+  "Compendium.pf2e.pathfinder-monster-core-2.Actor.mno9JBZ1XgEHo6m4.Item.43gvQaRJhhjmfG3Z": {
+   "any": [
+    {
+     "k": "holds"
+    }
+   ]
+  },
+  "Compendium.pf2e.pathfinder-monster-core-2.Actor.ogW5nGL2kXGqVwzm.Item.lo1Mlm6FvPPWSnpf": {
+   "any": [
+    {
+     "k": "holds"
+    }
+   ]
+  },
+  "Compendium.pf2e.pathfinder-monster-core-2.Actor.pMNBNo8VMAJdlhN3.Item.H721NOrTIOeioelo": {
+   "any": [
+    {
+     "k": "strike",
+     "name": "fangs"
+    }
+   ]
+  },
+  "Compendium.pf2e.pathfinder-monster-core-2.Actor.pMNBNo8VMAJdlhN3.Item.fXMpxHG2C32hSvaS": {
+   "any": [
+    {
+     "k": "strike",
+     "name": "claw"
+    }
+   ]
+  },
+  "Compendium.pf2e.pathfinder-monster-core-2.Actor.rchfzUI2MVOVp56K.Item.IaD2pUNFtlJ6DWiS": {
+   "any": [
+    {
+     "k": "strike",
+     "name": "fangs"
+    }
+   ]
+  },
+  "Compendium.pf2e.pathfinder-monster-core-2.Actor.s6A2tdZ3r3uOLca1.Item.yJ8dDwM4sX2nS4UR": {
+   "any": [
+    {
+     "k": "holds"
+    }
+   ]
+  },
+  "Compendium.pf2e.pathfinder-monster-core-2.Actor.zYVxMOCM8Yqnjn6T.Item.1LFp8O8agv2KqacK": {
+   "any": [
+    {
+     "k": "holds"
+    }
+   ]
+  },
+  "Compendium.pf2e.pathfinder-npc-core.Actor.94fOoBeUT8PgTywH.Item.OkhA2ahcwNqlYweN": {
+   "any": [
+    {
+     "k": "strike",
+     "name": "halberd"
+    }
+   ]
+  },
+  "Compendium.pf2e.pathfinder-npc-core.Actor.UTDcZPzjM6D26MZK.Item.Epuaahg9qkvoUAXW": {
+   "any": [
+    {
+     "k": "strike",
+     "name": "trident",
+     "melee": true
+    }
+   ]
+  },
+  "Compendium.pf2e.pathfinder-npc-core.Actor.Vi0Ydmt5JGqjWhpA.Item.GQG8SpRzw32r0PWq": {
+   "any": [
+    {
+     "k": "hand"
+    }
+   ]
+  },
+  "Compendium.pf2e.pathfinder-npc-core.Actor.bZRZahVaMyzTbJ4u.Item.hc2576PgevK5i1qc": {
+   "any": [
+    {
+     "k": "strike",
+     "name": "pitchfork"
+    }
+   ]
+  },
+  "Compendium.pf2e.pathfinder-npc-core.Actor.gJBsgTZnZnImelP2.Item.gPCVs0CaoNk7Gcne": {
+   "any": [
+    {
+     "k": "strike"
+    }
+   ]
+  },
+  "Compendium.pf2e.pathfinder-npc-core.Actor.iJSCvkA3XQgO8GjG.Item.XBt9rKjZc8zqJsL8": {
+   "any": [
+    {
+     "k": "strike",
+     "name": "javelin"
+    }
+   ]
+  },
+  "Compendium.pf2e.pathfinder-dark-archive.Actor.wmKvVsfc6Hg1Bj8I.Item.PSN0OsnaXCyM9qu3": {
+   "any": [
+    {
+     "k": "strike",
+     "name": "thrown-rope-dart"
+    }
+   ]
+  },
+  "Compendium.pf2e.pfs-season-1-bestiary.Actor.HffGyY6B9Kz20jOY.Item.vSdNGYtVD1Xw1F5Z": {
+   "any": [
+    {
+     "k": "holds"
+    }
+   ]
+  },
+  "Compendium.pf2e.pfs-season-1-bestiary.Actor.PQaQSSjfkoV9mZzi.Item.bx6K2TyP0v8pDNv2": {
+   "any": [
+    {
+     "k": "holds"
+    }
+   ]
+  },
+  "Compendium.pf2e.pfs-season-2-bestiary.Actor.O78tQX7291q1CADm.Item.eTTWHexqpmKAYC0k": {
+   "any": [
+    {
+     "k": "holds"
+    }
+   ]
+  },
+  "Compendium.pf2e.pfs-season-2-bestiary.Actor.dqPqUX69bPiVdMNG.Item.eTTWHexqpmKAYC0k": {
+   "any": [
+    {
+     "k": "holds"
+    }
+   ]
+  },
+  "Compendium.pf2e.pfs-season-2-bestiary.Actor.jFfxjbvNtfWyHHCK.Item.udwDeWvmYlXlPUV3": {
+   "any": [
+    {
+     "k": "strike",
+     "name": "jaws"
+    }
+   ]
+  },
+  "Compendium.pf2e.pfs-season-3-bestiary.Actor.YsF8TteK6XsThooV.Item.taKy6ih4jlHzjBsw": {
+   "any": [
+    {
+     "k": "holds"
+    }
+   ]
+  },
+  "Compendium.pf2e.pfs-season-3-bestiary.Actor.umiKZDfhNO3mXvEb.Item.1B06MXaKnsLFHT2T": {
+   "any": [
+    {
+     "k": "holds"
+    }
+   ]
+  },
+  "Compendium.pf2e.pfs-season-4-bestiary.Actor.c3YWo3zyPsybTYhC.Item.cVNNBjTmEEyKPfsI": {
+   "any": [
+    {
+     "k": "strike",
+     "name": "infested-touch"
+    }
+   ]
+  },
+  "Compendium.pf2e.pfs-season-4-bestiary.Actor.nr6qCJkCLNAZh5ED.Item.L6SWQmnHWcKt4MuR": {
+   "any": [
+    {
+     "k": "strike",
+     "name": "fist"
+    }
+   ]
+  },
+  "Compendium.pf2e.pfs-season-4-bestiary.Actor.z8or2fyRrPjNJL10.Item.fQBkHuE4KEzg86Bk": {
+   "any": [
+    {
+     "k": "strike",
+     "name": "jaws"
+    }
+   ]
+  },
   "Compendium.pf2e.pfs-season-5-bestiary.Actor.6H1jqrmwgQhOECTD.Item.WLCM7iPJWfoRusL5": {
+   "any": [
+    {
+     "k": "holds"
+    }
+   ]
+  },
+  "Compendium.pf2e.pfs-season-5-bestiary.Actor.99jIe6Kvy9kEDdde.Item.sfWdhP3dRBdtmiol": {
+   "any": [
+    {
+     "k": "holds"
+    }
+   ]
+  },
+  "Compendium.pf2e.pfs-season-5-bestiary.Actor.a91e870yzNM7jD93.Item.r6teXGTpnk5KmhOs": {
+   "any": [
+    {
+     "k": "holds"
+    }
+   ]
+  },
+  "Compendium.pf2e.pfs-season-5-bestiary.Actor.b7jGiIJ1JDrwb4FC.Item.r6teXGTpnk5KmhOs": {
    "any": [
     {
      "k": "holds"
@@ -340,11 +1380,74 @@
     }
    ]
   },
+  "Compendium.pf2e.pfs-season-6-bestiary.Actor.GusIY16q3q8pIzxz.Item.QlktgKrcecMqG2Sa": {
+   "any": [
+    {
+     "k": "strike",
+     "name": "tentacle"
+    }
+   ]
+  },
+  "Compendium.pf2e.pfs-season-6-bestiary.Actor.JlZ1fb2VF9IVPNdL.Item.QlktgKrcecMqG2Sa": {
+   "any": [
+    {
+     "k": "strike",
+     "name": "tentacle"
+    }
+   ]
+  },
+  "Compendium.pf2e.pfs-season-6-bestiary.Actor.NWbyushzs5cK2MUs.Item.QlktgKrcecMqG2Sa": {
+   "any": [
+    {
+     "k": "strike",
+     "name": "tentacle"
+    }
+   ]
+  },
+  "Compendium.pf2e.pfs-season-6-bestiary.Actor.O1fBhe8jHo27UZ5o.Item.QlktgKrcecMqG2Sa": {
+   "any": [
+    {
+     "k": "strike",
+     "name": "tentacle"
+    }
+   ]
+  },
+  "Compendium.pf2e.pfs-season-6-bestiary.Actor.XT0kYhTG6Xj81lFD.Item.QlktgKrcecMqG2Sa": {
+   "any": [
+    {
+     "k": "strike",
+     "name": "tentacle"
+    }
+   ]
+  },
+  "Compendium.pf2e.pfs-season-6-bestiary.Actor.fNCuPjbkZrkVxvUw.Item.QlktgKrcecMqG2Sa": {
+   "any": [
+    {
+     "k": "strike",
+     "name": "tentacle"
+    }
+   ]
+  },
+  "Compendium.pf2e.pfs-season-6-bestiary.Actor.mSlZIP1LoLTz0q0B.Item.QlktgKrcecMqG2Sa": {
+   "any": [
+    {
+     "k": "strike",
+     "name": "tentacle"
+    }
+   ]
+  },
   "Compendium.pf2e.pfs-season-6-bestiary.Actor.r0vzF6pSDGQ44FvX.Item.mdX3CwGRpvkhQnKY": {
    "any": [
     {
      "k": "strike",
      "name": "jaws"
+    }
+   ]
+  },
+  "Compendium.pf2e.prey-for-death-bestiary.Actor.TUIJIAnhjA3Hz2jn.Item.LBTZA9aVL3vEtUPK": {
+   "any": [
+    {
+     "k": "hand"
     }
    ]
   },
@@ -363,6 +1466,35 @@
     }
    ]
   },
+  "Compendium.pf2e.seven-dooms-for-sandpoint-bestiary.Actor.RRXHzISbHxLnvQ3q.Item.abGmJgduMKED2VeX": {
+   "any": [
+    {
+     "k": "holds"
+    }
+   ]
+  },
+  "Compendium.pf2e.sky-kings-tomb-bestiary.Actor.Ov0poDlLDxWkyJ9w.Item.jEBWrYllTSltcT9I": {
+   "any": [
+    {
+     "k": "holds"
+    }
+   ]
+  },
+  "Compendium.pf2e.sky-kings-tomb-bestiary.Actor.jJbVPd1M6RlZP8kA.Item.lFHwQgnVRAvluGo0": {
+   "any": [
+    {
+     "k": "hand"
+    }
+   ]
+  },
+  "Compendium.pf2e.sky-kings-tomb-bestiary.Actor.vyzatSrJ5IAUJh7O.Item.OPRoj24YVrWbVMu9": {
+   "any": [
+    {
+     "k": "strike",
+     "melee": true
+    }
+   ]
+  },
   "Compendium.pf2e.spore-war-bestiary.Actor.akkpxUPNsOTHcvSH.Item.UVQZGjvKG09Z25q9": {
    "any": [
     {
@@ -371,10 +1503,24 @@
     }
    ]
   },
-  "Compendium.pf2e.spore-war-bestiary.Actor.eRDf6xNphDUQ1Gox.Item.CI0xauhT4sblIMa8": {
+  "Compendium.pf2e.strength-of-thousands-bestiary.Actor.q6PegBHxW3orhjyw.Item.upaegtrqpc4cwa5k": {
    "any": [
     {
-     "k": "hand"
+     "k": "holds"
+    }
+   ]
+  },
+  "Compendium.pf2e.strength-of-thousands-bestiary.Actor.uO8X1xEciIBuiL1C.Item.eb08k6r7dwsmypra": {
+   "any": [
+    {
+     "k": "holds"
+    }
+   ]
+  },
+  "Compendium.pf2e.strength-of-thousands-bestiary.Actor.uO8X1xEciIBuiL1C.Item.kqwu7xlfj3pscfmw": {
+   "any": [
+    {
+     "k": "holds"
     }
    ]
   },
@@ -386,17 +1532,46 @@
     }
    ]
   },
-  "Compendium.pf2e.the-slithering-bestiary.Actor.Fd9l3UtiMLIRAjhO.Item.KX4M0Z52AqjzYfNK": {
+  "Compendium.pf2e.the-dead-gods-hand-bestiary.Actor.VDm2XhfNwhgiJOxD.Item.2ptgmxQgkaL3QGYF": {
    "any": [
     {
-     "k": "hand"
+     "k": "strike",
+     "name": "claw"
     }
    ]
   },
-  "Compendium.pf2e.night-of-the-gray-death-bestiary.Actor.7jALXqInrmh428DW.Item.qlj226n45f0wl98g": {
+  "Compendium.pf2e.triumph-of-the-tusk-bestiary.Actor.7TdImfQS3LkCvKyK.Item.FhYbX75YNf0P8pgI": {
    "any": [
     {
-     "k": "hand"
+     "k": "holds"
+    }
+   ]
+  },
+  "Compendium.pf2e.triumph-of-the-tusk-bestiary.Actor.MzRUR9y9Iw0blcgl.Item.KZ47FTrGgdqOpsqv": {
+   "any": [
+    {
+     "k": "holds"
+    }
+   ]
+  },
+  "Compendium.pf2e.triumph-of-the-tusk-bestiary.Actor.fWYJqg0v8CXMTuit.Item.6hhlLT5ZiaBLiNHf": {
+   "any": [
+    {
+     "k": "holds"
+    }
+   ]
+  },
+  "Compendium.pf2e.triumph-of-the-tusk-bestiary.Actor.m7jh421DG0ArTQMh.Item.FqL4EexfmHssEkTL": {
+   "any": [
+    {
+     "k": "holds"
+    }
+   ]
+  },
+  "Compendium.pf2e.myth-speaker-bestiary.Actor.2La4fXp6iq11vQpP.Item.Fi8fWLjfuhtZ6hAY": {
+   "any": [
+    {
+     "k": "holds"
     }
    ]
   },
@@ -408,21 +1583,83 @@
     }
    ]
   },
-  "Compendium.pf2e.shades-of-blood-bestiary.Actor.tRD9nT9535e4p1oH.Item.suwNVlYl1ar7dia7": {
+  "Compendium.pf2e.shades-of-blood-bestiary.Actor.5BdcWUKNe0Y8Jiaq.Item.G8Dqv6ZUTyPvvmVQ": {
+   "any": [
+    {
+     "k": "strike",
+     "melee": true
+    }
+   ]
+  },
+  "Compendium.pf2e.shades-of-blood-bestiary.Actor.PdbSy7QbpzOL6TaZ.Item.mR1hECOdG4ihzUpu": {
+   "any": [
+    {
+     "k": "strike",
+     "name": "fangs"
+    }
+   ]
+  },
+  "Compendium.pf2e.shades-of-blood-bestiary.Actor.UuXREGQxhDv8KQFq.Item.kfTLLOfSogk258QV": {
    "any": [
     {
      "k": "holds"
     }
    ]
   },
-  "Compendium.pf2e.stolen-fate-bestiary.Actor.pFs3lFkXrwNNUsDf.Item.OGCCwJwB8NCFE7As": {
+  "Compendium.pf2e.shades-of-blood-bestiary.Actor.nAnpWKPONGmbe5jp.Item.XZLcpgdeSPx6cZ7n": {
    "any": [
     {
-     "k": "hand"
+     "k": "strike",
+     "melee": true
+    }
+   ]
+  },
+  "Compendium.pf2e.stolen-fate-bestiary.Actor.QiRja8LrBQUwh6St.Item.Cj8UIWLOhEQ5yNgA": {
+   "any": [
+    {
+     "k": "holds"
+    }
+   ]
+  },
+  "Compendium.pf2e.stolen-fate-bestiary.Actor.asagrj8H4W7ioops.Item.dp2YBvodUUFO4Eup": {
+   "any": [
+    {
+     "k": "strike",
+     "melee": true
     }
    ]
   },
   "Compendium.pf2e.stolen-fate-bestiary.Actor.zw2JQhb4cHkDk2zb.Item.u35onovz82ogkm7o": {
+   "any": [
+    {
+     "k": "holds"
+    }
+   ]
+  },
+  "Compendium.pf2e.rage-of-elements-bestiary.Actor.3ItvROg0JbYKUGRu.Item.XBGRGFJWQJGorz6V": {
+   "any": [
+    {
+     "k": "holds"
+    }
+   ]
+  },
+  "Compendium.pf2e.wardens-of-wildwood-bestiary.Actor.YqDrvGRd3dmXoC2T.Item.rt8OvHUexKnXNT5e": {
+   "any": [
+    {
+     "k": "strike",
+     "name": "sickle"
+    }
+   ]
+  },
+  "Compendium.pf2e.wardens-of-wildwood-bestiary.Actor.vVzhD0o96ivHjKMj.Item.D7T4Dq1pNCrhAeKc": {
+   "any": [
+    {
+     "k": "strike",
+     "name": "ogre-hook"
+    }
+   ]
+  },
+  "Compendium.pf2e.wardens-of-wildwood-bestiary.Actor.xV8QIBCeKOm2GQXL.Item.sfWdhP3dRBdtmiol": {
    "any": [
     {
      "k": "holds"
@@ -646,28 +1883,6 @@
     }
    }
   ],
-  "blood-drain@action": [
-   {
-    "sig": "kWc1fhmv9LBiTuei,VcDeM8A5oI6VqhbM",
-    "req": {
-     "any": [
-      {
-       "k": "holds"
-      }
-     ]
-    }
-   },
-   {
-    "sig": "kWc1fhmv9LBiTuei",
-    "req": {
-     "any": [
-      {
-       "k": "holds"
-      }
-     ]
-    }
-   }
-  ],
   "sapping-squeeze@action": [
    {
     "sig": "kWc1fhmv9LBiTuei",
@@ -753,18 +1968,6 @@
     }
    }
   ],
-  "ground-slam@action": [
-   {
-    "sig": "kWc1fhmv9LBiTuei,VcDeM8A5oI6VqhbM",
-    "req": {
-     "any": [
-      {
-       "k": "holds"
-      }
-     ]
-    }
-   }
-  ],
   "devour-flesh@action": [
    {
     "sig": "kWc1fhmv9LBiTuei,VcDeM8A5oI6VqhbM",
@@ -790,6 +1993,28 @@
    }
   ],
   "memory-drain@action": [
+   {
+    "sig": "kWc1fhmv9LBiTuei,VcDeM8A5oI6VqhbM",
+    "req": {
+     "any": [
+      {
+       "k": "holds"
+      }
+     ]
+    }
+   }
+  ],
+  "death-roll@action": [
+   {
+    "sig": "kWc1fhmv9LBiTuei",
+    "req": {
+     "any": [
+      {
+       "k": "holds"
+      }
+     ]
+    }
+   },
    {
     "sig": "kWc1fhmv9LBiTuei,VcDeM8A5oI6VqhbM",
     "req": {
@@ -837,7 +2062,17 @@
     }
    }
   ],
-  "beak-crunch@action": [
+  "body-slam@action": [
+   {
+    "sig": "kWc1fhmv9LBiTuei,VcDeM8A5oI6VqhbM",
+    "req": {
+     "any": [
+      {
+       "k": "holds"
+      }
+     ]
+    }
+   },
    {
     "sig": "kWc1fhmv9LBiTuei",
     "req": {
@@ -849,9 +2084,9 @@
     }
    }
   ],
-  "antler-toss@action": [
+  "whirlwind-toss@action": [
    {
-    "sig": "kWc1fhmv9LBiTuei",
+    "sig": "",
     "req": {
      "any": [
       {
@@ -881,6 +2116,31 @@
      "any": [
       {
        "k": "holds"
+      }
+     ]
+    }
+   }
+  ],
+  "hurling-toss@action": [
+   {
+    "sig": "kWc1fhmv9LBiTuei,VcDeM8A5oI6VqhbM",
+    "req": {
+     "any": [
+      {
+       "k": "holds"
+      }
+     ]
+    }
+   }
+  ],
+  "fish-fork@action": [
+   {
+    "sig": "",
+    "req": {
+     "any": [
+      {
+       "k": "strike",
+       "name": "trident"
       }
      ]
     }
@@ -934,18 +2194,6 @@
     }
    }
   ],
-  "into-the-earth@action": [
-   {
-    "sig": "kWc1fhmv9LBiTuei",
-    "req": {
-     "any": [
-      {
-       "k": "holds"
-      }
-     ]
-    }
-   }
-  ],
   "release-heat@action": [
    {
     "sig": "",
@@ -953,6 +2201,18 @@
      "any": [
       {
        "k": "hand"
+      }
+     ]
+    }
+   }
+  ],
+  "chain-choke@action": [
+   {
+    "sig": "kWc1fhmv9LBiTuei,VcDeM8A5oI6VqhbM",
+    "req": {
+     "any": [
+      {
+       "k": "holds"
       }
      ]
     }
@@ -970,25 +2230,14 @@
     }
    }
   ],
-  "assassins-poison@action": [
+  "gift-of-dust@action": [
    {
     "sig": "",
     "req": {
      "any": [
       {
-       "k": "hand"
-      }
-     ]
-    }
-   }
-  ],
-  "death-grip@action": [
-   {
-    "sig": "kWc1fhmv9LBiTuei,VcDeM8A5oI6VqhbM",
-    "req": {
-     "any": [
-      {
-       "k": "holds"
+       "k": "strike",
+       "name": "claw"
       }
      ]
     }
@@ -1059,7 +2308,20 @@
     }
    }
   ],
-  "seize@action": [
+  "grasp-power@action": [
+   {
+    "sig": "",
+    "req": {
+     "any": [
+      {
+       "k": "strike",
+       "name": "fist"
+      }
+     ]
+    }
+   }
+  ],
+  "profane-feast@action": [
    {
     "sig": "kWc1fhmv9LBiTuei",
     "req": {
@@ -1071,7 +2333,7 @@
     }
    }
   ],
-  "sparking-bite@action": [
+  "blood-drain@action": [
    {
     "sig": "kWc1fhmv9LBiTuei",
     "req": {
@@ -1146,18 +2408,6 @@
     }
    }
   ],
-  "biting-constrict@action": [
-   {
-    "sig": "kWc1fhmv9LBiTuei",
-    "req": {
-     "any": [
-      {
-       "k": "holds"
-      }
-     ]
-    }
-   }
-  ],
   "mortal-reflection@action": [
    {
     "sig": "kWc1fhmv9LBiTuei,VcDeM8A5oI6VqhbM",
@@ -1183,6 +2433,19 @@
     }
    }
   ],
+  "drill-deeper@action": [
+   {
+    "sig": "",
+    "req": {
+     "any": [
+      {
+       "k": "strike",
+       "name": "hand-drill"
+      }
+     ]
+    }
+   }
+  ],
   "bottoms-up@action": [
    {
     "sig": "kWc1fhmv9LBiTuei",
@@ -1202,6 +2465,18 @@
      "any": [
       {
        "k": "holds"
+      }
+     ]
+    }
+   }
+  ],
+  "awesome-blow@action": [
+   {
+    "sig": "",
+    "req": {
+     "any": [
+      {
+       "k": "strike"
       }
      ]
     }
@@ -1291,13 +2566,14 @@
     }
    }
   ],
-  "reclaim-life@action": [
+  "savage@action": [
    {
-    "sig": "kWc1fhmv9LBiTuei,VcDeM8A5oI6VqhbM",
+    "sig": "",
     "req": {
      "any": [
       {
-       "k": "holds"
+       "k": "strike",
+       "name": "jaws"
       }
      ]
     }
@@ -1354,30 +2630,6 @@
    }
   ],
   "smother@action": [
-   {
-    "sig": "kWc1fhmv9LBiTuei,VcDeM8A5oI6VqhbM",
-    "req": {
-     "any": [
-      {
-       "k": "holds"
-      }
-     ]
-    }
-   }
-  ],
-  "haul-away@action": [
-   {
-    "sig": "kWc1fhmv9LBiTuei",
-    "req": {
-     "any": [
-      {
-       "k": "holds"
-      }
-     ]
-    }
-   }
-  ],
-  "encage-in-tentacles@action": [
    {
     "sig": "kWc1fhmv9LBiTuei,VcDeM8A5oI6VqhbM",
     "req": {
@@ -1485,6 +2737,18 @@
     }
    }
   ],
+  "scream-of-the-end@action": [
+   {
+    "sig": "kWc1fhmv9LBiTuei,VcDeM8A5oI6VqhbM",
+    "req": {
+     "any": [
+      {
+       "k": "holds"
+      }
+     ]
+    }
+   }
+  ],
   "gore-grinder@action": [
    {
     "sig": "",
@@ -1560,18 +2824,6 @@
     }
    }
   ],
-  "firearm-sabotage@action": [
-   {
-    "sig": "",
-    "req": {
-     "any": [
-      {
-       "k": "hand"
-      }
-     ]
-    }
-   }
-  ],
   "stab-and-twist@action": [
    {
     "sig": "",
@@ -1579,7 +2831,8 @@
      "any": [
       {
        "k": "strike",
-       "name": "melee-trident"
+       "name": "trident",
+       "melee": true
       }
      ]
     }
@@ -1660,18 +2913,6 @@
     }
    }
   ],
-  "worry@action": [
-   {
-    "sig": "kWc1fhmv9LBiTuei",
-    "req": {
-     "any": [
-      {
-       "k": "holds"
-      }
-     ]
-    }
-   }
-  ],
   "overburden@action": [
    {
     "sig": "",
@@ -1734,13 +2975,25 @@
     }
    }
   ],
-  "killing-shake@action": [
+  "jaws@action": [
    {
-    "sig": "kWc1fhmv9LBiTuei",
+    "sig": "kWc1fhmv9LBiTuei,VcDeM8A5oI6VqhbM",
     "req": {
      "any": [
       {
        "k": "holds"
+      }
+     ]
+    }
+   }
+  ],
+  "fiendish-infusion@action": [
+   {
+    "sig": "",
+    "req": {
+     "any": [
+      {
+       "k": "hand"
       }
      ]
     }
@@ -1752,7 +3005,8 @@
     "req": {
      "any": [
       {
-       "k": "strike"
+       "k": "strike",
+       "melee": true
       }
      ]
     }
@@ -1761,6 +3015,18 @@
   "oviposit@action": [
    {
     "sig": "kWc1fhmv9LBiTuei",
+    "req": {
+     "any": [
+      {
+       "k": "holds"
+      }
+     ]
+    }
+   }
+  ],
+  "into-the-deep@action": [
+   {
+    "sig": "",
     "req": {
      "any": [
       {
@@ -1836,7 +3102,8 @@
     "req": {
      "any": [
       {
-       "k": "strike"
+       "k": "strike",
+       "melee": true
       }
      ]
     }
@@ -1854,13 +3121,14 @@
     }
    }
   ],
-  "rip-out@action": [
+  "deep-cut@action": [
    {
-    "sig": "kWc1fhmv9LBiTuei",
+    "sig": "",
     "req": {
      "any": [
       {
-       "k": "holds"
+       "k": "strike",
+       "melee": true
       }
      ]
     }
@@ -1884,7 +3152,8 @@
     "req": {
      "any": [
       {
-       "k": "strike"
+       "k": "strike",
+       "melee": true
       }
      ]
     }
@@ -1897,6 +3166,19 @@
      "any": [
       {
        "k": "holds"
+      }
+     ]
+    }
+   }
+  ],
+  "serrated-takedown@action": [
+   {
+    "sig": "",
+    "req": {
+     "any": [
+      {
+       "k": "strike",
+       "name": "sickle"
       }
      ]
     }

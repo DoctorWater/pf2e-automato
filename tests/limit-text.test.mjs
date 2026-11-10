@@ -126,7 +126,7 @@ test("reqOf: универсальные способности бестиари�
   assert.deepEqual(reqOf("Trigger The monster's last action was a successful Strike that lists Improved Push in its damage entry\n---\nEffect x"), { any: [{ k: "strike", fx: "improved-push" }] });
   assert.deepEqual(reqOf("Requirements The dragon's last action was a successful claw Strike."), { any: [{ k: "strike", name: "claw" }] });
   assert.deepEqual(reqOf("Requirements The monster's last action was a success with a Strike that lists Pull in its damage entry"), { any: [{ k: "strike", fx: "pull" }] });
-  assert.deepEqual(reqOf("Requirements The dragon's last action was a successful melee Strike"), { any: [{ k: "strike" }] }, "melee — тип, не имя");
+  assert.deepEqual(reqOf("Requirements The dragon's last action was a successful melee Strike"), { any: [{ k: "strike", melee: true }] }, "melee — тип Удара, не имя");
 });
 
 test("reqOf: держит существо и свободная рука; всё неразобранное — null", () => {
@@ -186,4 +186,149 @@ test("корпус: охват перезарядки и требований", 
   const out = buildLimits(items, JSON.parse(readFileSync(new URL("../tools/out/html.json", import.meta.url), "utf8")));
   assert.ok(out.report.covered >= 1400, `требования: ${out.report.covered} док.`);
   for (const k of ["grab", "knockdown", "push", "improved-grab"]) assert.ok(out.bySlug[`${k}@action`], k);
+});
+
+// --- M1: чья перезарядка (оценка на выборке: подпись #Recharge ≠ имя предмета, условные броски, общая перезарядка) ---
+import { rechargeFull, rechargeIds } from "../scripts/builtin/limit-text.mjs";
+
+const FEED = "Frequency once per round\n---\nEffect The voidglutton feeds on the creature's terror.\n\nIt cannot use Consume Light again for [[/gmr 1d4 #Recharge Consume Light]]{1d4 rounds}, as it is too glutted on fear to suppress its Glow.";
+const BREATH2 = "The linnorm can't use Corrosive Breath or Double Breath again for [[/gmr 1d4 #Recharge Corrosive Breath or Double Breath]]{1d4 rounds}.";
+const ids = (label, name, others = []) => rechargeIds(label, [name, name.toLowerCase().replace(/\W+/g, "-")], "self", others.map(([id, n]) => ({ id, names: [n] })));
+
+test("M1: Feed on Fear — метка Consume Light: свой замок не ставится, замок на Consume Light; без такой способности — ничего", () => {
+  assert.equal(rechargeFull(FEED).label, "Consume Light");
+  assert.deepEqual(ids("Consume Light", "Feed on Fear"), []);
+  assert.deepEqual(ids("Consume Light", "Feed on Fear", [["cl", "Consume Light"], ["x", "Glow"]]), ["cl"]);
+  assert.deepEqual(ids("Feed on Fear", "Feed on Fear"), ["self"]);
+});
+
+test("M1: метка совпадает с именем — по переводу, английскому имени и без артиклей/скобок/регистра", () => {
+  assert.deepEqual(rechargeIds("Consume Light", ["Поглощение света", "consume-light", "Consume Light"], "s", []), ["s"], "исходное английское имя (babele.originalName)");
+  assert.deepEqual(rechargeIds("Inhabit an Object", ["(Ghost) Inhabit Object"], "s", []), ["s"]);
+  assert.deepEqual(rechargeIds("it", ["Monk's Flurry"], "s", []), ["s"], "подпись-местоимение — своя перезарядка");
+  assert.deepEqual(rechargeIds("Fortune Fog", ["Fog of Chance"], "s", []), [], "чужая подпись без такой способности — не блокируем");
+  assert.deepEqual(rechargeIds("Breath Weapon", ["Black Water Breath"], "s", []), ["s"], "общее «Breath Weapon» у способности с Breath в имени — свой замок");
+});
+
+test("M1: цели берутся из оборота «can't use X», подпись — запасной вариант; опечатки и местоимения — свой замок", () => {
+  const cant = (t) => rechargeFull(t).cant;
+  assert.equal(cant(FEED), "Consume Light");
+  assert.equal(cant(BREATH2), "Corrosive Breath or Double Breath");
+  assert.equal(cant("The fiddling bones can't use Dance with Death or Destructive Finale for [[/gmr 1d4 #Recharge]]{1d4 rounds}."), "Dance with Death or Destructive Finale");
+  assert.equal(cant("The firewyrm can't Breathe Fire again for [[/gmr 1d4 #Recharge Breathe Fire]]{1d4 rounds}."), "Breathe Fire");
+  assert.equal(cant("Существо не может использовать Огненный шар снова в течение [[/gmr 1d4 #Recharge]]{1d4 раундов}."), "Огненный шар");
+  const my = (label, c, name, others = []) => rechargeIds(label, [name], "s", others.map(([id, n]) => ({ id, names: [n] })), c);
+  assert.deepEqual(my("", "Dance with Death or Destructive Finale", "Destructive Finale", [["d", "Dance with Death"]]), ["s", "d"], "метка пуста");
+  assert.deepEqual(my("Acid Action", "Bombardier's Spray or Burning Pool", "Burning Pool"), ["s"], "метка чужая, оборот называет свою");
+  assert.deepEqual(my("Ectoplasmatic Form", "it", "Ectoplasmic Form"), ["s"], "опечатка + местоимение");
+  assert.deepEqual(my("Breathe Fire", "Breathe Fire", "Breath Fire"), ["s"], "опечатка");
+  assert.deepEqual(my("Breath Weapon", "Breath Weapon", "Forge-Flame Breath"), ["s"]);
+  assert.deepEqual(my("Full Bloom", "it", "Wail of the Forest"), ["s"], "«it», ничего не найдено — на себя");
+  assert.deepEqual(my("Full Bloom", "it", "Wail of the Forest", [["fb", "Full Bloom"]]), ["fb"], "подпись находит другую способность");
+  assert.deepEqual(my("Consume Light", "Consume Light", "Feed on Fear"), [], "чужая способность не найдена — не блокируем");
+});
+
+test("M1: HTML без переводов строк — исход спасброска в соседнем абзаце всё равно делает перезарядку условной", () => {
+  const html = "<p>Effect text.</p><p><strong>Critical Failure</strong> The ooze can't use Slime again for [[/gmr 1d4 #Recharge Slime]]{1d4 rounds}.</p>";
+  assert.equal(rechargeFull(html), null);
+  assert.equal(rechargeFull("<p>Intro.</p><hr /><p>Критический провал: не может использовать Слизь [[/gmr 1d4 #Recharge Слизь]]{1d4 раундов}.</p>"), null);
+  assert.equal(rechargeFull("<p>Intro if x.</p><p>It can't use Slime again for [[/gmr 1d4 #Recharge Slime]]{1d4 rounds}.</p>").dice, "1d4", "условие в прошлом абзаце не в счёт");
+});
+
+test("M1: общая перезарядка «A or B» — замок на обеих; вторая не найдена — только своя", () => {
+  assert.equal(rechargeFull(BREATH2).label, "Corrosive Breath or Double Breath");
+  assert.deepEqual(ids("Corrosive Breath or Double Breath", "Corrosive Breath", [["db", "Double Breath"]]), ["self", "db"]);
+  assert.deepEqual(ids("Corrosive Breath or Double Breath", "Double Breath", [["cb", "Corrosive Breath"]]), ["self", "cb"]);
+  assert.deepEqual(ids("Corrosive Breath or Double Breath", "Double Breath"), ["self"]);
+  assert.deepEqual(rechargeIds("Дыхание или Двойное дыхание", ["Дыхание"], "s", [{ id: "d", names: ["Двойное дыхание"] }]), ["s", "d"], "ru: «или»");
+});
+
+test("M1: условная перезарядка (исход спасброска, «on these planes», «if …») — не перезарядка", () => {
+  const HJ = "Trigger A creature targets the vazgorlu with a Strike\n---\nEffect The target must attempt a @Check[will|dc:39|traits:arcana] save.\n---\nCritical Success The target resists the teleportation, and the vazgorlu can't use Hostile Juxtaposition for [[/gmr 1d4 #Recharge Hostile Juxtaposition]]{1d4 rounds}.\nSuccess The target resists the teleportation.";
+  const PULP = "The rift pulper can't Pulp Quintessence again for 1 minute.\n\nThis ability is more effective in the Outer Sphere, and when used on any of these planes, the rift pulper becomes quickened for 2 rounds, and the rift pulper can't use Pulp Quintessence again for [[/gmr 1d4 #Recharge Pulp Quintessence]]{1d4 rounds}.";
+  const OVER = "Failure Your gizmos whine.\nCritical Failure Whoops! Something explodes. You take fire damage, and you can't use Overdrive again for [[/r 1d4 #Recharge Overdrive]]";
+  const OVER_RU = "Критический провал: упс! Что-то взорвалось. Вы получаете урон огнём и не можете использовать Перегрузку в течение [[/r 1d4 #Recharge Overdrive]]{1d4} раундов.";
+  const FLOW = "Effect She gains a +2 circumstance bonus to AC. If she takes electricity damage, she can't use this again for [[/gmr 1d4 #Recharge Go With the Flow]]{1d4 rounds}.";
+  const SHELL = "If the iceberg clam does so or the shell is reduced to 0 Hit Points, the iceberg clam can't use Ambush Freeze or Frozen Shell again for [[/gmr 1d4 #Recharge Ambush Freeze or Frozen Shell]]{1d4 rounds}.";
+  for (const t of [HJ, PULP, OVER, OVER_RU, FLOW, SHELL]) assert.equal(rechargeOf(t), null, t.slice(0, 40));
+  assert.deepEqual(rechargeOf("After you use Dragon Roar, you can't use it again for [[/gmr 1d4 #Recharge Dragon Roar]]{1d4 rounds}."), { dice: "1d4" }, "«after» — не условие");
+  assert.deepEqual(rechargeOf(BREATH2), { dice: "1d4" });
+});
+
+// --- M2: уточнения не отбрасываются молча (реальные строки Requirements) ---
+test("reqOf: уточнения, которых клаузы не выражают — записи нет (не мягче текста)", () => {
+  const no = (line) => assert.equal(reqOf(`Requirements ${line}\n---\nEffect x`), null, line);
+  no("The assassin is wielding a piercing or slashing weapon and has a free hand.");   // Poison Weapon, Ambush Assassin
+  no("Nairu is wielding a piercing or slashing weapon and has a free hand.");
+  no("The Bloodstorm is in Demon Shape and has a creature Grabbed");   // Biting Constrict
+  no("The grave spinosaurus has a creature Grabbed in its jaws");   // Rip and Tear
+  no("The owlbear has a creature Grabbed with its talons.");   // Gnaw
+  no("Irahkatu has a Medium or smaller creature grabbed with its tail claw");
+  no("You have a creature Grabbed or Restrained with your lash.");
+  no("The wolverine has a creature Grabbed from its jaws Strike");
+  no("Sorvuth-ka's previous action was a successful Strike against the target");
+  no("The monster's last action was a successful piercing or slashing weapon Strike");
+});
+
+test("reqOf: подлежащее — имя собственное; melee/ranged и имя Удара выражаются; damaged/hit … on its last action", () => {
+  assert.deepEqual(reqOf("Requirements Villamor Koth's last action was a successful Strike."), { any: [{ k: "strike" }] });
+  assert.deepEqual(reqOf("Requirements The hill giant's last action was a successful melee Strike"), { any: [{ k: "strike", melee: true }] });
+  assert.deepEqual(reqOf("Requirements Your last action was a successful ranged Strike"), { any: [{ k: "strike", melee: false }] });
+  assert.deepEqual(reqOf("Requirements The urdefhan damaged a creature with a jaws Strike on its last action"), { any: [{ k: "strike", name: "jaws" }] });
+  assert.deepEqual(reqOf("Requirements Nils Kelveken hit a creature with a hand drill Strike with his previous action"), { any: [{ k: "strike", name: "hand-drill" }] });
+  assert.deepEqual(reqOf("Requirements You hit a creature with a melee Strike on your last action."), { any: [{ k: "strike", melee: true }] });
+  assert.deepEqual(reqOf("Requirements Ashrin has a free hand"), { any: [{ k: "hand" }] });
+  assert.deepEqual(reqOf("Requirements The little man in the woods has a creature Grabbed or Restrained"), { any: [{ k: "holds" }] });
+  assert.deepEqual(reqOf("Requirements The wolf must have a creature Grabbed."), { any: [{ k: "holds" }] });
+});
+
+test("reqOf: абзац Requirements во второй секции (Push or Pull 10 feet) — разбирается; в четвёртой и позже — нет", () => {
+  const PUSH = "The tidal master can also pull the creature.\n---\nRequirements The monster's last action was a successful Strike that lists Push in its damage entry\n---\nEffect The monster attempts to [[/act shove]] the creature.";
+  assert.deepEqual(reqOf(PUSH), { any: [{ k: "strike", fx: "push" }] });
+  assert.deepEqual(reqOf("The elemental tsunami can choose whether to push or pull.\n---\nPush 1\nRequirements The monster's last action was a successful Strike that lists Push in its damage entry\n---\nEffect x"), { any: [{ k: "strike", fx: "push" }] });
+  assert.equal(reqOf("a\n---\nb\n---\nc\n---\nRequirements You have a free hand."), null);
+});
+
+test("clauseState: melee/ranged — тип Удара из штампа; штамп без типа не блокирует", () => {
+  const c = (melee) => ({ turn: "t", act: { turn: "t", kind: "strike", hit: true, ...(melee !== undefined && { melee }) } });
+  assert.equal(clauseState({ k: "strike", melee: true }, c(false)), false, "дальний Удар при требовании «melee Strike»");
+  assert.equal(clauseState({ k: "strike", melee: true }, c(true)), true);
+  assert.equal(clauseState({ k: "strike", melee: false }, c(true)), false);
+  assert.equal(clauseState({ k: "strike", melee: true }, c(undefined)), true, "тип неизвестен — не блокируем");
+});
+
+// --- регрессии повторного замера ---
+test("reqOf: Death Roll / Profane Feast / Grasp Power разбираются; «wielding … and has a free hand» — нет записи", () => {
+  assert.deepEqual(reqOf("Requirements The crocodile must have a creature Grabbed\n---\nEffect x"), { any: [{ k: "holds" }] });
+  assert.deepEqual(reqOf("Requirements The howling spawn has a creature Grabbed\n---\nEffect x"), { any: [{ k: "holds" }] });
+  assert.deepEqual(reqOf("Requirements The spellscar fext's last action was a successful fist Strike\n---\nEffect x"), { any: [{ k: "strike", name: "fist" }] });
+  assert.equal(reqOf("Requirements The assassin is wielding a piercing or slashing weapon and has a free hand.\n---\nEffect x"), null);
+});
+
+test("overlay: Death Roll, Profane Feast, Grasp Power есть и в bySource", { skip: !existsSync(new URL("../rules/use-limits.json", import.meta.url)) }, () => {
+  const lim = JSON.parse(readFileSync(new URL("../rules/use-limits.json", import.meta.url), "utf8"));
+  const uuids = Object.keys(lim.bySource);
+  assert.ok(uuids.length >= 200, String(uuids.length));
+});
+
+test("M1: «(Greater Barghest) Mutation - Toxic Breath» — метка Toxic Breath своя", () => {
+  assert.deepEqual(rechargeIds("Toxic Breath", ["(Greater Barghest) Mutation - Toxic Breath"], "s", []), ["s"]);
+  assert.deepEqual(rechargeIds("Breath", ["(Greater Barghest) Mutation - Toxic Breath"], "s", []), [], "часть слова/фразы не по границе « - » не считается");
+});
+
+const ITEMS_JSON = new URL("../tools/out/items.json", import.meta.url);
+test("M1 на уровне механизма (rechargeEntry на актёре): Voidglutton — Feed on Fear блокирует Consume Light; Tarn Linnorm — обе способности", { skip: !existsSync(ITEMS_JSON) }, async () => {
+  const { rechargeEntry } = await import("../scripts/mech.mjs");
+  const all = JSON.parse(readFileSync(ITEMS_JSON, "utf8")).items;
+  const actorOf = (name) => {
+    const actor = { items: [] };
+    for (const i of all.filter((x) => x.embedded?.actor === name && x.type === "action")) actor.items.push({ id: i.name, type: "action", name: i.name, slug: i.slug, actor, system: { description: { value: i.descEn } } });
+    return actor;
+  };
+  const vg = actorOf("Voidglutton"), pick = (a, n) => a.items.find((i) => i.name === n);
+  assert.ok(pick(vg, "Feed on Fear") && pick(vg, "Consume Light"));
+  assert.deepEqual(rechargeEntry(pick(vg, "Feed on Fear")), { dice: "1d4", ids: ["Consume Light"] });
+  const tl = actorOf("Tarn Linnorm");
+  assert.deepEqual(rechargeEntry(pick(tl, "Corrosive Breath")).ids.sort(), ["Corrosive Breath", "Double Breath"]);
+  assert.deepEqual(rechargeEntry(pick(tl, "Double Breath")).ids.sort(), ["Corrosive Breath", "Double Breath"]);
 });

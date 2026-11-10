@@ -10,19 +10,25 @@ import { ROOT, readOut, stripHtml, writeJson, isMain } from "./lib.mjs";
 import { sluggify } from "../scripts/util.mjs";
 import { reqSig } from "../scripts/builtin/limit-text.mjs";
 
-const SUBJ = String.raw`(?:the [\w'’ -]+?|you|your [\w'’ -]+?)`;
-const STRIKE = new RegExp(String.raw`^${SUBJ}(?:'s|’s|')? (?:last|previous|most recent) action(?: this turn)? (?:was|is) (?:an? )?(?:successful|success with an?) (?:([\w -]+?) )?strike(?: that lists ([\w -]+?) in its damage entry)?\.?$`, "i");
-const HOLDS = new RegExp(String.raw`^(?:the [\w'’ -]+?|you) (?:has|have) (?:an? )?(?:(?:tiny|small|medium|large|huge|gargantuan)(?: or (?:smaller|larger))? )?(?:living )?creature grabbed(?: or restrained)?(?: with (?:its|your) [\w -]+)?\.?$`, "i");
-const HAND = /^(?:the [\w'’ -]+?|you) (?:has|have) a free hand\.?$/i;
+// Подлежащее: «the monster», «your lash», «You», имя собственное («Sorvuth-ka's», «Nils Kelveken»). Союз/глагол — не подлежащее: «the assassin is wielding … and has a free hand» не разбирается.
+const W = String.raw`(?!(?:and|or|is|are|has|have|must|with|wielding|holding|was|that|hit|hits|damaged|damages)(?![\p{L}\p{N}'’_-]))[\p{L}\p{N}'’_-]+`;
+const SUBJ = String.raw`(?:you|(?:the |your )?${W}(?: ${W}){0,5}?)`;
+// Уточнения, которых клаузы выразить не могут (размер, «with its jaws», «in its jaws», тип оружия, «living»), в разбор не входят: записи нет, а не запись мягче текста.
+const STRIKE = new RegExp(String.raw`^${SUBJ} (?:last|previous|most recent) action(?: this turn)? (?:was|is) (?:an? )?(?:successful|success with an?) (?:(melee|ranged) )?(?:([\w -]+?) )?strike(?: that lists ([\w -]+?) in its damage entry)?\.?$`, "iu");
+const STRIKE_DMG = new RegExp(String.raw`^${SUBJ} (?:hit|damaged)(?: an? creature)? with an? (?:(melee|ranged) )?(?:([\w -]+?) )?strike (?:on|with) (?:its|his|her|their|your) (?:last|previous|most recent) action(?: this turn)?\.?$`, "iu");
+const HOLDS = new RegExp(String.raw`^${SUBJ} (?:must )?(?:has|have) (?:an? )?creature grabbed(?: or restrained)?\.?$`, "iu");
+const HAND = new RegExp(String.raw`^${SUBJ} (?:must )?(?:has|have) a free hand\.?$`, "iu");
+const NAME_NOISE = /\b(?:a|an|the|or|and|weapon|with|against|another|any|unarmed|non)\b/i;   // «piercing or slashing weapon Strike» — не имя Удара
 
 const plain = (s) => stripHtml(s ?? "").replace(/@UUID\[[^\]]*\]\{([^}]*)\}/g, "$1").replace(/@\w+\[[^\]]*\](?:\{[^}]*\})?/g, "").replace(/\s+/g, " ").trim();
 
 /** Чистая: одна клауза -> {k,...} | null. */
 export function clauseOf(s) {
-  let m = STRIKE.exec(s);
-  if (m) {
-    const name = m[1] && !/^(?:a|an|the|melee|ranged)$/i.test(m[1]) ? sluggify(m[1]) : null;   // «melee/ranged Strike» — тип Удара (item.isMelee), а не имя
-    return { k: "strike", ...(name && { name }), ...(m[2] && { fx: sluggify(m[2]) }) };
+  const m = STRIKE.exec(s), d = m ? null : STRIKE_DMG.exec(s);   // «damaged/hit … with a jaws Strike on its last action» — Удар попал (hit), имя — jaws
+  if (m || d) {
+    const [, kind, name, fx] = m ?? [d[0], d[1], d[2]];
+    if (name && NAME_NOISE.test(name)) return null;
+    return { k: "strike", ...(name && { name: sluggify(name) }), ...(fx && { fx: sluggify(fx) }), ...(kind && { melee: /^melee$/i.test(kind) }) };   // melee/ranged — тип Удара (item.isMelee)
   }
   if (HOLDS.test(s)) return { k: "holds" };
   if (HAND.test(s)) return { k: "hand" };
@@ -31,7 +37,8 @@ export function clauseOf(s) {
 
 /** Чистая: описание (markup) -> {any:[клаузы]} | null. Строка «Requirements»; хоть одна клауза не разобрана — null. */
 export function reqOf(descEn) {
-  const line = /(?:^|\n)\s*(?:Requirements?|Trigger)\s+([^\n]*)/i.exec(stripHtml(descEn ?? "").replace(/\n---\n[\s\S]*$/, "").replace(/<[^>]+>/g, ""));
+  // абзац Requirements бывает вторым-третьим («flavor --- Requirements … --- Effect»): ищем в первых трёх секциях, дальше — Special/варианты
+  const line = /(?:^|\n)\s*(?:Requirements?|Trigger)\s+([^\n]*)/i.exec(stripHtml(descEn ?? "").replace(/<[^>]+>/g, "").split(/\n---\n/).slice(0, 3).join("\n"));
   if (!line) return null;
   const parts = plain(line[1]).split(/,\s+or\s+/i);
   const any = parts.map(clauseOf);
@@ -61,7 +68,8 @@ export function buildLimits(items, html = {}) {
       const list = (bySlug[d.key] ??= []);
       if (!list.some((v) => v.sig === sig)) list.push({ sig, req: d.req });
     }
-    if (!ok.length) { if (d.it.uuid) bySource[d.it.uuid] = d.req; else continue; }
+    if (d.it.uuid) bySource[d.it.uuid] = d.req;   // и при покрытии по slug: источник надёжнее подписи (описание без HTML подпись не даёт)
+    else if (!ok.length) continue;
     const n = d.it.dupCount || 1;
     report.covered += n;
     for (const k of new Set(d.req.any.map((c) => c.k))) report.byKind[k] = (report.byKind[k] ?? 0) + n;   // документов, которые оверлей реально покрывает, по видам клауз

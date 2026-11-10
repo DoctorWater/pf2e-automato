@@ -5,17 +5,67 @@
 
 // Встроенный бросок описания: [[/gmr 1d4 #Recharge Name]]{1d4 rounds}; у pf2ru «#Recharge» сохраняется, срок — «раундов» после броска или в подписи.
 // Формы без «again» («once every 1d4 rounds», «can't use X for 1d4 rounds») тоже берутся: якорь — сам бросок, а не оборот.
-const ROLL = /\[\[\/(?:gm|b)?r(?:oll)?\s+\{?(\d+d\d+(?:\s*[+-]\s*\d+)?)\}?\s*#[^\]]*?(?:recharge|перезаряд)[^\]]*\]\](\{[^}]*\})?(?=([^]{0,24}))/gi;   // хвост — просмотр вперёд: не съедает следующий бросок
+const ROLL = /\[\[\/(?:gm|b)?r(?:oll)?\s+\{?(\d+d\d+(?:\s*[+-]\s*\d+)?)\}?\s*#([^\]]*?(?:recharge|перезаряд)[^\]]*)\]\](\{[^}]*\})?(?=([^]{0,24}))/gi;   // хвост — просмотр вперёд: не съедает следующий бросок
 const ROUNDS = /^(?:\s|<[^>]*>)*(?:rounds?|раунд)/i, ROUNDS_IN = /round|раунд/i;
+const LABEL_HEAD = /^[^]*?(?:recharge|перезаряд\S*)\s*/i;   // «Recharge Consume Light» -> «Consume Light»
+// Условная перезарядка: бросок в абзаце исхода («Critical Failure …», «Провал: …») или в предложении с «if/when» («on these planes») — по умолчанию её нет, ложный блок хуже пропуска.
+const DEGREE_HEAD = /^\s*(?:critical\s+)?(?:success|failure)\b|^\s*(?:критический\s+)?(?:успех|провал)/i, COND_WORD = /\b(?:if|when|whenever|unless)\b|(?:^|[^а-яё])(?:если|когда|пока)(?![а-яё])/i;
+const SENT_END = /[.!?](?=\s)/g;
+// абзац перед броском: блочные теги -> перевод строки до разбора (срез по «</p>» оставлял «/p>», и якорь DEGREE_HEAD не срабатывал); и последнее предложение в нём
+const BLOCK_END = /<\/(?:p|li|div|h\d|tr)>|<(?:br|hr)\s*\/?>/gi;
+const lastSentence = (before) => {
+  const flat = before.replace(BLOCK_END, "\n"), para = flat.slice(Math.max(flat.lastIndexOf("\n"), flat.lastIndexOf("---")) + 1).replace(/<[^>]+>/g, " ");
+  let cut = 0;
+  for (const m of para.matchAll(SENT_END)) cut = m.index + 1;
+  return { para, last: para.slice(cut) };
+};
+const conditionalBefore = ({ para, last }) => DEGREE_HEAD.test(para) || COND_WORD.test(last);
+// «can't use A or B (again) for [[…]]», «can't Breathe Fire again», «не может использовать A …»: чья перезарядка, как её называет само предложение
+const CANT = /(?:can(?:not|['’]t)|не\s+может)\s+(?:use\s+|enter\s+|использовать\s+)?(.+?)\s*(?:\bagain\b|\bfor\b|(?<![а-яё])(?:снова|повторно|ещё\s+раз|в\s+течение|на)(?![а-яё])|$)/i;
 
-/** Чистая: описание (HTML/markup) -> {dice} | null. Только срок в раундах (минуты, «в начале каждого хода бросает» — null); два разных броска — null. */
-export function rechargeOf(text) {
-  const found = new Set();
-  for (const m of String(text ?? "").matchAll(ROLL)) {
-    if (ROUNDS_IN.test(m[2] ?? "") || ROUNDS.test(m[3] ?? "")) found.add(m[1].replace(/\s+/g, ""));
+/** Чистая: описание (HTML/markup) -> {dice, label} | null. Только срок в раундах (минуты, «в начале каждого хода бросает» — null); два разных броска и условный бросок — null.
+ *  label — подпись броска без «Recharge» («Consume Light», «Corrosive Breath or Double Breath»): чья это перезарядка;
+ *  cant — то, что предложение с броском запрещает («Consume Light», «it»): надёжнее подписи (опечатки, «Breath Weapon»). */
+export function rechargeFull(text) {
+  const found = new Map(), src = String(text ?? "");
+  for (const m of src.matchAll(ROLL)) {
+    if (!(ROUNDS_IN.test(m[3] ?? "") || ROUNDS.test(m[4] ?? ""))) continue;
+    const sent = lastSentence(src.slice(0, m.index));
+    if (conditionalBefore(sent)) return null;
+    const dice = m[1].replace(/\s+/g, "");
+    if (!found.has(dice)) found.set(dice, { label: m[2].replace(LABEL_HEAD, "").trim(), cant: CANT.exec(sent.last)?.[1]?.trim() ?? "" });
   }
-  const [dice] = found;
-  return found.size === 1 && parseDice(dice) ? { dice } : null;
+  const [[dice, v] = []] = found;
+  return found.size === 1 && parseDice(dice) ? { dice, ...v } : null;
+}
+/** Чистая: как rechargeFull, но только срок. */
+export const rechargeOf = (text) => { const r = rechargeFull(text); return r && { dice: r.dice }; };
+
+// без скобок «(Ghost) …», артиклей и знаков: «Inhabit an Object» = «(Ghost) Inhabit Object»
+const normName = (s) => String(s ?? "").toLowerCase().replace(/\([^)]*\)/g, " ").replace(/(?<![\p{L}\p{N}])(?:a|an|the)(?![\p{L}\p{N}])/gu, " ").replace(/[^\p{L}\p{N}]+/gu, "");
+const SELF_LABEL = /^(?:it|itself|this|thisability|thisaction|thisactivity|doso)$/;   // «can't do so again for [[… #Recharge it]]» — подпись-местоимение: своя перезарядка
+const lev = (a, b) => { let p = Array.from({ length: b.length + 1 }, (_, j) => j); for (let i = 1; i <= a.length; i++) { const c = [i]; for (let j = 1; j <= b.length; j++) c[j] = Math.min(p[j] + 1, c[j - 1] + 1, p[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1)); p = c; } return p[b.length]; };
+// нечёткое совпадение со своим именем: опечатка («Ectoplasmatic Form»), «Breath Weapon» у способности с Breath в имени, имя внутри подписи или наоборот (от 8 знаков)
+const fuzzyOwn = (p, own) => [...own].some((o) => (p.length >= 6 && lev(p, o) <= 2) || (p === "breathweapon" && o.includes("breath")) || (Math.min(p.length, o.length) >= 8 && (p.includes(o) || o.includes(p))));
+const splitParts = (s) => String(s ?? "").split(/\s*(?:,|\bor\b|(?<!\p{L})или(?!\p{L})|\/)\s*/iu).map(normName).filter(Boolean);
+/** Чистая: оборот «can't use X» (cant) и подпись броска (label) -> id предметов, на которые ставится замок. names — имена своего предмета (имя, slug, исходное английское); others — [{id, names}] других предметов актёра; selfId — id своего.
+ *  Цели — из cant, не нашлось — из label. Формы «A or B» / «A или B» / «A, B»: своё имя в списке — замок и на нём (общая перезарядка ложится и на остальных найденных); чужое имя — замок на том предмете (своего не блокируем).
+ *  На актёре ничего не нашлось: местоимение («it», «this ability»), пустая запись или нечёткое совпадение со своим именем — замок на себя (ложный блок чужой способности хуже), иначе []. */
+export function rechargeIds(label, names, selfId, others, cant = "") {
+  // «(Greater Barghest) Mutation - Toxic Breath»: своя и часть имени после « - » (скобочный префикс normName снимает сам)
+  const own = new Set(names.flatMap((n) => [n, ...String(n ?? "").split(/\s+[-–—]\s+/)]).map(normName).filter(Boolean));
+  const pick = (text) => {
+    const whole = normName(text), parts = whole && own.has(whole) ? [whole] : splitParts(text).filter((p) => !SELF_LABEL.test(p));
+    const ids = parts.some((p) => own.has(p)) ? [selfId] : [];
+    for (const o of others) if (o.id !== selfId && o.names.some((n) => n && parts.includes(normName(n)))) ids.push(o.id);
+    return ids;
+  };
+  const found = pick(cant);
+  if (found.length) return found;
+  const byLabel = pick(label);
+  if (byLabel.length) return byLabel;
+  const parts = [...splitParts(cant), ...splitParts(label)];
+  return !parts.length || parts.some((p) => SELF_LABEL.test(p) || fuzzyOwn(p, own)) ? [selfId] : [];
 }
 
 /** Чистая: "1d4+1" -> {count, faces, mod} | null (не больше 10 кубов, граней до 100). */
@@ -83,6 +133,7 @@ export function clauseState(cl, c) {
   if (c.act.turn !== c.turn || c.act.kind !== "strike") return false;
   if (c.act.hit === false) return false;
   if (cl.fx && c.act.fx?.length && !c.act.fx.includes(cl.fx)) return false;
+  if (typeof cl.melee === "boolean" && typeof c.act.melee === "boolean" && c.act.melee !== cl.melee) return false;   // «melee/ranged Strike»; штамп без типа (старые карточки) — не знаем
   if (cl.name && c.act.slug && !sameName(cl.name, c.act.slug)) return false;
   return c.act.hit === true ? true : null;
 }

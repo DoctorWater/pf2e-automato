@@ -156,7 +156,7 @@ test("крит-Удар у владельца «Draconic Momentum» снимае
 
 // --- перезарядка (M1) и требования (M2) ---
 const { initOverlays } = await import("../scripts/rules.mjs");
-const base2 = { ...base, inCombat: true, limitsOn: true, combatId: "c", roundNum: 2, itemId: "i1", rc: { dice: "1d4" }, rcMark: { c: "c", until: 5, n: 3, dice: "1d4", r: [3], mod: 0 } };
+const base2 = { ...base, inCombat: true, limitsOn: true, combatId: "c", roundNum: 2, itemId: "i1", rc: { dice: "1d4", ids: ["i1"] }, rcMark: { c: "c", until: 5, n: 3, dice: "1d4", r: [3], mod: 0 } };
 
 test("recharge: блок до раунда until, не после; другой бой, вне боя, mode.limits=off — нет блока; отметка — rc_<id> с числом", () => {
   const row = LIMITS.find((l) => l.reason === "recharge");
@@ -165,9 +165,11 @@ test("recharge: блок до раунда until, не после; другой 
   assert.equal(reasonOf({ ...base2, rcLock: { c: "old", until: 9 } }), null);
   assert.equal(reasonOf({ ...base2, rcLock: { c: "c", until: 5 }, inCombat: false }), null);
   assert.equal(reasonOf({ ...base2, rcLock: { c: "c", until: 5 }, limitsOn: false }), null);
-  assert.equal(reasonOf({ ...base2, rc: null, rcLock: { c: "c", until: 5 } }), null);
+  assert.equal(reasonOf({ ...base2, rc: null, rcLock: { c: "c", until: 5 } }), "recharge", "замок поставила другая способность (метка указывала на этот предмет)");
+  assert.equal(reasonOf({ ...base2, rc: null, rcLock: undefined }), null);
   assert.deepEqual(row.vars({ ...base2, rcLock: { c: "c", until: 5 } }), { n: 3, until: 5 });
-  assert.deepEqual(row.mark(base2), ["rc_i1", base2.rcMark]);
+  assert.deepEqual(row.mark(base2), [["rc_i1", base2.rcMark]]);
+  assert.deepEqual(row.mark({ ...base2, rc: { dice: "1d4", ids: ["i1", "i2"] } }), [["rc_i1", base2.rcMark], ["rc_i2", base2.rcMark]], "общая перезарядка: замок на обеих");
   assert.ok(!row.applies({ ...base2, limitsOn: false }), "off — не бросаем и не ставим");
 });
 
@@ -219,7 +221,7 @@ test("Grab: Удар попал / промах / без цели; держит �
     return { a, s, res: preCreate(useMsg(a, grabItem), {}, {}, "u") };
   };
   let r = run("success");
-  assert.deepEqual(stampOf(r.s), { who: "A.1", turn: "c:1:0", kind: "strike", hit: true, fx: ["grab"], slug: "claw" });
+  assert.deepEqual(stampOf(r.s), { who: "A.1", turn: "c:1:0", kind: "strike", hit: true, fx: ["grab"], slug: "claw", melee: null });
   assert.equal(r.res, undefined, "после попадания");
   assert.equal(run("failure").res, false, "после промаха");
   assert.equal(run(null).res, undefined, "Удар без цели: outcome null — блока нет");
@@ -249,4 +251,65 @@ test("Grab: Удар попал / промах / без цели; держит �
   preCreate(sp, {}, {}, "u");
   assert.equal(stampOf(sp).kind, "use");
   initOverlays(null, null, null, null);
+});
+
+test("preCreate: чужая метка перезарядки — замок на другой способности актёра (Feed on Fear -> Consume Light), общая «A or B» — на обеих, без такой способности — ничего", () => {
+  globalThis.CONFIG = { Dice: { randomUniform: () => 0.99 } };
+  const mk = (id, name, text) => ({ type: "action", slug: name.toLowerCase().replace(/\W+/g, "-"), uuid: `I.${id}`, id, name, system: { traits: { value: [] }, actionType: { value: "action" }, description: { value: text } } });
+  const feed = mk("f1", "Feed on Fear", "It cannot use Consume Light again for [[/gmr 1d4 #Recharge Consume Light]]{1d4 rounds}.");
+  const light = mk("c1", "Consume Light", "Snuffs the light.");
+  const cb = mk("cb", "Corrosive Breath", "can't use Corrosive Breath or Double Breath again for [[/gmr 1d4 #Recharge Corrosive Breath or Double Breath]]{1d4 rounds}.");
+  const db = mk("db", "Double Breath", "uses Corrosive Breath twice.");
+  const on = (actor, ...items) => { actor.items = items; for (const i of items) i.actor = actor; };
+  const marks = (m) => Object.keys(m.upd?.[`flags.${MOD}.limitMarks`] ?? {}).sort();
+
+  let { actor } = world(); on(actor, feed, light, cb, db);
+  let m = useMsg(actor, feed);
+  assert.equal(preCreate(m, {}, {}, "u"), undefined);
+  assert.deepEqual(marks(m), ["rc_c1"], "замок на Consume Light, не на Feed on Fear");
+  actor.flags[MOD] = m.upd[`flags.${MOD}.limitMarks`];
+  assert.equal(preCreate(useMsg(actor, feed), {}, {}, "u"), undefined, "Feed on Fear сам не заблокирован");
+  assert.equal(preCreate(useMsg(actor, light), {}, {}, "u"), false, "Consume Light — блок");
+
+  ({ actor } = world()); on(actor, feed);
+  m = useMsg(actor, feed);
+  preCreate(m, {}, {}, "u");
+  assert.deepEqual(marks(m), [], "Consume Light у актёра нет — ничего не блокируем");
+
+  ({ actor } = world()); on(actor, cb, db);
+  m = useMsg(actor, cb);
+  preCreate(m, {}, {}, "u");
+  assert.deepEqual(marks(m), ["rc_cb", "rc_db"]);
+  actor.flags[MOD] = m.upd[`flags.${MOD}.limitMarks`];
+  assert.equal(preCreate(useMsg(actor, db), {}, {}, "u"), false, "после Corrosive Breath Double Breath заблокирована");
+  delete globalThis.CONFIG;
+});
+
+test("recharge: общий замок — более долгий действующий не укорачивается (until = max), прежний едет в limitClear и возвращается при удалении карточки", async () => {
+  const { marksFor, clearFor } = await import("../scripts/builtin/impulse-gate.mjs");
+  const longer = { c: "c", until: 8 }, shorter = { c: "c", until: 3 };
+  const c = { ...base2, rc: { dice: "1d4", ids: ["i1", "i2"] }, rcLocks: { rc_i1: longer, rc_i2: shorter, rc_i3: { c: "old", until: 9 } } };
+  const marks = marksFor(c);
+  assert.equal(marks.rc_i1.until, 8, "действующий замок дольше — срок остаётся");
+  assert.equal(marks.rc_i1.n, 3, "бросок виден как выпал");
+  assert.equal(marks.rc_i2.until, 5, "прежний короче — новый срок");
+  assert.deepEqual(clearFor(c, marks), { rc_i1: longer, rc_i2: shorter }, "возвращается прежний замок");
+  assert.deepEqual(clearFor({ ...c, rcLocks: { rc_i1: { c: "old", until: 9 } } }, marks), {}, "замок прошлого боя — возвращать нечего");
+  const { actor, updates } = world();
+  actor.flags[MOD] = { rc_i1: marks.rc_i1 };
+  await onDelete({ actor, id: "card", flags: { [MOD]: { limitMarks: { rc_i1: marks.rc_i1 }, limitClear: { rc_i1: longer } } } });
+  assert.deepEqual(updates.pop(), { [`flags.${MOD}.rc_i1`]: longer });
+  globalThis.game.settings.get = () => "off";   // без шёпота броска
+  await onCreate({ actor, isAuthor: true, flags: { [MOD]: { limitMarks: { rc_i1: marks.rc_i1 }, limitClear: { rc_i1: longer } } } });
+  assert.ok(!updates.some((u) => `flags.${MOD}.-=rc_i1` in u), "перезаписываемый замок onCreate не стирает");
+});
+
+test("meleeOf: тип Удара из опций броска; метаемый кинжал — не ближний, нет данных — null", async () => {
+  const { meleeOf } = await import("../scripts/builtin/impulse-gate.mjs");
+  assert.equal(meleeOf(["item:melee", "item:trait:agile"]), true);
+  assert.equal(meleeOf(["item:ranged", "item:thrown-melee", "item:melee"]), false);
+  assert.equal(meleeOf(["item:ranged"]), false);
+  assert.equal(meleeOf(["item:melee", "item:thrown-melee"]), null);
+  assert.equal(meleeOf([]), null);
+  assert.equal(meleeOf(undefined), null);
 });

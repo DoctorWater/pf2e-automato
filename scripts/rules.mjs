@@ -1707,8 +1707,8 @@ export function initCatalog(jsons, labels) {
 }
 
 // Оверлеи (tools/ranges.mjs, tools/damage-degrees.mjs): самый нижний слой каскада — поля onUse.range и onUse.challenge.damageByDegree под флагом, миром и каталогами (§1.2)
-let overlays = { ranges: null, degrees: null, summons: null, limits: null };
-export function initOverlays(ranges, degrees, summons, limits) { overlays = { ranges: ranges ?? null, degrees: degrees ?? null, summons: summons ?? null, limits: limits ?? null }; rev.n++; }
+let overlays = { ranges: null, degrees: null, summons: null, limits: null, crit: null };
+export function initOverlays(ranges, degrees, summons, limits, crit) { overlays = { ranges: ranges ?? null, degrees: degrees ?? null, summons: summons ?? null, limits: limits ?? null, crit: crit ?? null }; rev.n++; }
 
 export async function loadCatalog() {
   const get = async (name, optional = false) => {
@@ -1716,8 +1716,8 @@ export async function loadCatalog() {
     if (!resp.ok) { if (!optional) warn(`не загружен rules/${name}: ${resp.status}`); return null; }
     try { return await resp.json(); } catch (e) { warn(`rules/${name}: битый JSON`, e); if (!optional) throw e; return null; }   // битый необязательный файл не должен ронять остальные каталоги
   };
-  const [cat, pa, model, onhit, rusthenge, labels, ranges, degrees, summons, limits] = await Promise.all([get("catalog.json"), get("catalog.pa.json", true), get("catalog.model.json", true), get("catalog.onhit.json", true), get("catalog.rusthenge.json", true), get("labels.json"), get("ranges.json", true), get("damage-degrees.json", true), get("summons.json", true), get("use-limits.json", true)]);
-  initOverlays(ranges, degrees, summons, limits);
+  const [cat, pa, model, onhit, rusthenge, labels, ranges, degrees, summons, limits, crit] = await Promise.all([get("catalog.json"), get("catalog.pa.json", true), get("catalog.model.json", true), get("catalog.onhit.json", true), get("catalog.rusthenge.json", true), get("labels.json"), get("ranges.json", true), get("damage-degrees.json", true), get("summons.json", true), get("use-limits.json", true), get("crit-only.json", true)]);
+  initOverlays(ranges, degrees, summons, limits, crit);
   // при совпадении ключа побеждает последний: автоматический перенос PA — первым, проверенные вручную — после
   // model (tools/drafts.mjs): черновики пачек от Haiku/Sonnet, прошедшие валидатор и выборку
   return initCatalog([pa, model, onhit, rusthenge, cat].filter(Boolean), labels);   // onhit (tools/onhit.mjs): «при попадании Удара — состояние» по тексту; rusthenge — существа приключения Rusthenge (перекрывает model); ручные каталоги главнее
@@ -2044,6 +2044,13 @@ export function limitEntry(item) {
   if (!vs) return null;
   const sig = reqSig(item.system?.description?.value);
   return sig === null ? null : vs.find((v) => v.sig === sig) ?? null;
+}
+
+/** Пассивка эффекта Удара срабатывает только при крит. попадании: оверлей rules/crit-only.json (tools/crit-only.mjs), счёт по английскому тексту при сборке — описание в мире может быть русским.
+ *  Сначала по uuid источника (у предметов NPC выведенный), затем по "slug@тип" (все одноимённые согласны). Нет оверлея или записи — эффект на каждое попадание. */
+export function critOnlyEntry(item) {
+  const t = overlays.crit, src = lookupSourceOf(item), slug = slugOf(null, item);
+  return !!(t && ((src && t.bySource?.[src]) || (slug && item?.type && t.bySlug?.[slugTypeKey(slug, item.type)])));
 }
 
 function resolveBase(source) {

@@ -25,7 +25,13 @@ const critOf = (item) => isBreath(item.system?.traits?.value, slugOf(null, item)
 
 /** Признак механизма у предмета (без переопределения предмета): данные для строки или null. */
 const DETECT = {
-  recharge: (item) => { const r = rechargeBase(item); return r ? { dice: r.dice, crit: critOf(item) } : null; },
+  recharge: (item) => {
+    const r = rechargeBase(item), items = [...(item.actor?.items ?? [])], nameOf = (id) => items.find((i) => i.id === id)?.name;
+    if (r) return { dice: r.dice, crit: critOf(item), self: r.ids.includes(item.id), targets: r.ids.filter((id) => id !== item.id).map(nameOf).filter(Boolean) };
+    // замок на этом предмете ставит другая способность актёра (Feed on Fear → Consume Light): своего броска нет, строка — пометка
+    const src = items.filter((i) => i.id !== item.id && rechargeBase(i)?.ids.includes(item.id));
+    return src.length ? { dice: rechargeBase(src[0]).dice, foreign: true, from: src.map((i) => i.name) } : null;
+  },
   req: (item) => { const e = isUseItem(item) ? limitEntry(item)?.req : null; return e?.any?.length ? { any: e.any } : null; },
   strike: (item, env) => (env.strikeState ?? strikeLinkState)(item),
   maneuvers: (item) => { const auto = maneuversAuto(item); return auto.length ? { auto, all: SPELLS[itemSlug(item)] ?? auto } : null; },
@@ -52,11 +58,11 @@ const yields = (env, o) => (env.yields(o) ? { text: env.t("workshop.mech.state.y
 /** Состояние строки: причины по порядку рантайма (предмет → режим → уступка); null — работает. m — переопределения (черновик окна или сохранённые). */
 function stateOf(id, data, item, env, m) {
   switch (id) {
-    case "recharge": return m.recharge === false ? flagOff(env) : modeOff(env, "limits");
+    case "recharge": return data.foreign ? modeOff(env, "limits") : m.recharge === false ? flagOff(env) : modeOff(env, "limits");
     case "req": return m.req === false ? flagOff(env) : modeOff(env, "limits");
     case "strike": {
       if (m.strike === false) return flagOff(env);
-      if (data.needRule) return { text: env.t("workshop.mech.state.needRule"), warn: true };
+      if (data.needRule) return { text: env.t(data.noOutcome ? "workshop.mech.state.needOutcome" : "workshop.mech.state.needRule"), warn: true };
       const ev = data.rule.onEvent[0];   // режим и уступка — по текущим настройкам на каждый рендер, в data кэшируется только признак связи
       if ((env.mode("effect") === "off" && env.mode("challenge") === "off") || !modesRun(ev, env.mode)) {   // шаги записи не исполняются: испытание выключено или применение не «авто» (effect = по кнопке тоже)
         const kind = ev.challenge && env.mode("challenge") === "off" ? "challenge" : "effect";
@@ -74,7 +80,8 @@ function stateOf(id, data, item, env, m) {
 function sumOf(id, data, item, env, m) {
   const t = env.t;
   switch (id) {
-    case "recharge": return `${t("workshop.mech.sum.recharge", { dice: m.recharge || data.dice })}${data.crit ? ` ${t("workshop.mech.sum.rechargeCrit", { name: item.name })}` : ""}`;
+    case "recharge": if (data.foreign) return t("workshop.mech.sum.rechargeFrom", { from: data.from.map((n) => `«${n}»`).join(", "), dice: data.dice });
+      return `${t(data.self ? (data.targets.length ? "workshop.mech.sum.rechargeShared" : "workshop.mech.sum.recharge") : "workshop.mech.sum.rechargeOther", { dice: m.recharge || data.dice, names: data.targets.map((n) => `«${n}»`).join(", ") })}${data.crit ? ` ${t("workshop.mech.sum.rechargeCrit", { name: item.name })}` : ""}`;
     case "req": return t("workshop.mech.sum.req", { need: data.any.map((cl) => env.needText(cl)).join(t("builtin.limit.or")) });
     case "strike": {
       const strike = data.strikes.map((s) => s.name).join(", "), p = env.evParts?.(data.rule);
@@ -99,7 +106,7 @@ function fieldsOf(id, data, f, env) {
   const t = env.t, locked = !!env.locked;
   const sw = (key, hint) => { const off = isOn(f[key].off); return F.sw(`mech.${key}.off`, t(off ? "workshop.mech.switchOff" : "workshop.mech.switchOn"), !off, { disabled: locked, hint, aria: t("workshop.mech.switchOn") }); };   // aria — постоянное имя переключателя; видимый текст меняется с состоянием, состояние передаёт checked
   switch (id) {
-    case "recharge": return [
+    case "recharge": return data.foreign ? [] : [
       sw("recharge"),
       F.text("mech.recharge.dice", t("workshop.mech.f.dice"), f.recharge.dice, { inpCls: "ws-num", placeholder: data.dice, hint: t("workshop.mech.f.diceHint", { dice: data.dice }), disabled: locked || isOn(f.recharge.off) })
     ];
@@ -119,7 +126,7 @@ function fieldsOf(id, data, f, env) {
 }
 
 /** Значения по умолчанию найденных механизмов — для pruneMech/formToMech. */
-export const mechBase = (dets) => ({ dice: dets?.find((d) => d.id === "recharge")?.data.dice, maneuvers: dets?.find((d) => d.id === "maneuvers")?.data.auto });
+export const mechBase = (dets) => ({ dice: dets?.find((d) => d.id === "recharge" && !d.data.foreign)?.data.dice, maneuvers: dets?.find((d) => d.id === "maneuvers")?.data.auto });
 
 const KEYED =new Set(["recharge", "req", "strike", "maneuvers", "permanent"]);
 

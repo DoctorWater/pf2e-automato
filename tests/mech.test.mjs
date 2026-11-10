@@ -104,14 +104,14 @@ const BREATH_TEXT = "You can't use Breath Weapon again for [[/gmr 1d4 #Recharge 
 const breath = { id: "b1", type: "action", slug: "breath-weapon", uuid: "I.b", name: "Breath Weapon", system: { traits: { value: [] }, actionType: { value: "action" }, description: { value: BREATH_TEXT } } };
 
 test("M1: rechargeEntry — текст, свой срок, «не ограничивать»; тип предмета как в preCreate", () => {
-  assert.deepEqual(mech.rechargeEntry(breath), { dice: "1d4" });
-  assert.deepEqual(mech.rechargeEntry(flagged(breath, { recharge: "1d6" })), { dice: "1d6" });
+  assert.deepEqual(mech.rechargeEntry(breath), { dice: "1d4", ids: ["b1"] });
+  assert.deepEqual(mech.rechargeEntry(flagged(breath, { recharge: "1d6" })), { dice: "1d6", ids: ["b1"] });
   assert.equal(mech.rechargeEntry(flagged(breath, { recharge: false })), null);
   assert.equal(mech.rechargeEntry({ ...breath, type: "equipment" }), null, "лимиты — spell/action/feat");
   const none = { ...breath, system: { description: { value: "no roll" } } };
   assert.equal(mech.rechargeEntry(none), null);
   assert.equal(mech.rechargeEntry(flagged(none, { recharge: "1d6" })), null, "«добавить перезарядку» не делаем");
-  const c = (item) => ({ traits: [], rc: mech.rechargeEntry(item), inCombat: true, limitsOn: true, combatId: "c", roundNum: 2, rcLock: { c: "c", until: 5 } });
+  const c = (item) => ({ traits: [], rc: mech.rechargeEntry(item), inCombat: true, limitsOn: true, combatId: "c", roundNum: 2, rcLock: mech.mechOf(item).recharge === false ? null : { c: "c", until: 5 } });   // как ctxOf: «не ограничивать» гасит и замок
   assert.equal(reasonOf(c(breath)), "recharge");
   assert.equal(reasonOf(c(flagged(breath, { recharge: false }))), null, "строка LIMITS не срабатывает");
 });
@@ -233,4 +233,40 @@ test("вкладка листа: «Сохранить в предмет» пиш
   const rule = { v: 1, onUse: {} };
   assert.deepEqual(mech.savePatch({ ruleDirty: false, rule }), {}, "форма без правки — снимок каталога/разметки не закрепляется");
   assert.deepEqual(Object.keys(mech.savePatch({ ruleDirty: true, rule })).length > 0, true);
+});
+
+const STUN = "A creature critically hit by the electric eel's tail must attempt a @Check[fortitude|dc:17] save.<hr>Critical Success unaffected";
+const SIPHON = "When the accursed forge-spurned critically hits a target with its soul chain, the chain leeches away. The target must attempt a @Check[fortitude|dc:36] save.";
+const RU_CRIT = "Существо, получившее критический удар хвостом, проходит @Check[fortitude|dc:17]{испытание Стойкости}.";
+const withText = (slug, html) => passive(slug, { system: { actionType: { value: "passive" }, frequency: null, description: { value: html } } });
+
+test("M3 крит: признак из оверлея crit-only (по английскому тексту при сборке), не из текста предмета — описание может быть русским", () => {
+  const s = [strikeOf("venom")], when = (html) => strikeLinkEntry(res(POISON), withText("venom", html), s).onEvent[0].when;
+  try {
+    initOverlays(null, null, null, null, { v: 1, bySlug: { "venom@action": 1 } });
+    for (const t of [STUN, SIPHON, RU_CRIT, "Обычный текст"]) assert.ok(when(t).includes("outcome:criticalSuccess"), t.slice(0, 30));
+    initOverlays(null, null, null, null, null);
+    for (const t of [STUN, SIPHON, RU_CRIT]) assert.ok(!when(t).includes("outcome:criticalSuccess"), "нет записи — каждое попадание: " + t.slice(0, 30));
+  } finally { initOverlays(null, null, null, null, null); }
+});
+
+test("M3 исход: правило из разметки без byDegree — «нужно правило» (noOutcome), с исходом — «нужно принять»; недуг каталога связан", () => {
+  settings();
+  const s = [strikeOf("venom")], mk = () => withActor(passive("venom"), s);
+  const bare = { v: 1, label: "Venom", onUse: { targets: "selected", challenge: { statistic: "fortitude", dc: { value: 20 }, basic: false, rollerRole: "target", byDegree: {} } } };
+  const st = strikeLinkState(mk(), () => res(bare, "markup"));
+  assert.equal(st.off, "needRule"); assert.equal(st.noOutcome, true);
+  assert.equal(strikeLinkState(mk(), () => res(POISON, "markup")).noOutcome, false, "исход есть — принять можно");
+  assert.equal(strikeLinkState(mk(), () => res(POISON, "markup")).off, "needRule");
+  assert.equal(strikeLinkState(mk(), () => res(POISON, "catalog")).off, null);
+});
+
+test("M3 каталожное правило с крит-текстом запускается только критом (strikeLinkState и strikeLinkEntry)", () => {
+  settings();
+  const s = [strikeOf("shock")], it = withActor(withText("shock", STUN), s), st = () => strikeLinkState(it, () => res(POISON, "catalog")).rule.onEvent[0].when;
+  try {
+    initOverlays(null, null, null, null, { v: 1, bySlug: { "shock@action": 1 } });
+    assert.ok(st().includes("outcome:criticalSuccess"));
+  } finally { initOverlays(null, null, null, null, null); }
+  assert.ok(!st().includes("outcome:criticalSuccess"), "без записи оверлея текст предмета признак не задаёт");
 });

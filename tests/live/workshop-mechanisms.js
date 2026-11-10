@@ -338,12 +338,12 @@ async () => {
 
   sc("mixed", "Правило и механизм вместе; только механизм (без пустого правила); без механизмов (раздела нет)", async (e, t) => {
     const a0 = await e.copy(SRC.goblin, "Гоблин"), tk = await e.tok(a0, 1000, 1000), A = e.A(tk);
-    const rc = "<p>Нельзя снова [[/gmr 1d4 #Recharge Рёв]]{1d4 раунда}.</p>";
+    const rc = (n) => `<p>Нельзя снова [[/gmr 1d4 #Recharge ${n}]]{1d4 раунда}.</p>`;   // метка — имя самой способности: чужая метка блокирует другую способность
     const rule = { v: 1, onUse: { targets: "self", apply: [{ to: "self", condition: { slug: "frightened", value: 1 } }] } };
     if (!api().validateRule(rule).ok) throw new Error("тестовое правило невалидно");
     await e.give(A,
-      { type: "action", name: "AF с правилом", system: { slug: "af-both", actionType: { value: "action" }, actions: { value: 1 }, description: { value: rc } }, flags: { [MOD]: { rule } } },
-      { type: "action", name: "AF только механизм", system: { slug: "af-only", actionType: { value: "action" }, actions: { value: 1 }, description: { value: rc } } },
+      { type: "action", name: "AF с правилом", system: { slug: "af-both", actionType: { value: "action" }, actions: { value: 1 }, description: { value: rc("AF с правилом") } }, flags: { [MOD]: { rule } } },
+      { type: "action", name: "AF только механизм", system: { slug: "af-only", actionType: { value: "action" }, actions: { value: 1 }, description: { value: rc("AF только механизм") } } },
       { type: "action", name: "AF без механизмов", system: { slug: "af-none", actionType: { value: "action" }, actions: { value: 1 }, description: { value: "<p>тест</p>" } } });
     // у несвязанного токена порядок созданных документов не гарантирован — берём по имени
     const byName = (n) => A.items.find((i) => i.name === n);

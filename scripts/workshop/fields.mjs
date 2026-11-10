@@ -11,7 +11,8 @@ export const F = {
   num: (path, label, value, extra = {}) => ({ path, label, type: "number", value, inpCls: "ws-num", ...extra }),
   text: (path, label, value, extra = {}) => ({ path, label, type: "text", value, ...extra }),
   sel: (path, label, value, opts, extra = {}) => ({ path, label, value, options: withCur(opts, value), ...extra }),
-  chk: (path, label, value, extra = {}) => ({ path, label, check: true, value, ...extra })
+  chk: (path, label, value, extra = {}) => ({ path, label, check: true, value, ...extra }),
+  sw: (path, label, on, extra = {}) => ({ path, label, sw: true, value: on, ...extra })   // переключатель «работает ⇄ выключено»; value — включено
 };
 
 /** Поля, зависящие от подписей: t — функция перевода (в окне L, в тестах любая). */

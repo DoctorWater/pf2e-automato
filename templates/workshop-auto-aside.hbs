@@ -1,10 +1,13 @@
 <div class="ws-col">
   <section class="ws-sec">
     <h2 class="ws-h">{{localize "PF2E_AUTOMATO.workshop.au.happens"}}</h2>
+    {{#if mechOnly}}<p class="ws-note">{{localize "PF2E_AUTOMATO.workshop.mech.noRule"}}</p>{{else}}
     <p class="ws-desc">{{story.text}}</p>
     {{#each story.degrees}}<div class="ws-sdeg"><span class="ws-lbl ws-d-{{deg}}">{{label}}</span><span>{{text}}</span></div>{{/each}}
     {{#if applyNote}}<p class="ws-note">{{applyNote}}</p>{{/if}}
+    {{/if}}
   </section>
+  {{#unless mechOnly}}
   <section class="ws-sec">
     <div class="ws-hrow">
       <h2 class="ws-h ws-h2">{{localize "PF2E_AUTOMATO.workshop.au.probe"}}</h2>
@@ -30,4 +33,5 @@
       {{#unless probe.problems.length}}{{#if probe.tokens.length}}<p class="ws-ok">{{localize "PF2E_AUTOMATO.workshop.au.allFound"}}</p>{{/if}}{{/unless}}
     {{/if}}
   </section>
+  {{/unless}}
 </div>

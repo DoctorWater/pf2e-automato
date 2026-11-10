@@ -611,3 +611,13 @@ test("сводка активации: цели · бросок · исход, �
   assert.deepEqual(Object.keys(au.useSummaries(f.cast, env)), ["cast.0"]);
   assert.match(au.castLine(f.cast[0], env).body, /au\.cast\.stepsN\{"n":2\}/);
 });
+
+test("evParts: шаги только у критического провала не пишутся как «при провале»; оба — через «;»", () => {
+  const ev = (byDegree) => ruleToForm(validateRule({ v: 1, onEvent: [{ on: "damage-roll", side: "self", challenge: { statistic: "fortitude", dc: { value: 20 }, basic: false, rollerRole: "target", byDegree } }] }).rule).ev[0];
+  const cond = (value) => [{ to: "target", condition: { slug: "sickened", value } }];
+  assert.match(au.evParts(ev({ criticalFailure: cond(2) }), env).fail, /^workshop\.mech\.sum\.onCritFail\{/, "только крит. провал");
+  assert.match(au.evParts(ev({ failure: cond(1) }), env).fail, /^workshop\.mech\.sum\.onFail\{/);
+  const both = au.evParts(ev({ failure: cond(1), criticalFailure: cond(2) }), env).fail;
+  assert.match(both, /^workshop\.mech\.sum\.onFail\{.*\}; workshop\.mech\.sum\.onCritFail\{/);
+  assert.equal(au.evParts(ev({ success: cond(1) }), env).fail, "");
+});

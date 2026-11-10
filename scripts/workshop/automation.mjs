@@ -361,6 +361,15 @@ export function evLine(e, env) {
     body: [steps, ch].filter(Boolean).join("; ") || t("workshop.au.nothing")
   };
 }
+/** Запись onEvent (форма) -> части фразы без опций и событий: {save:{stat,dc}|null, fail — «при провале — …; при критическом провале — …» (только то, что есть), steps — шаги сразу}. */
+export function evParts(e, env) {
+  const ch = e.ch?.on ? e.ch : null, part = (k, deg) => { const steps = ch ? plates(ch.deg?.[deg], env) : ""; return steps ? env.t(`workshop.mech.sum.${k}`, { steps }) : ""; };
+  return {
+    save: ch ? { stat: env.statLabel(ch.statistic), dc: dcLabel(ch, { ...env, dc: null }) } : null,
+    fail: [part("onFail", "failure"), part("onCritFail", "criticalFailure")].filter(Boolean).join("; "),
+    steps: plates(e.apply, env)
+  };
+}
 /** Одна активация cast (форма) -> строка: заклинание · ранг · СЛ · частота · требование. */
 export const castDc = (c, t) => (c.dcType === "high" ? t("workshop.au.cast.dcHigh") : c.dcType === "class" ? t("workshop.au.cast.dc.class") : c.dcType === "value" ? t("chat.dc", { dc: String(c.dc ?? "").trim() || "?" }) : t("workshop.au.cast.dcAuto"));
 export function castLine(c, env) {

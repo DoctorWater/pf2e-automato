@@ -129,7 +129,7 @@ async () => {
     return root();
   };
   const row = (id) => root()?.querySelector(`.ws-mech [data-mech="${id}"]`) ?? null;
-  const pillOf = (id) => row(id)?.querySelector(".ws-pill")?.textContent.trim() ?? "";
+  const pillOf = (id) => row(id)?.querySelector(".ws-pill:not([hidden])")?.textContent.trim() ?? "";   // пилюля «своё» всегда в разметке, скрыта атрибутом hidden
   const sumOf = (id) => row(id)?.querySelector(".ws-sum")?.textContent.trim() ?? "";
   const openRow = async (id) => {
     if (!row(id)?.querySelector(".ws-pfields")) { row(id)?.querySelector("button.ws-psum")?.click(); await waitFor(() => row(id)?.querySelector(".ws-pfields"), 4000); }
@@ -141,6 +141,8 @@ async () => {
     el.checked = v; el.dispatchEvent(new Event("change", { bubbles: true }));
     await wait(500);
   };
+  // переключатель «Работает ⇄ Выключено в предмете»: нативный чекбокс role=switch; включён = работает, поэтому «выключить» — снять
+  const setOff = (id, off) => setCheck(`mech.${id}.off`, !off);
   const clickBtn = async (name, ms = 500) => {
     const el = root()?.querySelector(`[name="${name}"]`);
     if (!el || el.disabled) throw new Error(`кнопка ${name} ${el ? "недоступна" : "не найдена"}`);
@@ -173,9 +175,23 @@ async () => {
     t.ok(!!row("recharge"), "строка «Перезарядка»");
     t.ok(pillOf("recharge") === "", `пилюли нет, пока работает (${pillOf("recharge")})`);
     await openRow("recharge");
-    t.ok(!!root().querySelector('input[name="mech.recharge.dice"]') && !!root().querySelector('input[name="mech.recharge.off"]'), "поля: срок и «не ограничивать»");
+    const sw = root().querySelector('input[name="mech.recharge.off"]');
+    t.ok(!!root().querySelector('input[name="mech.recharge.dice"]') && sw?.getAttribute("role") === "switch" && sw.checked, "поля: переключатель «Работает» (включён) и срок");
+    t.ok(!root().querySelector('.ws-mech input[type="checkbox"]:not([role="switch"])'), "флажков-отрицаний в разделе нет");
+    t.ok(/Работает|Works/.test(root().querySelector(".ws-mech .ws-sw-t")?.textContent ?? ""), "подпись переключателя: «Работает»");
+    t.ok(/Работает|Works/.test(sw?.getAttribute("aria-label") ?? "") && !row("recharge").querySelector("button.ws-psum .ws-pill:not([aria-hidden])"), "имя переключателя постоянное; пилюли кнопки строки скрыты от скринридера");
+    t.ok(sw?.getAttribute("aria-describedby") === null || !!document.getElementById(sw.getAttribute("aria-describedby")), "aria-describedby переключателя указывает на существующий узел");
+    t.ok(!!document.getElementById("ws-tip-recharge")?.textContent.trim() && row("recharge").querySelector(".ws-pchip")?.getAttribute("aria-describedby") === "ws-tip-recharge", "подсказка источника доступна без мыши (aria-describedby)");
+    const dice = root().querySelector('input[name="mech.recharge.dice"]');
+    dice.value = "1к6"; dice.dispatchEvent(new Event("input", { bubbles: true })); dice.dispatchEvent(new Event("change", { bubbles: true }));
+    await wait(700);
+    t.ok(/1d6/.test(sumOf("recharge")) && !!row("recharge").querySelector(".ws-dot:not([hidden])"), `«1к6» принято как 1d6, строка помечена «не сохранено» (${sumOf("recharge")})`);
+    t.ok(root().querySelector('input[name="mech.recharge.dice"]') === dice, "change не перерисовывает поле срока (подвал остаётся на месте — клик «Сохранить» не теряется)");
+    t.ok(/Изменено в предмете|Changed in the item/.test(pillOf("recharge")), `пилюля своего срока (${pillOf("recharge")})`);
+    t.ok(root().querySelector('input[name="mech.recharge.dice"]')?.disabled === false, "срок доступен, пока «Работает»");
     await shot(e, "recharge", t);
-    await setCheck("mech.recharge.off", true);
+    await setOff("recharge", true);
+    t.ok(root().querySelector('input[name="mech.recharge.dice"]')?.disabled === true, "при «Выключено» срок недоступен");
     t.ok(!!root().querySelector('[name="resetDraft"]:not([disabled])'), "несохранённая правка: «Сбросить» доступна");
     t.ok(!root().querySelector('[name="saveItem"]').disabled, "«Сохранить» доступна");
     await saveWs();
@@ -183,8 +199,8 @@ async () => {
     t.ok(!it.flags?.[MOD]?.rule, "пустое правило не записано");
     t.ok(whyNot(A, it) === null, `блока нет (${whyNot(A, it)})`);
     t.ok(/Выключено в предмете|Off in the item/.test(pillOf("recharge")), `пилюля «выключено в предмете» (${pillOf("recharge")})`);
-    const where = [...root().querySelectorAll(".ws-head .ws-sub")].map((x) => x.textContent.trim()).find((x) => /^(Запись|Saved to)/.test(x));
-    t.ok(/токен \(несвязанный\)|token \(unlinked\)/.test(where ?? ""), `в шапке: куда пишется флаг (${where})`);
+    const scope = root().querySelector(".ws-scope")?.textContent.trim() ?? "";
+    t.ok(/только у этого токена|this token only/.test(scope) && !root().querySelector(".ws-head .ws-sub")?.textContent.match(/^(Запись|Saved to)/), `у раздела: куда пишется флаг, в шапке — нет (${scope})`);
     await it.update({ [`flags.${MOD}.mech`]: { recharge: "1d6" } });
     await wait(400);
     t.ok(whyNot(A, it) === "recharge", "свой срок вместо «не ограничивать»: блок вернулся");
@@ -202,11 +218,11 @@ async () => {
     t.ok(!!(await useAction(step)), "предыдущее действие — не Удар");
     t.ok(whyNot(A, grab) === "req", `Хватка заблокирована (${whyNot(A, grab)})`);
     await openWs(grab);
-    t.ok(!!row("req"), "строка «Требование»");
+    t.ok(!!row("req"), "строка «Требования»");
     t.ok(/Удар|Strike/.test(sumOf("req")), `сводка называет Удар (${sumOf("req")})`);
     await openRow("req");
     await shot(e, "req", t);
-    await setCheck("mech.req.off", true);
+    await setOff("req", true);
     await saveWs();
     t.ok(grab.flags?.[MOD]?.mech?.req === false, "флаг mech.req=false");
     t.ok(whyNot(A, grab) === null, `блока нет (${whyNot(A, grab)})`);
@@ -221,7 +237,7 @@ async () => {
     let st = strikeLinkState(it);
     if (!st) throw new Skip("Удар не ссылается на способность (связи нет)");
     await openWs(it);
-    t.ok(!!row("strike"), "строка «Удар → способность»");
+    t.ok(!!row("strike"), "строка «От Удара»");
     await shot(e, "strike", t);
     if (st.off === "needRule") {
       t.ok(/принять|accepting/i.test(pillOf("strike")), `пилюля «нужно принять правило» (${pillOf("strike")})`);
@@ -234,7 +250,7 @@ async () => {
     t.ok(!!strikeLinked(it), "связь работает");
     await openWs(it);
     await openRow("strike");
-    await setCheck("mech.strike.off", true);
+    await setOff("strike", true);
     await saveWs();
     t.ok(it.flags?.[MOD]?.mech?.strike === false, "флаг mech.strike=false");
     t.ok(strikeLinked(it) === null, "ручная карточка возвращается (strikeLinked null)");
@@ -249,7 +265,7 @@ async () => {
     const { maneuversOf } = await imp("builtin/maneuver.mjs");
     t.ok(maneuversOf(tm).length === 4, `по умолчанию 4 манёвра (${maneuversOf(tm)})`);
     await openWs(tm);
-    t.ok(!!row("maneuvers"), "строка «Манёвр заклинанием»");
+    t.ok(!!row("maneuvers"), "строка «Манёвры»");
     await openRow("maneuvers");
     await shot(e, "maneuvers", t);
     await clickBtn("mech.maneuvers.auto-false");
@@ -257,6 +273,7 @@ async () => {
     await saveWs();
     t.ok(JSON.stringify(tm.flags?.[MOD]?.mech?.maneuvers) === '["trip"]', `флаг maneuvers (${JSON.stringify(tm.flags?.[MOD]?.mech)})`);
     t.ok(JSON.stringify(maneuversOf(tm)) === '["trip"]', `на карточке остался один манёвр (${maneuversOf(tm)})`);
+    t.ok(/Изменено в предмете|Changed in the item/.test(pillOf("maneuvers")) && /Кнопка на карточке|A button on the casting card/.test(sumOf("maneuvers")), `ручной список: пилюля и единственное число (${pillOf("maneuvers")} / ${sumOf("maneuvers")})`);
     await openWs(mg);
     t.ok(!!row("maneuvers"), "Magnetic Attraction: строка есть");
     t.ok(!row("maneuvers").querySelector("button.ws-psum"), "…но без полей (манёвр один)");
@@ -270,17 +287,17 @@ async () => {
     const slowed = (x = A) => x.hasCondition("slowed");   // состояние из GrantItem inMemoryOnly живёт в actor.conditions, не в itemTypes
     t.ok(!!(await waitFor(slowed, 4000)) && (await noReact(A)), "до правки: Slowed и нет реакций");
     await openWs(it);
-    t.ok(!!row("permanent"), "строка «Постоянное состояние»");
+    t.ok(!!row("permanent"), "строка «Состояние»");
     t.ok(!/pf2e-automations/.test(pillOf("permanent")), "«уступает» не показывается");
     t.ok(/данных pf2e|pf2e data/.test(sumOf("permanent")), `сводка: состояние уже в данных pf2e (${sumOf("permanent")})`);
     await openRow("permanent");
     await shot(e, "permanent", t);
-    await setCheck("mech.permanent.off", true);
+    await setOff("permanent", true);
     await saveWs();
     t.ok(it.flags?.[MOD]?.mech?.permanent === false, "флаг mech.permanent=false");
     t.ok(!!(await waitFor(async () => !(await noReact(A)), 6000)), "off: запрет реакций снят");
     t.ok(slowed(), "off: Slowed из данных pf2e остался");
-    t.ok(/Выключено в предмете|Off in the item/.test(pillOf("permanent")), "пилюля");
+    t.ok(/Запрет реакций выключен в предмете|Reaction ban off in the item/.test(pillOf("permanent")), `пилюля: только запрет реакций (${pillOf("permanent")})`);
     await it.update({ [`flags.${MOD}.-=mech`]: null });
     t.ok(!!(await waitFor(async () => noReact(A), 6000)), "флаг убран — запрет реакций вернулся");
     // копия без документа состояния: Slowed даёт только модуль
@@ -337,13 +354,15 @@ async () => {
     await openWs(only);
     t.ok(!!row("recharge"), "только механизм: строка есть");
     t.ok(!only.flags?.[MOD]?.rule, "правила в флаге нет");
+    t.ok(!!root().querySelector('[name="startRule"]') && !root().querySelector('[name="row-roll"]') && /Правила нет|no rule/i.test(root().querySelector('[data-application-part="aside"] .ws-note')?.textContent ?? ""), "без правила: справа одна строка, конвейер свёрнут до «Создать правило»");
     t.ok(root().querySelector('[name="saveItem"]').disabled, "«Сохранить» недоступна без правок");
     t.ok(root().querySelector('[name="worldSave-slug"]').disabled, "«В мир → правило» недоступно: правила нет и не правили");
     await openRow("recharge");
-    await setCheck("mech.recharge.off", true);
+    await setOff("recharge", true);
     await saveWs();
     t.ok(only.flags?.[MOD]?.mech?.recharge === false && !only.flags?.[MOD]?.rule, "сохранился один mech, пустое onUse не записано");
-    t.ok(!/не записано|not written/i.test(root().querySelector(".ws-foot-msg")?.textContent ?? ""), `статус подвала не «Не в предмете» (${root().querySelector(".ws-foot-msg")?.textContent.trim()})`);
+    const msg = root().querySelector(".ws-foot-msg")?.textContent.trim() ?? "";
+    t.ok(/(Правило|Rule): (нет|none)/.test(msg) && /(Работает само|Works on its own): (изменено в предмете|changed in the item)/.test(msg), `статус подвала из двух частей (${msg})`);
     await openWs(none);
     t.ok(!root().querySelector(".ws-mech"), "без механизмов: раздела нет");
     await openWs(both);

@@ -14,8 +14,8 @@ import * as af from "./affliction-edit.mjs";
 import * as im from "./item.mjs";
 import { BUILTIN } from "../builtin/index.mjs";
 import { hintsView, hintList } from "../hints.mjs";
-import { mechOf, mechToForm, formToMech, mechErrors, savePatch } from "../mech.mjs";
-import { detectMechs, mechRows, liveEnv } from "./mechanisms.mjs";
+import { mechOf, mechToForm, formToMech, pruneMech, mechErrors, savePatch } from "../mech.mjs";
+import { detectMechs, mechRows, mechBase, liveEnv, footStatus } from "./mechanisms.mjs";
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
 const TPL = (n) => `modules/${MOD}/templates/workshop-${n}.hbs`;
 const ICONS = { bonus: "plus-minus", resist: "shield-halved", temphp: "heart", fastheal: "heart-pulse", dmg: "burst", speed: "person-running", sense: "eye", cond: "circle-exclamation", note: "note-sticky", aura: "circle-dot", light: "sun", raw: "code" };
@@ -336,6 +336,7 @@ export class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
       removeCast(_e, el) { this.#au.f.cast.splice(Number(el.dataset.i), 1); au.resetCast(this.#au); this.#redraw(); },
       intoUse(_e, el) { const a = this.#au; au.resetCast(a); a.into = el.dataset.into; a.open.outcome = true; this.#redraw(); },
       intoBack() { au.resetCast(this.#au); this.#redraw(); },
+      startRule() { this.#au.creating = true; this.#redraw(); },
       removeEvent(_e, el) { this.#au.f.ev.splice(Number(el.dataset.i), 1); this.#au.sel = null; this.#redraw(); },
       addTrigger() { this.#au.f.zone.trig.push(blankTrigger()); this.#au.sel = null; this.#redraw(); },
       removeTrigger(_e, el) { this.#au.f.zone.trig.splice(Number(el.dataset.i), 1); this.#au.sel = null; this.#redraw(); },
@@ -428,13 +429,13 @@ export class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
     if (!res) f.kind = "onUse";
     const area = au.initialArea({ isSpell: item.type === "spell", area: item._source.system.area, description: item._source.system.description?.value });
     const hints = res?.source === "markup" && game.user.isGM ? hintsView(res.hints, { condLabel, degLabel: (d) => t(`sheet.degree.${d}`).toLowerCase() }) : null;
-    this.#au = { hints, f, base: JSON.stringify(f), area, baseArea: { ...area }, open: prev?.open ?? { when: false, targets: false, roll: true, outcome: true, zone: false, macros: false, events: true, cast: true }, sel: prev?.sel ?? null, picker: null, card: null, into: prev?.into ?? null, probeDc: prev?.probeDc ?? "" };
+    this.#au = { hints, f, base: JSON.stringify(f), area, baseArea: { ...area }, open: prev?.open ?? { when: false, targets: false, roll: true, outcome: true, zone: false, macros: false, events: true, cast: true }, sel: prev?.sel ?? null, picker: null, card: null, into: prev?.into ?? null, probeDc: prev?.probeDc ?? "", creating: prev?.creating ?? false };
   }
 
   /** Загрузка черновика mech: смена предмета, «Сбросить», после записи. «В мир», «Снять правило», «Принять» и refresh его не трогают. */
   #loadMech() {
-    const form = mechToForm(mechOf(this.#item));
-    this.#mech = { form, base: JSON.stringify(form) };
+    const saved = mechOf(this.#item);
+    this.#mech = { form: mechToForm(saved), saved };   // saved — флаг на момент загрузки: правка извне (refresh) — не «несохранённая правка ведущего»
   }
 
   #ruleDirty() {
@@ -442,7 +443,9 @@ export class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
     return !!a && (JSON.stringify(a.f) !== a.base || (a.f.targets === "area" && (a.area.shape !== a.baseArea.shape || au.clampSize(a.area.size) !== au.clampSize(a.baseArea.size))));
   }
 
-  #mechDirty() { return !!this.#mech && JSON.stringify(this.#mech.form) !== this.#mech.base; }
+  /** Сравниваем итог (то, что запишется), а не сырую форму: «выбрать вручную → Авто» и «1к6» при сохранённом «1d6» правкой не считаются. */
+  #mechOut() { return this.#mech ? formToMech(this.#mech.form, mechBase(this.#dets)) : {}; }
+  #mechDirty() { return !!this.#mech && JSON.stringify(this.#mechOut()) !== JSON.stringify(pruneMech(this.#mech.saved ?? mechOf(this.#item), mechBase(this.#dets))); }
 
   #dirty() { return this.#ruleDirty() || this.#mechDirty(); }
 
@@ -453,6 +456,7 @@ export class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
       const auto = this.#dets?.find((d) => d.id === "maneuvers")?.data.auto ?? [];
       m.maneuvers.list = Object.fromEntries(Object.keys(m.maneuvers.list).map((k) => [k, auto.includes(k)]));
     }
+    if (path.endsWith(".off")) v = !(v === true || v === "true");   // переключатель «Работает» — включено, в форме off
     foundry.utils.setProperty(m, path.slice("mech.".length), path.endsWith(".dice") ? v : v === "true" ? true : v === "false" ? false : v);
   }
 
@@ -533,9 +537,9 @@ export class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
   async #saveItem() {
     const a = this.#au, item = this.#item, ruleDirty = this.#ruleDirty(), mechDirty = this.#mechDirty(), v = validateRule(formToRule(a.f));
     if ((ruleDirty && !v.ok) || mechErrors(this.#mech.form).length || !(ruleDirty || mechDirty)) return;
-    const patch = savePatch({ ruleDirty, rule: v.rule, areaPatch: au.areaPatch(this.#areaSrc(), a.area, a.baseArea, a.f.targets), mechDirty, mech: formToMech(this.#mech.form) });   // каждая часть — только если менялась
+    const patch = savePatch({ ruleDirty, rule: v.rule, areaPatch: au.areaPatch(this.#areaSrc(), a.area, a.baseArea, a.f.targets), mechDirty, mech: this.#mechOut() });   // каждая часть — только если менялась
     await item.update(patch);
-    ui.notifications.info(t("sheet.saved"));
+    ui.notifications.info(t(ruleDirty ? "sheet.saved" : "workshop.mech.saved"));
     this.#loadAu();
     this.#loadMech();
     this.render({ window: { title: this.title } });
@@ -820,16 +824,17 @@ export class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
       });
       probe = { needDc, probeDc: a.probeDc ?? "", tokens: rows2, count: tokens.length, none: mode === "none", noTokens: !tokens.length, problems: rep.problems, legend: au.COLS.map((d) => ({ deg: d, label: t(`sheet.degree.${d}`) })) };
     }
+    this.#dets ??= detectMechs(item, liveEnv(item));   // до #dirty(): сравнение механизмов опирается на значения по умолчанию из dets
     const errors = [...v.errors.map(errText), ...mechErrors(this.#mech.form).map((k) => t(k))], dirty = this.#dirty(), ruleDirty = this.#ruleDirty();
     const lockedFlag = !item.isOwner || !!item.compendium?.locked;
-    this.#dets ??= detectMechs(item, liveEnv(item));
-    const evText = (r) => { try { const e = au.evLine(ruleToForm(r).ev[0], env); return `${e.head}: ${e.body}`; } catch { return ""; } };
-    const mechs = into ? [] : mechRows(this.#dets, item, liveEnv(item, { evText, locked: lockedFlag }), this.#mech.form).map((r) => ({ ...r, open: !!a.open[`mech.${r.id}`] && r.fields.length > 0 }));
-    const derived = keyDerived(item, res), mechSaved = Object.keys(mechOf(item)).length > 0;
+    const evParts = (r) => { try { return au.evParts(ruleToForm(r).ev[0], env); } catch { return null; } };
+    const mechs = into ? [] : mechRows(this.#dets, item, liveEnv(item, { evParts, locked: lockedFlag }), this.#mech.form).map((r) => ({ ...r, open: !!a.open[`mech.${r.id}`] && r.fields.length > 0, desc: [r.draft && t("workshop.mech.unsaved"), r.custom && t("workshop.mech.custom"), r.state?.text].filter(Boolean).join(". ") }));   // desc — описание строки для скринридера (пилюли в кнопке скрыты от имени)
+    this.#live.mech = Object.fromEntries(mechs.map((r) => [r.id, r]));
+    const derived = keyDerived(item, res), mechSaved = Object.keys(mechOf(item)).length > 0, mechOnly = !!mechs.length && !res && !ruleDirty && !a.creating;   // у предмета без правила работает только раздел «Работает само»
     return {
-      mechs,
+      mechs, mechOnly, mechScope: item.actor ? t(item.actor.isToken ? "workshop.mech.scopeToken" : "workshop.mech.scopeActor", { actor: item.actor.name }) : "",
+      mechOnlyWorld: this.#mechDirty() && !ruleDirty,
       head: {
-        where: item.actor ? t(item.actor.isToken ? "workshop.mech.whereToken" : "workshop.mech.whereActor") : "",   // куда пишется флаг: несвязанный токен хранит предметы в своей дельте
         img: item.img, name: item.name, covered: groups.join(", "),
         kind: [game.i18n.localize(`TYPES.Item.${item.type}`), isSpell ? item.rank : item.system.level?.value].filter((x) => x !== undefined && x !== null).join(" "),
         traits: (item.system.traits?.value ?? []).map(traitLabel),
@@ -838,8 +843,8 @@ export class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
       skills: [...sheetStat, ...Object.keys(CONFIG.PF2E.skills ?? {})], conds: grantable().map((c) => ({ ...c, q: c.label.toLowerCase() })),
       rows, into: into ? this.#intoView(P) : null, doubleWarn: !!groups.length && (f.yield === "no" || (f.yield === "auto" && !setting)) ? t("sheet.doubleWarn") + ` «${groups.join(", ")}»` : "",
       probeMsg: t(onUse ? "workshop.au.probeBlocked" : "workshop.au.probeOnlyUse"), story, applyNote: onUse ? t(`workshop.au.applyMode.${modeOf("apply")}`) : "", probe,
-      errors, error: errors[0] ? errors[0] + (errors.length > 1 ? ` ${t("workshop.err.more", { n: errors.length - 1 })}` : "") : "",
-      dirty, status: t(dirty ? "workshop.au.dirty" : res?.source === "flag" || mechSaved ? "workshop.au.savedState" : "workshop.au.notInItem"),
+      errors, ruleBad: !!v.errors.length, error: errors[0] ? errors[0] + (errors.length > 1 ? ` ${t("workshop.err.more", { n: errors.length - 1 })}` : "") : "",   // ruleBad — только ошибки правила: мировой каталог ошибки механизмов не касаются
+      dirty, status: footStatus(t, { dirty, source: res?.source, mechs: mechs.length, mechSaved }),
       saveOff: !!errors.length || lockedFlag || !dirty, noRuleSave: !res && !ruleDirty,   // «Сохранить» пишет только изменённое; у предмета без правила и без правки правила в мир писать нечего
       worldSourceLabel: t(derived ? "sheet.worldCreature" : "sheet.worldSource"), delWorldSourceLabel: t(derived ? "sheet.delWorldCreature" : "sheet.delWorldSource"), noSourceHint: t("sheet.noSourceHint"),
       lockedFlag, noSource: !sourceKeyOf(item, res), noSlug: !slug, isWorld: res?.source === "world", canUnset: res?.source === "flag" && !lockedFlag
@@ -860,6 +865,13 @@ export class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
     for (const n of el.querySelectorAll("[data-sum]")) if (n.dataset.sum in live.sums) n.textContent = live.sums[n.dataset.sum];
     for (const n of el.querySelectorAll("[data-plate]")) { const p = live.plates[n.dataset.plate]; if (p) n.textContent = p.text; }
     for (const n of el.querySelectorAll("[data-pv]")) { const p = live.plates[n.dataset.pv]; if (p) n.textContent = p.value; }
+    for (const [id, r] of Object.entries(live.mech ?? {})) {   // строки «Работает само»: сводка, пилюля «своё», отметка «не сохранено»
+      const q = (k) => el.querySelector(`[data-${k}="${id}"]`);
+      if (q("msum")) q("msum").textContent = r.sum;
+      if (q("mcustom")) q("mcustom").hidden = !r.custom;
+      if (q("mdraft")) q("mdraft").hidden = !r.draft;
+      if (q("mdesc")) q("mdesc").textContent = r.desc;
+    }
   }
 
   _onFirstRender() {
@@ -885,6 +897,7 @@ export class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
     el.addEventListener("change", (ev) => {
       const f = ev.target.closest("[data-f],[data-a],[data-i]");
       if (f?.dataset.a === "probeDc") { this.#set(f, f.value); this.render({ parts: ["aside"] }); return; }
+      if (f?.dataset.a?.startsWith("mech.") && f.type === "text") { this.#set(f, f.value); return; }   // срок перезарядки: строку и подвал уже обновил input (#paint); перерисовка по change съела бы клик «Сохранить» сразу после ввода
       if (!f || !(f.tagName === "SELECT" || f.type === "checkbox")) return;
       const v = f.type === "checkbox" ? f.checked : f.value;
       this.#set(f, v);
@@ -1153,6 +1166,8 @@ export class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
     if (item) {
       if (app.#item?.uuid !== item.uuid) return;
       if (!app.#ruleDirty()) app.#loadAu(true);
+      if (!app.#mechDirty()) app.#loadMech();
+      app.#dets = null;   // состояния строк (M3) читают актёра заново
       return app.render({ window: { title: app.title } });
     }
     app.render({ parts: ["aside"] });

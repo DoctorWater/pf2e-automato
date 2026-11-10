@@ -20,7 +20,9 @@ test("normalizeMech: допустимое остаётся, мусор и неи
     { recharge: false, req: false, strike: false, permanent: false, maneuvers: ["disarm", "trip"] }, "манёвры в порядке таблицы");
   assert.deepEqual(mech.normalizeMech({ recharge: " 1D6 " }), { recharge: "1d6" });
   assert.deepEqual(mech.normalizeMech({ recharge: "1d4 + 1" }), { recharge: "1d4+1" });
-  for (const bad of [{ recharge: "abc" }, { recharge: "1к6" }, { recharge: true }, { recharge: 5 }, { req: true }, { strike: "no" }, { permanent: 0 }, { maneuvers: [] }, { maneuvers: ["fly"] }, { maneuvers: "trip" }, { other: 1 }, [], "x", null, undefined]) {
+  assert.deepEqual(mech.normalizeMech({ recharge: "1к6" }), { recharge: "1d6" }, "кириллическая «к» — как d");
+  assert.deepEqual(mech.normalizeMech({ recharge: " 1К4 + 1" }), { recharge: "1d4+1" });
+  for (const bad of [{ recharge: "abc" }, { recharge: "1ж6" }, { recharge: true }, { recharge: 5 }, { req: true }, { strike: "no" }, { permanent: 0 }, { maneuvers: [] }, { maneuvers: ["fly"] }, { maneuvers: "trip" }, { other: 1 }, [], "x", null, undefined]) {
     assert.deepEqual(mech.normalizeMech(bad), {}, JSON.stringify(bad));
   }
   assert.deepEqual(mech.normalizeMech({ maneuvers: ["fly", "trip"] }), { maneuvers: ["trip"] });
@@ -39,9 +41,32 @@ test("форма: флаг -> форма -> флаг без потерь; зна
   assert.deepEqual(mech.formToMech(f), { strike: false, maneuvers: ["trip"] });
 });
 
-test("mechErrors: «1к6» и пустой выбор манёвров — ошибки; «не ограничивать» глушит ошибку срока", () => {
+test("итог формы без значений по умолчанию: «выбрать вручную → Авто», «1к6» при сохранённом «1d6», срок как в тексте — не правка", () => {
+  const base = { dice: "1d4", maneuvers: ["disarm", "trip"] }, out = (f) => mech.formToMech(f, base);
+  const dirty = (f, saved) => JSON.stringify(out(f)) !== JSON.stringify(mech.pruneMech(saved, base));
+  const f = mech.mechToForm({});
+  f.maneuvers.auto = false; f.maneuvers.list = { disarm: true, shove: false, reposition: false, trip: true };   // «Выбрать вручную» стартует с авто-списка
+  assert.equal(dirty(f, {}), false, "ручной список = авто — правки нет");
+  assert.deepEqual(out(f), {});
+  f.maneuvers.list.shove = true;
+  assert.equal(dirty(f, {}), true, "реальная правка списка");
+  f.maneuvers.auto = true;
+  assert.equal(dirty(f, {}), false, "обратно в Авто");
+  const g = mech.mechToForm({ recharge: "1d6" });
+  g.recharge.dice = "1к6";
+  assert.equal(dirty(g, { recharge: "1d6" }), false, "«1к6» = сохранённое «1d6»");
+  g.recharge.dice = "1d4";
+  assert.deepEqual(out(g), {}, "срок как в тексте не пишется");
+  assert.equal(dirty(g, { recharge: "1d6" }), true, "снятие своего срока — правка");
+  assert.deepEqual(mech.formToMech(g), { recharge: "1d4" }, "без base — как раньше");
+});
+
+test("mechErrors: неверный срок и пустой выбор манёвров — ошибки; «1к6» — не ошибка; «не ограничивать» глушит ошибку срока", () => {
   const f = mech.mechToForm({});
   f.recharge.dice = "1к6";
+  assert.deepEqual(mech.mechErrors(f), []);
+  assert.deepEqual(mech.formToMech(f), { recharge: "1d6" });
+  f.recharge.dice = "1ж6";
   assert.deepEqual(mech.mechErrors(f), ["workshop.mech.err.dice"]);
   f.recharge.off = true;
   assert.deepEqual(mech.mechErrors(f), []);
@@ -155,6 +180,8 @@ test("M3 strikeLinkState: причины off — flag, needRule, mode, yield; с
   assert.equal(strikeLinkState(mk(), poison).off, null);
   assert.equal(strikeLinkState(mk(), poison).strikes.length, 1);
   assert.equal(strikeLinkState(mk(OFF), poison).off, "flag");
+  assert.equal(strikeLinkState(mk(), poison).needRule, false, "в кэш строки Мастерской идёт признак связи, не режим и не уступка");
+  assert.equal(strikeLinkState(mk(), () => res(POISON, "markup")).needRule, true);
   assert.equal(strikeLinkState(mk(), () => res(POISON, "markup")).off, "needRule", "разметка сама не исполняется");
   assert.equal(strikeLinkState(mk(OFF), () => res(POISON, "markup")).off, "flag", "переопределение предмета — раньше правила");
   assert.equal(strikeLinkState(withActor(passive("venom"), [strikeOf("other")]), poison), null, "Удар не ссылается");
@@ -196,4 +223,14 @@ test("M6: permanent:false — permanentOf null (и у _source), без флаг�
   assert.equal(permanentOf(zombie, "npc"), PERMANENT.slow);
   assert.equal(permanentOf(flagged(zombie, { permanent: false }), "npc"), null);
   assert.equal(permanentOf(zombie, "character"), null);
+});
+
+test("вкладка листа: «Сохранить в предмет» пишет правило только через savePatch (без правки _afDraft — ничего)", async () => {
+  const { readFileSync } = await import("node:fs");
+  const src = readFileSync(new URL("../scripts/sheet.mjs", import.meta.url), "utf8"), line = src.slice(src.indexOf('act === "save-flag"'), src.indexOf('act === "reset-flag"'));
+  assert.match(line, /savePatch\(\{ ruleDirty: !!app\._afDraft/);
+  assert.doesNotMatch(line, /forcedReplace/, "прямой записи формы во флаг нет");
+  const rule = { v: 1, onUse: {} };
+  assert.deepEqual(mech.savePatch({ ruleDirty: false, rule }), {}, "форма без правки — снимок каталога/разметки не закрепляется");
+  assert.deepEqual(Object.keys(mech.savePatch({ ruleDirty: true, rule })).length > 0, true);
 });

@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 
 globalThis.game ??= {};
 const { MOD } = await import("../scripts/util.mjs");
-const { detectMechs, mechRows, mechanismsOf, MECH_IDS } = await import("../scripts/workshop/mechanisms.mjs");
+const { detectMechs, mechRows, mechanismsOf, footStatus, MECH_IDS } = await import("../scripts/workshop/mechanisms.mjs");
 const { mechToForm } = await import("../scripts/mech.mjs");
 const { LIMITS } = await import("../scripts/builtin/impulse-gate.mjs");
 const { rechargeOf } = await import("../scripts/builtin/limit-text.mjs");
@@ -42,27 +42,79 @@ test("M1: состояние — предмет раньше режима; св�
   delete modes.limits;
   const dragon = doc({ system: { description: { value: BREATH }, traits: { value: ["breath"] }, rules: [] } });
   dragon.actor = { items: [{ type: "action", slug: "draconic-momentum", system: { description: { value: "" } } }] };
-  assert.match(row(dragon).sum, /rechargeCrit/);
+  assert.match(row(dragon).sum, /rechargeCrit\{"name":"Breath"\}/, "«Дыхание» — название предмета");
   assert.doesNotMatch(row(doc()).sum, /rechargeCrit/);
 });
 
-test("M1: поля — срок и «не ограничивать»; без формы (вкладка листа) полей нет", () => {
+test("M1: поля — переключатель и срок; без формы (вкладка листа) полей нет; срок недоступен при «Выключено» и при locked", () => {
   const d = doc(), f = mechToForm({});
-  assert.deepEqual(mechanismsOf(d, env(), f)[0].fields.map((x) => x.path), ["mech.recharge.dice", "mech.recharge.off"]);
+  const fields = (form, e = env()) => mechanismsOf(d, e, form)[0].fields;
+  assert.deepEqual(fields(f).map((x) => x.path), ["mech.recharge.off", "mech.recharge.dice"]);
+  assert.deepEqual(fields(f).map((x) => !!x.disabled), [false, false]);
+  assert.equal(fields(f)[0].sw, true);
+  assert.equal(fields(f)[0].value, true, "включено");
+  assert.match(fields(f)[0].label, /switchOn/);
+  f.recharge.off = true;
+  assert.equal(fields(f)[0].value, false);
+  assert.match(fields(f)[0].label, /switchOff/);
+  assert.equal(fields(f)[1].disabled, true, "срок при «Выключено» недоступен");
+  assert.deepEqual(fields(mechToForm({}), env({ locked: true })).map((x) => !!x.disabled), [true, true]);
   assert.deepEqual(mechanismsOf(d, env())[0].fields, []);
 });
 
-test("M3: причины off → пилюли состояния", () => {
-  const rule = { onEvent: [{ challenge: null }] }, strikes = [{ name: "Fangs" }];
-  const row = (off) => mechanismsOf(doc(), env({ strikeState: () => ({ rule, strikes, off }) })).find((r) => r.id === "strike");
-  assert.equal(row(null).state, null);
-  assert.match(row("flag").state.text, /state\.flag/);
-  assert.match(row("needRule").state.text, /state\.needRule/);
-  assert.equal(row("needRule").state.warn, true);
-  assert.match(row("mode").state.text, /state\.mode/);
-  assert.match(row("yield").state.text, /state\.yield/);
-  assert.match(row(null).sum, /Fangs/);
-  assert.match(mechanismsOf(doc(), env({ strikeState: () => ({ rule, strikes, off: null }), evText: () => "урон" })).find((r) => r.id === "strike").sum, /урон/);
+test("строка считается от черновика: сводка, состояние, отметка «не сохранено», своё значение", () => {
+  const d = doc(), f = mechToForm({});
+  const row = (form) => mechanismsOf(d, env(), form)[0];
+  assert.equal(row(f).draft, false);
+  assert.equal(row(f).custom, false);
+  f.recharge.dice = "1к6";
+  assert.match(row(f).sum, /1d6/, "«1к6» принимается как 1d6");
+  assert.equal(row(f).draft, true);
+  assert.equal(row(f).custom, true);
+  f.recharge.dice = ""; f.recharge.off = true;
+  assert.match(row(f).state.text, /state\.flag/, "выключение видно до сохранения");
+  assert.equal(row(f).draft, true);
+  assert.equal(mechanismsOf(withMech(d, { recharge: "1d6" }), env(), mechToForm({ recharge: "1d6" }))[0].draft, false, "сохранённое значение — не черновик");
+  assert.equal(row(mechToForm({ recharge: "1d6" })).custom, true);
+  const saved = withMech(d, { recharge: false });
+  assert.equal(mechanismsOf(saved, env(), mechToForm({}))[0].state, null, "черновик включён, сохранённое выключено");
+  assert.equal(mechanismsOf(saved, env(), mechToForm({}))[0].draft, true);
+});
+
+test("M3: причины → пилюли состояния; режим и уступка считаются на каждый рендер, не из кэша признака", () => {
+  const rule = { onEvent: [{ challenge: null, apply: [{}] }] }, strikes = [{ name: "Fangs" }];
+  const link = (o = {}) => ({ rule, strikes, needRule: false, ids: {}, ...o });
+  const row = (o, d = doc(), e = {}) => mechanismsOf(d, env({ strikeState: () => link(o), ...e })).find((r) => r.id === "strike");
+  assert.equal(row().state, null);
+  assert.match(row({}, withMech(doc(), { strike: false })).state.text, /state\.flag/);
+  assert.match(row({ needRule: true }).state.text, /state\.needRule/);
+  assert.equal(row({ needRule: true }).state.warn, true);
+  modes.effect = "off";
+  assert.match(row().state.text, /state\.mode/);
+  modes.effect = "button";
+  assert.match(row().state.text, /state\.modeButton/, "«По кнопке» — не «Выключено»");
+  delete modes.effect;
+  const dets = detectMechs(doc(), env({ strikeState: () => link() })), at = (e) => mechRows(dets, doc(), env(e)).find((r) => r.id === "strike").state;
+  assert.equal(at({}), null);
+  modes.effect = "off";
+  assert.match(at({}).text, /state\.mode/, "те же dets, режим сменился — строка пересчитана");
+  delete modes.effect;
+  assert.match(at({ yields: () => true }).text, /state\.yield/, "то же для уступки");
+  const draftOff = mechToForm({ strike: false }), draftOn = mechToForm({});
+  const withForm = (e, form, d = doc()) => mechanismsOf(d, env({ strikeState: () => link(), ...e }), form).find((r) => r.id === "strike");
+  assert.match(withForm({}, draftOff).state.text, /state\.flag/, "флаг из черновика");
+  assert.match(withForm({ yields: () => true }, draftOn, withMech(doc(), { strike: false })).state.text, /state\.yield/, "флаг снят в черновике: видна следующая причина");
+  modes.challenge = "off";
+  const chRule = { onEvent: [{ challenge: {} }] };
+  modes.effect = "off";
+  assert.match(row({ rule: chRule }).state.text, /"mode":"settings\.mode\.challenge\.name"/, "испытание выключено — называется оно");
+  delete modes.challenge; delete modes.effect;
+  assert.match(row().sum, /Fangs/);
+  const sum = (parts) => mechanismsOf(doc(), env({ strikeState: () => link(), evParts: () => parts })).find((r) => r.id === "strike").sum;
+  assert.match(sum({ save: { stat: "Стойкость", dc: "20" }, fail: "Больной 1", steps: "" }), /sum\.strike\{.*"stat":"Стойкость","dc":"20","fail":"Больной 1"/);
+  assert.match(sum({ save: null, fail: "", steps: "Больной 1" }), /strikeSteps/);
+  assert.match(sum(null), /strikeShort/);
+  assert.doesNotMatch(sum({ save: { stat: "s", dc: "1" }, fail: "x", steps: "" }), /item:attack-effect/);
 });
 
 const TK = { id: "tk", type: "spell", slug: "telekinetic-maneuver", name: "TM", system: { description: { value: "" }, traits: { value: [] }, rules: [] }, flags: {} };
@@ -77,12 +129,16 @@ test("M5: режим off — состояние (строка остаётся, 
   const f = mechToForm({});
   const auto = mechanismsOf(TK, e, f).find((r) => r.id === "maneuvers");
   assert.deepEqual(auto.fields.map((x) => x.path), ["mech.maneuvers.auto"]);
+  assert.match(auto.sum, /maneuvers\{/, "несколько манёвров — множественное");
+  assert.equal(mechanismsOf(TK, e, mechToForm({ maneuvers: ["trip"] })).find((r) => r.id === "maneuvers").custom, true);
+  assert.deepEqual(mechanismsOf(TK, env({ locked: true }), mechToForm({})).find((r) => r.id === "maneuvers").fields.map((x) => !!x.disabled), [true], "locked: сегмент недоступен");
   f.maneuvers.auto = false; f.maneuvers.list.trip = true;
   const manual = mechanismsOf(TK, e, f).find((r) => r.id === "maneuvers");
   assert.deepEqual(manual.fields.map((x) => x.path), ["mech.maneuvers.auto", "mech.maneuvers.list"]);
   assert.deepEqual(manual.fields[1].seg.map((s) => [s.value, s.on]), [["disarm", false], ["shove", false], ["reposition", false], ["trip", true]]);
   const mag = mechanismsOf({ ...TK, slug: "magnetic-attraction" }, e, mechToForm({})).find((r) => r.id === "maneuvers");
   assert.deepEqual(mag.fields, []);
+  assert.match(mag.sum, /maneuversOne/);
 });
 
 test("M6: постоянное состояние у NPC; флаг и режим «Эффекты» — состояния; у героя строки нет", () => {
@@ -95,6 +151,12 @@ test("M6: постоянное состояние у NPC; флаг и режим
   assert.deepEqual(detectMechs({ ...slow, actor: { type: "character" } }, env()), []);
   const own = { ...slow, system: { ...slow.system, rules: [{ key: "GrantItem" }] } };
   assert.match(mechanismsOf(own, env())[0].sum, /permanentOwn/);
+  assert.doesNotMatch(mechanismsOf(own, env())[0].sum, /память/);
+  const ownOff = mechanismsOf(withMech(own, { permanent: false }), env())[0];
+  assert.match(ownOff.state.text, /flagReact/, "при данных pf2e выключение снимает только запрет реакций");
+  assert.match(mechanismsOf(own, env(), mechToForm({}))[0].fields[0].hint, /f\.permanentOwn/);
+  assert.match(mechanismsOf(slow, env(), mechToForm({}))[0].fields[0].hint, /f\.permanent\{/);
+  assert.match(mechanismsOf(withMech(slow, { permanent: false }), env())[0].state.text, /state\.flag/);
 });
 
 test("M6: нет состояния «уступает pf2e-automations» (рантайм addPermanent его не проверяет)", () => {
@@ -115,11 +177,22 @@ test("M7: Духовная связь — режим «Макросы» и ус�
   const hero = { id: "h", type: "feat", slug: "widen-spell", name: "Расширенное заклинание", system: { description: { value: "" }, traits: { value: [] }, rules: [] }, flags: { [MOD]: { spellshape: "widen" } }, actor: { type: "character" } };
   const shape = mechanismsOf(hero, env())[0];
   assert.equal(shape.id, "shape");
-  assert.equal(shape.chip, "PF2E.TraitSpellshape");
+  assert.equal(shape.chip, "PF2E.TraitSpellshape", "чип — термин pf2e, не своя строка");
   assert.match(shape.sum, /Расширенное заклинание/);
   const reach = { id: "r", type: "action", slug: "reach-spell", name: "Reach Spell", system: { description: { value: "" }, traits: { value: [] }, rules: [] }, flags: {}, actor: { type: "npc" } };
   assert.equal(mechanismsOf(reach, env())[0].id, "shape");
   assert.deepEqual(detectMechs({ ...reach, actor: { type: "character" } }, env()), [], "у героя без флага — нет");
+});
+
+test("статус подвала: с правками — одна фраза, без — две части (правило · «Работает само»)", () => {
+  const t = env().t;
+  assert.equal(footStatus(t, { dirty: true, source: "flag", mechs: 1, mechSaved: false }), "workshop.au.dirty");
+  const s = footStatus(t, { dirty: false, source: "catalog", mechs: 1, mechSaved: true });
+  assert.match(s, /statusRule\{"src":"sheet\.src\.catalog"\}/);
+  assert.match(s, / · .*statusMech\{"state":"workshop\.au\.mechChanged"\}/);
+  assert.match(footStatus(t, { dirty: false, source: "flag", mechs: 1, mechSaved: false }), /ruleItem.*mechDefault/);
+  assert.match(footStatus(t, { dirty: false, source: undefined, mechs: 1, mechSaved: false }), /ruleNone/);
+  assert.doesNotMatch(footStatus(t, { dirty: false, source: undefined, mechs: 0, mechSaved: false }), /statusMech/, "нет механизмов — одна часть");
 });
 
 /* ---------- паритет с рантаймом по корпусу ---------- */

@@ -66,9 +66,10 @@ export function strikeLinkState(item, resolve = rules.resolveRule) {
   if (!rule) return null;
   const slug = carrierSlug(item);
   const bothOff = modeOf("effect") === "off" && modeOf("challenge") === "off";
-  const off = mechOf(item).strike === false ? "flag" : needRule ? "needRule" : bothOff || !modesRun(rule.onEvent[0]) ? "mode"   // шаги записи не исполняются (режим выключен)
+  const rest = needRule ? "needRule" : bothOff || !modesRun(rule.onEvent[0]) ? "mode"   // шаги записи не исполняются (режим выключен)
     : compat.shouldYield(rule, { slug: rules.slugOf(null, item), sourceUuid: rules.sourceOf(null, item) }) ? "yield" : null;
-  return { rule, strikes: strikes.filter((s) => carries(s, slug)), off };
+  // needRule и ids — для строки Мастерской: режим, уступку и флаг она считает заново на каждый рендер (по настройкам и черновику), а не из off
+  return { rule, strikes: strikes.filter((s) => carries(s, slug)), off: mechOf(item).strike === false ? "flag" : rest, needRule, ids: { slug: rules.slugOf(null, item), sourceUuid: rules.sourceOf(null, item) } };
 }
 
 /** Запрос Удару: способность выполняется самим модулем по урону Удара (режимы, уступка pf2e-automations учтены) -> { rule, strikes:[Удар] } | null. Для подсказки на карточке способности; контракт — истина/ложь. */

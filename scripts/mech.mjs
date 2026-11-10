@@ -12,7 +12,7 @@ export const MANEUVERS = ["disarm", "shove", "reposition", "trip"];
 const USE_ITEMS = new Set(["spell", "action", "feat"]);
 export const isUseItem = (item) => USE_ITEMS.has(item?.type);
 
-const diceOf = (s) => { const d = String(s ?? "").replace(/\s+/g, "").toLowerCase(); return parseDice(d) ? d : null; };
+const diceOf = (s) => { const d = String(s ?? "").replace(/\s+/g, "").toLowerCase().replace(/к/g, "d"); return parseDice(d) ? d : null; };   // «1к6» — как 1d6 (кириллица на русской раскладке)
 
 /** Чистая: сырой флаг -> объект только с допустимыми ключами. */
 export function normalizeMech(raw) {
@@ -46,12 +46,23 @@ export const mechToForm = (m) => ({
 
 const on = (v) => v === true || v === "true";
 
-/** Форма -> флаг (нормализованный; пустой объект — флага нет). */
-export const formToMech = (f) => normalizeMech({
+/**
+ * Убирает переопределение, равное значению по умолчанию (срок как в тексте, список манёвров как автоматический): оно ничего не меняет,
+ * а в предмете висело бы пилюлей «Изменено». base — {dice, maneuvers} из найденных механизмов предмета.
+ */
+export function pruneMech(m, base = {}) {
+  const o = { ...m };
+  if (typeof o.recharge === "string" && o.recharge === diceOf(base.dice)) delete o.recharge;
+  if (o.maneuvers && base.maneuvers && MANEUVERS.every((k) => o.maneuvers.includes(k) === base.maneuvers.includes(k))) delete o.maneuvers;
+  return o;
+}
+
+/** Форма -> флаг (нормализованный и без значений по умолчанию; пустой объект — флага нет). */
+export const formToMech = (f, base) => pruneMech(normalizeMech({
   recharge: on(f.recharge.off) ? false : f.recharge.dice,
   ...(on(f.req.off) && { req: false }), ...(on(f.strike.off) && { strike: false }), ...(on(f.permanent.off) && { permanent: false }),
   maneuvers: on(f.maneuvers.auto) ? undefined : MANEUVERS.filter((k) => on(f.maneuvers.list[k]))
-});
+}), base);
 
 /** Ключи строк ошибок формы (workshop.mech.err.*); пусто — можно сохранять. */
 export function mechErrors(f) {

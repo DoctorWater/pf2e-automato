@@ -8,6 +8,7 @@
 .tab.automato .af-degree h5 { margin: 0.4rem 0 0.1rem; }
 .tab.automato .af-hints { font-size: 0.85em; opacity: 0.8; }
 .tab.automato .af-meta { font-size: 0.85em; opacity: 0.8; word-break: break-all; }
+.tab.automato .af-meta code { white-space: normal; overflow-wrap: anywhere; }
 .tab.automato .af-mech { margin: 0.4em 0; padding-left: 1.2em; font-size: 0.9em; }
 .tab.automato .af-badge { font-weight: bold; }
 .tab.automato .af-warn { color: #fff; background: #a01818; padding: 0.4rem 0.6rem; border-radius: 3px; }
@@ -17,8 +18,8 @@
 .tab.automato details pre { max-height: 14rem; overflow: auto; font-size: 0.8em; }
 
 /* Чип источника правила: контур от currentColor, цвет — только у низкой уверенности */
-.tab.automato .paf-chip { display: inline-block; padding: 0 0.5em; border: 1px solid var(--paf-line); border-radius: 1em; font-size: 0.85em; line-height: 1.6; color: inherit; }
-.tab.automato .paf-chip-low { color: var(--color-level-warning, #b86b00); border-color: currentColor; }
+.tab.automato .paf-chip { display: inline-block; padding: 0 0.5em; border: 1px solid var(--paf-line); border-radius: 1em; font-size: max(12px, 0.85em); line-height: 1.6; color: inherit; }
+.tab.automato .paf-chip-low { color: #8c4a00; border-color: currentColor; }   /* токен warning из DESIGN.md: контраст 5.6:1 и выше на пергаменте */
 
 /* Значок автоматизации у предмета в листе актёра: еле заметный, при наведении ярче */
 .paf-mark { margin-left: 0.35em; font-size: 0.7em; opacity: 0.4; cursor: help; }

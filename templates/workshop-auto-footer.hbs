@@ -7,8 +7,9 @@
   <details class="ws-menu" data-sync="world">
     <summary class="ws-btn">{{localize "PF2E_AUTOMATO.workshop.au.world"}} <i class="fa-solid fa-chevron-up" inert></i></summary>
     <div class="ws-menu-list">
-      <button type="button" data-action="worldSave" data-scope="source" name="worldSave-source" {{#if errors.length}}disabled{{else if noRuleSave}}disabled{{else if noSource}}disabled title="{{noSourceHint}}"{{/if}}>{{worldSourceLabel}}</button>
-      <button type="button" data-action="worldSave" data-scope="slug" name="worldSave-slug" {{#if errors.length}}disabled{{else if noRuleSave}}disabled{{else if noSlug}}disabled{{/if}}>{{localize "PF2E_AUTOMATO.sheet.worldSlug"}}</button>
+      {{#if mechOnlyWorld}}<p class="ws-note ws-menu-note">{{localize "PF2E_AUTOMATO.workshop.mech.worldNote"}}</p>{{/if}}
+      <button type="button" data-action="worldSave" data-scope="source" name="worldSave-source" {{#if ruleBad}}disabled{{else if noRuleSave}}disabled{{else if noSource}}disabled title="{{noSourceHint}}"{{/if}}>{{worldSourceLabel}}</button>
+      <button type="button" data-action="worldSave" data-scope="slug" name="worldSave-slug" {{#if ruleBad}}disabled{{else if noRuleSave}}disabled{{else if noSlug}}disabled{{/if}}>{{localize "PF2E_AUTOMATO.sheet.worldSlug"}}</button>
       {{#if isWorld}}
       <button type="button" data-action="worldDel" data-scope="source" name="worldDel-source" {{#if noSource}}disabled{{/if}}>{{delWorldSourceLabel}}</button>
       <button type="button" data-action="worldDel" data-scope="slug" name="worldDel-slug" {{#if noSlug}}disabled{{/if}}>{{localize "PF2E_AUTOMATO.sheet.delWorldSlug"}}</button>

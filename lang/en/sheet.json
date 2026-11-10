@@ -3,6 +3,7 @@
     "sheet": {
       "tab": "Automation",
       "saved": "Rule saved.",
+      "noEdits": "The rule is unchanged — nothing to save into the item.",
       "failed": "Could not save",
       "openWorkshop": "Open in Workshop",
       "recognized": "Recognized",

@@ -60,7 +60,7 @@
       &middot; source: <code>{{#if sourceKey}}{{sourceKey}}{{else}}&mdash;{{/if}}</code>{{#if derived}} ({{localize "PF2E_AUTOMATO.sheet.sourceDerived"}}){{/if}}</p>
     {{#if mech.length}}
       <h4>{{localize "PF2E_AUTOMATO.workshop.mech.title"}}</h4>
-      <ul class="af-mech">{{#each mech}}<li><b>{{chip}}:</b> {{sum}}{{#if state}} <span class="paf-chip {{#if state.warn}}paf-chip-low{{/if}}">{{state.text}}</span>{{/if}}</li>{{/each}}</ul>
+      <ul class="af-mech">{{#each mech}}<li><b>{{chip}}:</b> {{sum}}{{#if custom}} <span class="paf-chip">{{localize "PF2E_AUTOMATO.workshop.mech.custom"}}</span>{{/if}}{{#if state}} <span class="paf-chip {{#if state.warn}}paf-chip-low{{/if}}">{{state.text}}</span>{{/if}}</li>{{/each}}</ul>
     {{/if}}
     {{#if covered}}
       <p class="af-badge">{{localize "PF2E_AUTOMATO.sheet.automationsBadge"}}: {{#each groups}}{{this}}{{#unless @last}}, {{/unless}}{{/each}}</p>

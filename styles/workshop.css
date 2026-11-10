@@ -115,11 +115,11 @@
 .pf2e-automato-workshop .ws-pipe { background: #fffdf9; border: 1px solid #ddd2c0; border-radius: 4px; }
 .pf2e-automato-workshop .ws-prow { display: flex; }
 .pf2e-automato-workshop .ws-prow + .ws-prow { border-top: 1px solid #ddd2c0; }
-.pf2e-automato-workshop .ws-prail { position: relative; flex: none; width: 96px; display: flex; justify-content: center; }
+.pf2e-automato-workshop .ws-prail { position: relative; flex: none; width: 104px; display: flex; justify-content: center; }
 .pf2e-automato-workshop .ws-prail::before { content: ""; position: absolute; top: 0; bottom: 0; left: 50%; width: 1px; background: #ddd2c0; }
 .pf2e-automato-workshop .ws-prow:first-child .ws-prail::before { top: 24px; }
 .pf2e-automato-workshop .ws-prow:last-child .ws-prail::before { bottom: auto; height: 24px; }
-.pf2e-automato-workshop .ws-pchip { position: relative; align-self: flex-start; margin-top: 12px; height: 22px; padding: 0 8px; display: inline-flex; align-items: center; font: 700 11px "Roboto Condensed", Roboto, sans-serif; letter-spacing: .06em; text-transform: uppercase; color: #443730; background: #efe7dc; border-radius: 11px; }
+.pf2e-automato-workshop .ws-pchip { position: relative; align-self: flex-start; white-space: nowrap; margin-top: 12px; height: 22px; padding: 0 8px; display: inline-flex; align-items: center; font: 700 11px "Roboto Condensed", Roboto, sans-serif; letter-spacing: .06em; text-transform: uppercase; color: #443730; background: #efe7dc; border-radius: 11px; }
 .pf2e-automato-workshop .ws-pchip.is-hot { color: #fff; background: #5e0000; }
 .pf2e-automato-workshop .ws-pbody { flex: 1; min-width: 0; }
 .pf2e-automato-workshop .ws-psum { width: 100%; height: auto; min-height: 46px; margin: 0; padding: 12px 14px 12px 0; display: flex; align-items: center; gap: 12px; text-align: left; background: transparent; border: 0; border-radius: 0; box-shadow: none; cursor: pointer; }
@@ -348,7 +348,22 @@
 .pf2e-automato-workshop .ws-pill-static:hover { background: #fffdf9; border-color: #baa991; }
 .pf2e-automato-workshop .ws-pill-static.ws-pill-warn { color: #8c4a00; border-color: currentColor; }
 .pf2e-automato-workshop .ws-pill-static.ws-pill-warn:hover { border-color: currentColor; }
-.pf2e-automato-workshop .ws-mech { margin-bottom: 14px; }
+.pf2e-automato-workshop .ws-col-auto { display: flex; flex-direction: column; gap: 20px; }   /* зазор между разделами — spacing.xl из DESIGN.md */
+.pf2e-automato-workshop .ws-col-auto > .ws-sec > .ws-h { margin: 0; }
+.pf2e-automato-workshop .ws-scope { margin: 0; }
+.pf2e-automato-workshop .ws-psum .ws-dot { flex: none; margin-right: 0; }
+.pf2e-automato-workshop .ws-menu-note { margin: 0; padding: 4px 8px 6px; max-width: 280px; border-bottom: 1px solid #ddd2c0; }
+/* Переключатель «Работает ⇄ Выключено в предмете»: нативный чекбокс role=switch, подпись текстом справа */
+.pf2e-automato-workshop .ws-sw { display: inline-flex; align-items: center; gap: 8px; min-height: 30px; cursor: pointer; }
+.pf2e-automato-workshop .ws-sw input { appearance: none; -webkit-appearance: none; flex: none; position: relative; width: 34px; height: 18px; margin: 0; padding: 0; background: #efe7dc; border: 1px solid #786452; border-radius: 10px; box-shadow: none; cursor: pointer; transition: background-color .15s, border-color .15s; }
+.pf2e-automato-workshop .ws-sw input::after, .pf2e-automato-workshop .ws-sw input:checked::after, .pf2e-automato-workshop .ws-sw input:indeterminate::after { content: none; display: none; }   /* глиф галочки чекбокса ядра Foundry: рисуем только трек с ручкой */
+.pf2e-automato-workshop .ws-sw input { --checkbox-size: 0; --checkbox-color: transparent; --checkbox-background-color: transparent; --checkbox-border-color: transparent; font-size: 0; line-height: 0; color: transparent; }
+.pf2e-automato-workshop .ws-sw input:focus-visible { outline: 2px solid #5e0000; outline-offset: 2px; }
+.pf2e-automato-workshop .ws-sw input::before { content: ""; position: absolute; top: 2px; left: 2px; width: 12px; height: 12px; background: #786452; border-radius: 50%; transition: transform .15s, background-color .15s; }
+.pf2e-automato-workshop .ws-sw input:checked { background: #5e0000; border-color: #5e0000; }
+.pf2e-automato-workshop .ws-sw input:checked::before { background: #fff; transform: translateX(16px); }
+.pf2e-automato-workshop .ws-sw input:disabled, .pf2e-automato-workshop .ws-sw input:disabled ~ .ws-sw-t { opacity: .6; cursor: not-allowed; }
+.pf2e-automato-workshop .ws-sw-t { font-size: 13px; color: #2a2420; }
 .pf2e-automato-workshop .ws-pop { box-sizing: border-box; width: 100%; max-width: 460px; margin-top: 8px; background: #f8f4f1; border: 1px solid #baa991; border-radius: 3px; }
 .pf2e-automato-workshop .ws-pop-h { padding: 6px 10px 5px; font: 600 15px/1.2 Eczar, Georgia, serif; background: #efe7dc; border-bottom: 1px solid #d8c384; border-radius: 3px 3px 0 0; }
 .pf2e-automato-workshop .ws-pop-b { display: flex; flex-direction: column; gap: 10px; padding: 10px; }

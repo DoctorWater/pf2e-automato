@@ -3,6 +3,7 @@ import { MOD, L, errText, DEGREES, callGM, forcedReplace, sluggify, damageLabel,
 import { S } from "./settings.mjs";
 import { ready as catalogReady, validateRule, activateSpells, activateUses, resolveRule, divergedOf, slugOf, sourceOf, sourceKeyOf, worldKeyOf, keyDerived, DAMAGE_TYPES, FAILED_CHECK, FAILED_DEGREE } from "./rules.mjs";
 import { detectMechs, mechRows, liveEnv } from "./workshop/mechanisms.mjs";
+import { savePatch } from "./mech.mjs";
 import { automationsGroups } from "./compat.mjs";
 import { hintsView, hintList } from "./hints.mjs";
 import { resolveDC, safeUuid, uuidLabel } from "./saves.mjs";
@@ -661,7 +662,11 @@ async function inject(app, $html) {
     if (act === "remove-row") { b.closest(".af-row").remove(); return draft(); }
     try {
       if (act === "test") { const r = build(); if (r) await testRun(item, r); }
-      else if (act === "save-flag") { const r = build(); if (r) { app._afDraft = null; await item.update(forcedReplace(`flags.${MOD}.rule`, r)); ui.notifications.info(L("sheet.saved")); } }
+      else if (act === "save-flag") {   // правило пишется только при правке (как в Мастерской): без неё форма — снимок правила каталога или разметки, закреплять его в предмете нельзя
+        const r = build(), patch = r ? savePatch({ ruleDirty: !!app._afDraft, rule: r }) : null;
+        if (patch && !Object.keys(patch).length) ui.notifications.info(L("sheet.noEdits"));
+        else if (patch) { app._afDraft = null; await item.update(patch); ui.notifications.info(L("sheet.saved")); }
+      }
       else if (act === "reset-flag") { app._afDraft = null; await item.unsetFlag(MOD, "rule"); }
       else if (act === "accept") {
         if (app._afDraft && !(await foundry.applications.api.DialogV2.confirm({ window: { title: L("workshop.au.switchTitle") }, content: `<p>${foundry.utils.escapeHTML(L("workshop.au.acceptAsk", { name: item.name }))}</p>`, rejectClose: false }))) return;

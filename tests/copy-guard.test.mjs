@@ -3,7 +3,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { initCatalog, resolveRule, guardVerdict, guardCopy, ruleStates, textStates, divergedOf } from "../scripts/rules.mjs";
+import { initCatalog, resolveRule, guardVerdict, guardCopy, ruleStates, textStates, divergedOf, markupOf } from "../scripts/rules.mjs";
 import { ruleOfItem, reactionItems } from "../scripts/reactions.mjs";
 import { rev } from "../scripts/settings.mjs";
 
@@ -141,4 +141,13 @@ test("ruleOfItem (реакции): то же решение, что у resolveRu
     assert.notEqual(ruleOfItem(diverged)?.label, "r");   // вывод из разметки без метки каталога
     assert.deepEqual(ruleOfItem(diverged), resolveRule(diverged).rule);
   });
+});
+
+test("markupOf: русское описание -> английский оригинал Babele для вывода из разметки", () => {
+  const ru = { system: { description: { value: "<p><b>Активация:</b> вы сотворяете</p>" } }, flags: { babele: { originalPayload: { description: "<p><strong>Activate</strong> You cast</p>" } } } };
+  assert.equal(markupOf(ru), "<p><strong>Activate</strong> You cast</p>");
+  const noOrig = { system: { description: { value: "<p>Русский</p>" } } };
+  assert.equal(markupOf(noOrig), "<p>Русский</p>", "оригинала нет — как есть");
+  const en = { system: { description: { value: "<p>English</p>" } }, flags: { babele: { originalPayload: { description: "<p>Other</p>" } } } };
+  assert.equal(markupOf(en), "<p>English</p>", "английское описание не подменяется");
 });

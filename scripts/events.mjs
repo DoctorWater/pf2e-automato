@@ -619,7 +619,7 @@ export function spellTargets(spell) {
   const s = spell?.system;
   if (!s) return true;   // предмет неизвестен — как раньше
   const t = String(s.target?.value ?? "").trim(), range = String(s.range?.value ?? "").trim();
-  return !!(s.area?.value || (t && !/^(?:you|self)\b/i.test(t)) || range);
+  return !!(s.area?.value || (t && !/^(?:you|self|вы)(?![\p{L}\p{N}])/iu.test(t)) || range);   // «вы и до 9 союзников» — цель перевода pf2ru
 }
 
 /** Участники события-сообщения. */

@@ -1507,8 +1507,9 @@ export function deriveCast(html, { spellDefs = {} } = {}) {
   return { cast: cast.map(({ sure: _s, ...c }) => c), confidence: !partial && cast.every((c) => c.sure) ? "high" : "low", partial };
 }
 
+/** itemLike.html — текст для разбора вместо system.description.value (рантайм: английский оригинал переведённого предмета, markupOf). */
 export function deriveFromMarkup(itemLike, labels, conditionSlugByUuid, condNames = null) {
-  const html = itemLike?.system?.description?.value;
+  const html = itemLike?.html ?? itemLike?.system?.description?.value;
   if (!isStr(html)) return null;
   const sys = itemLike.system;
   const type = itemLike.type;
@@ -1940,6 +1941,16 @@ export function guardVerdict(rule, html, condSlug) {
 
 const guardCache = new Map();   // uuid -> { mt, rv, v }; ponytail: растёт с числом предметов NPC, сбрасывается сменой предмета/каталога
 const CYR = /[Ѐ-ӿ]/;
+
+/**
+ * Текст для вывода из разметки: перевод (pf2ru) пишет русскими словами то, что разбирают английские регулярки вывода
+ * («Activate», «You cast», «on a failure», ограждение Ударом). Русское описание -> английский оригинал Babele, если он есть.
+ */
+export function markupOf(item) {
+  const html = item?.system?.description?.value;
+  const en = item?.flags?.babele?.originalPayload?.description;
+  return isStr(html) && CYR.test(html) && isStr(en) ? en : html;
+}
 const GUARDED_ACTORS = new Set(["npc", "hazard"]);
 
 /**
@@ -2022,7 +2033,7 @@ function resolveBase(source) {
   const derive = () => {
     if (!memoed) {
       memoed = true;
-      memo = item?.system && labelsData ? deriveFromMarkup({ type: item.type, slug, name: item.name, system: item.system }, labelsData, (uuid) => game.pf2e.ConditionManager.conditions.get(uuid)?.slug ?? null, runtimeCondNames()) : null;
+      memo = item?.system && labelsData ? deriveFromMarkup({ type: item.type, slug, name: item.name, system: item.system, html: markupOf(item) }, labelsData, (uuid) => game.pf2e.ConditionManager.conditions.get(uuid)?.slug ?? null, runtimeCondNames()) : null;
     }
     return memo;
   };

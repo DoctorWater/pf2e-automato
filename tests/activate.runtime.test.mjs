@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 
 globalThis.foundry = { data: { regionBehaviors: { RegionBehaviorType: class {} }, fields: new Proxy({}, { get: () => class {} }) } };   // use.mjs тянет zone.mjs
 const { validateRule } = await import("../scripts/rules.mjs");
-const { rankOf, entryOf, locId, pickDc, activationDc, levelDc, effectText, giveBackPlan, withUse, withoutUse, usesLeft } = await import("../scripts/cast.mjs");
+const { rankOf, entryOf, locId, pickDc, activationDc, levelDc, effectText, areaEffectText, giveBackPlan, withUse, withoutUse, usesLeft } = await import("../scripts/cast.mjs");
 const { activationUse, hasSnapshot, isResumable, useKindOf } = await import("../scripts/use.mjs");
 const { buildViewModel } = await import("../scripts/chat.mjs");
 const { castOrigin } = await import("../scripts/builtin/lib.mjs");
@@ -156,4 +156,33 @@ test("карточка предмета: СЛ на кнопке — у закл�
   assert.equal(buff.meta, "");
   assert.match(test2.meta, /chat\.dc.*cast\.byLevel/);
   assert.equal(ch.meta, "");
+});
+
+test("effectText: разметка перевода pf2ru — in-box-ability / <b>Активация</b>, хвост автоматизации обрезан", () => {
+  const html = `Рог.<br><span class="in-box-ability"><b>Активация</b> <span class="action-glyph">1</span>: взаимодействие <b>Частота:</b> 1 в раунд. <b>Эффект:</b> @Damage[3d6[sonic]]{3d6} одному существу.</span><br>`
+    + `<span class="in-box-ability"><b>Активация</b> <span class="action-glyph">2</span>: взаимодействие <b>Эффект:</b> @Damage[8d6[sonic]|options:area-damage]{8d6} в @Template[cone|distance:30]{30-футовом конусе}.</span>`
+    + `<hr><p class="pf2ru-automation"><strong>Автоматизация:</strong> @Check[fortitude|dc:28|basic]</p>`;
+  const text = effectText(html, undefined, 0);
+  assert.match(text, /@Template\[cone/);
+  assert.doesNotMatch(text, /3d6\[sonic\]/, "первая активация без шаблона не берётся");
+  assert.doesNotMatch(text, /Автоматизация/);
+  const plain = `<b>Активация:</b> сотворение. <b>Эффект:</b> @Template[burst|distance:10]{взрыв}.<br><b>Требования к созданию:</b> @Check[crafting|dc:20]`;
+  assert.match(effectText(plain, "x"), /@Template\[burst/);
+  assert.doesNotMatch(effectText(plain, "x"), /crafting/);
+});
+
+test("areaEffectText: шаблон в хвосте перевода — русский блок той же активации + @Template оригинала; иначе английский", () => {
+  const en = `<p><strong>Activate—Ping</strong> 1</p><p><strong>Effect</strong> ping.</p>`
+    + `<p><strong>Activate—Boom</strong> 2</p><p><strong>Effect</strong> boom in a @Template[cone|distance:30]{30-foot cone}.</p>`;
+  const ru = `<span class="in-box-ability"><b>Активация — Звон</b> 1 <b>Эффект:</b> звон.</span><br>`
+    + `<span class="in-box-ability"><b>Активация — Бум</b> 2 <b>Эффект:</b> бум в 30-футовом конусе.</span>`
+    + `<hr><p class="pf2ru-automation"><strong>Автоматизация:</strong> @Template[cone|distance:30]</p>`;
+  const text = areaEffectText(ru, en, undefined, 0);
+  assert.match(text, /Бум/);
+  assert.doesNotMatch(text, /Звон|Boom|cone\}/);
+  assert.match(text, /@Template\[cone\|distance:30\]$/);
+  const fewer = `<b>Активация:</b> бум.`;
+  assert.match(areaEffectText(fewer, en, undefined, 0), /Activate—Boom/, "позиция несопоставима — английский блок");
+  assert.match(areaEffectText(`<b>Активация:</b> @Template[burst|distance:10]{взрыв}`, en, undefined, 0), /burst/, "свой шаблон в переводе — как раньше");
+  assert.equal(areaEffectText(ru, undefined, undefined, 0), "", "без оригинала — пусто, как effectText");
 });

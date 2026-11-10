@@ -842,3 +842,13 @@ test("checkAnswer: сторож «Удар, при попадании» — dama
   const TR = "<p><strong>Trigger</strong> Your Strike hits a creature</p><hr /><p><strong>Effect</strong> The target is @UUID[Compendium.pf2e.conditionitems.Item.4D2KBtexWXa6oUMR]{Drained 1}.</p>";
   assert.equal(checkAnswer({ uuid: "u", rule: { v: 1, onEvent: [ev({})] } }, refs, TR, kind).kind, "accepted");
 });
+
+test("spellTargets: самоприменяемое и в переводе pf2ru («вы …») — без чужих целей", () => {
+  const spell = (target, range = "", area = null) => ({ system: { target: { value: target }, range: { value: range }, area } });
+  assert.equal(ev.spellTargets(spell("you")), false);
+  assert.equal(ev.spellTargets(spell("вы и до 9 союзников")), false);
+  assert.equal(ev.spellTargets(spell("Вы")), false);
+  assert.equal(ev.spellTargets(spell("высокое существо")), true, "«вы» — только целым словом");
+  assert.equal(ev.spellTargets(spell("1 существо")), true);
+  assert.equal(ev.spellTargets(spell("вы", "30 футов")), true, "дальность — есть цель");
+});

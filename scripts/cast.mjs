@@ -66,13 +66,37 @@ export const activationDc = (onUse, info, itemLevel) => onUse?.challenge?.dc?.va
 /**
  * Текст Effect активации с @Template для сообщения активации (Horn of Blasting): блок от «Activate» до следующего «Activate» с шаблоном, хвост обрезан по заголовкам разделов.
  * Блок выбирается по метке записи в его заголовке (первый абзац с «Activate»), иначе по порядку (nth) среди блоков с шаблоном. Шаблона нет — пустая строка.
+ * Разметка перевода pf2ru иная: `<span class="in-box-ability"><b>Активация</b>…` или `<b>Активация:</b>`, заголовок — до «Частота»/«Эффект»,
+ * хвост автоматизации — `<p class="pf2ru-automation">`.
  */
+const ACTIVATE_HEAD = String.raw`(?:<p>\s*<strong>|<b>)\s*(?:Activate|Активаци|Активиров)`;   // <span class="in-box-ability"> перед <b> — один разрез, по <b>
+const SECTION_TAIL = /<h[1-6][\s>]|<p[^>]*>\s*<strong>\s*(?:Craft Requirements|Destruction|Автоматизация|Требования к созданию|Уничтожение)|<b>\s*(?:Требования к созданию|Уничтожение)/i;
+/** Блоки активации описания, хвост разделов обрезан. */
+const activationBlocks = (html) => String(html ?? "").split(new RegExp(`(?=${ACTIVATE_HEAD})`, "i")).filter((b) => new RegExp(`^${ACTIVATE_HEAD}`, "i").test(b)).map((b) => b.split(SECTION_TAIL)[0]);
+/** Блок с шаблоном: по метке в заголовке, иначе nth среди блоков с шаблоном; нет — null. */
+function pickArea(blocks, label, nth) {
+  const hit = blocks.filter((b) => /@Template\[/.test(b));
+  const l = String(label ?? "").trim().toLowerCase();
+  const head = (b) => { const end = b.search(/<\/p>|<b>\s*(?:Частота|Эффект|Требования)/i); return (end < 0 ? b : b.slice(0, end)).toLowerCase(); };
+  return (l && hit.find((b) => head(b).includes(l))) || hit[nth] || hit[0] || null;
+}
 export function effectText(html, label, nth = 0) {
-  const tail = /<h[1-6][\s>]|<p>\s*<strong>\s*(?:Craft Requirements|Destruction|Автоматизация|Требования к созданию|Уничтожение)/i;
-  const hit = String(html ?? "").split(/(?=<p>\s*<strong>\s*(?:Activate|Активаци|Активиров))/i).filter((b) => /^<p>\s*<strong>\s*(?:Activate|Активаци|Активиров)/i.test(b) && /@Template\[/.test(b.split(tail)[0]));
-  const l = String(label ?? "").trim().toLowerCase(), head = (b) => b.slice(0, b.indexOf("</p>")).toLowerCase();
-  const pick = (l && hit.find((b) => head(b).includes(l))) || hit[nth] || hit[0];
-  return pick ? pick.split(tail)[0] : "";
+  return pickArea(activationBlocks(html), label, nth) ?? "";
+}
+
+/**
+ * effectText для переведённого предмета: перевод унёс @Template в хвост «Автоматизация:» — русский блок той же активации
+ * (позиция по английскому оригиналу Babele) плюс директивы шаблона из английского блока, без английских подписей.
+ * Блоков активации в переводе не столько же, сколько в оригинале (позиция не сопоставима), — английский блок.
+ */
+export function areaEffectText(html, original, label, nth = 0) {
+  const own = effectText(html, label, nth);
+  if (own || !original) return own;
+  const en = activationBlocks(original), pick = pickArea(en, label, nth);
+  if (!pick) return "";
+  const ru = activationBlocks(html), at = en.indexOf(pick);
+  if (ru.length !== en.length || at < 0) return pick;
+  return `${ru[at]} ${[...pick.matchAll(/@Template\[[^\]]*\]/g)].map((m) => m[0]).join(" ")}`;
 }
 
 /** Что делать со счётчиком при удалении сообщения: {item, id, next} или null. Метка activation (useId общий у карточки заклинания и сообщения активации), старая — cast. */
@@ -279,7 +303,9 @@ export async function castItem(item, id) {
   if (c.onUse) {
     const use = await import("./use.mjs"), resolved = rules.resolveRule(item);
     const areas = rules.activateOf(resolved.rule).filter((x) => (x.id === rec.id ? c : x).onUse?.targets === "area");
-    const text = c.onUse.targets === "area" ? effectText(item.system?.description?.value, c.label, areas.findIndex((x) => x.id === rec.id)) : "";   // шаблон области бросают из этого сообщения
+    // шаблон области бросают из этого сообщения; перевод унёс @Template в хвост «Автоматизация:» — русский блок + шаблон из оригинала (areaEffectText)
+    const nth = areas.findIndex((x) => x.id === rec.id);
+    const text = c.onUse.targets === "area" ? areaEffectText(item.system?.description?.value, item.flags?.babele?.originalPayload?.description, c.label, nth) : "";
     const speaker = ChatMessage.getSpeaker({ actor });
     // сбой здесь оставляет карточку заклинания без добавки, счётчик не списан (повторное нажатие повторит каст)
     await ChatMessage.create({

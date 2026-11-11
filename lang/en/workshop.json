@@ -268,7 +268,7 @@
         },
         "state": { "flag": "Off in the item", "flagReact": "Reaction ban off in the item", "mode": "Off: mode \"{mode}\"", "modeButton": "Does not trigger: \"{mode}\" is not \"Automatic\"", "yield": "Yields to pf2e-automations", "needRule": "The rule needs accepting", "needOutcome": "A rule is needed: the save outcome (condition, stage) was not recognised" },
         "f": {
-          "dice": "Recharge time (dice)", "diceHint": "From the text: {dice}. Rounds only, e.g. 1d4+1. Permanent for this item; for one use — Alt.",
+          "dice": "Recharge time (dice)", "diceHint": "From the text: {dice}. Rounds only, e.g. 1d4+1. Permanent for this item.",
           "rechargeMode": "Mode", "rcByText": "(per text)", "rcOff": "None", "rcAuto": "After use", "rcButton": "By button", "diceHintNone": "Rounds only, e.g. 1d4+1.",
           "permanentOwn": "Turning it off removes only the reaction ban; \"{cond}\" from pf2e stays.",
           "permanent": "{cond} and the reaction ban: turning it off removes both.",

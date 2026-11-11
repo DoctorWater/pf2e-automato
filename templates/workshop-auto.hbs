@@ -105,7 +105,7 @@
 {{else if sw}}
 <div class="ws-fld"><label class="ws-sw"><input type="checkbox" role="switch" data-a="{{path}}" name="{{path}}" {{#if aria}}aria-label="{{aria}}"{{/if}} {{#if hint}}aria-describedby="{{path}}-hint"{{/if}} {{checked value}} {{#if disabled}}disabled{{/if}}><span class="ws-sw-t">{{label}}</span></label>{{#if hint}}<span class="ws-note" id="{{path}}-hint">{{hint}}</span>{{/if}}</div>
 {{else if check}}
-<label class="ws-check" {{#if tip}}title="{{tip}}"{{/if}}><input type="checkbox" data-a="{{path}}" name="{{path}}" {{checked value}} {{#if invalid}}aria-invalid="true"{{/if}} {{#if disabled}}disabled{{/if}}><span>{{label}}</span></label>
+<label class="ws-check {{cls}}" {{#if tip}}title="{{tip}}"{{/if}}><input type="checkbox" data-a="{{path}}" name="{{path}}" {{checked value}} {{#if invalid}}aria-invalid="true"{{/if}} {{#if disabled}}disabled{{/if}}><span>{{label}}</span></label>
 {{else if options}}
 <label class="ws-fld" {{#if tip}}title="{{tip}}"{{/if}}><span class="ws-lbl {{#if bare}}ws-sr{{/if}}">{{label}}</span><select class="ws-inp" data-a="{{path}}" name="{{path}}" {{#if invalid}}aria-invalid="true"{{/if}} {{#if drop}}data-drop="{{drop}}"{{/if}}>{{selectOptions options selected=value valueAttr="value" labelAttr="label"}}</select></label>
 {{else}}
@@ -167,7 +167,7 @@
 <section class="ws-sec">
 <h2 class="ws-h">{{localize "PF2E_AUTOMATO.workshop.mech.title"}}</h2>
 {{#if mechScope}}<p class="ws-note ws-scope">{{mechScope}}</p>{{/if}}
-<div class="ws-pipe ws-mech">
+{{#if mechs.length}}<div class="ws-pipe ws-mech">
   {{#each mechs as |r|}}
   <div class="ws-prow" data-mech="{{r.id}}">
     <div class="ws-prail"><span class="ws-pchip" tabindex="0" data-tooltip="{{r.tip}}" aria-describedby="ws-tip-{{r.id}}">{{r.chip}}</span><span id="ws-tip-{{r.id}}" class="ws-sr">{{r.tip}}</span></div>
@@ -181,7 +181,7 @@
     </div>
   </div>
   {{/each}}
-</div>
+</div>{{/if}}
 {{#if addRecharge}}<div class="ws-adds"><button type="button" class="ws-add" data-action="addRecharge" name="addRecharge"><i class="fa-solid fa-plus" inert></i> {{localize "PF2E_AUTOMATO.workshop.mech.addRecharge"}}</button></div>{{/if}}
 </section>
 {{/if}}

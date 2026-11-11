@@ -350,7 +350,7 @@ export class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
       unsetRule() { return this.#guard(async () => { await this.#item.update(forcedDelete(flagPath("rule"))); this.#loadAu(); this.render(); }); },
       accept() {
         return this.#guard(async () => {
-          if (this.#ruleDirty() && !(await foundry.applications.api.DialogV2.confirm({ window: { title: t("workshop.au.switchTitle") }, content: `<p>${foundry.utils.escapeHTML(t("workshop.au.acceptAsk", { name: this.#item.name }))}</p>`, rejectClose: false }))) return;
+          if (this.#ruleDirty() && !(await foundry.applications.api.DialogV2.confirm({ window: { title: t("workshop.au.switchTitle") }, classes: ["paf-dialog"], content: `<p>${foundry.utils.escapeHTML(t("workshop.au.acceptAsk", { name: this.#item.name }))}</p>`, rejectClose: false }))) return;
           await this.#item.update(forcedReplace(flagPath("rule"), resolveRule(this.#item).rule)); this.#loadAu(); this.render();
         });
       },
@@ -397,7 +397,7 @@ export class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
   async #setItem(item) {
     const same = this.#item?.uuid === item.uuid;
     if (this.#item && !same && this.#dirty()) {
-      const ok = await foundry.applications.api.DialogV2.confirm({ window: { title: t("workshop.au.switchTitle") }, content: `<p>${foundry.utils.escapeHTML(t("workshop.au.switch", { name: this.#item.name }))}</p>`, rejectClose: false });
+      const ok = await foundry.applications.api.DialogV2.confirm({ window: { title: t("workshop.au.switchTitle") }, classes: ["paf-dialog"], content: `<p>${foundry.utils.escapeHTML(t("workshop.au.switch", { name: this.#item.name }))}</p>`, rejectClose: false });
       if (!ok) return false;
     }
     this.#item = item;
@@ -409,12 +409,12 @@ export class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
   /** Закрытие с несохранённой правкой — через подтверждение. */
   async close(options = {}) {
     if (!options.force && this.#mode === "automation" && this.#dirty()) {
-      const ok = await foundry.applications.api.DialogV2.confirm({ window: { title: t("workshop.au.switchTitle") }, content: `<p>${foundry.utils.escapeHTML(t("workshop.au.closeAsk", { name: this.#item.name }))}</p>`, rejectClose: false });
+      const ok = await foundry.applications.api.DialogV2.confirm({ window: { title: t("workshop.au.switchTitle") }, classes: ["paf-dialog"], content: `<p>${foundry.utils.escapeHTML(t("workshop.au.closeAsk", { name: this.#item.name }))}</p>`, rejectClose: false });
       if (!ok) return this;
     }
     const w = this.#wiz;
     if (!options.force && !w.done && JSON.stringify(w.m) !== JSON.stringify(im.blankItem(w.m.type))) {
-      const ok = await foundry.applications.api.DialogV2.confirm({ window: { title: t("workshop.au.switchTitle") }, content: `<p>${foundry.utils.escapeHTML(t("workshop.item.closeAsk"))}</p>`, rejectClose: false });
+      const ok = await foundry.applications.api.DialogV2.confirm({ window: { title: t("workshop.au.switchTitle") }, classes: ["paf-dialog"], content: `<p>${foundry.utils.escapeHTML(t("workshop.item.closeAsk"))}</p>`, rejectClose: false });
       if (!ok) return this;
     }
     return super.close(options);
@@ -738,7 +738,7 @@ export class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
     const evs = f.ev.map((e, i) => {
       const p = `f.ev.${i}`, c = e.ch;
       return {
-        i, title: `${i + 1}. ${[].concat(e.on).map((k) => t(`workshop.au.ev.on.${k}`)).join(", ")}`,
+        i, title: `${i + 1}.`, name: [].concat(e.on).map((k) => t(`workshop.au.ev.on.${k}`)).join(", "),
         fields: [
           Array.isArray(e.on) ? F.sel(`${p}.on`, t("workshop.au.ev.onLabel"), "_", { _: e.on.map((k) => t(`workshop.au.ev.on.${k}`)).join(", ") })   // только чтение
             : F.sel(`${p}.on`, t("workshop.au.ev.onLabel"), e.on, choices(EVENT_ON, "au.ev.on")),
@@ -747,12 +747,12 @@ export class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
             F.text(`${p}.aura`, t("workshop.au.ev.zoneAura"), e.aura, { placeholder: "frightful-aura", hint: t("workshop.au.ev.zoneAuraHint") }), F.num(`${p}.range`, t("workshop.au.ev.zoneRange"), e.range, { min: 1 }),
             F.sel(`${p}.per`, t("workshop.au.trg.perLabel"), e.per, { "": t("workshop.au.trg.perNone"), ...choices(TRIGGER_PER, "au.trg.per") })
           ] : []),
-          F.text(`${p}.when`, t("workshop.au.ev.whenLabel"), e.when, { cls: "ws-grow", placeholder: "outcome:success, target:condition:off-guard", hint: t("workshop.au.ev.whenHint") }),
-          F.chk(`${p}.once`, t("workshop.au.ev.once"), e.once),
-          F.chk(`${p}.cost`, t("workshop.au.ev.cost"), e.cost),
+          F.text(`${p}.when`, t("workshop.au.ev.whenLabel"), e.when, { cls: "ws-grow ws-full", placeholder: "outcome:success, target:condition:off-guard", hint: t("workshop.au.ev.whenHint") }),
+          F.chk(`${p}.once`, t("workshop.au.ev.once"), e.once, { cls: "ws-full" }),   // флажки события — столбиком, по строке на каждый
+          F.chk(`${p}.cost`, t("workshop.au.ev.cost"), e.cost, { cls: "ws-full" }),
           ...(e.cost ? [F.text(`${p}.free`, t("workshop.au.ev.free"), e.free, { placeholder: "skill:intimidation:rank:4", hint: t("workshop.au.ev.freeHint") })] : []),
-          ...(EVENT_AFTER_USE.has(e.on) && e.side === "self" ? [F.chk(`${p}.afterUse`, t("workshop.au.ev.afterUse"), e.afterUse)] : []),
-          F.chk(`${p}.ch.on`, t("workshop.au.ev.challenge"), c.on),
+          ...(EVENT_AFTER_USE.has(e.on) && e.side === "self" ? [F.chk(`${p}.afterUse`, t("workshop.au.ev.afterUse"), e.afterUse, { cls: "ws-full" })] : []),
+          F.chk(`${p}.ch.on`, t("workshop.au.ev.challenge"), c.on, { cls: "ws-full" }),
           ...(c.on ? rollFieldsOf(p, e, { mode: "save" }) : [])
         ],
         apply: lst(`${p}.apply`, t("workshop.au.ev.apply")),
@@ -836,7 +836,7 @@ export class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
     const unnum = (s) => s.replace(/^\d+\.\s*/, ""), RULE_EV = /^onEvent\[(\d+)\]\.(\w+)/, RULE_TRG = /^onUse\.zone\.triggers\[(\d+)\]\.(\w+)/;
     const place = (p) => {
       let m;
-      if ((m = /^onEvent\[(\d+)\]/.exec(p)) && evs[m[1]]) return t("workshop.err.place.event", { n: Number(m[1]) + 1, name: unnum(evs[m[1]].title) });
+      if ((m = /^onEvent\[(\d+)\]/.exec(p)) && evs[m[1]]) return t("workshop.err.place.event", { n: Number(m[1]) + 1, name: evs[m[1]].name });
       if ((m = /^onUse\.zone\.triggers\[(\d+)\]/.exec(p)) && trgs[m[1]]) return t("workshop.err.place.trigger", { n: Number(m[1]) + 1, name: unnum(trgs[m[1]].title) });
       if ((m = /^activate\[(\d+)\]/.exec(p)) && casts[m[1]]) return t("workshop.err.place.cast", { n: Number(m[1]) + 1, name: unnum(casts[m[1]].title) });
       return t(p.startsWith("onUse") ? "workshop.err.place.use" : "workshop.err.place.rule");
@@ -854,7 +854,7 @@ export class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
     const mechs = into ? [] : mechRows(this.#dets, item, liveEnv(item, { evParts, locked: lockedFlag }), this.#mech.form).map((r) => ({ ...r, fields: r.fields.map((fl) => bad.has(fl.path) ? { ...fl, invalid: true } : fl), open: !!a.open[`mech.${r.id}`] && r.fields.length > 0, desc: [r.draft && t("workshop.mech.unsaved"), r.custom && t("workshop.mech.custom"), r.state?.text].filter(Boolean).join(". ") }));   // desc — описание строки для скринридера (пилюли в кнопке скрыты от имени)
     const addRecharge = !into && !lockedFlag && canAddRecharge(this.#dets, item) && !mechs.some((r) => r.id === "recharge");
     this.#live.mech = Object.fromEntries(mechs.map((r) => [r.id, r]));
-    const derived = keyDerived(item, res), mechSaved = Object.keys(mechOf(item)).length > 0, mechOnly = !!mechs.length && !res && !ruleDirty && !a.creating;   // у предмета без правила работает только раздел «Работает само»
+    const derived = keyDerived(item, res), mechSaved = Object.keys(mechOf(item)).length > 0, mechOnly = !res && !ruleDirty && !a.creating;   // у предмета без правила работает только раздел «Работает само»
     const status = footStatus(t, { dirty, source: res?.source, mechs: mechs.length, mechSaved });
     this.#live.sr = errors.length ? errors.join(". ") : status;   // текст для постоянной live-области в шапке (подвал при вводе пересоздаётся)
     return {

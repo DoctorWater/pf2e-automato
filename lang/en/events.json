@@ -144,7 +144,7 @@
           "cast": "The item casts a spell from the button on its own card. After that the spell's own rule takes over."
         },
         "ev": {
-          "none": "no events yet",
+          "none": "No events yet",
           "hint": "\"Self\" is the rule's owner. \"Target\" is the other party of the event: the roll's target, the roller, or whoever bears the effect.",
           "add": "Add event",
           "remove": "Remove event",

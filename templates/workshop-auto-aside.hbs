@@ -1,7 +1,7 @@
 <div class="ws-col">
   <section class="ws-sec">
     <h2 class="ws-h">{{localize "PF2E_AUTOMATO.workshop.au.happens"}}</h2>
-    {{#if mechOnly}}<p class="ws-note">{{localize "PF2E_AUTOMATO.workshop.mech.noRule"}}</p>{{else}}
+    {{#if mechOnly}}<p class="ws-note">{{#if showMech}}{{localize "PF2E_AUTOMATO.workshop.mech.noRule"}}{{else}}{{localize "PF2E_AUTOMATO.workshop.mech.noRuleLine"}}{{/if}}</p>{{else}}
     <p class="ws-desc">{{story.text}}</p>
     {{#each story.degrees}}<div class="ws-sdeg"><span class="ws-lbl ws-d-{{deg}}">{{label}}</span><span>{{text}}</span></div>{{/each}}
     {{#if applyNote}}<p class="ws-note">{{applyNote}}</p>{{/if}}

@@ -244,3 +244,19 @@ test("rollSave: черты испытания — и в опциях броск�
     assert.deepEqual(rolls[0].traits, ["incapacitation"]);
   } finally { Object.assign(globalThis, saved); }
 });
+
+test("rollSave: options:inflicts:* правила Удара-спасбросока доходят до опций броска (бонусы героев против эффекта)", async () => {
+  const { readFileSync } = await import("node:fs");
+  const cat = JSON.parse(readFileSync(new URL("../rules/catalog.strike-save.json", import.meta.url), "utf8")).bySource;
+  const ch = Object.values(cat).find((r) => r.label === "Paralysis").onUse.challenge;
+  const saved = { game: globalThis.game, ui: globalThis.ui, fromUuid: globalThis.fromUuid };
+  const rolls = [];
+  globalThis.game = { messages: { get: () => null }, i18n: { localize: (k) => k, format: (k) => k } };
+  globalThis.ui = { notifications: { warn() {}, info() {} } };
+  globalThis.fromUuid = async () => null;
+  const actor = { name: "T", getActiveTokens: () => [], getStatistic: () => ({ check: { roll: async (p) => { rolls.push(p); return { degreeOfSuccess: 1, total: 10, dice: [] }; } } }) };
+  try {
+    await rollSave(actor, ch, { dc: 20 });
+    assert.ok(rolls[0].extraRollOptions.includes("inflicts:paralyzed"));
+  } finally { Object.assign(globalThis, saved); }
+});

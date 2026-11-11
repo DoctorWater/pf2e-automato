@@ -145,7 +145,7 @@ test("derive: английские метки, basic, traits, inflicts-подс�
   assert.equal(ch.basic, true);
   assert.deepEqual(ch.dc, { expr: "resolve(@actor.level)" });
   assert.deepEqual(ch.traits, ["fire"]);
-  assert.deepEqual(ch.options, ["area-effect"]);
+  assert.deepEqual(ch.options, ["inflicts:frightened", "area-effect"]);
   assert.deepEqual(d.hints.inflicts, ["frightened"]);
   assert.equal(ch.byDegree.failure[0].condition.value, 2);
 });

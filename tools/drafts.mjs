@@ -37,7 +37,7 @@ export function readModelAccepted() {
 
 /** Предупреждения activationWarnings по принятым записям активации; правило заклинания — как resolveRule: источник, затем slug (порядок каталогов — loadCatalog). Печать без отказа. */
 export function printActivationWarnings(items, accepted) {
-  const cat = buildCatalog(["catalog.pa", "catalog.model", "catalog.onhit", "catalog"].map((n) => readJson(join(ROOT, "rules", `${n}.json`))));
+  const cat = buildCatalog(["catalog.pa", "catalog.strike-save", "catalog.model", "catalog.onhit", "catalog"].map((n) => readJson(join(ROOT, "rules", `${n}.json`))));
   const slugOf = new Map(items.map((i) => [i.uuid, i.slug]));
   const spellRule = (u) => cat.bySource.get(u) ?? bySlugOf(cat.bySlug, slugOf.get(u), "spell");
   const out = accepted.filter((d) => d.rule?.activate && d.confidence === "model").flatMap((d) => activationWarnings(d.rule, spellRule).map((w) => `${d.name}: ${w}`));

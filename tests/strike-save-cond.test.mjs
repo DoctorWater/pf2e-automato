@@ -31,8 +31,10 @@ test("«(or Stunned 3 on a critical failure)» и «, or X on a critical failure
   assert.deepEqual(steps(run(`When the loreavor damages a creature with its touch Strike, the creature must succeed at a @Check[will|dc:28] save or become ${L("su", "Stupefied 1")}, or ${L("su", "Stupefied 2")} on a critical failure.`)).map((s) => s.condition.value), [1, 2]);
 });
 
-test("срок «for 1 minute», состояние без значения, options:inflicts игнорируется", () => {
-  const [f] = steps(run(`A creature that takes damage from a constellation's attack must succeed at a @Check[fortitude|dc:23|options:inflicts:dazzled] save or be ${L("dz", "Dazzled")} for 1 minute.`));
+test("срок «for 1 minute», состояние без значения, options:inflicts -> challenge.options", () => {
+  const r = run(`A creature that takes damage from a constellation's attack must succeed at a @Check[fortitude|dc:23|options:inflicts:dazzled] save or be ${L("dz", "Dazzled")} for 1 minute.`);
+  assert.deepEqual(r.rule.onUse.challenge.options, ["inflicts:dazzled"]);
+  const [f] = steps(r);
   assert.deepEqual(f.condition, { slug: "dazzled", policy: "max" });
   assert.deepEqual(f.duration, { value: 1, unit: "minutes", expiry: null, of: "origin" });
 });
@@ -85,6 +87,15 @@ test("иммунитет после спасброска -> challenge.immunity; 
   assert.match(deriveStrikeSave(t("Other Thing"), "Mind Lash", BY).skip, /иммунитет/);
 });
 
-test("крит. попадание в триггере: правило генерируется только когда crit-only распознал текст", () => {
-  assert.ok(run(`If the vavakia critically hits with its tail Strike, the target must succeed at a @Check[fortitude|dc:40] save or become ${L("st", "Stunned 1")}.`).rule);
+test("крит. попадание в триггере: правило только когда uuid есть в crit-only.json (critKnown)", () => {
+  const t = `If the vavakia critically hits with its tail Strike, the target must succeed at a @Check[fortitude|dc:40] save or become ${L("st", "Stunned 1")}.`;
+  assert.ok(deriveStrikeSave(t, "X", BY, true).rule);
+  assert.match(run(t).skip, /crit-only/);
+});
+
+test("незнакомое предложение после спасброска / про «the creature» до него — пропуск; чистая «вода» до — нет", () => {
+  const main = `A creature hit by the claw Strike must succeed at a @Check[fortitude|dc:22] save or be ${L("sl", "Slowed 1")} until the end of the warden's next turn.`;
+  assert.match(run(`${main} The creature is pulled toward it.`).skip, /дополнительные/);
+  assert.match(run(`The creature is pulled toward the warden. ${main}`).skip, /дополнительные/);
+  assert.ok(run(`Its claws drip with brine. ${main}`).rule);
 });

@@ -10,7 +10,7 @@ const KEEP = [["Shield", "Mother Venom"], ["Haste"], ["Read Aura"], ["Nimble Dod
 
 export function report() {
   const { items } = readOut("items.json"), html = readOut("html.json"), refs = readOut("refs.json");
-  const cats = ["catalog.pa", "catalog.model", "catalog.onhit", "catalog"].map((n) => readJson(join(ROOT, "rules", `${n}.json`)));   // порядок loadCatalog
+  const cats = ["catalog.pa", "catalog.strike-save", "catalog.model", "catalog.onhit", "catalog"].map((n) => readJson(join(ROOT, "rules", `${n}.json`)));   // порядок loadCatalog
   initCatalog(cats, readJson(join(ROOT, "rules/labels.json")));
   const slugOfUuid = new Map(Object.entries(refs.conditions).map(([s, c]) => [`Compendium.pf2e.conditionitems.Item.${c.id}`, { slug: s }]));
   globalThis.game = { pf2e: { ConditionManager: { conditions: slugOfUuid } } };

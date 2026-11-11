@@ -94,6 +94,10 @@
 .paf-hide-pdamage .damage-application,
 .paf-hide-precovery .persistent-damage-recovery { display: none !important; }
 
+/* Заметка атаки NPC: спасбросок способности ведёт модуль (scripts/damage-gate.mjs), inline-кнопка pf2e — второй путь */
+a.inline-check.paf-check-text { pointer-events: none; cursor: text; color: inherit; background: none; border: 0; padding: 0; box-shadow: none; text-decoration: none; font-weight: inherit; }
+a.inline-check.paf-check-text > i { display: none; }
+
 /* Удержанная/отменённая атака (scripts/hold.mjs): плашка в карточке атаки */
 /* Сотворение, удержанное/сорванное контрзаклинанием (hold.mjs, damage-gate.mjs): кнопки pf2e и модуля скрыты классом на корне сообщения, плашка .paf-hold остаётся */
 .paf-counter-block :is(.card-buttons, .message-buttons, .spell-button, .damage-application, .paf-damage-box, .paf-area-box, .paf-maneuver-box, .pf2e-automato, .pf2e-toolbelt-target-targetRows) { display: none !important; }

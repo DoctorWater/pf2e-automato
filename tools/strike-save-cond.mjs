@@ -4,11 +4,11 @@
 // Берём только однозначное: весь текст — одна фраза «триггер -> спасбросок -> одно состояние»; остальное — в skipped с причиной (ложное правило хуже отсутствия).
 // Запуск: node tools/strike-save-cond.mjs -> rules/catalog.strike-save.json (bySource: uuid документа -> правило; у одинаковых текстов копий много, у каждой свой uuid).
 import { join } from "node:path";
+import { readFileSync } from "node:fs";
 import { ROOT, readOut, writeText, isMain } from "./lib.mjs";
 import { validateRule } from "../scripts/rules.mjs";
 import { roundTrip } from "./validate.mjs";
 import { strikeLinks } from "./onhit.mjs";
-import { critOnly } from "./crit-only.mjs";
 import { sluggify } from "../scripts/util.mjs";
 
 // состояния, которые можно наложить на цель: без отношений (friendly...), видимости, dying/persistent-damage и служебных
@@ -65,7 +65,7 @@ function tokens(html) {
  * Однозначное: ровно один @Check спасброска, триггер «попал/нанёс урон Ударом», одно состояние по провалу, значение крит. провала в скобках,
  * срок «до конца/начала следующего хода X» или «на N раундов/…»; всё прочее (условие на цель, недуг, урон, выбор, иммунитет, второй исход) — skip.
  */
-export function deriveStrikeSave(html, name, condSlugById) {
+export function deriveStrikeSave(html, name, condSlugById, critKnown = false) {
   const t = tokens(html);
   if (!t) return { skip: "пусто" };
   if (/---|\bStage\b|Maximum Duration|Saving Throw\b/.test(t) || /\bonset\b/i.test(t)) return { skip: "недуг со стадиями" };
@@ -77,13 +77,15 @@ export function deriveStrikeSave(html, name, condSlugById) {
   const main = sentences[mi];
   // соседние предложения: повторный спасбросок и иммунитет — разбираем; прочее — только «вода» без механики
   let repeat = false, immunity = null;
-  for (const s of sentences.filter((_, i) => i !== mi)) {
+  // консервативно: после спасброска всё незнакомое — пропуск (там продолжение механики: «The creature is pulled toward it.»); до него — «вода», если не говорит о «the creature/target»
+  for (const [i, s] of sentences.entries()) {
+    if (i === mi) continue;
     let x;
     if (REPEAT.test(s)) repeat = true;
     else if ((x = IMM_ALL.exec(s))) immunity = { n: x.groups.n, value: +x.groups.v, unit: x.groups.u, degrees: null };
     else if ((x = IMM_OK.exec(s))) immunity = { n: x.groups.n, value: +x.groups.v, unit: x.groups.u, degrees: ["success", "criticalSuccess"] };
     else if ((x = IMM_CS.exec(s))) immunity = { n: x.groups.n, value: +x.groups.v, unit: x.groups.u, degrees: ["criticalSuccess"] };
-    else if (MECH.test(s)) return { skip: /{{|@/.test(s) ? "в тексте ещё одно состояние/механика" : /DC (?:cumulatively )?decreas|cumulatively|increase|decrease|value/i.test(s) ? "рост значения / убывание СЛ (схема не умеет)" : "дополнительные условия в тексте" };
+    else if (i > mi || /\b(?:the|a|an|that|this)\s+(?:creature|target|victim|enemy|foe)\b/i.test(s) || MECH.test(s)) return { skip: /{{|@/.test(s) ? "в тексте ещё одно состояние/механика" : /DC (?:cumulatively )?decreas|cumulatively|increase|decrease|value/i.test(s) ? "рост значения / убывание СЛ (схема не умеет)" : "дополнительные условия в тексте" };
   }
 
   const m = /^(?<trig>.*?)\s*\bmust\s+(?:succeed\s+(?:(?:at|on)\s+)?|attempt\s+|make\s+)an?\s+@Check\[(?<chk>[^\]]*)\](?:\{[^}]*\})?\s*(?:save|saving throw)?\s*,?\s*or\s+(?<res>.+?)\.?$/i.exec(main);
@@ -93,8 +95,8 @@ export function deriveStrikeSave(html, name, condSlugById) {
     if (/\b(?:non-?\w+|living|undead|humanoid|evil|good|lawful|chaotic|\w+ creature)\b/i.test(trig) && /creature|target/i.test(trig)) return { skip: "условие на цель (тип/мировоззрение/живое)" };
     return { skip: "триггер не «попал/нанёс урон Ударом»" };
   }
-  // критическое попадание: оверлей crit-only.json (по тому же тексту) сам сделает запуск только на крит; без него правило сработало бы на любое попадание
-  if (/\bcritical/i.test(trig) && !critOnly(html)) return { skip: "триггер — критическое попадание (crit-only не распознал)" };
+  // критическое попадание: запуск только на крит делает оверлей rules/crit-only.json (по uuid; critKnown); без записи правило сработало бы на любое попадание
+  if (/\bcritical/i.test(trig) && !critKnown) return { skip: "триггер — критическое попадание (uuid нет в rules/crit-only.json)" };
 
   const params = chk.split("|");
   const statistic = params[0];
@@ -138,6 +140,7 @@ export function deriveStrikeSave(html, name, condSlugById) {
   const challenge = {
     statistic, dc: { value: +p.dc }, basic: false, rollerRole: "target",
     ...(p.traits && { traits: String(p.traits).split(",") }),
+    ...(p.options && { options: String(p.options).split(",").filter(Boolean) }),
     ...(imm && { immunity: imm }),
     byDegree: { failure: parts.map(step), criticalFailure: critParts.map(step) }
   };
@@ -147,14 +150,14 @@ export function deriveStrikeSave(html, name, condSlugById) {
 }
 
 /** Чистая: документы -> { bySource, skipped:[{uuid,name,reason}], stats }. linked(it) — true/false/null (Удар актёра ссылается на способность). */
-export function buildStrikeSave(items, condSlugById, linked = () => true) {
+export function buildStrikeSave(items, condSlugById, linked = () => true, critBySource = {}) {
   const bySource = {}, skipped = [], stats = { docs: 0, rules: 0, noLink: 0 };
   for (const it of items) {
     if (!it.embedded || !["action", "feat"].includes(it.type) || it.actionType !== "passive" || !it.uuid) continue;
     if (!/@Check\[(?:fortitude|reflex|will)/.test(it.descEn ?? "")) continue;
     stats.docs++;
     if (linked(it) !== true) { stats.noLink++; continue; }
-    const r = deriveStrikeSave(it.descEn, it.name, condSlugById);
+    const r = deriveStrikeSave(it.descEn, it.name, condSlugById, !!critBySource[it.uuid]);
     if (r.rule) { bySource[it.uuid] = r.rule; stats.rules++; } else skipped.push({ uuid: it.uuid, name: it.name, reason: r.skip });
   }
   return { bySource, skipped, stats };
@@ -164,7 +167,7 @@ function main() {
   const { items } = readOut("items.json"), refs = readOut("refs.json");
   const condSlugById = Object.fromEntries(Object.entries(refs.conditions).map(([slug, c]) => [c.id, slug]));
   const cache = {};
-  const { bySource, skipped, stats } = buildStrikeSave(items, condSlugById, (it) => strikeLinks(it.uuid, it.slug, undefined, cache));
+  const { bySource, skipped, stats } = buildStrikeSave(items, condSlugById, (it) => strikeLinks(it.uuid, it.slug, undefined, cache), JSON.parse(readFileSync(join(ROOT, "rules", "crit-only.json"), "utf8")).bySource);
   writeText(join(ROOT, "rules", "catalog.strike-save.json"), `{"v":1,\n"bySource":{\n${Object.entries(bySource).map(([k, r]) => `${JSON.stringify(k)}:${JSON.stringify(r)}`).join(",\n")}\n}}\n`);
   const why = {};
   for (const s of skipped) why[s.reason] = (why[s.reason] ?? 0) + 1;

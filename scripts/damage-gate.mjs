@@ -1,6 +1,16 @@
 import { modeOf } from "./settings.mjs";
 import { MOD, L, callGM } from "./util.mjs";
 import { isSanctuaryHold, isCancelled, isCounterHold, isCounterGate } from "./hold.mjs";
+import { linkedNoteChecks } from "./strike-link.mjs";
+
+/** Заметка атаки (`li.roll-note > strong` = название способности): inline-проверка нужной статистики остаётся подписью «СЛ 21 Стойкость», но не кликается (стили — .paf-check-text). Обратимо: нет пар — нет класса. */
+export function markNoteChecks(html, pairs) {
+  if (!pairs.length) return;
+  for (const li of html.querySelectorAll("li.roll-note")) {
+    const name = li.querySelector(":scope > strong")?.textContent.trim();
+    for (const { name: n, statistic } of pairs) if (n === name) for (const a of li.querySelectorAll(`a.inline-check[data-pf2-check="${statistic}"]`)) a.classList.add("paf-check-text");
+  }
+}
 
 const OUTCOMES = ["criticalFailure", "failure", "success", "criticalSuccess"];
 
@@ -67,6 +77,12 @@ export function init() {
     // классом, а не remove(): pf2e дорисовывает эти кнопки асинхронно, уже после хука
     html.classList.toggle("paf-hide-pdamage", hide.damage);
     html.classList.toggle("paf-hide-precovery", hide.recovery);
+  });
+  // GM-заметка атаки NPC несёт текст способности из attackEffects с inline-@Check; если спасбросок ведёт сам модуль (strike-link), кнопка pf2e — второй путь. Класс на строке заметки (styles/chat.css): обратимо, текст остаётся
+  Hooks.on("renderChatMessageHTML", (message, html) => {
+    if (message.flags?.pf2e?.context?.type !== "attack-roll" || !html.querySelector("li.roll-note > strong")) return;   // дешёвые выходы: заметки attackEffects — только у атаки
+    const strike = message.item;
+    if (strike?.type === "melee") markNoteChecks(html, linkedNoteChecks(strike));
   });
   // сотворение удержано/сорвано контрзаклинанием: кнопки pf2e и модуля прячет класс на корне (styles/chat.css; обратимо, переживает дорисовку pf2e/Toolbelt); плашка — всегда, независимо от режима гейта урона
   Hooks.on("renderChatMessageHTML", (message, html) => {

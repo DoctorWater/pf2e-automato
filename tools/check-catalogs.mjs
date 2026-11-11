@@ -26,7 +26,7 @@ export function findConflicts(slugs, items, generated) {
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const manual = Object.keys(load("rules/catalog.json").bySlug ?? {});
   const generated = {};
-  for (const f of ["catalog.model.json", "catalog.pa.json", "catalog.rusthenge.json"]) generated[f] = (existsSync(root + "rules/" + f) ? load("rules/" + f) : {}).bySource ?? {};
+  for (const f of ["catalog.model.json", "catalog.pa.json", "catalog.rusthenge.json", "catalog.strike-save.json"]) generated[f] = (existsSync(root + "rules/" + f) ? load("rules/" + f) : {}).bySource ?? {};
   const items = load("tools/out/items.json").items;   // 64 МБ, один раз
   const found = findConflicts(manual, items, generated);
   console.log(`ручных bySlug: ${manual.length}; конфликтов: ${found.length}`);

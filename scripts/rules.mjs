@@ -1615,7 +1615,7 @@ export function deriveFromMarkup(itemLike, labels, conditionSlugByUuid, condName
       statistic: save?.statistic ?? check.type, dc, basic: !!(save ? save.basic : (check.flags.has("basic") || check.params.basic === "true")),
       rollerRole: "target", byDegree: {}
     };
-    const opts = (check?.params.options ?? "").split(",").filter((o) => o && !o.startsWith("inflicts:"));
+    const opts = (check?.params.options ?? "").split(",").filter(Boolean);   // inflicts:X тоже: pf2e кладёт их в опции броска, на них стоят бонусы против эффекта
     if (check?.params.traits) challenge.traits = check.params.traits.split(",");
     if (opts.length) challenge.options = opts;
     // подписанных блоков нет — провал и крит. провал берём из предложений
@@ -1743,7 +1743,7 @@ export async function loadCatalog() {
   initOverlays(ranges, degrees, summons, limits, crit);
   // при совпадении ключа побеждает последний: автоматический перенос PA — первым, проверенные вручную — после
   // model (tools/drafts.mjs): черновики пачек от Haiku/Sonnet, прошедшие валидатор и выборку
-  return initCatalog([pa, strikeSave, model, onhit, rusthenge, cat].filter(Boolean), labels);   // strikeSave (tools/strike-save-cond.mjs): «Удар -> спасбросок -> состояние», сразу после pa — model/onhit/rusthenge/ручные главнее; onhit (tools/onhit.mjs): «при попадании Удара — состояние» по тексту; rusthenge — существа приключения Rusthenge (перекрывает model); ручные каталоги главнее
+  return initCatalog([pa, strikeSave, model, onhit, rusthenge, cat].filter(Boolean), labels);   // strikeSave (tools/strike-save-cond.mjs): «Удар -> спасбросок -> состояние», bySource — при совпадении ключа bySource model/rusthenge/ручные главнее; но resolveRule берёт любой bySource раньше любого bySlug (onhit и ручные bySlug его не перекрывают; tools/check-catalogs.mjs ловит только ручные bySlug против bySource, onhit/pa не проверяет); onhit (tools/onhit.mjs): «при попадании Удара — состояние» по тексту; rusthenge — существа приключения Rusthenge (перекрывает model); ручные каталоги главнее
 }
 let loading = null;
 /** Один общий промис загрузки каталога: main ждёт его на ready, Мастерская и лист — до первого рендера. Неудача сбрасывает его. */

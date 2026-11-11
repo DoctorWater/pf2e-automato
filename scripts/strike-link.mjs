@@ -76,6 +76,16 @@ export function strikeLinkState(item, resolve = rules.resolveRule) {
   return { rule, strikes: strikes.filter((s) => carries(s, slug)), off: mechOf(item).strike === false ? "flag" : rest, needRule, noOutcome, ids: { slug: rules.slugOf(null, item), sourceUuid: rules.sourceOf(null, item) } };
 }
 
+/** Способности Удара, спасбросок которых ведёт модуль -> [{ name, statistic }]: pf2e кладёт их текст в GM-заметку атаки с inline-@Check — второй путь к тому же спасброску
+ *  (прячется только проверка этой статистики: у Xill Eggs рядом @Check медицины, у Blackfinger Blight — flat). linked — strikeLinked (подмена в тестах). */
+export function linkedNoteChecks(strike, linked = strikeLinked) {
+  const slugs = strike?.system?.attackEffects?.value ?? [];
+  return [...(strike?.actor?.items ?? [])].filter((i) => slugs.includes(carrierSlug(i))).flatMap((i) => {
+    const statistic = linked(i)?.rule?.onEvent?.[0]?.challenge?.statistic;
+    return statistic ? [{ name: i.name, statistic }] : [];
+  });
+}
+
 /** Запрос Удару: способность выполняется самим модулем по урону Удара (режимы, уступка pf2e-automations учтены) -> { rule, strikes:[Удар] } | null. Для подсказки на карточке способности; контракт — истина/ложь. */
 export function strikeLinked(item) {
   if (!item?.actor || (modeOf("effect") === "off" && modeOf("challenge") === "off")) return null;

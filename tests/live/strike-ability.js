@@ -264,6 +264,14 @@ async () => {
   const MAGE = "Compendium.pf2e.lost-omens-bestiary.Actor.M2Vi2mkwMZv1ZRka";            // Tempest-Sun Mage: Reach Spell без переключателя
   const carrier = (a) => a.items.find((i) => i.flags?.[MOD]?.meta?.affliction) ?? null;
   const strikeWith = (a, effect) => a.system.actions.find((s) => s.item?.system.attackEffects?.value?.includes(effect));
+  // §3.3: заметка атаки к способности найдена, её @Check остался подписью (видна, с СЛ, без иконки) и не кликается
+  const noteState = async (e, am, name, stat) => {
+    const note = await waitFor(() => [...(e.dom(am)?.querySelectorAll("li.roll-note") ?? [])].find((li) => li.querySelector("strong")?.textContent.trim() === name && !li.closest(".dsn-hide")), 12000);   // Dice So Nice прячет сообщение (dsn-hide), пока катятся кости
+    const a = note?.querySelector(`a.inline-check[data-pf2-check="${stat}"]`);
+    const icon = a?.querySelector("i");
+    const ok = !!a && a.classList.contains("paf-check-text") && getComputedStyle(a).pointerEvents === "none" && !!a.offsetParent && /\d/.test(a.textContent) && (!icon || getComputedStyle(icon).display === "none");
+    return { ok, why: `заметка ${!!note}, ссылка ${!!a}, класс ${a?.classList.contains("paf-check-text")}, pointer-events ${a && getComputedStyle(a).pointerEvents}, видна ${!!a?.offsetParent} (скрыт предок: ${(() => { let n = a; while (n && n !== document.body) { if (getComputedStyle(n).display === "none") return `${n.tagName}.${[...n.classList].join(".")}`; n = n.parentElement; } return "нет"; })()}), иконка ${icon ? getComputedStyle(icon).display : "нет"}, текст «${a?.textContent.trim()}»` };
+  };
   const slowed = (a) => a.getCondition?.("slowed")?.value ?? (a.hasCondition?.("slowed") ? 1 : 0);
   const noReact = async (a) => (await imp("inline-effect.mjs")).noReactions(a);
   const shapeFx = (a) => a.itemTypes.effect.find((x) => x.flags?.[MOD]?.meta?.key === "spellshape") ?? null;
@@ -288,6 +296,9 @@ async () => {
     await bound("Удар", s.variants[0].roll({ event: SHIFT() }));
     const am = await waitFor(() => e.msgs(t0).find((m) => m.flags?.pf2e?.context?.type === "attack-roll"), 8000);
     t.ok(["success", "criticalSuccess"].includes(am?.flags?.pf2e?.context?.outcome), `попадание (${am?.flags?.pf2e?.context?.outcome})`);
+    // §3.3: спасбросок способности ведёт модуль — inline-кнопка @Check в заметке pf2e к атаке скрыта (текст заметки остаётся)
+    const ns = await noteState(e, am, ab.name, (await imp("strike-link.mjs")).strikeLinked(ab)?.rule?.onEvent?.[0]?.challenge?.statistic);
+    t.ok(ns.ok, `заметка «${ab.name}»: спасбросок pf2e — подпись без клика (${ns.why})`);
     await bound("урон 1", s.damage({ event: SHIFT() }));
     await waitFor(() => carrier(e.A(tV)), 15000);
     t.ok(!!carrier(e.A(tV)), "яд сработал при уроне Удара: носитель недуга на жертве");
@@ -403,6 +414,40 @@ async () => {
     await castMsg(a(), spell);
     await wait(1500);
     t.ok(!shapeFx(a()) && !a().rollOptions.all["spellshape:reach-spell"], "сотворение после Удара — без +30");
+  });
+
+  // catalog.strike-save (tools/strike-save-cond.mjs): Drow Warden, Hampering Slash — урон ближним Ударом: Стойкость СЛ 21 или Slowed 1 до конца следующего хода стража
+  const WARDEN = "Compendium.pf2e.abomination-vaults-bestiary.Actor.DawBQWRyrM4cKfGI", SLASH = `${WARDEN}.Item.Qc2AY3uXl9fGeDBe`;
+  sc("strike-save", "catalog.strike-save: урон Удара → Стойкость цели → провал: Slowed 1; успех: ничего; кнопка спасброска pf2e в заметке скрыта", async (e, t) => {
+    openChat();
+    const d = (await fromUuid(WARDEN))?.toObject();
+    if (!d) throw new Skip(`нет в паках: ${WARDEN}`);
+    delete d._id; d._stats = { ...d._stats, compendiumSource: WARDEN };   // как импорт из компендиума: правило каталога ищется по источнику актёра + id предмета
+    const A0 = await e.add({ ...d, name: "страж" }), V1 = await victim(e, "провал"), V2 = await victim(e, "успех");
+    const tA = await e.tok(A0, 1000, 1000, -1), t1 = await e.tok(V1, 1100, 1000, 1), t2 = await e.tok(V2, 1000, 1100, 1);
+    await wait(800);
+    const ab = e.A(tA).items.get(SLASH.split(".").pop());
+    if (!ab) throw new Skip("у копии нет Hampering Slash");
+    const res = api().resolveRule(ab);
+    t.ok(res?.rule?.onUse?.challenge?.statistic === "fortitude" && res.rule.onUse.challenge.dc?.value === 21, `правило каталога strike-save: Стойкость СЛ 21 (${res?.source}; ${JSON.stringify(res?.rule?.onUse?.challenge?.dc)})`);
+    const sl = await imp("strike-link.mjs");
+    t.ok(!!sl.strikeLinked(ab), "способность выведена на Удар (strikeLinked)");
+    const s = strikeWith(e.A(tA), ab.slug);
+    if (!s) throw new Skip(`нет Удара с attackEffects ${ab.slug}`);
+    for (const [tok, deg, want] of [[t1, "failure", 1], [t2, "success", 0]]) {
+      await rigSave(e, e.A(tok), "fortitude", 21, deg);
+      await e.fix(10);
+      await e.aim(tA, tok);
+      await e.rig(e.A(tA), "attack-roll", 50);   // гарантированное попадание — ДО броска
+      const t0 = e.since();
+      await bound("Удар", s.variants[0].roll({ event: SHIFT() }));
+      const am = await waitFor(() => e.msgs(t0).find((m) => m.flags?.pf2e?.context?.type === "attack-roll"), 8000);
+      t.ok(["success", "criticalSuccess"].includes(am?.flags?.pf2e?.context?.outcome), `${deg}: попадание (${am?.flags?.pf2e?.context?.outcome})`);
+      if (deg === "failure") { const ns = await noteState(e, am, ab.name, "fortitude"); t.ok(ns.ok, `заметка «${ab.name}»: спасбросок pf2e — подпись без клика (${ns.why})`); }
+      await bound("урон", s.damage({ event: SHIFT() }));
+      if (want) t.ok(await waitFor(() => slowed(e.A(tok)) === 1, 15000), `${deg}: Slowed 1 (${slowed(e.A(tok))})`);
+      else { await waitFor(() => e.msgs(t0).some((m) => m.flags?.pf2e?.context?.type === "saving-throw"), 15000); await wait(3000); t.ok(slowed(e.A(tok)) === 0, `${deg}: без Slowed (${slowed(e.A(tok))})`); }
+    }
   });
 
   // ---------- прогон ----------

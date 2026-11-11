@@ -280,7 +280,7 @@ async () => {
   /** Нападающий: NPC-гоблин, враг, +50 к атаке (попадание), Воля сдвинута так, чтобы при d20 = 10 выпала нужная степень против dc. */
   const makeFoe = async (e, { degree = "success", dc = 20 } = {}) => {
     const foe = await e.foe("нападающий");
-    const ft = await e.tok(foe, 1500, 1000, -1);
+    const ft = await e.tok(foe, 500, 1000, -1);   // вплотную к защищённым (400,1000 и 400,1100): ближний Удар в досягаемости
     await wait(500);
     const A = e.A(ft);
     await e.rig(A, "attack-roll", 50);
@@ -560,7 +560,7 @@ async () => {
   sc("ends-on-attack", "Атака самого защищённого снимает Убежище; обычный бросок — нет", async (e, t) => {
     const { cc, fo, gt } = await setup(e, "success");
     void fo;
-    const foe2 = await e.tok(await e.foe("мишень"), 700, 1000, -1);
+    const foe2 = await e.tok(await e.foe("мишень"), 500, 900, -1);   // вплотную к защищённому (400,1000)
     await wait(500);
     // нерелевантный бросок защищённого (Восприятие) носитель не трогает
     await bound("Восприятие", e.A(gt).perception.roll({ event: SHIFT(), createMessage: true }));

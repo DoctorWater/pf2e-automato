@@ -1716,11 +1716,11 @@ export async function loadCatalog() {
     if (!resp.ok) { if (!optional) warn(`не загружен rules/${name}: ${resp.status}`); return null; }
     try { return await resp.json(); } catch (e) { warn(`rules/${name}: битый JSON`, e); if (!optional) throw e; return null; }   // битый необязательный файл не должен ронять остальные каталоги
   };
-  const [cat, pa, model, onhit, rusthenge, labels, ranges, degrees, summons, limits, crit] = await Promise.all([get("catalog.json"), get("catalog.pa.json", true), get("catalog.model.json", true), get("catalog.onhit.json", true), get("catalog.rusthenge.json", true), get("labels.json"), get("ranges.json", true), get("damage-degrees.json", true), get("summons.json", true), get("use-limits.json", true), get("crit-only.json", true)]);
+  const [cat, pa, model, onhit, rusthenge, labels, ranges, degrees, summons, limits, crit, strikeSave] = await Promise.all([get("catalog.json"), get("catalog.pa.json", true), get("catalog.model.json", true), get("catalog.onhit.json", true), get("catalog.rusthenge.json", true), get("labels.json"), get("ranges.json", true), get("damage-degrees.json", true), get("summons.json", true), get("use-limits.json", true), get("crit-only.json", true), get("catalog.strike-save.json", true)]);
   initOverlays(ranges, degrees, summons, limits, crit);
   // при совпадении ключа побеждает последний: автоматический перенос PA — первым, проверенные вручную — после
   // model (tools/drafts.mjs): черновики пачек от Haiku/Sonnet, прошедшие валидатор и выборку
-  return initCatalog([pa, model, onhit, rusthenge, cat].filter(Boolean), labels);   // onhit (tools/onhit.mjs): «при попадании Удара — состояние» по тексту; rusthenge — существа приключения Rusthenge (перекрывает model); ручные каталоги главнее
+  return initCatalog([pa, strikeSave, model, onhit, rusthenge, cat].filter(Boolean), labels);   // strikeSave (tools/strike-save-cond.mjs): «Удар -> спасбросок -> состояние», сразу после pa — model/onhit/rusthenge/ручные главнее; onhit (tools/onhit.mjs): «при попадании Удара — состояние» по тексту; rusthenge — существа приключения Rusthenge (перекрывает model); ручные каталоги главнее
 }
 let loading = null;
 /** Один общий промис загрузки каталога: main ждёт его на ready, Мастерская и лист — до первого рендера. Неудача сбрасывает его. */

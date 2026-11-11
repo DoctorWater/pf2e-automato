@@ -219,7 +219,7 @@ async () => {
   // Итог Воли при d20 = 10 — mod + 10: нужный модификатор = СЛ + DEGREE_MOD[степень] (крит. успех — итог СЛ + 10, успех — СЛ, провал — СЛ − 1, крит. провал — СЛ − 10)
   const DEGREE_MOD = { criticalSuccess: 0, success: -10, failure: -11, criticalFailure: -20 };
   const srcC = async (uuid) => { const o = await src(uuid); o._stats = { ...o._stats, compendiumSource: uuid }; return o; };   // по compendiumSource правило находится в каталоге
-  const openChat = () => { try { ui.sidebar?.changeTab?.("chat", "primary"); } catch { /* ok */ } };
+  const openChat = () => { try { ui.sidebar?.expand?.(); ui.sidebar?.changeTab?.("chat", "primary"); } catch { /* ok */ } };   // развёрнутая панель: при свёрнутой Foundry показывает сообщения всплывающими, и уборка теста рвёт их анимацию (#postNotification)
   const flag = (m, ...p) => foundry.utils.getProperty(game.messages.get(m.id) ?? m, `flags.${MOD}.${p.join(".")}`);
   const heldNow = (m) => flag(m, "gate", "hold") === true;
   const cancelledNow = (m) => flag(m, "gate", "cancelled") === true;
@@ -315,7 +315,8 @@ async () => {
     await fix10(e);
     return { cc, fo, gt: cc.gt };
   };
-  const attack = (e, fo, cc) => e.hit(fo.ft, cc.gt);
+  /** Удар нападающего по защищённому; ждём, пока модуль обработает атаку (выпуск/отмена или карточка Воли): обработка идёт после анимации костей (afterDice, до 8 с). */
+  const attack = async (e, fo, cc) => { const m = await e.hit(fo.ft, cc.gt); if (m) await waitFor(() => !heldNow(m) || cardsOf(m).length, 12000); return m; };
 
   sc("cast", "Сотворение Убежища: носитель на защищённом с автором-заклинателем", async (e, t) => {
     const cc = await makeCast(e);
@@ -373,7 +374,7 @@ async () => {
     t.ok(!!effBy(e.A(gt), "carrier"), "Убежище осталось");
     const a2 = await attack(e, fo, cc);
     await wait(1500);
-    t.ok(!cardsOf(a2).length && !heldNow(a2) && !cancelledNow(a2), "вторая атака в этот ход: без карточки и без удержания");
+    t.ok(!cardsOf(a2).length && !heldNow(a2) && !cancelledNow(a2), `вторая атака в этот ход: без карточки и без удержания (карточек ${cardsOf(a2).length}, gate ${JSON.stringify(flag(a2, "gate"))}, метка ${!!effBy(fo.A, "passed")}, сообщение ${!!a2}, sibling ${(await import(`/modules/${MOD}/scripts/hold.mjs`)).siblingPending(game.messages.get(a2.id))}, applied1 ${JSON.stringify(e.use(cardsOf(atk)[0])?.state?.challenge?.applied)}, events2 ${JSON.stringify(flag(a2, "events"))?.slice(0, 200)})`);
     await bound("конец хода нападающего", c.nextTurn()); await wait(2500);
     t.ok(!effBy(fo.A, "passed"), "метка снялась в конце хода нападающего");
     await e.fix(10);
@@ -446,7 +447,7 @@ async () => {
     await bound("переброс атаки", check.rerollFromMessage(game.messages.get(atk.id), { keep: "new" }));
     const re = await waitFor(() => e.msgs(t0).find((m) => m.flags?.pf2e?.context?.type === "attack-roll" && m.flags.pf2e.context.isReroll), 10000);
     if (!re) throw new Skip("переброс не создал сообщение");
-    await wait(2000);
+    await waitFor(() => !heldNow(re) || cardsOf(re).length, 12000);   // обработка — после анимации костей (afterDice)
     t.ok(!!effBy(fo.A, "stopped"), "метка stopped жива");
     t.ok(game.messages.has(card.id), "карточка Воли не тронута");
     t.ok(!cardsOf(re).length, "новой карточки Воли нет");
@@ -460,7 +461,7 @@ async () => {
     await Promise.all([bound("атака 1", s.variants[0].roll({ event: SHIFT() })), bound("атака 2", s.variants[1].roll({ event: SHIFT() }))]);
     const atks = await waitFor(() => { const l = e.msgs(t0).filter((m) => m.flags?.pf2e?.context?.type === "attack-roll"); return l.length >= 2 ? l : null; }, 10000);
     if (!atks) throw new Skip("вторая атака не брошена");
-    await wait(3000);
+    await waitFor(() => game.messages.some((m) => atks.some((a) => String(m.flags?.[MOD]?.use?.state?.event ?? "").startsWith(`${a.id}:`))), 12000); await wait(1500);   // карточка — после анимации костей; запас, чтобы вторая не появилась
     const cards = game.messages.filter((m) => atks.some((a) => String(m.flags?.[MOD]?.use?.state?.event ?? "").startsWith(`${a.id}:`)));
     t.ok(cards.length === 1, `карточка одна на пару: ${cards.length}`);
     await resolve(e, atks.find((a) => cardsOf(a).length) ?? atks[0]);
@@ -479,7 +480,7 @@ async () => {
     const t0 = e.since();
     const control = await attack(e, fo, cc);
     const g = await waitFor(() => e.msgs(t0).find((x) => x.flags?.pf2e?.context?.options?.includes("action:grapple")), 10000);
-    await wait(1500);
+    await waitFor(() => e.cond(e.A(gt), "grabbed") || e.cond(e.A(gt), "restrained"), 12000);   // итог Захвата — после анимации костей (afterDice)
     if (g && !e.cond(e.A(gt), "grabbed") && !e.cond(e.A(gt), "restrained")) { await e.applyAll(g); await wait(1500); }   // apply = button
     if (!e.cond(e.A(gt), "grabbed") && !e.cond(e.A(gt), "restrained")) throw new Skip(`контроль: без Убежища strike-effects не выдал grabbed (улучшенный захват, Удар попал? ${JSON.stringify(control?.flags?.pf2e?.context?.outcome)})`);
     for (const c of e.A(gt).itemTypes.condition.filter((x) => ["grabbed", "restrained"].includes(x.slug))) await c.delete().catch(() => {});
@@ -494,7 +495,7 @@ async () => {
     await resolve(e, atk);
     // apply = button: как в контроле, результат Захвата ГМ применяет кнопкой
     const g2 = await waitFor(() => e.msgs(t1).find((x) => x.flags?.pf2e?.context?.options?.includes("action:grapple")), 10000);
-    await wait(1500);
+    await waitFor(() => e.cond(e.A(gt), "grabbed") || e.cond(e.A(gt), "restrained"), 12000);
     if (g2 && !e.cond(e.A(gt), "grabbed") && !e.cond(e.A(gt), "restrained")) await e.applyAll(g2);
     t.ok(!!(await waitFor(() => e.cond(e.A(gt), "grabbed") || e.cond(e.A(gt), "restrained"), 8000)), "после выпуска — захват выдан");
   });
@@ -595,7 +596,7 @@ async () => {
         if (left) { status = "fail"; detail += ` | после уборки осталось: ${left}`; }
       }
       // ошибки консоли и необработанные отказы — со стеком в FAIL (ждали: сообщения модуля пишутся уже после сценария)
-      const errs = notes.filter((n) => /^(console\.error|uncaught)/.test(n));
+      const errs = notes.filter((n) => /^(console\.error|uncaught)/.test(n) && !/dice-calculator/.test(n));   // dice-calculator падает на collapseSidebar при expand — не модуль
       if (errs.length) { status = "fail"; detail += ` | ошибки: ${errs.slice(0, 3).join(" / ")}`; }
       else if (status === "fail" && notes.length) detail += ` | уведомления: ${notes.slice(0, 4).join(" / ")}`;
       rows.push({ id: s.id, title: s.title, status, detail });

@@ -12,6 +12,7 @@ import { applyPersistent } from "./apply.mjs";
 import * as saves from "./saves.mjs";
 import { asking } from "./builtin/variable-cast.mjs";
 import { maneuversOf } from "./builtin/maneuver.mjs";
+import { isCounterGate } from "./hold.mjs";
 
 const SEL = EXTERNAL.selectors;
 
@@ -197,7 +198,7 @@ function dim(a, tip, hidden = false) {
 function bind(message, html) {
   const skip = dealtBy(message.flags?.[MOD]?.use);
   if (skip.size) quench(html, skip);
-  if (!message.item || !message.actor?.isOwner || !USE_TYPES.has(message.flags?.pf2e?.context?.type)) return;
+  if (!message.item || !message.actor?.isOwner || !USE_TYPES.has(message.flags?.pf2e?.context?.type) || isCounterGate(message)) return;   // удержано/сорвано контрзаклинанием: кнопок «Урон»/«Разместить» нет
   const card = html.querySelector(".chat-card");
   placeAreaButton(html, card, message.item);
   attackOrder(message, html);

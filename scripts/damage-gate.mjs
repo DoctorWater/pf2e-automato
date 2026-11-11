@@ -1,6 +1,6 @@
 import { modeOf } from "./settings.mjs";
 import { MOD, L, callGM } from "./util.mjs";
-import { isSanctuaryHold, isCancelled } from "./hold.mjs";
+import { isSanctuaryHold, isCancelled, isCounterHold, isCounterGate } from "./hold.mjs";
 
 const OUTCOMES = ["criticalFailure", "failure", "success", "criticalSuccess"];
 
@@ -39,13 +39,23 @@ const workbench = () => {
   return { applyPersistentDamage: get("applyPersistentDamage"), applyPersistentDamageRecoveryRoll: get("applyPersistentDamageRecoveryRoll") };
 };
 
-/** Плашка удержанной/отменённой атаки (Sanctuary); ГМу при удержании — ручные «Выпустить» / «Отменить» (карточка испытания не пришла, закрыта, сломалась). */
+/**
+ * Чистая: плашка удержанной/отменённой атаки (Sanctuary) или сотворения (контрзаклинание): текст и кнопки ГМа.
+ * Удержано — «Выпустить» / «Отменить» (карточка испытания не пришла, закрыта, сломалась); сорвано контрзаклинанием — «Вернуть» (= выпуск).
+ */
+export function holdPlaque(message) {
+  const counter = isCounterGate(message), held = counter ? isCounterHold(message) : isSanctuaryHold(message);
+  const text = counter ? (held ? "hold.counterWaiting" : "hold.counterCancelled") : held ? "hold.waiting" : "hold.cancelled";
+  return { text, buttons: held ? ["release", "cancel"] : counter ? ["release"] : [] };
+}
+
 function holdBlock(message, html) {
-  const held = isSanctuaryHold(message), box = html.querySelector(".message-content");
+  const box = html.querySelector(".message-content");
   if (!box || box.querySelector(".paf-hold")) return;
+  const { text, buttons } = holdPlaque(message);
   const el = document.createElement("div");
   el.className = "paf-hold";
-  el.innerHTML = `<p>${L(held ? "hold.waiting" : "hold.cancelled")}</p>${held && game.user?.isGM ? `<div class="paf-card-actions"><button type="button" data-hold="release">${L("hold.release")}</button><button type="button" data-hold="cancel">${L("hold.cancel")}</button></div>` : ""}`;
+  el.innerHTML = `<p>${L(text)}</p>${buttons.length && game.user?.isGM ? `<div class="paf-card-actions">${buttons.map((b) => `<button type="button" data-hold="${b}">${L(b === "release" && !isCounterHold(message) && isCounterGate(message) ? "hold.restore" : `hold.${b}`)}</button>`).join("")}</div>` : ""}`;
   for (const b of el.querySelectorAll("[data-hold]")) b.addEventListener("click", (ev) => { ev.preventDefault(); b.disabled = true; callGM("holdResolve", message.id, b.dataset.hold); });
   box.append(el);
 }
@@ -58,8 +68,14 @@ export function init() {
     html.classList.toggle("paf-hide-pdamage", hide.damage);
     html.classList.toggle("paf-hide-precovery", hide.recovery);
   });
+  // сотворение удержано/сорвано контрзаклинанием: кнопки pf2e и модуля прячет класс на корне (styles/chat.css; обратимо, переживает дорисовку pf2e/Toolbelt); плашка — всегда, независимо от режима гейта урона
   Hooks.on("renderChatMessageHTML", (message, html) => {
-    if (modeOf("damageGate") === "off") return;
+    const counter = isCounterGate(message);
+    html.classList.toggle("paf-counter-block", counter);
+    if (counter) holdBlock(message, html);
+  });
+  Hooks.on("renderChatMessageHTML", (message, html) => {
+    if (modeOf("damageGate") === "off" || isCounterGate(message)) return;
     const blocked = isSanctuaryHold(message) || isCancelled(message);   // удержание переброса плашки и скрытия кнопок не даёт: провал урона не открывает
     const degree = gateDegree(message);
     if (degree === null && !blocked) return;

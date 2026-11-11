@@ -14,7 +14,7 @@ import { itemRange, markFar, inRange, TENTACLES } from "./range.mjs";
 import { recentShape, spentOptions, optionOf } from "./builtin/spellshape.mjs";
 import { moveOrder, areaPoint } from "./move.mjs";
 import { asksActions, pf2eVariants, variantActions } from "./builtin/variable-cast.mjs";
-import { isHeld, replayers } from "./hold.mjs";
+import { isHeld, isCounterGate, replayers } from "./hold.mjs";
 import * as sustain from "./sustain.mjs";
 import { whisper, esc } from "./builtin/lib.mjs";
 import { spellDcOf } from "./familiar.mjs";
@@ -302,6 +302,7 @@ export function init() {
   Hooks.on("preCreateRegion", onPreCreateRegion);
   Hooks.on("createChatMessage", onCreateMessage);
   replayers.add(onCreateMessage);
+  replayers.add((m) => tolerate("resumeRegion", () => resumeRegion(m.id)));   // область поставили, пока сотворение держал counter (runRegion её пропустил)
   Hooks.on("updateChatMessage", onUpdateMessage);
   Hooks.on("createRegion", onCreateRegion);
   Hooks.on("deleteRegion", onDeleteRegion);
@@ -349,6 +350,7 @@ export function applyUse(messageId, targetKey) {
   return queue(`use:${messageId}`, async () => {
     const message = game.messages.get(messageId), use = useOf(message);
     if (!use || use.kind !== "use" || use.confidence === "low" || use.state?.yielded) throw new Error("applyUse: недоступно для этого сообщения");
+    if (isCounterGate(message)) throw new Error("applyUse: сотворение удержано контрзаклинанием");
     if (modeOf("effect") === "off") throw new Error("applyUse: режим effect=off");
     if (use.state?.awaitingActions) throw new Error("applyUse: ждёт числа действий");
     await applyUseSteps(message, use, { only: targetKey || null });
@@ -366,6 +368,7 @@ export function createZone(messageId, regionUuid) {
   return queue(`use:${messageId}`, async () => {
     const message = game.messages.get(messageId), use = useOf(message), region = regionOf(regionUuid);
     if (!use?.rule?.onUse?.zone || use.state?.yielded) throw new Error("createZone: у сообщения нет зоны");
+    if (isCounterGate(message)) throw new Error("createZone: сотворение удержано контрзаклинанием");
     if (!region || region.flags?.pf2e?.messageId !== messageId) throw new Error("createZone: регион не принадлежит сообщению");
     if (use.state?.zone?.regionUuid !== regionUuid) throw new Error("createZone: регион не ожидает зоны");
     await attachFor(message, use, region);
@@ -378,6 +381,7 @@ export function applyDerived(messageId, stepKey) {
   return queue(`use:${messageId}`, async () => {
     const message = game.messages.get(messageId), use = useOf(message);
     if (!use || use.state?.yielded) throw new Error("applyDerived: нет снимка");
+    if (isCounterGate(message)) throw new Error("applyDerived: сотворение удержано контрзаклинанием");
     const d = use.state?.derived ?? {}, applied = d.applied ?? [];
     if (!(d.pending ?? []).includes(stepKey)) throw new Error(`applyDerived: шаг ${stepKey} не ожидается`);
     if (applied.includes(stepKey)) return false;
@@ -410,7 +414,7 @@ function execUse(messageId, skipIfDone) {
   return queue(`use:${messageId}`, async () => {
     const message = game.messages.get(messageId);
     const use = useOf(message);
-    if (!use || use.kind !== "use" || use.state?.yielded) return;
+    if (!use || use.kind !== "use" || use.state?.yielded || isCounterGate(message)) return;   // сотворение удержано/сорвано контрзаклинанием: эффект не исполняется
     if (skipIfDone && use.state?.done) return;
     const onUse = use.rule?.onUse;
     const area = onUse?.targets === "area";
@@ -439,6 +443,7 @@ function execUse(messageId, skipIfDone) {
 
 /** Регион из карточки/каста = акт использования зоны/испытания (§3.B-4, §3.C-3), независимо от kind источника. */
 export async function runRegion(region, message) {
+  if (isCounterGate(message)) return;   // область под удержанным/сорванным сотворением: цели и испытание не берём (выпуск — resumeRegion)
   const first = useOf(message);
   if (first?.state?.yielded || first?.state?.awaitingActions) return;   // ждёт числа действий: продолжит onUpdateMessage -> resumeRegion
   let rule = first?.rule;

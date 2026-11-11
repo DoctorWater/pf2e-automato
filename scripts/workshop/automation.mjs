@@ -4,7 +4,7 @@ import { DEGREES, degreeFromTotal } from "../util.mjs";
 import { stepText } from "../chat.mjs";
 import { textOfMods } from "../inline-effect.mjs";
 import { modOf, keepGet, keepSet, blankCoat } from "../sheet.mjs";
-import { ESCAPE_STATS, REPEAT_END, FAILED_CHECK } from "../rules.mjs";
+import { ESCAPE_STATS, REPEAT_END, FAILED_CHECK, EVENT_SIDES, EVENT_TARGETED, EVENT_AFTER_USE, nearAllowed } from "../rules.mjs";
 import { STEP_TARGETS } from "./effect.mjs";
 import { parseWhen, whenText, whenHuman } from "../predicate.mjs";
 import { defenseDc, pickStatistic } from "../checks.mjs";
@@ -351,6 +351,15 @@ const whoText = (f, env) => {
   if (f.targets === "area") return t("workshop.au.who.area", { shape: t(`workshop.au.shape.${env.area.shape}`), size: env.area.size });
   return t("workshop.au.who.selected");
 };
+
+/** Стороны, доступные записи onEvent (форма): near — для хода/входа и для сотворения с counter. */
+export const evSides = (e) => EVENT_SIDES.filter((s) => (s !== "target" || EVENT_TARGETED.has(e.on)) && (s !== "near" ? e.on !== "enter" : nearAllowed(e.on, e.counter)));
+/** Смена события записи (форма): сторона и «после использования», ставшие невозможными, сбрасываются. */
+export function evOnChanged(e, v) {
+  if (e.side === "target" && !EVENT_TARGETED.has(v)) e.side = "self";
+  if (!EVENT_AFTER_USE.has(v)) e.afterUse = false;
+  if (v === "enter") e.side = "near"; else if (e.side === "near" && !nearAllowed(v, e.counter)) e.side = "self";
+}
 
 /** Одна запись onEvent (форма) -> строка: событие · сторона · условие: шаги [· испытание]. */
 export function evLine(e, env) {

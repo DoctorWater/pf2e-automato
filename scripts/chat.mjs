@@ -9,6 +9,7 @@ import * as cast from "./cast.mjs";
 import { visionActive, zoneCells } from "./vision.mjs";
 import { hintsView, hintList } from "./hints.mjs";
 import { whenHuman } from "./predicate.mjs";
+import { isCounterGate } from "./hold.mjs";
 import { isActiveStep, activateOf } from "./rules.mjs";
 import { textOfMods } from "./inline-effect.mjs";
 
@@ -367,7 +368,7 @@ export function buildDamagedViewModel(message, user, env = null) {
 async function renderBlock(message, html) {
   const root = html?.querySelector?.(".message-content");
   if (!root) return;
-  const vm = buildViewModel(message, game.user);
+  const vm = isCounterGate(message) ? null : buildViewModel(message, game.user);   // сотворение удержано/сорвано контрзаклинанием: блока спасбросков и применения нет
   const reaction = buildReactionViewModel(message, game.user);
   const showVm = vm && !vm.empty;
   if (!showVm && !reaction) { root.querySelector(":scope > .pf2e-automato")?.remove(); return; }

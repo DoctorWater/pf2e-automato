@@ -8,6 +8,7 @@ import { itemRange, markFar } from "../range.mjs";
 import { itemSlug, messageTargets, docOf } from "./lib.mjs";
 import { askMap } from "../checks.mjs";
 import { mechOf } from "../mech.mjs";
+import { isCounterGate } from "../hold.mjs";
 
 /** slug заклинания -> манёвры, из которых игрок выбирает один за сотворение. */
 export const SPELLS = {
@@ -54,7 +55,7 @@ export function useParams(actor, target, map) {
 
 async function roll(message, slug, ev) {
   const actor = message.actor, item = message.item;
-  if (busy.has(message.id)) return;
+  if (busy.has(message.id) || isCounterGate(message)) return;   // сотворение удержано/сорвано контрзаклинанием
   const targets = messageTargets(message);
   if (targets.length !== 1) return void ui.notifications.warn(L("builtin.maneuver.needTarget", { name: item.name }));
   let target = docOf(targets[0]);
@@ -78,7 +79,7 @@ async function roll(message, slug, ev) {
 
 /** Кнопки манёвров под карточкой сотворения (владелец актёра). После первого броска карточка кнопок не получает: один манёвр за сотворение. */
 export function bind(message, html) {
-  if (message.flags?.pf2e?.context?.type !== "spell-cast" || !message.flags.pf2e.origin?.rollOptions?.includes("origin:action:slug:cast-a-spell") || !message.actor?.isOwner || message.flags?.[MOD]?.maneuver || usedHere.has(message.id)) return;
+  if (message.flags?.pf2e?.context?.type !== "spell-cast" || !message.flags.pf2e.origin?.rollOptions?.includes("origin:action:slug:cast-a-spell") || !message.actor?.isOwner || message.flags?.[MOD]?.maneuver || usedHere.has(message.id) || isCounterGate(message)) return;
   const list = maneuversOf(message.item), card = html.querySelector(".chat-card");
   if (!list.length || !card) return;
   const box = document.createElement("div");

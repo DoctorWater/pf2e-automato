@@ -14,7 +14,10 @@
       "waiting": "The attack is held: the attacker must first pass the target's protection (see the challenge card).",
       "cancelled": "The attack is cancelled, the action is spent: do not roll or apply damage.",
       "release": "Release",
-      "cancel": "Cancel"
+      "cancel": "Cancel",
+      "restore": "Restore",
+      "counterWaiting": "The casting is held: a counterspell is being decided. The spell's effect is not running yet, the buttons are hidden.",
+      "counterCancelled": "The casting was countered: its effect does not run. The cost of casting is spent."
     },
     "rules": {
       "err": {
@@ -33,6 +36,7 @@
           "afterUse": "\"After use\" is yes or no, and only for the owner's own roll (attack, check, save, damage) ({path})",
           "check": "A check exists for spell casting with \"after use\" (level DC) or for \"damage taken\" with a choose step (against a defense); not together with a challenge ({path})",
           "cost": "\"Reaction\" is only reaction; the choose step, if any, comes first ({path})",
+          "counter": "Counterspell: only for \"spell cast\" on the \"in the owner's aura\" side with a reaction; needs mod (integer) or statistic, and rank 1-10 or {half: \"actor\"}; expend is same-spell or same-rank ({path})",
           "free": "\"Free if\" is a predicate and only together with a reaction ({path})",
           "checkDc": "The check DC is {ofTargets: \"level\"} only ({path})",
           "hold": "\"Hold\" is only true, only for the roll target's attack or a check ({path})",

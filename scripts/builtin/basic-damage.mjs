@@ -9,6 +9,7 @@ import { esc, headOf, card, combatOf } from "./lib.mjs";
 import { EXTERNAL } from "../compat.mjs";
 import { alreadyApplied } from "./shield-block.mjs";
 import { damageMultiplier } from "../saves.mjs";
+import { isCounterGate } from "../hold.mjs";
 import { ruleDamageSteps, normFormula, dealModes } from "../damage-button.mjs";
 
 const WINDOW = 200;   // сообщений назад: между карточкой и уроном бывают Удары и чужие броски
@@ -101,6 +102,7 @@ export function findCard(before, { actor, uuid, slug, at = 0, maxMs = Infinity, 
     const use = m.flags?.[MOD]?.use;
     if (!use || use.actor !== actor || use.state?.yielded) continue;
     if ((uuid && use.item?.uuid === uuid) || (slug && use.slug === slug)) {
+      if (isCounterGate(m)) return null;   // сотворение удержано/сорвано контрзаклинанием: чужой бросок урона к нему не привязывается (иначе урон нанесётся по итогам несуществующих спасбросков)
       const linked = use.state?.basicDamage;
       if (linked && exists(linked.msg)) { onLinked?.(m, linked.msg); return null; }   // связь с удалённым уроном не считается
       return m;

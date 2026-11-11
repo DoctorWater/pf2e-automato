@@ -3,6 +3,7 @@
 // (apply.applyOps) или ручные кнопки ГМа (damage-gate). Пока флаг стоит, ГМ-диспетчеры (events.onMessage, use.onCreateMessage, builtin) атаку не обрабатывают;
 // после выпуска replay() прогоняет те же диспетчеры один раз. Принцип: сомнение — выпускаем: зависшая атака хуже ручного шага.
 import { MOD, DEGREES, isActiveGM, queue, flagPath } from "./util.mjs";
+import { S } from "./settings.mjs";
 
 const gateOf = (m) => m?.flags?.[MOD]?.gate;
 // Причина удержания: true — Святилище (ждёт испытания нападающего), "reroll" — ждёт решения о переброске после провала (builtin/failed.mjs).
@@ -12,6 +13,12 @@ export const isRerollHold = (m) => gateOf(m)?.hold === REROLL;
 /** Удержание Святилища: плашка «ждёт испытания», ручные кнопки ГМа, пары атак. */
 export const isSanctuaryHold = (m) => gateOf(m)?.hold === true;
 export const isCancelled = (m) => gateOf(m)?.cancelled === true;
+// Контрзаклинание (M4): карточка сотворения держится одна (не «пара»), эффект заклинания не исполняется; цена (лимиты, перезарядка, метамагия) тратится как обычно.
+// Отмена хранит gate.counter, чтобы «Вернуть» (release) знало, что это сорванное сотворение, а не отменённая атака.
+export const COUNTER = "counter";
+export const isCounterHold = (m) => gateOf(m)?.hold === COUNTER;
+export const isCounterGate = (m) => isCounterHold(m) || (isCancelled(m) && gateOf(m)?.counter === true);
+const gateKey = (m) => (isCounterGate(m) ? `hold:${m.id}` : `hold:${pairOf(m)}`);
 
 /** Нападение — бросок атаки (в том числе заклинанием) или проверка с чертой attack (Подсечка, Захват, Толчок, Разоружение). */
 export function isAttackContext(ctx) {
@@ -34,18 +41,32 @@ export const replayers = new Set();   // диспетчеры атаки: events
 /** Один повторный прогон всех диспетчеров по выпущенной атаке; сбой одного остальных не гасит. */
 export const replay = (m) => Promise.allSettled([...replayers].map((fn) => fn(m)));
 
+/** Срыв сотворения: мгновенный шаблон этого сотворения (регион pf2e с messageId) убирается со сцены — «Вернуть» область заново не ставит (выпуск без области). Область с длительностью остаётся. */
+async function dropInstantRegions(message) {
+  try {
+    const item = message.item ?? (message.flags?.[MOD]?.use?.item?.uuid ? fromUuidSync(message.flags[MOD].use.item.uuid) : null);
+    const { hasDuration } = await import("./area-cleanup.mjs"), { deleteRegionOnce } = await import("./zone.mjs");
+    if (hasDuration(item?.system?.duration)) return;
+    for (const r of (game.scenes?.contents ?? []).flatMap((s) => s.regions.contents)) if (r.flags?.pf2e?.messageId === message.id) await deleteRegionOnce(r, "closed");
+  } catch (e) { console.warn(`${MOD} | hold.dropRegions`, e); }
+}
+
 /**
  * Разрешить удержание: release (выпустить, затем replay) | cancel (атака отменена, кнопки урона скрыты). Касается всех удержанных атак пары;
  * висящие карточки остальных удаляются. -> { prev } состояния данной атаки для отката | null (не удержана)
  */
 export async function resolve(message, how, { wait = true } = {}) {
-  if (!isHeld(message)) return null;
+  const counter = isCounterGate(message);
+  if (!isHeld(message) && !(counter && how !== "cancel")) return null;   // сорванное контрзаклинанием выпускается кнопкой «Вернуть»
   const pair = pairOf(message), reroll = isRerollHold(message);
-  // удержание переброса — одно сообщение; Святилище — вся пара. Группы разных причин друг друга не выпускают
-  const group = reroll ? [message] : feed().filter((m) => isSanctuaryHold(m) && pairOf(m) === pair);
+  // удержание переброса и контрзаклинания — одно сообщение; Святилище — вся пара. Группы разных причин друг друга не выпускают
+  const group = reroll || counter ? [message] : feed().filter((m) => isSanctuaryHold(m) && pairOf(m) === pair);
   const prev = { hold: gateOf(message).hold, cancelled: isCancelled(message) };
+  const patch = how === "cancel" ? { hold: false, cancelled: true, ...(counter && { counter: true }) } : { hold: false, replayed: true, ...(counter && { cancelled: false }) };
   // сбой update одной атаки (удалена переброском) остальных не обрывает; replayed — выпуск необратим (restore не возвращает удержание)
-  for (const m of group) await m.update({ [flagPath("gate")]: how === "cancel" ? { hold: false, cancelled: true } : { hold: false, replayed: true } }).catch((e) => console.warn(`${MOD} | hold.resolve`, e));
+  if (counter) clearTimeout(counterTimers.get(message.id));
+  for (const m of group) await m.update({ [flagPath("gate")]: patch }).catch((e) => console.warn(`${MOD} | hold.resolve`, e));
+  if (counter && how === "cancel") await dropInstantRegions(message);
   for (const m of group) {
     const h = m.id === message.id ? null : hostOf(m);
     if (h && pending(h)) await h.delete().catch(() => {});
@@ -58,8 +79,8 @@ export async function resolve(message, how, { wait = true } = {}) {
 /** Ручная кнопка ГМа (damage-gate, сокет holdResolve): выпустить или отменить, не дожидаясь карточки. Карточка испытания, если есть, удаляется. */
 export async function resolveManual(id, how) {
   const m = game.messages.get(id);
-  if (!m || !isHeld(m)) return null;
-  return queue(`hold:${pairOf(m)}`, async () => {
+  if (!m || !(isHeld(m) || isCounterGate(m))) return null;
+  return queue(gateKey(m), async () => {
     const h = hostOf(m), r = await resolve(m, how === "cancel" ? "cancel" : "release");
     if (h && pending(h)) await h.delete().catch(() => {});
     return r;
@@ -124,10 +145,42 @@ export async function settledDegree(msg, degree, { ms = HOLD_WAIT_MS, step = 250
 export async function onDeleteHost(card) {
   if (!isActiveGM()) return;
   const id = String(card.flags?.[MOD]?.use?.state?.event ?? "").split(":")[0], m = id ? game.messages.get(id) : null;
-  if (m && isSanctuaryHold(m) && !hostOf(m)) await queue(`hold:${pairOf(m)}`, () => resolve(m, "release"));
+  if (m && (isSanctuaryHold(m) || isCounterHold(m)) && !hostOf(m)) await queue(gateKey(m), () => resolve(m, "release"));
+}
+
+// Зависшее удержание контрзаклинания (диспетчер умер, окно закрыто, смена лидера) выпускается: карточка без решения хуже ручного шага.
+// Старше resumeMinutes (как resumePending) — не выпускается и не исполняется: hold снимается без replay, старое заклинание молчит.
+export const COUNTER_STUCK_MS = 60_000;   // окно решения 30 с + бросок
+const counterTimers = new Map();
+/** Карточка проверки контрзаклинания ждёт броска/«Применить»: её исход сам выпустит или отменит сотворение (шаг hold, onDeleteHost) — страховка не вмешивается. */
+const waitsHost = (m) => { const h = hostOf(m); return !!h && pending(h); };
+async function releaseStuck(id) {
+  const c = game.messages.get(id);
+  if (c && isCounterHold(c) && isActiveGM() && !waitsHost(c)) await queue(gateKey(c), () => resolve(c, "release"));
+}
+/** Таймер страховочного выпуска (активный ГМ): при создании удержания, при «Вернуть»-откате (hold снова counter) и в sweepCounter. */
+export function armCounter(m, left = COUNTER_STUCK_MS) {
+  if (!isActiveGM() || !isCounterHold(m)) return;
+  clearTimeout(counterTimers.get(m.id));
+  const t = setTimeout(() => { counterTimers.delete(m.id); releaseStuck(m.id).catch((e) => console.error(`${MOD} | hold.counterTimeout`, e)); }, left);
+  t.unref?.();
+  counterTimers.set(m.id, t);
+}
+/** Лидер / ready: удержания counter старше порога выпускаются, свежие получают таймер заново (таймеры прежнего лидера потеряны). */
+export async function sweepCounter() {
+  if (!isActiveGM()) return;
+  for (const m of [...feed()]) {
+    if (!isCounterHold(m)) continue;
+    const age = Date.now() - (m.timestamp ?? 0);
+    if (age >= S.get("resumeMinutes") * 60_000) { clearTimeout(counterTimers.get(m.id)); await m.update({ [flagPath("gate")]: { hold: false, stale: true } }).catch((e) => console.warn(`${MOD} | hold.stale`, e)); continue; }
+    if (waitsHost(m)) continue;
+    if (age >= COUNTER_STUCK_MS) await queue(gateKey(m), () => resolve(m, "release")); else armCounter(m, COUNTER_STUCK_MS - age);
+  }
 }
 
 export function init() {
   Hooks.on("preCreateChatMessage", (m) => stampHeldReroll(m));
+  Hooks.on("createChatMessage", (m) => armCounter(m));
+  Hooks.on("updateChatMessage", (m, ch) => { if (ch?.flags?.[MOD]?.gate?.hold === COUNTER) armCounter(m); });   // «Вернуть»-откат: удержание снова counter
   Hooks.on("deleteChatMessage", (m) => { noteHeldDeleted(m); onDeleteHost(m).catch((e) => console.error(`${MOD} | hold.onDeleteHost`, e)); });
 }

@@ -156,7 +156,7 @@ Hooks.once("init", () => {
     automationsGroups: compat.automationsGroups, shouldYield: compat.shouldYield,
     validateRule: rules.validateRule, deriveFromMarkup: rules.deriveFromMarkup, deriveCast: rules.deriveCast, castItem: cast.castItem, slugOf: rules.slugOf, sourceOf: rules.sourceOf,
     openWorkshop: workshop.Workshop.open, afflictionTick: affliction.tick, afflictionSweep: affliction.sweep,
-    degreeFromTotal, callGM, HANDLERS, holdResolve: hold.resolveManual, isHeld: hold.isHeld
+    degreeFromTotal, callGM, HANDLERS, holdResolve: hold.resolveManual, isHeld: hold.isHeld, markCounterHold: events.markCounterHold
   };
 });
 
@@ -165,7 +165,7 @@ Hooks.once("ready", async () => {
   // При каждом переходе в лидеры (первый — после ready, потом — когда прежний лидер закрыт/перезагружен): подхватить его работу.
   leader.onLead(async () => {
     if (!guardActiveGM()) return;
-    for (const step of [() => zone.reconcileZones(), () => areaCleanup.sweepAreas(), () => use.resumePending({ maxAgeMinutes: S.get("resumeMinutes") }), () => affliction.sweep(), () => sustain.sweep(game.combat), () => failed.sweep()]) {
+    for (const step of [() => zone.reconcileZones(), () => areaCleanup.sweepAreas(), () => use.resumePending({ maxAgeMinutes: S.get("resumeMinutes") }), () => affliction.sweep(), () => sustain.sweep(game.combat), () => failed.sweep(), () => hold.sweepCounter()]) {
       try { await step(); }
       catch (e) { if (String(e?.message).startsWith("not implemented")) debug(e.message); else console.error(`${MOD} | ready`, e); }   // пока куски не готовы — заглушки
     }

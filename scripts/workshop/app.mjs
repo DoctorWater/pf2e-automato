@@ -494,7 +494,7 @@ export class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
     if (new RegExp(String.raw`^${au.ROOT}\.targets$`).test(path) && v === "self") a.sel = null;
     // событие без цели (ход, эффект, урон по носителю): сторона «цель броска» невозможна — вернуть «владелец»
     const ev = /^(f\.ev\.\d+)\.on$/.exec(path);
-    if (ev) { const e = foundry.utils.getProperty(a, ev[1]); if (e.side === "target" && !EVENT_TARGETED.has(v)) e.side = "self"; if (!EVENT_AFTER_USE.has(v)) e.afterUse = false; if (v === "enter") e.side = "near"; else if (e.side === "near" && !NEAR_ON.includes(v)) e.side = "self"; }
+    if (ev) au.evOnChanged(foundry.utils.getProperty(a, ev[1]), v);
     const sd = /^(f\.ev\.\d+)\.side$/.exec(path);   // скрытый флажок «после использования» не должен давать ошибку валидации
     if (sd) { const e = foundry.utils.getProperty(a, sd[1]); if (v !== "self") e.afterUse = false; }
     // проверка без цели бросается на себя; вернули цель — «на выбранных»
@@ -736,7 +736,7 @@ export class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
         fields: [
           Array.isArray(e.on) ? F.sel(`${p}.on`, t("workshop.au.ev.onLabel"), "_", { _: e.on.map((k) => t(`workshop.au.ev.on.${k}`)).join(", ") })   // только чтение
             : F.sel(`${p}.on`, t("workshop.au.ev.onLabel"), e.on, choices(EVENT_ON, "au.ev.on")),
-          F.sel(`${p}.side`, t("workshop.au.ev.sideLabel"), e.side, choices(EVENT_SIDES.filter((s) => (s !== "target" || EVENT_TARGETED.has(e.on)) && (s !== "near" ? e.on !== "enter" : NEAR_ON.includes(e.on))), "au.ev.side")),
+          F.sel(`${p}.side`, t("workshop.au.ev.sideLabel"), e.side, choices(au.evSides(e), "au.ev.side")),
           ...(e.side === "near" ? [
             F.text(`${p}.aura`, t("workshop.au.ev.zoneAura"), e.aura, { placeholder: "frightful-aura", hint: t("workshop.au.ev.zoneAuraHint") }), F.num(`${p}.range`, t("workshop.au.ev.zoneRange"), e.range, { min: 1 }),
             F.sel(`${p}.per`, t("workshop.au.trg.perLabel"), e.per, { "": t("workshop.au.trg.perNone"), ...choices(TRIGGER_PER, "au.trg.per") })

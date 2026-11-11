@@ -4,7 +4,7 @@ import { MOD, L, DEGREES, flagPath, degreeFromTotal, isActiveGM, afterDice } fro
 import { S } from "./settings.mjs";
 import { useOf, safeUuid, marker, isPcActor, challengeOf, challengeTargets, recordResult, markTried } from "./saves.mjs";
 import { applyEffect } from "./apply.mjs";
-import { isHeld } from "./hold.mjs";
+import { isHeld, isCounterGate } from "./hold.mjs";
 import { effectSource, addEffect, ask } from "./builtin/lib.mjs";
 
 const rolling = new Set();
@@ -139,6 +139,7 @@ async function runOneRoll(message, ck, author, only) {
  * Иммунные и уже решённые пропускаются (при переброске пересчитываются все). Возвращает {ok, keys}.
  */
 export async function recordOneRoll(message, { total, die = null, key, degree = null, dc = null, ...meta }) {
+  if (isCounterGate(message)) return { ok: false, keys: [] };   // сотворение удержано/сорвано контрзаклинанием: eligible и результаты не пишем
   const use = useOf(message), ck = challengeOf(use), author = await authorOf(use), keys = [];
   const targets = await challengeTargets(message);
   // состав целей фиксируется при первой записи: поздно испугавшаяся цель не получит бросок (challengeTargets берёт state.challenge.eligible)

@@ -693,7 +693,7 @@ export function messageOptions(message, { actor, target, origin = null }, on) {
 }
 
 export async function onMessage(message) {
-  if (!guardActiveGM() || hold.isRerollHold(message)) return;   // удержание переброса (builtin/failed.mjs): replay вернётся после решения; bail ниже выпускал бы его как зависшее Святилище
+  if (!guardActiveGM() || hold.isRerollHold(message) || hold.isCounterHold(message)) return;   // удержание переброса (builtin/failed.mjs) и контрзаклинания (counterspell): replay вернётся после решения; bail ниже выпускал бы их как зависшее Святилище
   // любой ранний выход при удержанной атаке выпускает её: зависшая атака хуже ручного шага
   const bail = async () => { if (hold.isHeld(message)) await hold.resolve(message, "release"); };
   if (modeOf("effect") === "off" && modeOf("challenge") === "off") return bail();   // шаги и испытания гасятся своими режимами внутри runEntry
@@ -807,11 +807,18 @@ export const holdEnabled = (gm = !!game.users?.activeGM) => gm && modeOf("effect
  */
 export function onPreCreate(message) {
   try {
+    if (hold.isCounterHold(message)) return void markCounterHold(message);   // родилась с удержанием контрзаклинания: Workbench автоурон не бросит
     const ctx = message.flags?.pf2e?.context;
     if (!ctx?.target?.actor || !hold.isAttackContext(ctx) || !holdEnabled()) return;
     const target = fromUuidSync(ctx.target.actor);
     if (target && holdsAttacks(target)) { const wb = compat.EXTERNAL.flags.wbNoAutoDamage; message.updateSource({ flags: { [MOD]: { gate: { hold: true } }, [wb.scope]: { [wb.key]: true } } }); }
   } catch (e) { console.warn(`${MOD} | events.onPreCreate`, e); }
+}
+
+/** preCreateChatMessage на клиенте создателя карточки сотворения: удержание `counter` (ставит диспетчер M4) + noAutoDamageRoll Workbench, иначе он бросил бы урон удержанного заклинания. */
+export function markCounterHold(message) {
+  const wb = compat.EXTERNAL.flags.wbNoAutoDamage;
+  message.updateSource({ flags: { [MOD]: { gate: { hold: hold.COUNTER } }, [wb.scope]: { [wb.key]: true } } });
 }
 
 export function init() {

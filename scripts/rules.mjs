@@ -687,7 +687,11 @@ export const EVENT_SIDES = ["self", "target", "origin", "near", "familiar"];
 // familiar: запись на способности фамильяра ведьмы-автора, срабатывает при сотворении/Поддержании её наговора; spell-sustain бывает только у неё
 export const FAMILIAR_ON = ["spell-cast", "spell-sustain"];
 // near (triggered-save T3): аура владельца — «другой» участник (чей ход / кто вошёл) внутри неё: slug Aura RE pf2e (aura) либо футы от владельца (range). enter — только near
-export const NEAR_ON = ["turn-start", "turn-end", "enter"];
+// spell-cast + counter — реакция-контрзаклинание (docs/plan-counterspell-tkmaneuver-hplink.md §M4): сотворение в зоне владельца, срыв чужой карточки
+export const NEAR_ON = ["turn-start", "turn-end", "enter"];   // spell-cast у near — только с counter, в этот список не входит: он про ход/вход
+/** Сторона near допустима для события: ход/вход всегда, сотворение — если у записи есть counter. */
+export const nearAllowed = (on, counter) => NEAR_ON.includes(on) || (on === "spell-cast" && counter != null);
+export const COUNTER_EXPEND = ["same-spell", "same-rank"];
 export const EVENT_TARGETED = new Set(["attack-roll", "skill-check", "damage-roll", "spell-cast"]);   // у остальных событий цели нет: side:"target" бессмысленна
 
 // afterUse: бросок владельца сразу после карточки этого предмета (strike-gate: «Make a Strike. If it hits…»). Сотворение (spell-cast) — «следующее действие» (Lingering Composition, запись с check).
@@ -720,6 +724,20 @@ function vEventCheck(c, path, err) {
   return out;
 }
 
+/** counter записи onEvent: проверка контрзаклинания — {mod | statistic, rank: 1–10 | {half:"actor"}, expend?}. Условия записи (spell-cast, near, reaction) проверяет vEvent. */
+function vCounter(c, path, err) {
+  if (!isObj(c) || !Object.keys(c).every((k) => ["mod", "statistic", "rank", "expend"].includes(k))) { err.push(E("ev.counter", path)); return null; }
+  const out = {};
+  if ((c.mod == null) === (c.statistic == null)) err.push(E("ev.counter", `${path}.mod`));
+  else if (c.mod != null) { if (!isInt(c.mod)) err.push(E("ev.counter", `${path}.mod`)); else out.mod = c.mod; }
+  else if (!isStr(c.statistic) || !SLUG.test(c.statistic)) err.push(E("ev.counter", `${path}.statistic`)); else out.statistic = c.statistic;
+  if (isInt(c.rank) && c.rank >= 1 && c.rank <= 10) out.rank = c.rank;
+  else if (isObj(c.rank) && Object.keys(c.rank).length === 1 && c.rank.half === "actor") out.rank = { half: "actor" };
+  else err.push(E("ev.counter", `${path}.rank`));
+  if (c.expend != null) { if (!COUNTER_EXPEND.includes(c.expend)) err.push(E("ev.counter", `${path}.expend`)); else out.expend = c.expend; }
+  return out;
+}
+
 function vEvent(e, i, err) {
   const path = `onEvent[${i}]`;
   if (!isObj(e)) { err.push(E("notObj", path)); return null; }
@@ -729,7 +747,7 @@ function vEvent(e, i, err) {
   if (!EVENT_SIDES.includes(out.side)) err.push(E("ev.side", `${path}.side`));
   else if (Array.isArray(e.on) && out.side !== "familiar") err.push(E("ev.onArray", `${path}.on`));   // массив событий — только у способности фамильяра
   else if (out.side === "familiar" ? !ons.every((o) => FAMILIAR_ON.includes(o)) : ons.includes("spell-sustain")) err.push(E("ev.familiar", `${path}.side`));
-  else if (out.side === "near" && !ons.every((o) => NEAR_ON.includes(o))) err.push(E("ev.nearOn", `${path}.side`));
+  else if (out.side === "near" && !ons.every((o) => NEAR_ON.includes(o) || o === "spell-cast")) err.push(E("ev.nearOn", `${path}.side`));
   else if (ons.includes("enter") && out.side !== "near") err.push(E("ev.enter", `${path}.on`));
   else if (out.side === "target" && !ons.every((o) => EVENT_TARGETED.has(o))) err.push(E("ev.sideTarget", `${path}.side`));
   if (e.when != null) { if (!isPredicate(e.when)) err.push(E("apply.when", `${path}.when`)); else out.when = e.when; }
@@ -744,7 +762,7 @@ function vEvent(e, i, err) {
   // cost — запись тратит реакцию владельца; free — условие по опциям владельца, при котором не тратит (Ты следующий: Легендарное Запугивание)
   if (e.cost != null) {
     // подтверждение — шаги apply; выбор (если есть) первым и существа (enemies/allies): по нему определяется отказ
-    if (e.cost !== "reaction" || !apply.length || (apply.some((a) => a.choose) && !["enemies", "allies"].includes(apply[0]?.choose?.from))) err.push(E("ev.cost", `${path}.cost`)); else out.cost = "reaction";   // выбор — первым шагом: он же подтверждение траты
+    if (e.cost !== "reaction" || (!apply.length && e.counter == null) || (apply.some((a) => a.choose) && !["enemies", "allies"].includes(apply[0]?.choose?.from))) err.push(E("ev.cost", `${path}.cost`)); else out.cost = "reaction";   // выбор — первым шагом: он же подтверждение траты
   }
   if (e.free != null) { if (e.cost == null || !isPredicate(e.free)) err.push(E("ev.free", `${path}.free`)); else out.free = e.free; }
   if (e.afterUse != null) { if (typeof e.afterUse !== "boolean" || (e.afterUse && !(EVENT_AFTER_USE.has(e.on) && out.side === "self"))) err.push(E("ev.afterUse", `${path}.afterUse`)); else if (e.afterUse) out.afterUse = true; }
@@ -763,7 +781,12 @@ function vEvent(e, i, err) {
     if (e.challenge != null || (full ? e.on !== "damage-taken" || !["enemies", "allies"].includes(apply.find((a) => a.choose)?.choose?.from) : e.on !== "spell-cast" || !out.afterUse)) err.push(E("ev.check", `${path}.check`));
     else { const c = vEventCheck(e.check, `${path}.check`, err); if (c) out.check = c; }
   }
-  if (!apply.length && e.challenge == null && e.check == null) err.push(E("ev.empty", path));
+  // counter — срыв чужого сотворения: только «сотворение в зоне владельца», тратит реакцию; шаги apply необязательны (само решение — окно и карточка проверки)
+  if (e.counter != null) {
+    if (e.on !== "spell-cast" || out.side !== "near" || e.cost !== "reaction") err.push(E("ev.counter", `${path}.counter`));
+    else { const c = vCounter(e.counter, `${path}.counter`, err); if (c) out.counter = c; }
+  } else if (out.side === "near" && ons.includes("spell-cast")) err.push(E("ev.counter", `${path}.on`));
+  if (!apply.length && e.challenge == null && e.check == null && e.counter == null) err.push(E("ev.empty", path));
   // у события нет области использования: from:"point" некуда указывать
   if ([apply, ...Object.values(out.challenge?.byDegree ?? {}), ...Object.values(out.check?.byDegree ?? {})].some((l) => movesOf(l).some((m) => m.from === "point"))) err.push(E("move.bad", `${path}.apply`));
   return out;

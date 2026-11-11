@@ -2,8 +2,9 @@
 // (glyph «1 - 3» не входит в 1|2|3, pf2e.mjs:53322; у Силового залпа нет overlays/правил). Спрашиваем у автора сообщения сразу после сотворения —
 // ячейка уже потрачена ОДИН раз самой системой, повторно колдовать не нужно. Выбор пишем в сообщение: origin.rollOptions += `origin:item:cast:actions:N`
 // и flags.pf2e-automato.cast.actions. Для «снарядов по числу действий» (Силовой залп) — распределение по целям и один бросок урона на цель.
-import { L, MOD, flagPath } from "../util.mjs";
+import { L, MOD, flagPath, queue } from "../util.mjs";
 import { isLeader } from "../leader.mjs";
+import { isCounterGate } from "../hold.mjs";
 import { inRange } from "../range.mjs";
 import { askHere, castOrigin, esc } from "./lib.mjs";
 
@@ -140,6 +141,28 @@ export async function rollMissiles(message, spell, actions) {
   }
 }
 
+/** Снаряды бросает автор сообщения. Сотворение держит/сорвало контрзаклинание (hold.mjs) — не бросаем, пишем «ждёт выпуска»: released() доброшет при «Выпустить». */
+async function missilesOrHold(message, spell, actions) {
+  if (!isCounterGate(message)) return rollMissiles(message, spell, actions);
+  await message.update({ [flagPath("cast", "missilesHeld")]: true });
+  if (!isCounterGate(message)) await released(message);   // выпустили, пока писали флаг
+}
+
+/** updateChatMessage на клиентах: удержание снято выпуском (replayed) -> автор доброшет снаряды, отложенные missilesOrHold. Один исполнитель: автор, лидер своих вкладок; флаг проверяется и снимается под очередью до броска. */
+export async function released(message, changes = null) {
+  if (changes && changes.flags?.[MOD]?.gate?.replayed !== true) return;
+  if (!message.isAuthor || !message.flags?.[MOD]?.cast?.missilesHeld || isCounterGate(message) || !isLeader()) return;
+  const taken = await queue(`missiles:${message.id}`, async () => {
+    if (!game.messages.get(message.id)?.flags?.[MOD]?.cast?.missilesHeld) return false;
+    await message.update({ [flagPath("cast", "missilesHeld")]: false });
+    return true;
+  });
+  if (!taken) return;
+  const actions = message.flags[MOD].cast.actions, origin = castOrigin(message);
+  const spell = origin?.uuid ? await fromUuid(origin.uuid) : null;
+  if (spell && actions) await rollMissiles(message, spell, actions);
+}
+
 /** createChatMessage на КАЖДОМ клиенте и вкладке. Игрок: у себя (две вкладки — побеждает та, что первой записала выбор).
  *  ГМ: только лидер вкладок своего пользователя (не активный ГМ мира: сотворил может и второй ГМ). Снимает state.awaitingActions на любом выходе. */
 export async function onMessage(message) {
@@ -168,7 +191,7 @@ export async function onMessage(message) {
   } finally {
     if (!byVariant && standing()) await message.update(release);
   }
-  if (actions && MISSILE_SLUGS.has(spell.slug)) await rollMissiles(message, spell, actions);   // кнопка скрыта и на время распределения снарядов
+  if (actions && MISSILE_SLUGS.has(spell.slug)) await missilesOrHold(message, spell, actions);   // кнопка скрыта и на время распределения снарядов
   } finally {   // удалённое сообщение не перерисовывать: ChatLog вставил бы его заново
     if (asking.delete(message.id) && game.messages.get(message.id)) ui.chat?.updateMessage?.(message);
   }

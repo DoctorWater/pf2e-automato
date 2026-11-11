@@ -4,7 +4,7 @@
 import { MOD, isActiveGM, whenSettled } from "../util.mjs";
 import { sweepEffects } from "./lib.mjs";
 import { modeOf } from "../settings.mjs";
-import { isHeld, replayers } from "../hold.mjs";
+import { isHeld, isCounterHold, replayers } from "../hold.mjs";
 import * as bloodMagic from "./blood-magic.mjs";
 import * as twinFeint from "./twin-feint.mjs";
 import * as dirtyTrick from "./dirty-trick.mjs";
@@ -68,9 +68,12 @@ export const BUILTIN = {
 const MESSAGE_HOOKS = [["blood-magic", bloodMagic.onMessage], ["reactive-strike", reactiveStrike.onMessage], ["onyx-dog", onyxDog.onMessage], ["one-shot-one-kill", oneShot.onMessage], ["surprise-attack", surprise.onMessage], ["spellshape", spellshape.onMessage], ["tentacular-limbs", tentacles.onMessage], ["strike-effects", strikeEffects.onMessage], ["hunt-prey", huntPrey.onMessage], ["oscillating-wave", oscillatingWave.onMessage], ["shield-ward", shieldWard.onMessage], ["damage-link", damageLink.onMessage], ["spirit-link", spiritLink.onMessage], ["apparition-sense", apparitionSense.onMessage], ["prey-share", preyShare.onMessage], ["smite", smite.onMessage], ["rage", rage.onMessage], ["kinetic-aura", kineticAura.onMessage], ["turn-flight", turnFlight.onMessage]];
 
 // независимо: обработчик с окном (Магия крови ждёт ответа) не должен задерживать остальные; записи в актёра — через queue
+// Цена сотворения тратится и при удержании контрзаклинания (и при срыве): метамагия расходуется сотворением (spend идемпотентен по id карточки — выпуск повторит его без вреда)
+const PRICE_HOOKS = new Set(["spellshape"]);
 export function dispatchBuiltin(message, hooks = MESSAGE_HOOKS) {
-  if (!isActiveGM() || modeOf("macro") === "off" || isHeld(message)) return false;   // удержанная атака (hold.mjs): replay вернётся сюда после выпуска
-  for (const [id, fn] of hooks) Promise.resolve().then(() => fn(message)).catch((e) => console.error(`${MOD} | builtin ${id}`, e));
+  const counter = isCounterHold(message);
+  if (!isActiveGM() || modeOf("macro") === "off" || (isHeld(message) && !counter)) return false;   // удержанная атака (hold.mjs): replay вернётся сюда после выпуска
+  for (const [id, fn] of hooks) if (!counter || PRICE_HOOKS.has(id)) Promise.resolve().then(() => fn(message)).catch((e) => console.error(`${MOD} | builtin ${id}`, e));
   return true;
 }
 
@@ -81,6 +84,9 @@ export function initBuiltinHooks() {
   Hooks.on("createChatMessage", (message) => {
     if (modeOf("macro") === "off") return;
     variableCast.onMessage(message).catch((e) => console.error(`${MOD} | builtin variable-cast`, e));
+  });
+  Hooks.on("updateChatMessage", (message, changes) => {   // выпуск удержанного контрзаклинанием сотворения: автор доброшет отложенные снаряды
+    if (modeOf("macro") !== "off") variableCast.released(message, changes).catch((e) => console.error(`${MOD} | builtin variable-cast release`, e));
   });
   Hooks.on("createChatMessage", (message) => { dispatchBuiltin(message); });
   replayers.add((message) => { dispatchBuiltin(message); });

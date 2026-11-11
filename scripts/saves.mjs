@@ -10,7 +10,7 @@ import { moveOrder, areaPoint } from "./move.mjs";
 import { challengeWho } from "./rules.mjs";
 import { testPredicate } from "./predicate.mjs";
 import { runMacros } from "./macros.mjs";
-import { isHeld } from "./hold.mjs";
+import { isHeld, isCounterGate } from "./hold.mjs";
 import { runCheck, findCheckByOrigin, applyImmunity, isCheck, isImmune, recordOneRoll } from "./checks.mjs";
 
 const MARKER = new RegExp(`^${MOD}:([^:]+):([^:]+)$`);
@@ -159,6 +159,7 @@ export async function allResolved(message) {
 export async function rollSave(actor, challenge, ctx = {}) {
   const { message, tokenKey } = ctx;
   const use = useOf(message);
+  if (isCounterGate(message)) return null;   // сотворение удержано/сорвано контрзаклинанием: спасбросков нет
   if (challenge.immunity && await isImmune(use, { actor }, challenge)) { ui.notifications.info(L("checks.immuneNote", { name: actor.name })); return null; }
   const dc = ctx.dc ?? await resolveDC(use);
   if (dc == null) { ui.notifications.warn(L("saves.dcUnknown")); return null; }
@@ -199,7 +200,7 @@ export const markTried = (messageId, kind, key) => game.messages.get(messageId)?
 /** ГМ: бросает NPC-целей (auto) либо только `only` (кнопка). PC — только кнопкой игрока. */
 export async function runChallenge(message, { only } = {}) {
   const use = useOf(message), ch = challengeOf(use);
-  if (!isActiveGM() || !ch || use.state?.yielded) return [];
+  if (!isActiveGM() || !ch || use.state?.yielded || isCounterGate(message)) return [];
   const mode = modeOf("challenge");
   if (mode === "off" || (mode === "button" && !only) || (!isCheck(ch) && toolbeltRolls())) return [];
   if (isCheck(ch)) return runCheck(message, { only });
@@ -326,6 +327,7 @@ export async function recordResult(messageId, tokenKey, result) {
   const res = await queue(`msg:${messageId}`, async () => {
     const message = game.messages.get(messageId), use = useOf(message);
     if (!use || use.state?.yielded) return { ok: false, reason: "no-use" };
+    if (isCounterGate(message)) return { ok: false, reason: "countered" };   // результат под удержанным/сорванным сотворением не записывается
     const cur = use.state?.challenge?.results?.[tokenKey];
     if (cur && (!result.isReroll || (result.rollMessageId && cur.rollMessageId === result.rollMessageId))) return { ok: false, reason: "duplicate" };
     const changed = !!cur && !!use.state?.challenge?.applied?.[tokenKey];
@@ -387,7 +389,7 @@ export async function afterChallenge(message) {
 export function applyByDegree(messageId, tokenKey, { auto = false } = {}) {
   return queue(`msg:${messageId}`, async () => {
     const message = game.messages.get(messageId), use = useOf(message), ch = challengeOf(use);
-    if (!ch || use.state?.yielded || modeOf("apply") === "off") return [];
+    if (!ch || use.state?.yielded || modeOf("apply") === "off" || isCounterGate(message)) return [];
     const targets = await challengeTargets(message);
     const all = tokenKey === "all";
     if (all && auto) await message.update({ [flagPath("use", "state", "challenge", "autoAll")]: true });   // постоянно: afterRecord больше не гонит пакет

@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 globalThis.game ??= {};
 const { MOD } = await import("../scripts/util.mjs");
 const { detectMechs, mechRows, mechanismsOf, mechBase, canAddRecharge, footStatus, MECH_IDS } = await import("../scripts/workshop/mechanisms.mjs");
-const { mechToForm } = await import("../scripts/mech.mjs");
+const { mechToForm, rechargePending } = await import("../scripts/mech.mjs");
 const { LIMITS } = await import("../scripts/builtin/impulse-gate.mjs");
 const { rechargeBase, rechargeTextOf } = await import("../scripts/mech.mjs");
 const { maneuverList } = await import("../scripts/builtin/maneuver.mjs");
@@ -50,11 +50,14 @@ test("M1: поля — переключатель и срок; без формы
   const d = doc(), f = mechToForm({});
   const fields = (form, e = env()) => mechanismsOf(d, e, form)[0].fields;
   assert.deepEqual(fields(f).map((x) => x.path), ["mech.recharge.mode", "mech.recharge.dice"]);
-  assert.deepEqual(fields(f)[0].seg.map((o) => o.value), ["default", "off", "auto", "button"], "распознанная: как в тексте / нет / после использования / по кнопке");
-  assert.equal(fields(f)[0].seg.find((o) => o.on).value, "default");
-  assert.deepEqual(fields(f).map((x) => !!x.disabled), [false, true], "срок недоступен, пока режим не «после использования» / «по кнопке»");
+  assert.deepEqual(fields(f)[0].seg.map((o) => o.value), ["off", "auto", "button"], "всегда три варианта: нет / после использования / по кнопке");
+  assert.equal(fields(f)[0].seg.find((o) => o.on).value, "auto", "без переопределения отмечен вариант из текста");
+  assert.deepEqual(fields(f)[0].seg.map((o) => /rcByText/.test(o.label)), [false, true, false], "найденный в тексте помечен «(по тексту)»");
+  assert.equal(fields(f)[1].disabled, false, "срок доступен: режим из текста — «после использования»");
   f.recharge.mode = "auto";
   assert.equal(fields(f)[1].disabled, false);
+  f.recharge.mode = "button";
+  assert.equal(fields(f)[0].seg.find((o) => o.on).value, "button");
   f.recharge.mode = "off";
   assert.equal(fields(f)[1].disabled, true, "срок при «Нет» недоступен");
   assert.deepEqual(fields(mechToForm({}), env({ locked: true })).map((x) => !!x.disabled), [true, true]);
@@ -278,12 +281,20 @@ const COND = "<p><strong>Critical Failure</strong> You can't use Fume again for 
 const plain = (o = {}) => doc({ name: "Fume", slug: "fume", system: { description: { value: "no roll" }, traits: { value: [] }, rules: [] }, ...o });
 
 test("перезарядка: режим по умолчанию в base — авто / по кнопке (условная) / нет", () => {
-  assert.deepEqual(mechBase(detectMechs(doc(), env())), { dice: "1d4", rc: "auto", maneuvers: undefined });
+  assert.deepEqual(mechBase(detectMechs(doc(), env())), { dice: "1d4", rc: "auto", rcCond: false, maneuvers: undefined });
   const cond = doc({ name: "Fume", slug: "fume", system: { description: { value: COND }, traits: { value: [] }, rules: [] } });
   assert.deepEqual(ids(detectMechs(cond, env())), ["recharge"]);
   assert.equal(mechBase(detectMechs(cond, env())).rc, "button");
   assert.equal(mechBase(detectMechs(plain(), env())).rc, "none");
   assert.match(mechanismsOf(cond, env())[0].sum, /rechargeCond{"dice":"1d4"}/);
+  const two = doc({ name: "Fume", slug: "fume", system: { description: { value: "<p><strong>Critical Failure</strong> You can't use Fume again for [[/gmr 1d4 #Recharge Fume]]{1d4 rounds}.</p><p><strong>Failure</strong> You can't use Fume again for [[/gmr 1d6 #Recharge Fume]]{1d6 rounds}.</p>" }, traits: { value: [] }, rules: [] } });
+  const dTwo = detectMechs(two, env())[0].data;
+  assert.ok(dTwo.conditional && dTwo.dice == null, JSON.stringify(dTwo)); {   // разные условные броски: «по тексту» рабочего варианта нет — отмечено «Нет», кнопки не будет
+    const seg = mechanismsOf(two, env(), mechToForm({}))[0].fields[0].seg;
+    assert.equal(seg.find((o) => o.on).value, "off");
+    assert.ok(!seg.some((o) => /rcByText/.test(o.label)));
+    assert.equal(mechBase(detectMechs(two, env())).rc, "none");
+  }
 });
 
 test("перезарядка: у нераспознанной строки нет, пока её не добавили; добавленная — и по сохранённому флагу, и по черновику", () => {
@@ -298,8 +309,16 @@ test("перезарядка: у нераспознанной строки не�
   assert.match(row(withMech(d, { recharge: { on: "button", dice: "1d6" } })).sum, /rechargeButton{"dice":"1d6"}/);
   const f = mechToForm({}); f.recharge.mode = "auto";
   assert.deepEqual(row(d, f).fields.map((x) => x.path), ["mech.recharge.mode", "mech.recharge.dice"]);
-  assert.deepEqual(row(d, f).fields[0].seg.map((o) => o.value), ["default", "auto", "button"], "«Нет» = убрать строку");
+  assert.deepEqual(row(d, f).fields[0].seg.map((o) => o.value), ["off", "auto", "button"], "«Нет» = убрать строку");
+  assert.deepEqual(row(d, f).fields[0].seg.map((o) => /rcByText/.test(o.label)), [false, false, false], "в тексте перезарядки нет — «по тексту» не пишем");
   assert.match(row(d, f).sum, /rechargeNone/);
+  assert.equal(row(d, f).removable, true, "добавленную можно убрать крестиком");
+  assert.equal(row(d, f).draft, false, "без пометки added пустая строка не черновик");
+  f.recharge.added = true;
+  assert.equal(row(d, f).draft, true, "только что добавленная без срока — черновик");
+  assert.equal(rechargePending(f), true);
+  f.recharge.mode = "off";
+  assert.equal(rechargePending(f), false, "«Нет» убирает строку и черновик");
   const ruleless = row(withMech(d, { recharge: false }));
   assert.equal(ruleless, undefined, "false у нераспознанной — строки нет");
 });

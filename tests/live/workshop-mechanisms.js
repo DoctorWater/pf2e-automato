@@ -143,7 +143,7 @@ async () => {
   };
   // переключатель «Работает ⇄ Выключено в предмете»: нативный чекбокс role=switch; включён = работает, поэтому «выключить» — снять
   const setOff = (id, off) => setCheck(`mech.${id}.off`, !off);
-  // перезарядка: сегмент режима «Как в тексте / Нет / После использования / По кнопке» (кнопки name="mech.recharge.mode-<v>")
+  // перезарядка: сегмент режима «Нет / После использования / По кнопке» (кнопки name="mech.recharge.mode-<v>"); найденный в тексте — с пометкой «(по тексту)»
   const pickRc = async (v) => { const b = root()?.querySelector(`[name="mech.recharge.mode-${v}"]`); if (!b) throw new Error(`нет кнопки режима ${v}`); b.click(); await wait(500); };
   const clickBtn = async (name, ms = 500) => {
     const el = root()?.querySelector(`[name="${name}"]`);
@@ -177,8 +177,8 @@ async () => {
     t.ok(!!row("recharge"), "строка «Перезарядка»");
     t.ok(pillOf("recharge") === "", `пилюли нет, пока работает (${pillOf("recharge")})`);
     await openRow("recharge");
-    const segDef = root().querySelector('[name="mech.recharge.mode-default"]');
-    t.ok(!!root().querySelector('input[name="mech.recharge.dice"]') && segDef?.getAttribute("aria-pressed") === "true" && !!root().querySelector('[name="mech.recharge.mode-off"]') && !!root().querySelector('[name="mech.recharge.mode-button"]'), "поля: сегмент режима («Как в тексте» выбран) и срок");
+    const segDef = root().querySelector('[name="mech.recharge.mode-auto"]');   // по тексту — «После использования», выбран и помечен
+    t.ok(!!root().querySelector('input[name="mech.recharge.dice"]') && segDef?.getAttribute("aria-pressed") === "true" && /по тексту/.test(segDef.textContent) && !root().querySelector('[name="mech.recharge.mode-default"]') && !!root().querySelector('[name="mech.recharge.mode-off"]') && !!root().querySelector('[name="mech.recharge.mode-button"]'), "поля: сегмент режима («После использования (по тексту)» выбран, варианта «Как в тексте» нет) и срок");
     t.ok(!root().querySelector('.ws-mech input[type="checkbox"]:not([role="switch"])'), "флажков-отрицаний в разделе нет");
     t.ok(!row("recharge").querySelector("button.ws-psum .ws-pill:not([aria-hidden])"), "пилюли кнопки строки скрыты от скринридера");
     t.ok(!!document.getElementById("ws-tip-recharge")?.textContent.trim() && row("recharge").querySelector(".ws-pchip")?.getAttribute("aria-describedby") === "ws-tip-recharge", "подсказка источника доступна без мыши (aria-describedby)");

@@ -5,7 +5,7 @@
 import { L } from "../util.mjs";
 import { modeOf } from "../settings.mjs";
 import { shouldYield } from "../compat.mjs";
-import { mechOf, formToMech, pruneMech, rechargeBase, rechargeTextOf, isUseItem, MANEUVERS } from "../mech.mjs";
+import { mechOf, formToMech, pruneMech, rechargePending, rechargeBase, rechargeTextOf, isUseItem, MANEUVERS } from "../mech.mjs";
 import { limitEntry, slugOf } from "../rules.mjs";
 import { critRecharges, isBreath } from "../builtin/limit-text.mjs";
 import { needText } from "../builtin/impulse-gate.mjs";
@@ -114,9 +114,13 @@ function fieldsOf(id, data, f, env) {
   switch (id) {
     case "recharge": {
       if (data.foreign) return [];
-      const mode = f.recharge.mode, seg = [["default", t(data.none ? "workshop.mech.f.rcOff" : "workshop.mech.f.rcText")], ...(data.none ? [] : [["off", t("workshop.mech.f.rcOff")]]), ["auto", t("workshop.mech.f.rcAuto")], ["button", t("workshop.mech.f.rcButton")]];
+      // всегда три варианта; режим без переопределения (default) показывается тем из них, что найден в тексте (у добавленной вручную текста нет — «Нет»)
+      // условная без срока в тексте (разные броски): рабочего варианта по тексту нет — как «Нет», кнопки не будет, пока срок не задан
+      const found = data.none || (data.conditional && data.dice == null) ? "off" : data.conditional ? "button" : "auto", mode = f.recharge.mode === "default" ? found : f.recharge.mode;
+      const lbl = (v, key) => t(key) + (v === found && v !== "off" ?` ${t("workshop.mech.f.rcByText")}` : "");
+      const seg = [["off", lbl("off", "workshop.mech.f.rcOff")], ["auto", lbl("auto", "workshop.mech.f.rcAuto")], ["button", lbl("button", "workshop.mech.f.rcButton")]];
       return [
-        F.seg("mech.recharge.mode", t("workshop.mech.f.rechargeMode"), data.none && mode === "off" ? "default" : mode, seg, { disabled: locked }),   // у добавленной «Нет» = убрать строку
+        F.seg("mech.recharge.mode", t("workshop.mech.f.rechargeMode"), mode, seg, { disabled: locked }),   // у добавленной «Нет» = убрать строку
         F.text("mech.recharge.dice", t("workshop.mech.f.dice"), f.recharge.dice, { inpCls: "ws-num", placeholder: data.dice ?? "", hint: data.dice ? t("workshop.mech.f.diceHint", { dice: data.dice }) : t("workshop.mech.f.diceHintNone"), disabled: locked || !["auto", "button"].includes(mode) })
       ];
     }
@@ -138,7 +142,7 @@ function fieldsOf(id, data, f, env) {
 /** Значения по умолчанию найденных механизмов — для pruneMech/formToMech. */
 export const mechBase = (dets) => {
   const rc = dets?.find((d) => d.id === "recharge" && !d.data.foreign)?.data;   // режим по умолчанию: распознанная — авто, условная — по кнопке, нераспознанной нет
-  return { dice: rc?.dice, rc: rc ? (rc.conditional ? "button" : "auto") : "none", maneuvers: dets?.find((d) => d.id === "maneuvers")?.data.auto };
+  return { dice: rc?.dice, rc: rc && !(rc.conditional && rc.dice == null) ? (rc.conditional ? "button" : "auto") : "none", rcCond: !!rc?.conditional, maneuvers: dets?.find((d) => d.id === "maneuvers")?.data.auto };
 };
 
 /** Перезарядку можно добавить вручную: способность/заклинание/черта, в тексте которых перезарядки нет и которых не перезаряжает другая способность актёра. */
@@ -158,7 +162,8 @@ export function mechRows(dets, item, env, form = null) {
     tip: env.t(`workshop.mech.tip.${id === "recharge" && (data.none || data.conditional) ? (data.none ? "rechargeAdded" : "rechargeCond") : id}`, id === "strike" ? { strike: data.strikes.map((s) => s.name).join(", ") } : undefined),
     sum: sumOf(id, data, item, env, m), state: stateOf(id, data, item, env, m),
     custom: (id === "recharge" && !!m.recharge) || (id === "maneuvers" && !!m.maneuvers),
-    draft: KEYED.has(id) && JSON.stringify(m[id]) !== JSON.stringify(saved[id]),
+    draft: KEYED.has(id) && (JSON.stringify(m[id]) !== JSON.stringify(saved[id]) || (id === "recharge" && rechargePending(form))),
+    removable: !!data.none,   // добавленную вручную перезарядку можно убрать крестиком
     fields: form ? fieldsOf(id, data, form, env) : []
   }));
 }

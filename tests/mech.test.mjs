@@ -325,6 +325,16 @@ test("pruneMech: срезается только значение, у котор
   assert.deepEqual(mech.pruneMech({ recharge: { on: "button", dice: "1d4" } }, auto), { recharge: { on: "button", dice: "1d4" } });
 });
 
+test("rechargePending: добавленная перезарядка без срока — черновик, форма при этом даёт пустой флаг", () => {
+  const f = mech.mechToForm({});
+  assert.equal(mech.rechargePending(f), false);
+  Object.assign(f.recharge, { mode: "auto", added: true });
+  assert.equal(mech.rechargePending(f), true);
+  assert.deepEqual(mech.formToMech(f, { rc: "none" }), {}, "флага ещё нет — поэтому нужен отдельный признак черновика");
+  assert.ok(mech.mechErrors(f, { rc: "none" }).length, "и сохранить без срока нельзя");
+  assert.equal(mech.rechargePending(mech.mechToForm({ recharge: "1d4" })), false, "сохранённая — не черновик");
+});
+
 test("formToMech: режимы формы; условная — «по кнопке» по умолчанию не пишется, выбор «авто» остаётся", () => {
   const cond = { dice: "1d4", rc: "button" }, f = mech.mechToForm({});
   assert.equal(f.recharge.mode, "default");

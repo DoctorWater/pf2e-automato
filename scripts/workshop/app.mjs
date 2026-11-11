@@ -14,7 +14,7 @@ import * as af from "./affliction-edit.mjs";
 import * as im from "./item.mjs";
 import { BUILTIN } from "../builtin/index.mjs";
 import { hintsView, hintList } from "../hints.mjs";
-import { mechOf, mechToForm, formToMech, pruneMech, mechErrors, savePatch } from "../mech.mjs";
+import { mechOf, mechToForm, formToMech, pruneMech, mechErrors, rechargePending, savePatch } from "../mech.mjs";
 import { detectMechs, mechRows, mechBase, canAddRecharge, liveEnv, footStatus } from "./mechanisms.mjs";
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
 const TPL = (n) => `modules/${MOD}/templates/workshop-${n}.hbs`;
@@ -260,7 +260,8 @@ export class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
   #mode = "effect";
   #item = null;
   #au = null;        // состояние режима «Автоматизация»: { f, base, area, baseArea, open, sel, picker }
-  #mech = null;      // черновик переопределений механизмов { form, base }: грузится отдельно от #loadAu (правило и mech сохраняются независимо)
+  #errOpen = false;  // раскрыт ли полный список ошибок в подвале (подвал перерисовывается при вводе)
+  #mech = null;     // черновик переопределений механизмов { form, base }: грузится отдельно от #loadAu (правило и mech сохраняются независимо)
   #dets = null;      // найденные механизмы предмета (разбор один раз на загрузку: M3 читает правила актёра)
   #names = new Map();   // uuid -> имя документа | null (разрешённые заранее: fromUuidSync на вложенных UUID бросает)
   #typing = false;   // идёт ввод: имена документов не запрашиваем на каждую букву, догоняем по паузе
@@ -337,7 +338,8 @@ export class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
       intoUse(_e, el) { const a = this.#au; au.resetCast(a); a.into = el.dataset.into; a.open.outcome = true; this.#redraw(); },
       intoBack() { au.resetCast(this.#au); this.#redraw(); },
       startRule() { this.#au.creating = true; this.#redraw(); },
-      addRecharge() { this.#mech.form.recharge.mode = "auto"; this.#au.open["mech.recharge"] = true; this.#redraw(); },
+      addRecharge() { Object.assign(this.#mech.form.recharge, { mode: "auto", added: true }); this.#au.open["mech.recharge"] = true; this.#redraw(); },
+      removeRecharge() { Object.assign(this.#mech.form.recharge, { mode: "off", dice: "", added: false }); this.#au.open["mech.recharge"] = false; this.#redraw(); },
       removeEvent(_e, el) { this.#au.f.ev.splice(Number(el.dataset.i), 1); this.#au.sel = null; this.#redraw(); },
       addTrigger() { this.#au.f.zone.trig.push(blankTrigger()); this.#au.sel = null; this.#redraw(); },
       removeTrigger(_e, el) { this.#au.f.zone.trig.splice(Number(el.dataset.i), 1); this.#au.sel = null; this.#redraw(); },
@@ -427,6 +429,7 @@ export class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
   #loadAu(keepView = false) {
     const item = this.#item, res = resolveRule(item), f = ruleToForm(res?.rule ?? null), prev = keepView ? this.#au : null;
     this.#dets = null;
+    if (!keepView) this.#errOpen = false;
     if (!res) f.kind = "onUse";
     const area = au.initialArea({ isSpell: item.type === "spell", area: item._source.system.area, description: item._source.system.description?.value });
     const hints = res?.source === "markup" && game.user.isGM ? hintsView(res.hints, { condLabel, degLabel: (d) => t(`sheet.degree.${d}`).toLowerCase() }) : null;
@@ -446,7 +449,7 @@ export class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
 
   /** Сравниваем итог (то, что запишется), а не сырую форму: «выбрать вручную → Авто» и «1к6» при сохранённом «1d6» правкой не считаются. */
   #mechOut() { return this.#mech ? formToMech(this.#mech.form, mechBase(this.#dets)) : {}; }
-  #mechDirty() { return !!this.#mech && JSON.stringify(this.#mechOut()) !== JSON.stringify(pruneMech(this.#mech.saved ?? mechOf(this.#item), mechBase(this.#dets))); }
+  #mechDirty() { return !!this.#mech && (rechargePending(this.#mech.form) || JSON.stringify(this.#mechOut()) !== JSON.stringify(pruneMech(this.#mech.saved ?? mechOf(this.#item), mechBase(this.#dets)))); }
 
   #dirty() { return this.#ruleDirty() || this.#mechDirty(); }
 
@@ -457,6 +460,7 @@ export class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
       const auto = this.#dets?.find((d) => d.id === "maneuvers")?.data.auto ?? [];
       m.maneuvers.list = Object.fromEntries(Object.keys(m.maneuvers.list).map((k) => [k, auto.includes(k)]));
     }
+    if (path === "mech.recharge.dice" && m.recharge.mode === "default") m.recharge.mode = mechBase(this.#dets).rcCond ? "button" : "auto";   // поле срока показывает режим из текста: ввод делает его явным
     if (path.endsWith(".off")) v = !(v === true || v === "true");   // переключатель «Работает» — включено, в форме off
     foundry.utils.setProperty(m, path.slice("mech.".length), path.endsWith(".dice") ? v : v === "true" ? true : v === "false" ? false : v);
   }
@@ -575,6 +579,7 @@ export class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
     await this.render({ parts: this.#mode === "item" ? ["header", "main", "aside", "footer"] : ["main", "aside", "footer"] });
     const el = this.element;
     ((opens && el?.querySelector(".ws-pick input[data-filter]")) || (name && el?.querySelector(`[name="${CSS.escape(name)}"]`)))?.focus();   // список закрыт повторным кликом — фокус остаётся на кнопке
+    this.#paint();   // ошибка от клика — сразу в .ws-sr (диктор) и aria-invalid, не ждать ввода
   }
   #set(el, v) {
     if (el.dataset.i !== undefined) return this.#setIt(el.dataset.i, v);
@@ -666,7 +671,8 @@ export class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
 
     const whenFields = [
       F.text("f.label", t("sheet.label"), f.label, { cls: "ws-grow" }),
-      F.seg("f.kind", t("workshop.au.event"), f.kind, ["onUse", "onAttacked", "onDamaged", "onFailed", "onEvent", "cast", "none"].map((k) => [k, t(`workshop.au.kind.${k}`)]), { wrap: true }),
+      ((s) => ({ ...s, seg: s.seg.map((o) => (game.i18n.has(`PF2E_AUTOMATO.workshop.au.kindTip.${o.value}`) ? { ...o, tip: t(`workshop.au.kindTip.${o.value}`) } : o)) }))(
+        F.seg("f.kind", t("workshop.au.event"), f.kind, ["onUse", "onAttacked", "onDamaged", "onFailed", "onEvent", "cast", "none"].map((k) => [k, t(`workshop.au.kind.${k}`)]), { wrap: true })),
       F.seg("f.yield", t("sheet.yieldLabel"), f.yield, [["auto", t("sheet.yield.auto")], ["yes", t("sheet.yes")], ["no", t("sheet.yield.no")]])
     ];
     if (au.isReaction(f)) whenFields.push(...reactFields(f));
@@ -826,13 +832,31 @@ export class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
       probe = { needDc, probeDc: a.probeDc ?? "", tokens: rows2, count: tokens.length, none: mode === "none", noTokens: !tokens.length, problems: rep.problems, legend: au.COLS.map((d) => ({ deg: d, label: t(`sheet.degree.${d}`) })) };
     }
     this.#dets ??= detectMechs(item, liveEnv(item));   // до #dirty(): сравнение механизмов опирается на значения по умолчанию из dets
-    const errors = [...v.errors.map(errText), ...mechErrors(this.#mech.form, mechBase(this.#dets)).map((k) => t(k))], dirty = this.#dirty(), ruleDirty = this.#ruleDirty();
+    // путь ошибки валидатора (onEvent[0].once) → имя записи на экране; поле формы той же записи подсвечивается
+    const unnum = (s) => s.replace(/^\d+\.\s*/, ""), RULE_EV = /^onEvent\[(\d+)\]\.(\w+)/, RULE_TRG = /^onUse\.zone\.triggers\[(\d+)\]\.(\w+)/;
+    const place = (p) => {
+      let m;
+      if ((m = /^onEvent\[(\d+)\]/.exec(p)) && evs[m[1]]) return t("workshop.err.place.event", { n: Number(m[1]) + 1, name: unnum(evs[m[1]].title) });
+      if ((m = /^onUse\.zone\.triggers\[(\d+)\]/.exec(p)) && trgs[m[1]]) return t("workshop.err.place.trigger", { n: Number(m[1]) + 1, name: unnum(trgs[m[1]].title) });
+      if ((m = /^activate\[(\d+)\]/.exec(p)) && casts[m[1]]) return t("workshop.err.place.cast", { n: Number(m[1]) + 1, name: unnum(casts[m[1]].title) });
+      return t(p.startsWith("onUse") ? "workshop.err.place.use" : "workshop.err.place.rule");
+    };
+    const mechErr = mechErrors(this.#mech.form, mechBase(this.#dets)), bad = new Set(v.errors.flatMap((e) => {
+      const m = RULE_EV.exec(e.data?.path ?? "") ?? [], z = RULE_TRG.exec(e.data?.path ?? "") ?? [];
+      return [m[1] && `f.ev.${m[1]}.${m[2]}`, z[1] && `f.zone.trig.${z[1]}.${z[2]}`].filter(Boolean);
+    }));
+    if (mechErr.some((k) => /err\.dice/.test(k))) bad.add("mech.recharge.dice");
+    this.#live.bad = bad;   // #paint переключает aria-invalid на полях по этому набору: ввод не перерисовывает форму
+    for (const e of [...evs, ...trgs]) for (const fl of e.fields) if (bad.has(fl.path)) fl.invalid = true;
+    const errors = [...v.errors.map((e) => errText(e?.data?.path ? { ...e, data: { ...e.data, path: place(e.data.path) } } : e)), ...mechErr.map((k) => t(k))], dirty = this.#dirty(), ruleDirty = this.#ruleDirty();
     const lockedFlag = !item.isOwner || !!item.compendium?.locked;
     const evParts = (r) => { try { return au.evParts(ruleToForm(r).ev[0], env); } catch { return null; } };
-    const mechs = into ? [] : mechRows(this.#dets, item, liveEnv(item, { evParts, locked: lockedFlag }), this.#mech.form).map((r) => ({ ...r, open: !!a.open[`mech.${r.id}`] && r.fields.length > 0, desc: [r.draft && t("workshop.mech.unsaved"), r.custom && t("workshop.mech.custom"), r.state?.text].filter(Boolean).join(". ") }));   // desc — описание строки для скринридера (пилюли в кнопке скрыты от имени)
+    const mechs = into ? [] : mechRows(this.#dets, item, liveEnv(item, { evParts, locked: lockedFlag }), this.#mech.form).map((r) => ({ ...r, fields: r.fields.map((fl) => bad.has(fl.path) ? { ...fl, invalid: true } : fl), open: !!a.open[`mech.${r.id}`] && r.fields.length > 0, desc: [r.draft && t("workshop.mech.unsaved"), r.custom && t("workshop.mech.custom"), r.state?.text].filter(Boolean).join(". ") }));   // desc — описание строки для скринридера (пилюли в кнопке скрыты от имени)
     const addRecharge = !into && !lockedFlag && canAddRecharge(this.#dets, item) && !mechs.some((r) => r.id === "recharge");
     this.#live.mech = Object.fromEntries(mechs.map((r) => [r.id, r]));
     const derived = keyDerived(item, res), mechSaved = Object.keys(mechOf(item)).length > 0, mechOnly = !!mechs.length && !res && !ruleDirty && !a.creating;   // у предмета без правила работает только раздел «Работает само»
+    const status = footStatus(t, { dirty, source: res?.source, mechs: mechs.length, mechSaved });
+    this.#live.sr = errors.length ? errors.join(". ") : status;   // текст для постоянной live-области в шапке (подвал при вводе пересоздаётся)
     return {
       mechs, addRecharge, showMech: mechs.length > 0 || addRecharge, mechOnly, mechScope: item.actor ? t(item.actor.isToken ? "workshop.mech.scopeToken" : "workshop.mech.scopeActor", { actor: item.actor.name }) : "",
       mechOnlyWorld: this.#mechDirty() && !ruleDirty,
@@ -845,8 +869,8 @@ export class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
       skills: [...sheetStat, ...Object.keys(CONFIG.PF2E.skills ?? {})], conds: grantable().map((c) => ({ ...c, q: c.label.toLowerCase() })),
       rows, into: into ? this.#intoView(P) : null, doubleWarn: !!groups.length && (f.yield === "no" || (f.yield === "auto" && !setting)) ? t("sheet.doubleWarn") + ` «${groups.join(", ")}»` : "",
       probeMsg: t(onUse ? "workshop.au.probeBlocked" : "workshop.au.probeOnlyUse"), story, applyNote: onUse ? t(`workshop.au.applyMode.${modeOf("apply")}`) : "", probe,
-      errors, ruleBad: !!v.errors.length, error: errors[0] ? errors[0] + (errors.length > 1 ? ` ${t("workshop.err.more", { n: errors.length - 1 })}` : "") : "",   // ruleBad — только ошибки правила: мировой каталог ошибки механизмов не касаются
-      dirty, status: footStatus(t, { dirty, source: res?.source, mechs: mechs.length, mechSaved }),
+      errors, errMore: errors.length > 1 ? t("workshop.err.more", { n: errors.length - 1 }) : "", errOpen: this.#errOpen, ruleBad: !!v.errors.length,   // ruleBad — только ошибки правила: мировой каталог ошибки механизмов не касаются
+      dirty, status,
       saveOff: !!errors.length || lockedFlag || !dirty, noRuleSave: !res && !ruleDirty,   // «Сохранить» пишет только изменённое; у предмета без правила и без правки правила в мир писать нечего
       worldSourceLabel: t(derived ? "sheet.worldCreature" : "sheet.worldSource"), delWorldSourceLabel: t(derived ? "sheet.delWorldCreature" : "sheet.delWorldSource"), noSourceHint: t("sheet.noSourceHint"),
       lockedFlag, noSource: !sourceKeyOf(item, res), noSlug: !slug, isWorld: res?.source === "world", canUnset: res?.source === "flag" && !lockedFlag
@@ -867,6 +891,9 @@ export class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
     for (const n of el.querySelectorAll("[data-sum]")) if (n.dataset.sum in live.sums) n.textContent = live.sums[n.dataset.sum];
     for (const n of el.querySelectorAll("[data-plate]")) { const p = live.plates[n.dataset.plate]; if (p) n.textContent = p.text; }
     for (const n of el.querySelectorAll("[data-pv]")) { const p = live.plates[n.dataset.pv]; if (p) n.textContent = p.value; }
+    for (const n of el.querySelectorAll("input[data-a], select[data-a], textarea[data-a]")) { if (live.bad?.has(n.dataset.a)) n.setAttribute("aria-invalid", "true"); else n.removeAttribute("aria-invalid"); }
+    const sr = el.querySelector("[data-sr]");
+    if (sr && live.sr !== undefined && sr.textContent !== live.sr) sr.textContent = live.sr;
     for (const [id, r] of Object.entries(live.mech ?? {})) {   // строки «Работает само»: сводка, пилюля «своё», отметка «не сохранено»
       const q = (k) => el.querySelector(`[data-${k}="${id}"]`);
       if (q("msum")) q("msum").textContent = r.sum;
@@ -906,6 +933,7 @@ export class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
       if (f.dataset.f === "slug" && f.dataset.block && this.#block(f.dataset.block).kind === "cond") Object.assign(this.#block(f.dataset.block), { uuid: "", name: "", valued: condValued(v) });
       this.#redraw();
     });
+    el.addEventListener("toggle", (ev) => { if (ev.target.matches?.(".ws-errs")) this.#errOpen = ev.target.open; }, true);   // toggle не всплывает
     // Список состояний закрывается кликом мимо
     el.addEventListener("click", (ev) => {
       if (this.#au?.picker && !ev.target.closest(".ws-pick, [data-action=togglePicker]")) { this.#au.picker = null; this.#redraw(); }

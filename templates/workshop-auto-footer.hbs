@@ -1,6 +1,10 @@
 <div class="ws-foot">
   <span class="ws-foot-msg {{#if errors.length}}ws-err{{/if}}">
-    {{#if error}}{{error}}{{else}}{{#if dirty}}<span class="ws-dot" aria-hidden="true"></span>{{/if}}{{status}}{{#if lockedFlag}} · {{localize "PF2E_AUTOMATO.sheet.locked"}}{{/if}}{{/if}}
+    {{#if errors.length}}
+      {{#if errMore}}
+      <details class="ws-errs" {{#if errOpen}}open{{/if}}><summary>{{errors.[0]}} {{errMore}}</summary><ul>{{#each errors}}<li>{{this}}</li>{{/each}}</ul></details>
+      {{else}}{{errors.[0]}}{{/if}}
+    {{else}}{{#if dirty}}<span class="ws-dot" aria-hidden="true"></span>{{/if}}{{status}}{{#if lockedFlag}} · {{localize "PF2E_AUTOMATO.sheet.locked"}}{{/if}}{{/if}}
   </span>
   <button type="button" class="ws-btn ws-btn-g" data-action="resetDraft" name="resetDraft" {{#unless dirty}}disabled{{/unless}}>{{localize "PF2E_AUTOMATO.workshop.au.reset"}}</button>
   {{#if canUnset}}<button type="button" class="ws-btn ws-btn-g" data-action="unsetRule" name="unsetRule" title="{{localize "PF2E_AUTOMATO.workshop.mech.unsetHint"}}">{{localize "PF2E_AUTOMATO.workshop.au.unset"}}</button>{{/if}}

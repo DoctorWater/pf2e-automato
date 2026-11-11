@@ -108,8 +108,8 @@
     "workshop": {
       "au": {
         "kind": {
-          "onEvent": "When: event",
-          "cast": "When: activation"
+          "onEvent": "Event",
+          "cast": "Activation"
         },
         "when": {
           "onEvent": "On event · run by the GM",

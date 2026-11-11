@@ -63,7 +63,8 @@
 .pf2e-automato-workshop .ws-kind { flex: none; box-sizing: border-box; width: 112px; padding: 2px 6px; text-align: center; font: 700 11px "Roboto Condensed", Roboto, sans-serif; letter-spacing: .05em; text-transform: uppercase; color: #443730; background: #efe7dc; border-radius: 2px; }
 .pf2e-automato-workshop .ws-text { flex: 1; min-width: 0; font-size: 13.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .pf2e-automato-workshop .ws-x { flex: none; width: 28px; height: 28px; margin: 0; padding: 0; display: inline-flex; align-items: center; justify-content: center; background: transparent; border: 0; border-radius: 3px; color: #443730; cursor: pointer; }
-.pf2e-automato-workshop .ws-x:hover { background: #efe7dc; color: #5e0000; }
+.pf2e-automato-workshop .ws-x:hover:not(:disabled) { background: #efe7dc; color: #5e0000; }
+.pf2e-automato-workshop .ws-x:disabled { opacity: .4; cursor: default; }
 .pf2e-automato-workshop .ws-ed { display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-end; padding: 2px 12px 14px 134px; }
 .pf2e-automato-workshop .ws-empty { padding: 18px 16px; color: #5b5048; }
 
@@ -88,6 +89,12 @@
 .pf2e-automato-workshop .ws-foot { display: flex; align-items: center; gap: 8px; height: 54px; padding: 0 20px; }
 .pf2e-automato-workshop .ws-foot-msg { flex: 1; min-width: 0; font-size: 12.5px; color: #5b5048; }
 .pf2e-automato-workshop .ws-foot-msg.ws-err { color: #8c1c1c; }
+.pf2e-automato-workshop .ws-errs { position: relative; }
+.pf2e-automato-workshop .ws-errs summary { cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pf2e-automato-workshop .ws-errs ul { position: absolute; left: 0; right: 0; bottom: calc(100% + 10px); z-index: 5; max-height: 40vh; margin: 0; padding: 8px 12px 8px 28px; overflow: auto; list-style: disc; font-size: 12.5px; line-height: 1.4; color: #8c1c1c; background: #fffdf9; border: 1px solid #8c1c1c; border-radius: 3px; box-shadow: 0 4px 12px rgba(42, 36, 32, .18); }
+.pf2e-automato-workshop .ws-inp[aria-invalid="true"] { border-color: #8c1c1c; }
+.pf2e-automato-workshop .ws-inp:disabled { color: #786452; background: #efe7dc; border-style: dashed; cursor: not-allowed; }
+.pf2e-automato-workshop .ws-pfields .ws-note .ws-x { float: right; }
 .pf2e-automato-workshop .ws-btn { flex: none; width: auto; height: 32px; margin: 0; padding: 0 12px; display: inline-flex; align-items: center; font-size: 13px; font-weight: 500; line-height: 1; color: #2a2420; background: #fffdf9; border: 1px solid #baa991; border-radius: 3px; cursor: pointer; transition: background-color .15s, border-color .15s; }
 .pf2e-automato-workshop .ws-btn:hover:not(:disabled) { background: #fff; border-color: #786452; }
 .pf2e-automato-workshop .ws-btn-p { color: #fff; background: #5e0000; border-color: #5e0000; }
@@ -224,6 +231,8 @@
   --checkbox-size: 16px; --checkbox-background-color: #fffdf9; --checkbox-checked-color: #5e0000; --checkbox-checkmark-color: #fff;
 }
 .pf2e-automato-workshop .ws-check input[type="checkbox"]::before { outline: 1px solid #786452; }
+.pf2e-automato-workshop .ws-check input[aria-invalid="true"]::before { outline: 2px solid #8c1c1c; }
+.pf2e-automato-workshop .ws-check:has(input[aria-invalid="true"]) > span { color: #8c1c1c; text-decoration: underline wavy #8c1c1c; text-underline-offset: 3px; }
 
 /* Список добавления: у правых колонок — от правого края, поле поиска светлое */
 .pf2e-automato-workshop .ws-pick input[type="search"] { padding: 0 8px; font: inherit; color: #2a2420; background: #fff; border: 1px solid #baa991; border-radius: 3px; box-shadow: none; }
@@ -399,7 +408,6 @@
 .pf2e-automato-workshop .ws-st.is-open .ws-st-l { font-weight: 500; }
 .pf2e-automato-workshop .ws-no { flex: none; width: 20px; text-align: center; font: 600 15px Eczar, Georgia, serif; color: #5e0000; }
 .pf2e-automato-workshop .ws-stb { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 10px 16px; padding: 6px 12px 12px 36px; background: #f8f4f1; border-bottom: 1px solid #ddd2c0; }
-.pf2e-automato-workshop .ws-st .ws-x:disabled { opacity: .4; cursor: not-allowed; }
 .pf2e-automato-workshop .ws-formula { width: 76px; }
 .pf2e-automato-workshop .ws-chip { flex-wrap: nowrap; width: auto; }
 .pf2e-automato-workshop .ws-plate-t.ws-static { flex: none; cursor: default; }

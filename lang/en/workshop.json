@@ -147,6 +147,7 @@
         "empty": "Add at least one property.",
         "block": "Property {n}: {what}",
         "more": "(and {n} more)",
+        "place": { "event": "event {n} \"{name}\"", "trigger": "zone trigger {n} \"{name}\"", "cast": "activation {n} \"{name}\"", "use": "use", "rule": "rule" },
         "value": "the value must be a number above zero.",
         "except": "exceptions are pf2e keys in Latin letters, comma-separated.",
         "dice": "the number of dice must be a whole number above zero.",
@@ -229,6 +230,7 @@
         "switchOn": "Works",
         "switchOff": "Off in the item",
         "addRecharge": "Add recharge",
+        "removeRecharge": "Remove recharge",
         "chip": { "recharge": "Recharge", "req": "Requirements", "strike": "From Strike", "maneuvers": "Maneuvers", "permanent": "Condition", "spirit": "HP transfer" },
         "tip": {
           "recharge": "Found in the description text: the recharge roll.",
@@ -267,7 +269,7 @@
         "state": { "flag": "Off in the item", "flagReact": "Reaction ban off in the item", "mode": "Off: mode \"{mode}\"", "modeButton": "Does not trigger: \"{mode}\" is not \"Automatic\"", "yield": "Yields to pf2e-automations", "needRule": "The rule needs accepting", "needOutcome": "A rule is needed: the save outcome (condition, stage) was not recognised" },
         "f": {
           "dice": "Recharge time (dice)", "diceHint": "From the text: {dice}. Rounds only, e.g. 1d4+1. Permanent for this item; for one use — Alt.",
-          "rechargeMode": "Mode", "rcText": "As in the text", "rcOff": "None", "rcAuto": "After use", "rcButton": "By button", "diceHintNone": "Rounds only, e.g. 1d4+1.",
+          "rechargeMode": "Mode", "rcByText": "(per text)", "rcOff": "None", "rcAuto": "After use", "rcButton": "By button", "diceHintNone": "Rounds only, e.g. 1d4+1.",
           "permanentOwn": "Turning it off removes only the reaction ban; \"{cond}\" from pf2e stays.",
           "permanent": "{cond} and the reaction ban: turning it off removes both.",
           "maneuvers": "Maneuvers", "auto": "Auto (from the text)", "manual": "Choose manually", "maneuversPick": "Which maneuvers to offer"
@@ -330,7 +332,11 @@
           "zone": "Zone",
           "macros": "Macros"
         },
-        "event": "Event",
+        "event": "Triggers",
+        "kindTip": {
+          "onDamaged": "Ready-made reaction: when the owner takes damage, a hint is shown. No rule steps needed.",
+          "onFailed": "Ready-made reaction: when the owner fails a check, a reroll hint is shown. No rule steps needed."
+        },
         "kind": {
           "onUse": "On use",
           "onAttacked": "When the owner is attacked",

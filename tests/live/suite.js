@@ -341,7 +341,7 @@ async () => {
     const sur = await import(`/modules/${MOD}/scripts/builtin/surprise-attack.mjs`);
     const rogue = await e.pc("плут", [held(await equip("shortsword")), await feat("surprise-attack")]);
     const f1 = await e.foe("быстрый"), f2 = await e.foe("медленный");
-    const tR = await e.tok(rogue, 500, 500, 1), t1 = await e.tok(f1, 700, 500, -1), t2 = await e.tok(f2, 700, 700, -1);
+    const tR = await e.tok(rogue, 500, 500, 1), t1 = await e.tok(f1, 600, 500, -1), t2 = await e.tok(f2, 600, 600, -1);   // вплотную: ближний Удар в досягаемости
     await wait(700);
     const c = await e.combat([tR, t1, t2], [null, null, null]);
     await rogue.update({ "system.initiative.statistic": "deception" }); await wait(300);
@@ -444,14 +444,14 @@ async () => {
     const dodge = await feat("nimble-dodge");
     const pc = await e.pc("плут", [dodge, foundry.utils.deepClone(dodge)]);   // дубль способности: подсказка всё равно одна
     const foe = await e.foe("стрелок");
-    const tP = await e.tok(pc, 500, 500, 1), tF = await e.tok(foe, 700, 500, -1);
+    const tP = await e.tok(pc, 500, 500, 1), tF = await e.tok(foe, 600, 500, -1);   // вплотную: Удар гоблина ближний
     await wait(700);
     const hints = (m) => game.messages.filter((x) => x.flags?.[MOD]?.reaction?.attack === m.id);
     for (const [d20, name] of [[1, "промах"], [20, "попадание"]]) {
       await e.fix(d20);
       const att = await e.hit(tF, tP, e.strike(e.T(tF).actor));
       t.ok(!!att, `${name}: атака брошена`);
-      await waitFor(() => hints(att).length, 6000); await wait(1500);
+      await waitFor(() => hints(att).length, 12000); await wait(1500);   // подсказка — после анимации костей (afterDice, до 8 с)
       t.ok(hints(att).length === 1, `${name} (${att?.flags?.pf2e?.context?.outcome}): подсказок ${hints(att).length}, ожидалась 1`);
     }
   });

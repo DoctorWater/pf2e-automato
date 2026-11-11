@@ -1,6 +1,6 @@
 // Проверки автора против защиты цели (onUse.check, plan.md §1.1a): бросает АВТОР, результат принимает общий движок saves.mjs.
 // Чистые функции (defenseDc, hasImmunity, ...) не трогают Foundry — tests/checks.test.mjs.
-import { MOD, L, DEGREES, flagPath, degreeFromTotal, isActiveGM } from "./util.mjs";
+import { MOD, L, DEGREES, flagPath, degreeFromTotal, isActiveGM, afterDice } from "./util.mjs";
 import { S } from "./settings.mjs";
 import { useOf, safeUuid, marker, isPcActor, challengeOf, challengeTargets, recordResult, markTried } from "./saves.mjs";
 import { applyEffect } from "./apply.mjs";
@@ -127,6 +127,8 @@ async function runOneRoll(message, ck, author, only) {
     const r = await rollCheck(author, ck, { message, tokenKey: first.key, target: first.token, skipDialog: true, askMap: !!only, messageMode: S.get("challenge.messageMode") });
     if (!r) return await fail();
     if (isHeld(r.rollMessage)) return [];   // удержан ради переброски (hold.mjs): исход запишет replay; rollTried не ставим (см. runCheck)
+    await afterDice(r.rollMessage);   // итог применяется после анимации костей
+    if (!game.messages.get(message.id)) return [];   // карточку удалили, пока ждали
     return (await recordOneRoll(message, { total: r.total, die: r.die, key: first.key, degree: r.degree, dc: r.dc, by: game.user.id, rollMessageId: r.rollMessage?.id ?? null, src: "own" })).keys;
   } catch (e) { console.error(`${MOD} | runCheck oneRoll`, e); return await fail(); }
   finally { rolling.delete(rk); }
@@ -166,7 +168,8 @@ export async function runCheck(message, { only } = {}) {
   if (!author) return [];
   if (!only && isPcActor(author)) return [];
   if (ck.oneRoll) return runOneRoll(message, ck, author, only);
-  const done = [];
+  const done = [], rolled = [];
+  // бросаем всех, затем ждём анимацию одним Promise.all и только потом пишем итоги
   for (const { key, token } of await challengeTargets(message)) {
     if (only && only !== key) continue;
     const rk = `${message.id}:${key}`;
@@ -174,8 +177,15 @@ export async function runCheck(message, { only } = {}) {
     rolling.add(rk);
     try {
       const r = await rollCheck(author, ck, { message, tokenKey: key, target: token, skipDialog: true, askMap: !!only, messageMode: S.get("challenge.messageMode") });
-      if (!r) { if (!only) await markTried(message.id, "rollTried", key); continue; }
-      if (isHeld(r.rollMessage)) continue;   // удержан ради переброски (hold.mjs): исход запишет replay; rollTried не ставим — кнопка «Бросить» не нужна, бросок уже есть
+      if (!r) { if (!only) await markTried(message.id, "rollTried", key); rolling.delete(rk); continue; }
+      if (isHeld(r.rollMessage)) { rolling.delete(rk); continue; }   // удержан ради переброски (hold.mjs): исход запишет replay; rollTried не ставим — кнопка «Бросить» не нужна, бросок уже есть
+      rolled.push({ key, r, rk });
+    } catch (e) { console.error(`${MOD} | runCheck ${key}`, e); if (!only) await markTried(message.id, "rollTried", key); rolling.delete(rk); }
+  }
+  await Promise.all(rolled.map((x) => afterDice(x.r.rollMessage)));
+  for (const { key, r, rk } of rolled) {
+    try {
+      if (!game.messages.get(message.id)) break;   // карточку удалили, пока ждали кости
       await recordResult(message.id, key, { degree: r.degree, total: r.total, dc: r.dc, by: game.user.id, rollMessageId: r.rollMessage?.id ?? null, src: "own" });
       done.push(key);
     } catch (e) { console.error(`${MOD} | runCheck ${key}`, e); if (!only) await markTried(message.id, "rollTried", key); }

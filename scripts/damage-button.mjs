@@ -213,7 +213,7 @@ function bind(message, html) {
   const placedNow = areaRule ? !!(regionUuid && fromUuidSync(regionUuid)) : regionOf(message.id);
   const placedEver = areaRule ? !!regionUuid : placedNow || rolls.any > 0;
   const tpl = [...html.querySelectorAll(`${SEL.spellTemplate}, .paf-area-box`)];
-  if (placedNow) for (const b of tpl) b.hidden = true;
+  if (placedNow || use?.state?.area?.closed) for (const b of tpl) b.hidden = true;   // closed: модуль сам убрал мгновенную область — размещать заново нечего
   else if (tpl.length && !placedEver) {
     const first = html.querySelector(SEL.spellSave) ?? html.querySelector(SEL.spellDamage);
     const place = tpl[0].closest(".spell-button, .message-buttons") ?? tpl[0];

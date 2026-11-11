@@ -408,6 +408,8 @@ async function renderBlock(message, html) {
   });   // новый элемент на каждый рендер -> слушатели не копятся
   root.append(block);
   placeUnder(html, det);   // кнопки «Урон» (damage-button.mjs) — под спасбросками
+  const rc = html.querySelector(".paf-recharge-box");
+  if (rc?.parentNode === root) root.append(rc);   // «Перезарядка» (recharge-button.mjs) — в самом конце карточки, после блока модуля
 }
 
 async function onClick(ev, messageId) {

@@ -42,6 +42,7 @@ export function moveOrder(steps, items, origin) {
  */
 export function areaPoint(use, region = null) {
   if (!region) { try { const u = use?.state?.area?.regionUuid; region = u ? fromUuidSync(u) : null; } catch { region = null; } }
+  if (!region) return use?.state?.area?.point ?? null;   // регион уже убран (мгновенная область): точку сохранил runRegion
   const shapes = region?.shapes ?? [];
   if (shapes.length === 1 && shapes[0].type === "circle") return { x: shapes[0].x, y: shapes[0].y };
   const b = region?.flags?.pf2e?.areaShape === "emanation" ? region.bounds : null;

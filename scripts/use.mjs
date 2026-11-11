@@ -1,10 +1,11 @@
 // K2: конвейер использования. Контракт — plan.md §2 use.mjs, §3.A–C, §3.H, §1.4.
-import { MOD, L, flagPath, guardActiveGM, queue, debug, forcedDelete, useTargetOverride } from "./util.mjs";
+import { MOD, L, flagPath, guardActiveGM, queue, debug, forcedDelete, useTargetOverride, afterDice, sceneOfUuid } from "./util.mjs";
 import { S, modeOf } from "./settings.mjs";
 import * as compat from "./compat.mjs";
 import * as rules from "./rules.mjs";
 import * as apply from "./apply.mjs";
 import * as zone from "./zone.mjs";
+import * as areaCleanup from "./area-cleanup.mjs";
 import * as saves from "./saves.mjs";
 import * as macros from "./macros.mjs";
 import * as reactions from "./reactions.mjs";
@@ -217,8 +218,8 @@ function onPreCreateRegion(region, data, options, userId) {
     rule = r?.rule;
     yielded = r && compat.shouldYield(r.rule, { slug: r.slug, sourceUuid: r.sourceUuid });
   }
-  if (rule?.onUse?.zone && modeOf("zone") !== "off" && !yielded) {
-    region.updateSource({ [compat.EXTERNAL.flags.tbSkip]: true });   // Template Helper на зонах не нужен (§3.B-2)
+  if ((rule?.onUse?.zone && modeOf("zone") !== "off" && !yielded) || (useFlag && areaCleanup.managesArea(useFlag))) {
+    region.updateSource({ [compat.EXTERNAL.flags.tbSkip]: true });   // Template Helper на зонах и областях, где цели берёт модуль, не нужен (§3.B-2)
   }
 }
 
@@ -232,13 +233,19 @@ async function tolerate(name, fn) {
   }
 }
 
-const setState = (message, patch) =>
-  message.update(Object.fromEntries(Object.entries(patch).map(([k, v]) => [flagPath("use", "state", k), v])));
+// карточку могли удалить, пока модуль ждал (анимация костей Dice So Nice, бросок цели): обновлять нечего
+const setState = (message, patch) => (game.messages.get(message.id)
+  ? message.update(Object.fromEntries(Object.entries(patch).map(([k, v]) => [flagPath("use", "state", k), v])))
+  : Promise.resolve());
 const useOf = (message) => message?.flags?.[MOD]?.use;
 
 export async function onCreateMessage(message) {
   if (!guardActiveGM() || isHeld(message)) return;   // удержанная атака (hold.mjs) ждёт выпуска: replay вернётся сюда
   const ctx = message.flags?.pf2e?.context?.type;
+  if (ctx === "saving-throw" || ctx === "skill-check" || ctx === "perception-check" || ctx === "flat-check" || ctx === "attack-roll") {
+    await afterDice(message);   // применение по итогам броска — после анимации костей
+    if (!game.messages.get(message.id)) return;   // бросок удалён (переброс Очком героя), пока ждали: итог не применяем
+  }
   if (ctx === "saving-throw" || ctx === "skill-check" || ctx === "perception-check" || ctx === "flat-check") {
     const accepted = await tolerate("acceptSavingThrow", () => saves.acceptSavingThrow(message));
     if (!accepted) await tolerate("onRollMessage", () => actions.onRollMessage(message));   // бросок действия из листа/макроса — без карточки
@@ -314,15 +321,15 @@ async function applyUseSteps(message, use, { self = true, targets = true, only =
   if (self && !only && selfSteps.length) await apply.applyOps(message, "self", selfSteps, { scope: "apply" });
   if (!targets || !tgtSteps.length) return;
   const list = await stepTargets(use);
-  for (const { key, doc, region } of moveSorted(tgtSteps, list, list[0]?.region)) {
+  for (const { key, doc, region } of moveSorted(tgtSteps, list, list[0]?.region, use)) {
     if (only && only !== key) continue;
     if (doc) await apply.applyOps(message, key, tgtSteps, { scope: "apply", target: doc, ...(region && { region }) });
   }
 }
 
 /** Шаги move от центра области: цели идут дальние → ближние (толчок) или наоборот (притяжение); без точки порядок прежний. list — [{doc, ...}]. */
-function moveSorted(steps, list, region) {
-  const pt = steps.some((s) => s.move?.from === "point") ? areaPoint(null, region) : null;
+function moveSorted(steps, list, region, use = null) {
+  const pt = steps.some((s) => s.move?.from === "point") ? areaPoint(use, region) : null;
   if (!pt) return list;
   const c = (d) => { const g = d?.parent?.grid?.size ?? 100; return { x: (d?.x ?? 0) + ((d?.width ?? 1) * g) / 2, y: (d?.y ?? 0) + ((d?.height ?? 1) * g) / 2 }; };
   return moveOrder(steps, list.map((i) => ({ ...c(i.doc), i })), pt).map((o) => o.i);
@@ -331,7 +338,7 @@ function moveSorted(steps, list, region) {
 /** Цели шагов: область — токены state.area.keys своей сцены, иначе (и без региона) use.targets. */
 async function stepTargets(use) {
   if (use.rule?.onUse?.targets === "area" && use.state?.area) {
-    const region = regionOf(use.state?.area?.regionUuid), scene = region?.parent;
+    const region = regionOf(use.state?.area?.regionUuid), scene = region?.parent ?? sceneOfUuid(use.state?.area?.regionUuid);
     return (use.state?.area?.keys ?? []).map((key) => ({ key, doc: scene?.tokens.get(key) ?? null, region }));
   }
   return Promise.all(inRange(use.targets).map(async (t) => ({ key: t.key, doc: await fromUuid(t.uuid) })));
@@ -446,6 +453,7 @@ export async function runRegion(region, message) {
 
   return queue(first ? `use:${message.id}` : `use:region:${region.uuid}`, async () => {
     const use = useOf(message);   // свежий снимок: предыдущие запуски в очереди могли его менять
+    if (use?.state?.area?.closed) return;   // модуль уже убрал мгновенную область карточки: повторный шаблон целей не берёт (иначе урон старого броска ушёл бы новым)
     const zoneMode = modeOf("zone");
 
     if (use?.confidence === "low") {
@@ -475,9 +483,10 @@ export async function runRegion(region, message) {
       .filter((t) => t.testInsideRegion(region))
       .filter((t) => !(excl && (use.token ? t.uuid === use.token : t.actor?.uuid === use.actor)))
       .map((t) => ({ key: t.id, uuid: t.uuid, name: t.name, pc: !!t.actor?.hasPlayerOwner }));
-    const u = areaUpdate(use, region.uuid, tokens);
+    const u = areaUpdate(use, region.uuid, tokens), point = areaPoint(null, region);
     await message.update({
-      [flagPath("use", "state", "area")]: u.area,
+      [flagPath("use", "state", "area")]: { ...u.area, ...(point && { point }) },   // точка — для сдвига от центра после удаления региона
+      ...(S.get("useToolbeltTargetHelper") && compat.toolbeltTargetHelper().enabled && { "flags.pf2e-toolbelt.targetHelper.targets": tokens.map((t) => t.uuid) }),   // skip Toolbelt: цели области пишем вместо его Template Helper
       [flagPath("use", "targets")]: u.targets,
       ...Object.assign({}, ...u.drop.map((k) => forcedDelete(flagPath("use", "state", "challenge", "results", k))))
     });
@@ -489,6 +498,7 @@ export async function runRegion(region, message) {
       }
     }
     if ((onUse.challenge || onUse.check) && modeOf("challenge") === "auto") await saves.runChallenge(message);
+    areaCleanup.settleArea(message.id, { flow: true }).catch((e) => debug("area", e));   // не ждём: очередь area отдельная; нужен после шагов на цель (испытания нет)
   });
 }
 

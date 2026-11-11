@@ -13,7 +13,7 @@ import { modeOf } from "../settings.mjs";
 import { combatOf, recipients, whisper } from "./lib.mjs";
 import { slugOf, limitEntry } from "../rules.mjs";
 import { AURA_SLUG } from "./kinetic-aura.mjs";
-import { mechOf, rechargeEntry, isUseItem } from "../mech.mjs";
+import { mechOf, rechargeEntry, isUseItem, USE_ITEMS } from "../mech.mjs";
 import { critRecharges, isBreath, rollDice, rollData, rechargeLeft, hitOf, lastAct, reqFails, holdsFrom } from "./limit-text.mjs";
 
 const traitsOf = (item) => item?.system?.traits?.value ?? [];
@@ -190,7 +190,7 @@ export function blocked(actor, item) {
   return !!why;
 }
 
-const PENDING_MS = 5000;
+export const PENDING_MS = 5000;
 const pending = new Map();   // uuid актёра -> {marks, until}: отметка между preCreate и записью на актёра (createChatMessage); только клиент автора
 /** Чистая: флаги актёра с ещё не записанными отметками. */
 export const withPending = (flags, p, now = Date.now()) => (p && p.until > now ? { ...flags, ...p.marks } : flags ?? {});
@@ -247,15 +247,24 @@ function critClear(message, actor) {
   if (Object.keys(clear).length) message.updateSource({ [`flags.${MOD}.limitClear`]: clear });
 }
 
+/** Карточка использования способности/заклинания (не бросок; заклинание — только сотворение, «в чат» без него не в счёт): её проверяет preCreate, на ней стоит кнопка «Перезарядка». */
+export function isUseCard(message) {
+  if (!USE_TYPES.has(message.flags?.pf2e?.context?.type)) return false;
+  const o = message.flags?.pf2e?.origin;   // дешёвые отсечки до message.item (у заклинаний он создаёт вариант)
+  if (o?.type && !USE_ITEMS.has(o.type)) return false;
+  if (o?.type === "spell" && !o.rollOptions?.includes(CAST)) return false;
+  const actor = message.actor, item = message.item;
+  if (!actor || !item || !isUseItem(item)) return false;
+  return item.type !== "spell" || !!o?.rollOptions?.includes(CAST);
+}
+
 /** preCreateChatMessage: карточка использования. false — сообщения нет. */
 export function preCreate(message, data, options, userId) {
   if (userId !== game.user.id) return;
   const type = message.flags?.pf2e?.context?.type;
   if (STRIKE_TYPES.has(type)) { try { stampAttack(message); } catch (e) { console.warn(`${MOD} | use-limits stamp`, e); } return; }
-  if (!USE_TYPES.has(type)) return;
+  if (!isUseCard(message)) return;
   const actor = message.actor, item = message.item;
-  if (!actor || !item || !isUseItem(item)) return;
-  if (item.type === "spell" && !message.flags?.pf2e?.origin?.rollOptions?.includes(CAST)) return;
   if (skips.get(key(actor, item))) return;
   try { wrapEphemeral([actor]); } catch { /* лимит всё равно проверит preCreate */ }
   if (!takePass(actor, item) && blocked(actor, item)) { refundSpent(item); return false; }
@@ -293,6 +302,30 @@ async function showRecharge(actor, name, m, cardId) {
     console.warn(`${MOD} | use-limits recharge roll`, e);
     await whisper(actor, flavor, "recharge", { rechargeFor: cardId }, "", actor.type === "character" ? null : "gm");
   }
+}
+
+/**
+ * Кнопка «Перезарядка» карточки: бросок и замок на все spec.ids — тот же путь, что у автозамка (метки на карточке: удаление карточки откатывает замок и шёпот).
+ * Вызывающий уже проверил состояние кнопки (rcButtonState). false — не в бою.
+ */
+export async function startRecharge(message, actor, spec) {
+  const combat = combatOf(game.combats, actor);
+  if (!combat?.started) return false;
+  const r = rollDice(spec.dice, rnd), mark = { c: combat.id, until: combat.round + r.n, n: r.n, dice: spec.dice, r: r.r, mod: r.mod };
+  const marks = Object.fromEntries(spec.ids.map((id) => [`rc_${id}`, mark]));
+  // метка карточки — первой: карточку удалили до записи — update падает, замка-сироты нет; актёр не записался — метку убираем
+  await message.update({ [`flags.${MOD}.limitMarks`]: { ...message.flags?.[MOD]?.limitMarks, ...marks } });
+  const lockOff = () => actor.update(Object.fromEntries(Object.keys(marks).map((k) => [`flags.${MOD}.-=${k}`, null]))).catch((e) => console.warn(`${MOD} | recharge rollback`, e));
+  try { await actor.update(Object.fromEntries(Object.entries(marks).map(([k, v]) => [`flags.${MOD}.${k}`, v]))); }
+  catch (e) {
+    console.warn(`${MOD} | recharge button`, e);
+    ui.notifications.warn(L("builtin.limit.rcFailed"));
+    if (game.messages.has(message.id)) await message.update(Object.fromEntries(Object.keys(marks).map((k) => [`flags.${MOD}.limitMarks.-=${k}`, null]))).catch(() => {});
+    return false;
+  }
+  if (!game.messages.has(message.id)) { await lockOff(); return false; }   // карточку удалили между двумя записями: onDelete замка ещё не видел
+  await showRecharge(actor, spec.ids.map((id) => actor.items.get(id)?.name).filter(Boolean).join(" / ") || message.item?.name, mark, message.id);
+  return true;
 }
 
 /** deleteChatMessage (активный ГМ): карточка использования удалена — вернуть поставленные ею отметки, если флаг всё ещё тот же. */

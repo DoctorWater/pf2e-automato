@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 
 globalThis.game ??= {};
-const { reasonOf, channelPending, roundKey } = await import("../scripts/builtin/impulse-gate.mjs");
+const { reasonOf, channelPending, roundKey, isUseCard } = await import("../scripts/builtin/impulse-gate.mjs");
 
 test("reasonOf: импульс без ауры; второе переполнение в том же раунде; не импульс — не трогаем", () => {
   const imp = ["impulse", "fire"], ovf = ["impulse", "overflow"];
@@ -29,4 +29,17 @@ test("roundKey: только начатый бой", () => {
   assert.equal(roundKey({ started: true, id: "c", round: 2, turn: 3 }), "c:2");
   assert.equal(roundKey({ started: false, id: "c", round: 0 }), null);
   assert.equal(roundKey(null), null);
+});
+
+test("isUseCard: карточка использования — с CAST у заклинаний; «в чат» без сотворения и броски — нет", () => {
+  const card = (item, type, rollOptions) => ({ actor: {}, item, flags: { pf2e: { context: type ? { type } : undefined, origin: { rollOptions } } } });
+  const act = { type: "action" }, spell = { type: "spell" };
+  assert.equal(isUseCard(card(act)), true);
+  assert.equal(isUseCard(card({ type: "feat" }, "self-effect")), true);
+  assert.equal(isUseCard(card(spell, "spell-cast", ["origin:action:slug:cast-a-spell"])), true);
+  assert.equal(isUseCard(card(spell, "spell-cast", ["origin:item:type:spell"])), false, "карточка заклинания в чат без сотворения");
+  assert.equal(isUseCard(card(act, "damage-roll")), false);
+  assert.equal(isUseCard(card({ type: "equipment" })), false);
+  assert.equal(isUseCard({ ...card(act), item: null }), false);
+  assert.equal(isUseCard({ ...card(act), actor: null }), false);
 });

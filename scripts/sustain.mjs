@@ -2,7 +2,7 @@
 // Якорь — видимый эффект «Поддержание: <заклинание>» на авторе со своим slug (sustain-<slug>), чтобы removeEffect/extendEffect по slug предмета его не задевали.
 // Шаг правила с sustain:true привязывает выданное к якорю (meta.sustainOf = ключ якоря); якорь кончается — привязанное снимается (apply.removeBound).
 // Якорь не создаётся из системного эффекта заклинания с duration.sustained (Traveling Workshop): это вторая модель срока и режим на 8 часов — волна 2.
-import { MOD, L, flagPath, queue, guardActiveGM, callGM, sluggify } from "./util.mjs";
+import { MOD, L, flagPath, queue, guardActiveGM, callGM, sluggify, sceneOfUuid } from "./util.mjs";
 import { trackerFlags, withTracker } from "./compat.mjs";
 import { itemDuration, slugOf } from "./rules.mjs";
 import { effectSource, whisper, esc, combatOf } from "./builtin/lib.mjs";
@@ -107,7 +107,7 @@ export function recipientsOf(message) {
   const use = message.flags?.[MOD]?.use ?? {}, out = new Set([message.actor]);
   const actorOf = (d) => d?.actor ?? (d?.documentName === "Actor" ? d : null);
   for (const t of use.targets ?? []) out.add(actorOf(globalThis.fromUuidSync?.(t.uuid)));
-  const scene = globalThis.fromUuidSync?.(use.state?.area?.regionUuid)?.parent;
+  const scene = globalThis.fromUuidSync?.(use.state?.area?.regionUuid)?.parent ?? sceneOfUuid(use.state?.area?.regionUuid);
   for (const k of use.state?.area?.keys ?? []) out.add(scene?.tokens?.get?.(k)?.actor);
   return [...out].filter(Boolean);
 }

@@ -5,7 +5,7 @@
 // Освободился из проглотившего (эффект-хозяин удалён) — дышит сразу: «Удушье» и «Без сознания» от него снимаются.
 // Воздух кончился: pf2e (_preUpdate эффекта) на счётчике ниже минимума (min ?? 1) удаляет эффект и отменяет обновление, поэтому updateItem со значением 0
 // не приходит. Признак — удаление эффекта со счётчиком 1, пока хозяин ещё на актёре; при Освобождении хозяин уходит вместе с ним (один пакет удаления).
-import { L, MOD, queue, degreeFromTotal } from "../util.mjs";
+import { L, MOD, queue, degreeFromTotal, afterDice } from "../util.mjs";
 import { settledDegree } from "../hold.mjs";
 import { addEffect, addCondition, effectSource, whisper, whisperDC, esc, paHas } from "./lib.mjs";
 
@@ -64,6 +64,7 @@ export async function onEndTurn(combatant) {
     let msg = null;
     const roll = await actor.saves.fortitude.check.roll({ dc: { value: dc }, token, extraRollOptions: ["suffocating"], skipDialog: true, callback: (_r, _o, m) => { msg = m; } });
     if (!roll) return;   // бросок отменён — проверка не засчитана
+    await afterDice(msg);
     const first = roll.degreeOfSuccess ?? degreeFromTotal(roll.total, dc, roll.dice?.[0]?.results?.find((r) => r.active && !r.discarded)?.result ?? null);
     // удержан ради переброса (hold.mjs) — ждём итог; очередь актёра на это время занята (до HOLD_WAIT_MS), другого пути применения нет
     const out = suffocationOutcome(await settledDegree(msg, first), n);
@@ -74,7 +75,8 @@ export async function onEndTurn(combatant) {
     if (out.dice) {
       // обычный бросок без карточки урона pf2e: урон применяется здесь же, кнопки «применить» не нужно
       const dmg = await new Roll(`${out.dice}d10`).evaluate();
-      await dmg.toMessage({ speaker: ChatMessage.getSpeaker({ actor, token }), flavor: L("builtin.suffocation.damage") });
+      const dmgMsg = await dmg.toMessage({ speaker: ChatMessage.getSpeaker({ actor, token }), flavor: L("builtin.suffocation.damage") });
+      await afterDice(dmgMsg);
       if (token) await actor.applyDamage({ damage: dmg.total, token });
     }
     await eff.increase();

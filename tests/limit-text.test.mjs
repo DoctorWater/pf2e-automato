@@ -230,8 +230,10 @@ test("M1: цели берутся из оборота «can't use X», подп�
 
 test("M1: HTML без переводов строк — исход спасброска в соседнем абзаце всё равно делает перезарядку условной", () => {
   const html = "<p>Effect text.</p><p><strong>Critical Failure</strong> The ooze can't use Slime again for [[/gmr 1d4 #Recharge Slime]]{1d4 rounds}.</p>";
-  assert.equal(rechargeFull(html), null);
-  assert.equal(rechargeFull("<p>Intro.</p><hr /><p>Критический провал: не может использовать Слизь [[/gmr 1d4 #Recharge Слизь]]{1d4 раундов}.</p>"), null);
+  assert.deepEqual(rechargeFull(html), { conditional: true, dice: "1d4", label: "Slime", cant: "Slime" });
+  assert.equal(rechargeFull("<p>Intro.</p><hr /><p>Критический провал: не может использовать Слизь [[/gmr 1d4 #Recharge Слизь]]{1d4 раундов}.</p>").conditional, true);
+  assert.equal(rechargeOf(html), null, "автозамка у условной нет");
+  assert.equal(rechargeFull("<p>Intro if x.</p><p>It can't use A again for [[/gmr 1d4 #Recharge A]]{1d4 rounds}.</p><p>If y, can't use B again for [[/gmr 1d6 #Recharge B]]{1d6 rounds}.</p>").dice, null, "разные условные сроки — срока нет");
   assert.equal(rechargeFull("<p>Intro if x.</p><p>It can't use Slime again for [[/gmr 1d4 #Recharge Slime]]{1d4 rounds}.</p>").dice, "1d4", "условие в прошлом абзаце не в счёт");
 });
 
@@ -348,4 +350,33 @@ test("reqOf: уточнения Удара — «with the X», «that hit», «h
 test("reqOf: Requirements приоритетнее Trigger, даже если Trigger стоит выше; Trigger — только без Requirements", () => {
   assert.deepEqual(reqOf("Trigger A creature leaves a square\nRequirements You have a free hand\n---\nEffect x"), { any: [{ k: "hand" }] });
   assert.equal(reqOf("Trigger You have a free hand\nRequirements You are wielding a staff\n---\nEffect x"), null);
+});
+
+/* ---------- кнопка «Перезарядка»: состояние ---------- */
+
+import { rcButtonState } from "../scripts/builtin/limit-text.mjs";
+
+test("rcButtonState: свободна — активна; идёт — wait (максимум по всем ids); вне боя и не последняя — disabled", () => {
+  const base = { ids: ["a"], flags: {}, marks: {}, fresh: false, inCombat: true, current: true, last: true, combatId: "c", round: 2 };
+  assert.deepEqual(rcButtonState(base), { disabled: false, reason: null });
+  assert.deepEqual(rcButtonState({ ...base, inCombat: false }), { disabled: true, reason: "outOfCombat" });
+  assert.equal(rcButtonState({ ...base, current: false }).reason, "notLast", "карточка не из текущего боя");
+  assert.equal(rcButtonState({ ...base, last: false }).reason, "notLast");
+  const lock = (until, c = "c") => ({ c, until });
+  assert.deepEqual(rcButtonState({ ...base, flags: { rc_a: lock(5) } }), { disabled: true, reason: "wait", left: 3, until: 5 });
+  assert.equal(rcButtonState({ ...base, flags: { rc_a: lock(2) } }).disabled, false, "срок вышел");
+  assert.equal(rcButtonState({ ...base, flags: { rc_a: lock(5, "other") } }).disabled, false, "замок другого боя");
+  const two = { ...base, ids: ["a", "b"] };
+  assert.deepEqual(rcButtonState({ ...two, flags: { rc_b: lock(4) } }), { disabled: true, reason: "wait", left: 2, until: 4 }, "замок на второй id (Feed on Fear -> Consume Light)");
+  assert.deepEqual(rcButtonState({ ...two, flags: { rc_a: lock(3), rc_b: lock(6) } }).left, 4, "максимум");
+});
+
+test("rcButtonState: одна карточка — один бросок; метка карточки — замок только в окне гонки", () => {
+  const base = { ids: ["a"], flags: {}, marks: { rc_a: { c: "c", until: 5 } }, fresh: false, inCombat: true, current: true, last: true, combatId: "c", round: 2 };
+  assert.deepEqual(rcButtonState({ ...base, flags: { rc_a: { c: "c", until: 5 } } }), { disabled: true, reason: "wait", left: 3, until: 5 });
+  assert.deepEqual(rcButtonState({ ...base, round: 7 }), { disabled: true, reason: "rolled", until: 5 }, "срок вышел, а карточка уже бросала");
+  assert.deepEqual(rcButtonState(base), { disabled: true, reason: "rolled", until: 5 }, "замок снят (крит Дыхания): метка не считается замком, карточка всё равно брошена");
+  assert.equal(rcButtonState({ ...base, fresh: true }).reason, "wait", "окно гонки: ключа на актёре ещё нет — берём метку карточки");
+  assert.equal(rcButtonState({ ...base, fresh: true, flags: { rc_a: { c: "c", until: 2 } } }).reason, "rolled", "ключ на актёре уже есть — метка не нужна");
+  assert.equal(rcButtonState({ ...base, last: false }).reason, "rolled", "старая карточка с броском — «брошено»");
 });

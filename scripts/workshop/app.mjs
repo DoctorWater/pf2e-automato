@@ -15,7 +15,7 @@ import * as im from "./item.mjs";
 import { BUILTIN } from "../builtin/index.mjs";
 import { hintsView, hintList } from "../hints.mjs";
 import { mechOf, mechToForm, formToMech, pruneMech, mechErrors, savePatch } from "../mech.mjs";
-import { detectMechs, mechRows, mechBase, liveEnv, footStatus } from "./mechanisms.mjs";
+import { detectMechs, mechRows, mechBase, canAddRecharge, liveEnv, footStatus } from "./mechanisms.mjs";
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
 const TPL = (n) => `modules/${MOD}/templates/workshop-${n}.hbs`;
 const ICONS = { bonus: "plus-minus", resist: "shield-halved", temphp: "heart", fastheal: "heart-pulse", dmg: "burst", speed: "person-running", sense: "eye", cond: "circle-exclamation", note: "note-sticky", aura: "circle-dot", light: "sun", raw: "code" };
@@ -337,6 +337,7 @@ export class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
       intoUse(_e, el) { const a = this.#au; au.resetCast(a); a.into = el.dataset.into; a.open.outcome = true; this.#redraw(); },
       intoBack() { au.resetCast(this.#au); this.#redraw(); },
       startRule() { this.#au.creating = true; this.#redraw(); },
+      addRecharge() { this.#mech.form.recharge.mode = "auto"; this.#au.open["mech.recharge"] = true; this.#redraw(); },
       removeEvent(_e, el) { this.#au.f.ev.splice(Number(el.dataset.i), 1); this.#au.sel = null; this.#redraw(); },
       addTrigger() { this.#au.f.zone.trig.push(blankTrigger()); this.#au.sel = null; this.#redraw(); },
       removeTrigger(_e, el) { this.#au.f.zone.trig.splice(Number(el.dataset.i), 1); this.#au.sel = null; this.#redraw(); },
@@ -536,7 +537,7 @@ export class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
 
   async #saveItem() {
     const a = this.#au, item = this.#item, ruleDirty = this.#ruleDirty(), mechDirty = this.#mechDirty(), v = validateRule(formToRule(a.f));
-    if ((ruleDirty && !v.ok) || mechErrors(this.#mech.form).length || !(ruleDirty || mechDirty)) return;
+    if ((ruleDirty && !v.ok) || mechErrors(this.#mech.form, mechBase(this.#dets)).length || !(ruleDirty || mechDirty)) return;
     const patch = savePatch({ ruleDirty, rule: v.rule, areaPatch: au.areaPatch(this.#areaSrc(), a.area, a.baseArea, a.f.targets), mechDirty, mech: this.#mechOut() });   // каждая часть — только если менялась
     await item.update(patch);
     ui.notifications.info(t(ruleDirty ? "sheet.saved" : "workshop.mech.saved"));
@@ -825,14 +826,15 @@ export class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
       probe = { needDc, probeDc: a.probeDc ?? "", tokens: rows2, count: tokens.length, none: mode === "none", noTokens: !tokens.length, problems: rep.problems, legend: au.COLS.map((d) => ({ deg: d, label: t(`sheet.degree.${d}`) })) };
     }
     this.#dets ??= detectMechs(item, liveEnv(item));   // до #dirty(): сравнение механизмов опирается на значения по умолчанию из dets
-    const errors = [...v.errors.map(errText), ...mechErrors(this.#mech.form).map((k) => t(k))], dirty = this.#dirty(), ruleDirty = this.#ruleDirty();
+    const errors = [...v.errors.map(errText), ...mechErrors(this.#mech.form, mechBase(this.#dets)).map((k) => t(k))], dirty = this.#dirty(), ruleDirty = this.#ruleDirty();
     const lockedFlag = !item.isOwner || !!item.compendium?.locked;
     const evParts = (r) => { try { return au.evParts(ruleToForm(r).ev[0], env); } catch { return null; } };
     const mechs = into ? [] : mechRows(this.#dets, item, liveEnv(item, { evParts, locked: lockedFlag }), this.#mech.form).map((r) => ({ ...r, open: !!a.open[`mech.${r.id}`] && r.fields.length > 0, desc: [r.draft && t("workshop.mech.unsaved"), r.custom && t("workshop.mech.custom"), r.state?.text].filter(Boolean).join(". ") }));   // desc — описание строки для скринридера (пилюли в кнопке скрыты от имени)
+    const addRecharge = !into && !lockedFlag && canAddRecharge(this.#dets, item) && !mechs.some((r) => r.id === "recharge");
     this.#live.mech = Object.fromEntries(mechs.map((r) => [r.id, r]));
     const derived = keyDerived(item, res), mechSaved = Object.keys(mechOf(item)).length > 0, mechOnly = !!mechs.length && !res && !ruleDirty && !a.creating;   // у предмета без правила работает только раздел «Работает само»
     return {
-      mechs, mechOnly, mechScope: item.actor ? t(item.actor.isToken ? "workshop.mech.scopeToken" : "workshop.mech.scopeActor", { actor: item.actor.name }) : "",
+      mechs, addRecharge, showMech: mechs.length > 0 || addRecharge, mechOnly, mechScope: item.actor ? t(item.actor.isToken ? "workshop.mech.scopeToken" : "workshop.mech.scopeActor", { actor: item.actor.name }) : "",
       mechOnlyWorld: this.#mechDirty() && !ruleDirty,
       head: {
         img: item.img, name: item.name, covered: groups.join(", "),

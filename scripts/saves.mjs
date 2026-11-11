@@ -1,5 +1,5 @@
 // Испытания: бросок, приём результата (любой saving-throw), применение по степеням. plan.md §2 saves, §3.C, §3.F.
-import { MOD, L, DEGREES, flagPath, queue, degreeFromTotal, debug, callGM, isActiveGM } from "./util.mjs";
+import { MOD, L, DEGREES, flagPath, queue, degreeFromTotal, debug, callGM, isActiveGM, afterDice, sceneOfUuid } from "./util.mjs";
 import { S, modeOf, effectiveMode } from "./settings.mjs";
 import { card } from "./card.mjs";
 import { headOf } from "./builtin/lib.mjs";
@@ -134,7 +134,7 @@ async function challengeTargetsAll(message, use) {
   }
   if (use.rule?.onUse?.targets === "area" && use.state?.area) {   // регион не ставили (цели выделены руками, спасы через Toolbelt) — снимок ниже
     const area = use.state.area;
-    const scene = (safeSync(area?.regionUuid)?.parent) ?? canvas?.scene;
+    const scene = (safeSync(area?.regionUuid)?.parent) ?? sceneOfUuid(area?.regionUuid) ?? canvas?.scene;
     return (area?.keys ?? []).map((k) => scene?.tokens.get(k)).filter(Boolean).map((t) => ({ key: t.id, token: t }));
   }
   return inRange(use.targets).map((t) => safeSync(t.uuid)).filter(Boolean).map((t) => ({ key: t.id, token: t }));
@@ -143,7 +143,7 @@ async function challengeTargetsAll(message, use) {
 const toolbeltRolls = () => S.get("useToolbeltTargetHelper") && toolbeltTargetHelper().checks;
 
 /** Все цели имеют результат либо иммунны (иммунная цель не бросает: без этого afterChallenge не дождался бы её). */
-async function allResolved(message) {
+export async function allResolved(message) {
   const targets = await challengeTargets(message), use = useOf(message), ch = challengeOf(use);
   const res = use?.state?.challenge?.results ?? {};
   const done = await Promise.all(targets.map(async (t) => !!res[t.key] || (!!ch?.immunity && await isImmune(use, t.token, ch))));
@@ -207,7 +207,8 @@ export async function runChallenge(message, { only } = {}) {
   const dc = await resolveDC(use);
   if (dc == null) { ui.notifications.warn(L("saves.dcUnknown")); return []; }
   if (!Number.isFinite(use.dc)) await message.update({ [flagPath("use", "dc")]: dc });   // вычисленная СЛ — в снимок (K7 п.7)
-  const done = [];
+  const done = [], rolled = [];
+  // бросаем всех (NPC-цели), затем ждём анимацию костей одним Promise.all и только потом пишем итоги: ожидание по одному растянуло бы область
   for (const { key, token } of await challengeTargets(message)) {
     if (only && only !== key) continue;
     const actor = token.actor;
@@ -217,10 +218,17 @@ export async function runChallenge(message, { only } = {}) {
     rolling.add(rk);
     try {
       const r = await rollSave(actor, ch, { message, tokenKey: key, token, dc, skipDialog: true, messageMode: S.get("challenge.messageMode") });
-      if (!r) { if (!only) await markTried(message.id, "rollTried", key); continue; }
+      if (!r) { if (!only) await markTried(message.id, "rollTried", key); rolling.delete(rk); continue; }
       // бросок удержан ради переброски (hold.mjs): исход пишет replay после решения (acceptSavingThrow по маркеру), иначе записали бы провал до переброса.
       // rollTried не ставим: он возвращает ГМу кнопку «Бросить» (chat.mjs), а бросок уже есть — до выпуска второй не нужен
-      if (isHeld(r.rollMessage)) continue;
+      if (isHeld(r.rollMessage)) { rolling.delete(rk); continue; }
+      rolled.push({ key, r, rk });
+    } catch (e) { console.error(`${MOD} | runChallenge ${key}`, e); if (!only) await markTried(message.id, "rollTried", key); rolling.delete(rk); }
+  }
+  await Promise.all(rolled.map((x) => afterDice(x.r.rollMessage)));
+  for (const { key, r, rk } of rolled) {
+    try {
+      if (!game.messages.get(message.id)) break;   // карточку удалили (переброс Очком героя), пока ждали кости
       await recordResult(message.id, key, { degree: r.degree, total: r.total, by: game.user.id, rollMessageId: r.rollMessage?.id ?? null, src: "own" });
       done.push(key);
     } catch (e) { console.error(`${MOD} | runChallenge ${key}`, e); if (!only) await markTried(message.id, "rollTried", key); }
@@ -269,6 +277,7 @@ export async function acceptSavingThrow(message) {
  * Результат Toolbelt: хук {data:{success,value}, message, roll, target(TokenDocument)}. Любой клиент: активный ГМ пишет сам,
  * остальные — через сокет recordToolbeltSave (права: владелец актёра цели).
  */
+// ponytail: анимацию костей Toolbelt (dice3d.animateRoll без сообщения, createMessage:false) не ждём: хук не отдаёт ни id сообщения, ни промис анимации; итог пишется сразу, Toolbelt сам откладывает показ результата в строке (awaits)
 export async function acceptToolbeltSave({ data, message, roll, target, isReroll = false }) {
   const use = useOf(message);
   if (!challengeOf(use) || use.state?.yielded || !target?.id) return null;
@@ -338,6 +347,7 @@ export async function recordResult(messageId, tokenKey, result) {
 }
 
 async function afterRecord(messageId, tokenKey, changed = false) {
+  if (!game.messages.get(messageId)) return;   // карточку удалили, пока ждали анимацию костей
   // урон по итогам basic-спасброска: поздний результат или переброс (в button наносит только кнопка)
   try { await (await import("./builtin/basic-damage.mjs")).onResult(messageId); } catch (e) { console.error(`${MOD} | basic-damage`, e); }
   if (changed) return;   // переброс после применения по степеням: шаги не повторяем
@@ -358,6 +368,7 @@ async function afterRecord(messageId, tokenKey, changed = false) {
     }
     if (!batch && await allResolved(message)) await afterChallenge(message);
   } catch (e) { console.error(`${MOD} | afterRecord`, e); }
+  if (!deferred) await (await import("./area-cleanup.mjs")).settleArea(messageId, { flow: true }).catch((e) => debug("area", e));   // мгновенная область: всё применено — шаблон убирается
   if (effectiveMode("apply", useOf(game.messages.get(messageId))) !== "auto") return;
   // пакет закрыл всех бросивших; в ожидании «попытки» нет — кнопка «Применить» у них и так есть (chat.mjs)
   if (batch) for (const k of Object.keys(useOf(game.messages.get(messageId))?.state?.challenge?.results ?? {})) await markTried(messageId, "autoTried", k);

@@ -163,7 +163,7 @@
 <datalist id="ws-skills">{{#each skills}}<option value="{{this}}"></option>{{/each}}</datalist>
 {{#if doubleWarn}}<p class="ws-warn">{{doubleWarn}}</p>{{/if}}
 {{#if into}}<div class="ws-adds"><button type="button" class="ws-btn ws-btn-g" data-action="intoBack" name="intoBack">{{into.back}}</button><span class="ws-lbl ws-accent">{{into.title}}</span></div>{{/if}}
-{{#if mechs.length}}
+{{#if showMech}}
 <section class="ws-sec">
 <h2 class="ws-h">{{localize "PF2E_AUTOMATO.workshop.mech.title"}}</h2>
 {{#if mechScope}}<p class="ws-note ws-scope">{{mechScope}}</p>{{/if}}
@@ -182,6 +182,7 @@
   </div>
   {{/each}}
 </div>
+{{#if addRecharge}}<div class="ws-adds"><button type="button" class="ws-add" data-action="addRecharge" name="addRecharge"><i class="fa-solid fa-plus" inert></i> {{localize "PF2E_AUTOMATO.workshop.mech.addRecharge"}}</button></div>{{/if}}
 </section>
 {{/if}}
 <section class="ws-sec">

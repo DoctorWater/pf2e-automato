@@ -1,7 +1,7 @@
 // 0.5g3: onEvent — правило на предмете актёра (черта, эффект, снаряжение) срабатывает по событию: бросок, урон, ход, эффект, сотворение. plan.md §1.1b.
 // Исполняет только активный ГМ. Шаги идут через apply.applyOps на сообщении-двойнике (в чат не пишется): снимок use и запись ops живут в нём,
 // а в самом сообщении события — только свой флаг `events` (журнал для переброса). Испытание (challenge) получает свою карточку со снимком use — дальше всё как у onUse.
-import { MOD, L, DEGREES, flagPath, guardActiveGM, queue, debug } from "./util.mjs";
+import { MOD, L, DEGREES, flagPath, guardActiveGM, queue, debug, afterDice } from "./util.mjs";
 import { modeOf, rev } from "./settings.mjs";
 import * as compat from "./compat.mjs";
 import * as rules from "./rules.mjs";
@@ -702,6 +702,10 @@ export async function onMessage(message) {
   if (!on || applied?.isReverted || (on === "damage-taken" && (!applied || applied.isHealing))) return bail();   // без appliedDamage (лечение при полных ОЗ, полная невосприимчивость) урона не было   // откат урона и лечение — не «получен урон» (у PA лечение — отдельный healing-taken)
   const mk = parseMarker(message.flags.pf2e.context?.options);
   if (mk && game.messages.get(mk.messageId)?.flags?.[MOD]?.use?.state?.event) return bail();   // бросок по карточке испытания события
+  if (message.rolls?.length) {
+    await afterDice(message);   // записи по броску — после анимации костей
+    if (!game.messages.get(message.id)) return bail();   // удалено (переброс), пока ждали
+  }
   const p = await messageParties(message);
   if (!p.actor) return bail();
   if (on === "spell-cast") await Promise.resolve(sustain.onCast(message)).catch((e) => console.error(`${MOD} | sustain anchor`, e));   // якорь любого поддерживаемого заклинания; у шага sustain:true и наговора тот же ключ — не двоится

@@ -1,5 +1,5 @@
 // Макросы правил (plan.md §1.1 «Контракт макросов»). Исполняет только активный ГМ.
-import { MOD, L, DEGREES, flagPath, queue, socket, isActiveGM } from "./util.mjs";
+import { MOD, L, DEGREES, flagPath, queue, socket, isActiveGM, sceneOfUuid } from "./util.mjs";
 import { modeOf } from "./settings.mjs";
 import { inRange } from "./range.mjs";
 import { BUILTIN, initBuiltinHooks } from "./builtin/index.mjs";
@@ -15,7 +15,7 @@ const safeSync = (uuid) => { try { return uuid ? fromUuidSync(uuid) : null; } ca
 function targetsOf(use) {
   const area = use?.state?.area;
   if (area?.keys?.length) {
-    const scene = safeSync(area.regionUuid)?.parent;
+    const scene = safeSync(area.regionUuid)?.parent ?? sceneOfUuid(area.regionUuid);
     if (scene) return area.keys.map((k) => scene.tokens.get(k)).filter(Boolean);
   }
   return inRange(use?.targets).map((t) => safeSync(t.uuid)).filter(Boolean);

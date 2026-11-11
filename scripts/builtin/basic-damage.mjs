@@ -3,7 +3,7 @@
 // Связь «урон — карточка» живёт во флагах: на карточке use.state.basicDamage = {msg}, на сообщении урона flags.<MOD>.basicDamage = {card, done}.
 // Нанесение — по образцу pf2e applyDamageFromMessage, но по токенам карточки; откат штатной кнопкой pf2e (маркер в rollOptions) снимает отметку.
 // plans/plan-basic-damage.md, раздел «v2».
-import { L, MOD, DEGREES, queue, flagPath, isActiveGM, callGM } from "../util.mjs";
+import { L, MOD, DEGREES, queue, flagPath, isActiveGM, callGM, afterDice } from "../util.mjs";
 import { modeOf, effectiveMode } from "../settings.mjs";
 import { esc, headOf, card, combatOf } from "./lib.mjs";
 import { EXTERNAL } from "../compat.mjs";
@@ -209,6 +209,7 @@ export async function onResult(cardId) {
 export const settle = (dmgId, opts = {}) => queue(`basic:${dmgId}`, () => run(dmgId, opts));
 
 async function run(dmgId, { manual = false, redo = false } = {}) {
+  if (!manual) { await afterDice(dmgId); if (!game.messages.get(dmgId)) return { ok: false, reason: "no-link" }; }   // урон наносится после анимации костей; флаги читаем уже после ожидания
   const dmg = game.messages.get(dmgId), link = linkOf(dmg);
   if (!isActiveGM() || !link || modeOf("apply") === "off") return { ok: false, reason: "no-link" };
   const { useOf, challengeTargets } = await import("../saves.mjs");
@@ -321,10 +322,65 @@ export function onCardUpdate(message) {
   if (dmg && game.user?.isGM) ui.chat.updateMessage(dmg);
 }
 
+/**
+ * Блокировка кнопок: есть ли по цели (token id; troop — её отряд) действующая запись нанесения (не skipped и не reverted).
+ * Отряд: pf2e наносит по отряду один раз (applyDamageFromMessage группирует по troop.id), поэтому запись соседа по отряду закрывает и эту цель.
+ * -> { undo } | null; undo — есть что откатывать (×0 и нанесение без damage-taken откатывать нечего: другая подсказка).
+ */
+export function lockFor(link, key, troop = null) {
+  const act = (e) => !!e && !e.skipped && !e.reverted, done = link?.done ?? {};
+  const e = act(done[key]) ? done[key] : (troop ? Object.values(done).find((x) => act(x) && x.troop === troop) : null);
+  return e ? { undo: e.mult > 0 && !!e.taken } : null;
+}
+/** id токена из data-target-uuid строки Toolbelt («Scene.X.Token.<id>»). */
+export const keyOfUuid = (uuid) => String(uuid ?? "").split(".").pop();
+/** dealTo наносит rolls[0]: блокируем только основной бросок (data-target-roll-index / data-roll-index отсутствует или 0), отдельный бросок (сплеш) не трогаем. */
+export const isMainRoll = (idx) => (Number(idx) || 0) === 0;
+const TB_BTN = "[data-action=target-applyDamage],[data-action=target-shieldBlock]", SYS_BTN = "[data-action=applyDamage],[data-action=shieldBlock]";
+const troopOf = (t) => t?.flags?.pf2e?.troop?.id ?? null;
+
+/**
+ * Кнопки Урон/Половина/Двойной/Блок строки цели Toolbelt (и кнопки pf2e на токены игрока, как applyDamageFromMessage) недоступны там, где урон нанёс модуль: иначе двойной урон.
+ * Клик гасится перехватом в фазе захвата на корне сообщения (живое чтение флага: порядок рендера с Toolbelt не важен); ГМ с Alt проходит (§1.1).
+ * Вид — aria-disabled, MutationObserver доводит строки, которые Toolbelt дорисовывает после нас. Откат pf2e снимает отметку (reverted) -> сообщение перерисовывается.
+ */
+function guardButtons(message, root) {
+  const link = () => linkOf(game.messages.get(message.id) ?? message), text = (lock) => L(lock.undo ? "builtin.basicDamage.locked" : "builtin.basicDamage.lockedNoUndo");
+  const rowLock = (row) => isMainRoll(row.dataset.targetRollIndex) ? lockFor(link(), keyOfUuid(row.dataset.targetUuid), troopOf(globalThis.fromUuidSync?.(row.dataset.targetUuid))) : null;
+  const mark = () => {
+    for (const row of root.querySelectorAll("section.damage-application[data-target-uuid]")) {
+      const lock = rowLock(row);
+      for (const b of row.querySelectorAll(TB_BTN)) {
+        if (lock) { b.dataset.afTitle ??= b.title ?? ""; b.title = text(lock); b.setAttribute("aria-disabled", "true"); b.classList.add("paf-locked"); }
+        else if (b.classList.contains("paf-locked")) { b.title = b.dataset.afTitle ?? ""; b.removeAttribute("aria-disabled"); b.classList.remove("paf-locked"); }
+      }
+    }
+  };
+  root.addEventListener("click", (e) => {
+    const b = e.target?.closest?.("[data-action]");
+    if (!b || (e.altKey && game.user?.isGM)) return;
+    let lock = null;
+    if (b.matches(TB_BTN)) { const row = b.closest("[data-target-uuid]"); lock = row && rowLock(row); }
+    else if (b.matches(SYS_BTN) && isMainRoll(b.closest("[data-roll-index]")?.dataset.rollIndex)) {
+      const toks = root.dataset?.actorIsTarget && message.token ? [message.token] : (game.user?.getActiveTokens?.() ?? []);   // как pf2e applyDamageFromMessage
+      for (const t of toks) { const d = t.document ?? t; lock ??= lockFor(link(), d.id, troopOf(d)); }
+    }
+    if (!lock) return;
+    e.preventDefault(); e.stopImmediatePropagation();
+    ui.notifications.info(text(lock));
+  }, true);
+  mark();
+  const mo = new MutationObserver(mark);
+  mo.observe(root, { childList: true, subtree: true });
+  setTimeout(() => mo.disconnect(), 5000);   // ponytail: Toolbelt дорисовывает строки сразу после рендера; потолок — 5 с, позднее довод — перерисовка сообщения
+}
+
 /** renderChatMessageHTML: ГМу на карточке урона — строки нанесённого и кнопки «Нанести» / «Пересчитать». */
 export async function bind(message, html) {
   const link = linkOf(message), root = html instanceof HTMLElement ? html : html?.[0];
-  if (!link || !root || !game.user?.isGM) return;
+  if (!link || !root) return;
+  guardButtons(message, root);   // у всех пользователей: игрок может нажать у своего токена
+  if (!game.user?.isGM) return;
   const cardMsg = game.messages.get(link.card), use = cardMsg?.flags?.[MOD]?.use, mode = modeOf("apply");
   const { challengeTargets } = await import("../saves.mjs");
   const keys = cardMsg ? (await challengeTargets(cardMsg)).map((t) => t.key) : [];   // те же цели, что у run

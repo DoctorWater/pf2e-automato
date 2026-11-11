@@ -23,23 +23,26 @@ const conditionalBefore = ({ para, last }) => DEGREE_HEAD.test(para) || COND_WOR
 // «can't use A or B (again) for [[…]]», «can't Breathe Fire again», «не может использовать A …»: чья перезарядка, как её называет само предложение
 const CANT = /(?:can(?:not|['’]t)|не\s+может)\s+(?:use\s+|enter\s+|использовать\s+)?(.+?)\s*(?:\bagain\b|\bfor\b|(?<![а-яё])(?:снова|повторно|ещё\s+раз|в\s+течение|на)(?![а-яё])|$)/i;
 
-/** Чистая: описание (HTML/markup) -> {dice, label} | null. Только срок в раундах (минуты, «в начале каждого хода бросает» — null); два разных броска и условный бросок — null.
+/** Чистая: описание (HTML/markup) -> {dice, label, cant} | null. Только срок в раундах (минуты, «в начале каждого хода бросает» — null); два разных безусловных броска — null.
+ *  Условный бросок (в абзаце исхода, «if/when») — {conditional: true, dice, label, cant}; dice null, если условные броски разные.
  *  label — подпись броска без «Recharge» («Consume Light», «Corrosive Breath or Double Breath»): чья это перезарядка;
  *  cant — то, что предложение с броском запрещает («Consume Light», «it»): надёжнее подписи (опечатки, «Breath Weapon»). */
 export function rechargeFull(text) {
   const found = new Map(), src = String(text ?? "");
+  let cond = false;
   for (const m of src.matchAll(ROLL)) {
     if (!(ROUNDS_IN.test(m[3] ?? "") || ROUNDS.test(m[4] ?? ""))) continue;
     const sent = lastSentence(src.slice(0, m.index));
-    if (conditionalBefore(sent)) return null;
+    if (conditionalBefore(sent)) cond = true;
     const dice = m[1].replace(/\s+/g, "");
     if (!found.has(dice)) found.set(dice, { label: m[2].replace(LABEL_HEAD, "").trim(), cant: CANT.exec(sent.last)?.[1]?.trim() ?? "" });
   }
   const [[dice, v] = []] = found;
+  if (cond) return found.size ? { conditional: true, dice: found.size === 1 && parseDice(dice) ? dice : null, ...(found.size === 1 ? v : { label: "", cant: "" }) } : null;
   return found.size === 1 && parseDice(dice) ? { dice, ...v } : null;
 }
-/** Чистая: как rechargeFull, но только срок. */
-export const rechargeOf = (text) => { const r = rechargeFull(text); return r && { dice: r.dice }; };
+/** Чистая: как rechargeFull, но только срок безусловной перезарядки (условная — null: автозамка у неё нет, ложный блок хуже пропуска). */
+export const rechargeOf = (text) => { const r = rechargeFull(text); return r && !r.conditional ? { dice: r.dice } : null; };
 
 // без скобок «(Ghost) …», артиклей и знаков: «Inhabit an Object» = «(Ghost) Inhabit Object»
 const normName = (s) => String(s ?? "").toLowerCase().replace(/\([^)]*\)/g, " ").replace(/(?<![\p{L}\p{N}])(?:a|an|the)(?![\p{L}\p{N}])/gu, " ").replace(/[^\p{L}\p{N}]+/gu, "");
@@ -93,6 +96,24 @@ export function rollData(dice, r, mod) {
 
 /** Чистая: перезарядка ещё идёт (замок rc_* с флага; тот же бой, раунд меньше срока). */
 export const rechargeLeft = (lock, combatId, round) => (lock && lock.c === combatId && Number.isFinite(round) && round < lock.until ? lock.until - round : 0);
+
+/**
+ * Чистая: состояние кнопки «Перезарядка» карточки использования -> {disabled, reason: "outOfCombat"|"notLast"|"rolled"|"wait"|null, left, until}.
+ * ids — предметы актёра, на которые ляжет замок (свободны должны быть все: максимум по ним); flags — флаги актёра; marks — limitMarks карточки;
+ * fresh — окно гонки (карточка только создана): метка карточки заменяет ещё не записанный замок актёра; current — карточка из текущего боя;
+ * last — последняя карточка использования этого предмета. Одна карточка — один бросок: метка rc_* на карточке гасит кнопку насовсем.
+ */
+export function rcButtonState({ ids, flags, marks, fresh, inCombat, current, last, combatId, round }) {
+  if (!inCombat) return { disabled: true, reason: "outOfCombat" };
+  if (!current) return { disabled: true, reason: "notLast" };
+  const mk = Object.entries(marks ?? {}).filter(([k]) => k.startsWith("rc_")), locks = { ...flags };
+  if (fresh) for (const [k, v] of mk) locks[k] ??= v;
+  let left = 0, until = 0;
+  for (const id of ids) { const l = locks[`rc_${id}`], n = rechargeLeft(l, combatId, round); if (n > left) { left = n; until = l.until; } }
+  if (mk.length) return left ? { disabled: true, reason: "wait", left, until } : { disabled: true, reason: "rolled", until: Math.max(...mk.map(([, v]) => v?.until ?? 0)) };
+  if (!last) return { disabled: true, reason: "notLast" };
+  return left ? { disabled: true, reason: "wait", left, until } : { disabled: false, reason: null };
+}
 
 /** Дыхание: черта breath или slug/имя с breath (у NPC черта есть не везде). */
 export const isBreath = (traits, slug) => (traits ?? []).includes("breath") || /breath/i.test(slug ?? "");

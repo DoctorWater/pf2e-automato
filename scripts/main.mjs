@@ -4,6 +4,7 @@ import * as compat from "./compat.mjs";
 import * as rules from "./rules.mjs";
 import * as apply from "./apply.mjs";
 import * as zone from "./zone.mjs";
+import * as areaCleanup from "./area-cleanup.mjs";
 import * as height from "./height.mjs";
 import * as use from "./use.mjs";
 import * as saves from "./saves.mjs";
@@ -24,6 +25,7 @@ import * as failed from "./builtin/failed.mjs";
 import * as hud from "./hud.mjs";
 import * as damageGate from "./damage-gate.mjs";
 import * as damageButton from "./damage-button.mjs";
+import * as rechargeButton from "./recharge-button.mjs";
 import * as turnConditions from "./turn-conditions.mjs";
 import * as escape from "./escape.mjs";
 import * as events from "./events.mjs";
@@ -139,7 +141,7 @@ Hooks.once("socketlib.ready", () => {
 Hooks.once("setup", () => leader.start());
 
 Hooks.once("init", () => {
-  settings.init(); compat.init(); zone.init(); height.init(); saves.init(); use.init(); actions.init(); chat.init(); reactions.init(); sheet.init(); badge.init(); vision.init(); invis.init(); workshop.init(); hud.init(); damageGate.init(); damageButton.init(); turnConditions.init(); escape.init(); events.init(); sustain.init(); cast.init(); migrateActivate.init(); affliction.init(); summon.init(); initNexus();
+  settings.init(); compat.init(); zone.init(); areaCleanup.init(); height.init(); saves.init(); use.init(); actions.init(); chat.init(); reactions.init(); sheet.init(); badge.init(); vision.init(); invis.init(); workshop.init(); hud.init(); damageGate.init(); damageButton.init(); rechargeButton.init(); turnConditions.init(); escape.init(); events.init(); sustain.init(); cast.init(); migrateActivate.init(); affliction.init(); summon.init(); initNexus();
   game.modules.get(MOD).api = {
     // контракт plan.md §2 main
     attachZone: zone.attachZone, sweepZone: zone.sweepZone, closeZone: zone.closeZone, expireZones: zone.expireZones,
@@ -163,7 +165,7 @@ Hooks.once("ready", async () => {
   // При каждом переходе в лидеры (первый — после ready, потом — когда прежний лидер закрыт/перезагружен): подхватить его работу.
   leader.onLead(async () => {
     if (!guardActiveGM()) return;
-    for (const step of [() => zone.reconcileZones(), () => use.resumePending({ maxAgeMinutes: S.get("resumeMinutes") }), () => affliction.sweep(), () => sustain.sweep(game.combat), () => failed.sweep()]) {
+    for (const step of [() => zone.reconcileZones(), () => areaCleanup.sweepAreas(), () => use.resumePending({ maxAgeMinutes: S.get("resumeMinutes") }), () => affliction.sweep(), () => sustain.sweep(game.combat), () => failed.sweep()]) {
       try { await step(); }
       catch (e) { if (String(e?.message).startsWith("not implemented")) debug(e.message); else console.error(`${MOD} | ready`, e); }   // пока куски не готовы — заглушки
     }

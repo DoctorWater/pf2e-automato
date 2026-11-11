@@ -132,24 +132,24 @@
    - шаг: залит бордовым, во всю строку от 36px — только явный список ниже (одна кнопка в один момент, CLAUDE.md §3.2);
    - отмена: ссылка.
    Порядок правил важен: вариант -> размер -> шаг; веса селекторов внутри каждой группы одинаковые. Вкладка листа (.tab.automato) и окна (.paf-dialog) не задеты. */
-.chat-message :is(.pf2e-automato, .paf-damage-box, .paf-area-box, .paf-card-actions) button,
+.chat-message :is(.pf2e-automato, .paf-damage-box, .paf-area-box, .paf-recharge-box, .paf-card-actions) button,
 .chat-message .chat-card button:is([data-action=spell-variant], [data-action=spell-template], [data-action=spell-save], [data-action^=spell-attack], [data-action=spell-damage], [data-action=spell-counteract]) {
   display: inline-flex; align-items: center; justify-content: center; gap: 6px; width: auto; height: 28px; min-height: 0; margin: 0; padding: 0 10px;
   font: 600 13px/1.2 Roboto, system-ui, sans-serif; text-align: center; white-space: nowrap; text-transform: none;
   color: #5e0000; background: #fffdf9; border: 1px solid #5e0000; border-radius: 3px; box-shadow: none; cursor: pointer;
   transition: background-color .15s, border-color .15s;
 }
-.chat-message :is(.pf2e-automato, .paf-damage-box, .paf-area-box, .paf-card-actions) button i { font-size: 13px; }
-.chat-message :is(.pf2e-automato, .paf-damage-box, .paf-area-box, .paf-card-actions) button:hover:not(:disabled),
+.chat-message :is(.pf2e-automato, .paf-damage-box, .paf-area-box, .paf-recharge-box, .paf-card-actions) button i { font-size: 13px; }
+.chat-message :is(.pf2e-automato, .paf-damage-box, .paf-area-box, .paf-recharge-box, .paf-card-actions) button:hover:not(:disabled, [aria-disabled="true"]),
 .chat-message .chat-card button:is([data-action=spell-variant], [data-action^=spell-attack-]):hover:not(:disabled) { color: #5e0000; background: #f3e6e1; border-color: #7a1414; box-shadow: none; }
-.chat-message :is(.pf2e-automato, .paf-damage-box, .paf-area-box, .paf-card-actions) button:focus-visible,
+.chat-message :is(.pf2e-automato, .paf-damage-box, .paf-area-box, .paf-recharge-box, .paf-card-actions) button:focus-visible,
 .chat-message .chat-card button[data-action^=spell-]:focus-visible { outline: 2px solid #171f69; outline-offset: 2px; }
-.chat-message :is(.pf2e-automato, .paf-damage-box, .paf-area-box, .paf-card-actions) button:disabled { opacity: .5; cursor: not-allowed; }
+.chat-message :is(.pf2e-automato, .paf-damage-box, .paf-area-box, .paf-recharge-box, .paf-card-actions) button:disabled { opacity: .5; cursor: not-allowed; }
 /* скрытая кнопка шага остаётся скрытой при display:flex выше */
-.chat-message :is(.pf2e-automato, .paf-damage-box, .paf-area-box, .paf-card-actions, .chat-card) [hidden] { display: none !important; }
+.chat-message :is(.pf2e-automato, .paf-damage-box, .paf-area-box, .paf-recharge-box, .paf-card-actions, .chat-card) [hidden] { display: none !important; }
 
 /* размер: кнопки-действия — во всю строку, от 36px, длинная подпись переносится; кнопки строк целей и «Ввести СЛ» остаются 28px */
-.chat-message :is(.paf-damage-box, .paf-area-box, .paf-bd-actions, .paf-card-actions, .paf-bulk, .paf-note, .spell-button) > button,
+.chat-message :is(.paf-damage-box, .paf-area-box, .paf-recharge-box, .paf-bd-actions, .paf-card-actions, .paf-bulk, .paf-note, .spell-button) > button,
 .chat-message .chat-card button:is([data-action=spell-variant], [data-action=spell-template], [data-action=spell-save], [data-action=spell-damage], [data-action=spell-counteract]) {
   display: flex; width: 100%; min-height: 36px; height: auto; padding: 6px 10px; white-space: normal;
 }
@@ -157,7 +157,7 @@
 .chat-message .chat-card button:is([data-action=spell-variant], [data-action=spell-template], [data-action=spell-save], [data-action=spell-damage], [data-action=spell-counteract]) { margin: 0 0 6px; }
 .chat-message .chat-card .spell-attack-buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 0 6px; }   /* «Атака» — шаг во всю строку, две со штрафом — пополам под ней */
 .chat-message .chat-card .spell-attack-buttons button { width: 100%; min-height: 36px; margin: 0 0 6px; }
-.chat-message :is(.paf-damage-box, .paf-area-box, .pf2e-automato .paf-bulk) { display: grid; grid-template-columns: repeat(auto-fit, minmax(7.5em, 1fr)); gap: 6px; margin-top: 8px; }
+.chat-message :is(.paf-damage-box, .paf-area-box, .paf-recharge-box, .pf2e-automato .paf-bulk) { display: grid; grid-template-columns: repeat(auto-fit, minmax(7.5em, 1fr)); gap: 6px; margin-top: 8px; }
 .chat-message .pf2e-automato .paf-bulk > :is(.paf-pending, button:not(.paf-ghost)) { grid-column: 1 / -1; }
 .chat-message .pf2e-automato > .spell-button { margin-top: 8px; }
 .chat-message .pf2e-automato .paf-head button { margin-left: 6px; }
@@ -187,3 +187,6 @@
 .chat-message .pf2e-automato button.paf-ghost { width: auto; height: auto; min-height: 0; padding: 0 4px; font-weight: 400; color: #5b5048; background: transparent; border-color: transparent; }
 .chat-message .pf2e-automato button.paf-ghost:hover:not(:disabled) { color: #2a2420; background: transparent; border-color: transparent; text-decoration: underline; }
 .chat-message .pf2e-automato .paf-bulk > button.paf-ghost { justify-self: center; }
+.chat-message .paf-rc-off { opacity: .6; cursor: help; text-decoration: line-through; }
+.chat-message .paf-recharge[aria-disabled=true] { opacity: .5; cursor: not-allowed; }
+.chat-message button.paf-locked[aria-disabled=true] { opacity: .45; cursor: not-allowed; }

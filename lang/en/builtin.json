@@ -89,6 +89,17 @@
         "reaction": "{name}: your reaction is already spent this round. Alt-click to use anyway.",
         "recharge": "{name}: recharging — {n} more (until round {until}). Alt-click to use anyway.",
         "rechargeRoll": "{name}: recharge {dice} → {n}; available again from round {until}",
+        "rcButton": "Recharge {dice}",
+        "rcWait": {
+          "one": "Recharging: {n} more round (until round {until})",
+          "few": "Recharging: {n} more rounds (until round {until})",
+          "many": "Recharging: {n} more rounds (until round {until})",
+          "other": "Recharging: {n} more rounds (until round {until})"
+        },
+        "rcRolled": "Recharge already rolled: until round {until}",
+        "rcOutOfCombat": "Recharge is counted in combat only",
+        "rcNotLast": "The button works only on the latest use card in the current combat",
+        "rcFailed": "Could not save the recharge: no lock was set",
         "req": "{name}: requirement not met — {need}. Alt-click to use anyway.",
         "or": " or ",
         "needStrike": "your last action must be a successful Strike",
@@ -175,6 +186,8 @@
       },
       "basicDamage": {
         "line": "Dealt: {name} {mult}",
+        "locked": "Damage was already applied by the module; to undo, use the ↺ button on the damage-taken message. GM: Alt to bypass.",
+        "lockedNoUndo": "Damage to this target was already handled by the module (×0, nothing to undo). GM: Alt to bypass.",
         "reverted": "Reverted: {name}",
         "skipped": "Skipped (already applied): {name}",
         "apply": "Apply damage by save results",

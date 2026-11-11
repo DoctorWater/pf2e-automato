@@ -226,7 +226,7 @@ export class ZoneBehaviorType extends foundry.data.regionBehaviors.RegionBehavio
 
 const deleting = new Set();
 /** Удалить регион ровно один раз: параллельные expire/close/ручное удаление не дают «does not exist». */
-async function deleteRegionOnce(region, status = "expired") {
+export async function deleteRegionOnce(region, status = "expired") {
   if (deleting.has(region.id) || !region.parent?.regions.has(region.id)) return false;
   deleting.add(region.id);
   try {

@@ -122,3 +122,30 @@ test("кнопка по целям run: результат вне challengeTarge
   const results = { a: { degree: 1 }, ghost: { degree: 1 } };
   assert.deepEqual(bd.planBasicDamage(results, ["a"], {}, { manual: true }).fresh.map((x) => x.key), ["a"]);
 });
+
+test("lockFor: кнопки закрыты у целей с нанесённым уроном, открыты у пропущенных и откатанных; ×0 и без damage-taken — undo:false", () => {
+  const link = { done: { a: { mult: 1, taken: "m1" }, b: { skipped: true, mult: 1 }, c: { reverted: true, mult: 1, taken: "m2" }, d: { mult: 0 }, e: { mult: 1, taken: null } } };
+  assert.deepEqual(bd.lockFor(link, "a"), { undo: true });
+  assert.equal(bd.lockFor(link, "b"), null);
+  assert.equal(bd.lockFor(link, "c"), null);
+  assert.deepEqual(bd.lockFor(link, "d"), { undo: false });
+  assert.deepEqual(bd.lockFor(link, "e"), { undo: false });
+  assert.equal(bd.lockFor(link, "zz"), null);
+  assert.equal(bd.lockFor(null, "a"), null);
+  assert.equal(bd.keyOfUuid("Scene.S1.Token.tok9"), "tok9");
+});
+
+test("lockFor: отряд — запись соседа закрывает цель, откат соседа открывает", () => {
+  const link = { done: { a: { mult: 1, taken: "m1", troop: "T" }, b: { skipped: true, mult: 1, troop: "T" } } };
+  assert.deepEqual(bd.lockFor(link, "b", "T"), { undo: true });
+  assert.equal(bd.lockFor(link, "b", "X"), null);
+  assert.equal(bd.lockFor(link, "b", null), null);
+  link.done.a.reverted = true;
+  assert.equal(bd.lockFor(link, "b", "T"), null);
+});
+
+test("isMainRoll: блокировка только основного броска (rolls[0])", () => {
+  assert.equal(bd.isMainRoll(undefined), true);
+  assert.equal(bd.isMainRoll("0"), true);
+  assert.equal(bd.isMainRoll("1"), false);
+});

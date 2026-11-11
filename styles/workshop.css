@@ -129,6 +129,7 @@
 .pf2e-automato-workshop .ws-psum[aria-expanded="true"] .ws-chev { transform: rotate(180deg); }
 .pf2e-automato-workshop .ws-pfields { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 14px 20px; padding: 0 14px 16px 0; }
 .pf2e-automato-workshop .ws-pfields > .ws-grow { flex: 1 1 260px; }
+.pf2e-automato-workshop .ws-mech .ws-pfields { align-items: flex-start; }   /* строки встроенной автоматизации: поле с подсказкой снизу не опускает соседние */
 .pf2e-automato-workshop .ws-full { flex: 1 1 100%; min-width: 0; }
 .pf2e-automato-workshop .ws-areanote { display: flex; align-items: center; gap: 8px; font-size: 12px; line-height: 1.45; color: #5b5048; }
 .pf2e-automato-workshop .ws-areanote i { flex: none; }

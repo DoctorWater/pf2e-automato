@@ -143,6 +143,8 @@ async () => {
   };
   // переключатель «Работает ⇄ Выключено в предмете»: нативный чекбокс role=switch; включён = работает, поэтому «выключить» — снять
   const setOff = (id, off) => setCheck(`mech.${id}.off`, !off);
+  // перезарядка: сегмент режима «Как в тексте / Нет / После использования / По кнопке» (кнопки name="mech.recharge.mode-<v>")
+  const pickRc = async (v) => { const b = root()?.querySelector(`[name="mech.recharge.mode-${v}"]`); if (!b) throw new Error(`нет кнопки режима ${v}`); b.click(); await wait(500); };
   const clickBtn = async (name, ms = 500) => {
     const el = root()?.querySelector(`[name="${name}"]`);
     if (!el || el.disabled) throw new Error(`кнопка ${name} ${el ? "недоступна" : "не найдена"}`);
@@ -175,22 +177,21 @@ async () => {
     t.ok(!!row("recharge"), "строка «Перезарядка»");
     t.ok(pillOf("recharge") === "", `пилюли нет, пока работает (${pillOf("recharge")})`);
     await openRow("recharge");
-    const sw = root().querySelector('input[name="mech.recharge.off"]');
-    t.ok(!!root().querySelector('input[name="mech.recharge.dice"]') && sw?.getAttribute("role") === "switch" && sw.checked, "поля: переключатель «Работает» (включён) и срок");
+    const segDef = root().querySelector('[name="mech.recharge.mode-default"]');
+    t.ok(!!root().querySelector('input[name="mech.recharge.dice"]') && segDef?.getAttribute("aria-pressed") === "true" && !!root().querySelector('[name="mech.recharge.mode-off"]') && !!root().querySelector('[name="mech.recharge.mode-button"]'), "поля: сегмент режима («Как в тексте» выбран) и срок");
     t.ok(!root().querySelector('.ws-mech input[type="checkbox"]:not([role="switch"])'), "флажков-отрицаний в разделе нет");
-    t.ok(/Работает|Works/.test(root().querySelector(".ws-mech .ws-sw-t")?.textContent ?? ""), "подпись переключателя: «Работает»");
-    t.ok(/Работает|Works/.test(sw?.getAttribute("aria-label") ?? "") && !row("recharge").querySelector("button.ws-psum .ws-pill:not([aria-hidden])"), "имя переключателя постоянное; пилюли кнопки строки скрыты от скринридера");
-    t.ok(sw?.getAttribute("aria-describedby") === null || !!document.getElementById(sw.getAttribute("aria-describedby")), "aria-describedby переключателя указывает на существующий узел");
+    t.ok(!row("recharge").querySelector("button.ws-psum .ws-pill:not([aria-hidden])"), "пилюли кнопки строки скрыты от скринридера");
     t.ok(!!document.getElementById("ws-tip-recharge")?.textContent.trim() && row("recharge").querySelector(".ws-pchip")?.getAttribute("aria-describedby") === "ws-tip-recharge", "подсказка источника доступна без мыши (aria-describedby)");
+    await pickRc("auto");   // свой срок — режим «После использования»
     const dice = root().querySelector('input[name="mech.recharge.dice"]');
     dice.value = "1к6"; dice.dispatchEvent(new Event("input", { bubbles: true })); dice.dispatchEvent(new Event("change", { bubbles: true }));
     await wait(700);
     t.ok(/1d6/.test(sumOf("recharge")) && !!row("recharge").querySelector(".ws-dot:not([hidden])"), `«1к6» принято как 1d6, строка помечена «не сохранено» (${sumOf("recharge")})`);
     t.ok(root().querySelector('input[name="mech.recharge.dice"]') === dice, "change не перерисовывает поле срока (подвал остаётся на месте — клик «Сохранить» не теряется)");
     t.ok(/Изменено в предмете|Changed in the item/.test(pillOf("recharge")), `пилюля своего срока (${pillOf("recharge")})`);
-    t.ok(root().querySelector('input[name="mech.recharge.dice"]')?.disabled === false, "срок доступен, пока «Работает»");
+    t.ok(root().querySelector('input[name="mech.recharge.dice"]')?.disabled === false, "срок доступен в режиме «После использования»");
     await shot(e, "recharge", t);
-    await setOff("recharge", true);
+    await pickRc("off");
     t.ok(root().querySelector('input[name="mech.recharge.dice"]')?.disabled === true, "при «Выключено» срок недоступен");
     t.ok(!!root().querySelector('[name="resetDraft"]:not([disabled])'), "несохранённая правка: «Сбросить» доступна");
     t.ok(!root().querySelector('[name="saveItem"]').disabled, "«Сохранить» доступна");
@@ -358,13 +359,13 @@ async () => {
     t.ok(root().querySelector('[name="saveItem"]').disabled, "«Сохранить» недоступна без правок");
     t.ok(root().querySelector('[name="worldSave-slug"]').disabled, "«В мир → правило» недоступно: правила нет и не правили");
     await openRow("recharge");
-    await setOff("recharge", true);
+    await pickRc("off");
     await saveWs();
     t.ok(only.flags?.[MOD]?.mech?.recharge === false && !only.flags?.[MOD]?.rule, "сохранился один mech, пустое onUse не записано");
     const msg = root().querySelector(".ws-foot-msg")?.textContent.trim() ?? "";
-    t.ok(/(Правило|Rule): (нет|none)/.test(msg) && /(Работает само|Works on its own): (изменено в предмете|changed in the item)/.test(msg), `статус подвала из двух частей (${msg})`);
+    t.ok(/(Правило|Rule): (нет|none)/.test(msg) && /(Встроенная автоматизация|Built-in automation): (изменено в предмете|changed in the item)/.test(msg), `статус подвала из двух частей (${msg})`);
     await openWs(none);
-    t.ok(!root().querySelector(".ws-mech"), "без механизмов: раздела нет");
+    t.ok(!root().querySelector(".ws-mech [data-mech]") && !!root().querySelector("[name=addRecharge]"), "без механизмов: строк нет, есть только «Добавить перезарядку»");
     await openWs(both);
     await it_sheetList(both, t);
   });

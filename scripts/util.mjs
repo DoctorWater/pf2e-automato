@@ -25,7 +25,23 @@ export const sluggify = (s) => {
 };
 /** Активный ГМ И лидер своих сессий: один исполнитель, даже если ГМ открыт в нескольких вкладках (leader.mjs). */
 export const isActiveGM = () => !!game.user?.isActiveGM && isLeader();
+/** Сцена из строки uuid документа сцены («Scene.<id>.…»): работает и когда документ (регион) уже удалён. */
+export const sceneOfUuid = (uuid) => globalThis.game?.scenes?.get(String(uuid ?? "").match(/^Scene.([^.]+)/)?.[1]) ?? null;
 export const flagPath = (...p) => ["flags", MOD, ...p].join(".");
+/**
+ * Ждать конца анимации Dice So Nice для сообщения с броском (id или документ), чтобы автоприменение не опережало кости.
+ * DSN сам возвращается сразу, если у клиента анимация выключена или сообщение не анимируется; без DSN (и в node) — сразу.
+ * Вкладка в фоне (document.hidden): DSN откладывает анимацию до возврата на вкладку — ждать нечего, автоприменение не зависает.
+ * Предохранитель: не дольше ms, ошибка DSN не ломает применение.
+ */
+export async function afterDice(msg, ms = 8000) {
+  const id = typeof msg === "string" ? msg : msg?.id, dsn = globalThis.game?.dice3d;
+  if (!id || globalThis.document?.hidden || typeof dsn?.waitFor3DAnimationByMessageID !== "function") return;
+  let tm;
+  try { await Promise.race([dsn.waitFor3DAnimationByMessageID(id), new Promise((r) => { tm = setTimeout(r, ms); })]); }
+  catch (e) { console.warn(`${MOD} | afterDice`, e); }
+  finally { clearTimeout(tm); }
+}
 /** uuid актёра -> токены, которые use.liveTargets берёт вместо game.user.targets (builtin/damaged.mjs: реакция на защищаемого). Только для сообщений этого актёра и на время вызова, цели ГМа не трогаем. */
 export const useTargetOverride = new Map();
 export const tokenKey = (tokenDoc) => tokenDoc.id;

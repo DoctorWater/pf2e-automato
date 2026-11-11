@@ -31,7 +31,7 @@ test("normalizeMech: допустимое остаётся, мусор и неи
 });
 
 test("форма: флаг -> форма -> флаг без потерь; значения из data-v приходят строками", () => {
-  for (const m of [{}, { recharge: false }, { recharge: "1d4+1" }, { req: false, strike: false, permanent: false }, { maneuvers: ["shove", "trip"] }]) {
+  for (const m of [{}, { recharge: false }, { recharge: "1d4+1" }, { recharge: { on: "button", dice: "1d6" } }, { req: false, strike: false, permanent: false }, { maneuvers: ["shove", "trip"] }]) {
     const f = mech.mechToForm(m);
     assert.deepEqual(mech.formToMech(f), m, JSON.stringify(m));
     assert.deepEqual(mech.mechErrors(f), []);
@@ -63,14 +63,17 @@ test("итог формы без значений по умолчанию: «в�
 
 test("mechErrors: неверный срок и пустой выбор манёвров — ошибки; «1к6» — не ошибка; «не ограничивать» глушит ошибку срока", () => {
   const f = mech.mechToForm({});
-  f.recharge.dice = "1к6";
+  f.recharge.mode = "auto"; f.recharge.dice = "1к6";
   assert.deepEqual(mech.mechErrors(f), []);
   assert.deepEqual(mech.formToMech(f), { recharge: "1d6" });
   f.recharge.dice = "1ж6";
   assert.deepEqual(mech.mechErrors(f), ["workshop.mech.err.dice"]);
-  f.recharge.off = true;
+  f.recharge.mode = "off";
   assert.deepEqual(mech.mechErrors(f), []);
-  f.recharge.off = false; f.recharge.dice = "1d6";
+  f.recharge.mode = "button"; f.recharge.dice = "";
+  assert.deepEqual(mech.mechErrors(f), ["workshop.mech.err.diceNeeded"], "срок обязателен, если из текста его нет");
+  assert.deepEqual(mech.mechErrors(f, { dice: "1d4" }), [], "срок из текста есть");
+  f.recharge.mode = "auto"; f.recharge.dice = "1d6";
   assert.deepEqual(mech.mechErrors(f), []);
   f.maneuvers.auto = false;
   assert.deepEqual(mech.mechErrors(f), ["workshop.mech.err.maneuvers"]);
@@ -110,7 +113,8 @@ test("M1: rechargeEntry — текст, свой срок, «не огранич
   assert.equal(mech.rechargeEntry({ ...breath, type: "equipment" }), null, "лимиты — spell/action/feat");
   const none = { ...breath, system: { description: { value: "no roll" } } };
   assert.equal(mech.rechargeEntry(none), null);
-  assert.equal(mech.rechargeEntry(flagged(none, { recharge: "1d6" })), null, "«добавить перезарядку» не делаем");
+  assert.deepEqual(mech.rechargeEntry(flagged(none, { recharge: "1d6" })), { dice: "1d6", ids: ["b1"] }, "добавленная в Мастерской: замок на самом предмете");
+  assert.equal(mech.rechargeEntry(flagged(none, { recharge: { on: "button", dice: "1d6" } })), null, "по кнопке — автозамка нет");
   const c = (item) => ({ traits: [], rc: mech.rechargeEntry(item), inCombat: true, limitsOn: true, combatId: "c", roundNum: 2, rcLock: mech.mechOf(item).recharge === false ? null : { c: "c", until: 5 } });   // как ctxOf: «не ограничивать» гасит и замок
   assert.equal(reasonOf(c(breath)), "recharge");
   assert.equal(reasonOf(c(flagged(breath, { recharge: false }))), null, "строка LIMITS не срабатывает");
@@ -277,4 +281,64 @@ test("M1: подпись броска ≠ имя единственной спо
   assert.deepEqual(mech.rechargeEntry({ ...one("", "Фог удачи", "action", "It can't use Fortune Fog again for [[/r 1d4 #Recharge Fortune Fog]]{1d4 rounds}."), slug: null, flags: { babele: { originalName: "Fog of Chance" } } }), { dice: "1d4", ids: ["f1"] }, "slug пуст — алиас по исходному имени");
   assert.deepEqual(mech.rechargeEntry(one("breath-weapon", "Breath Weapon", "action", "It can't use Dragonstorm Breath again for [[/gmr 1d4 #Recharge Dragonstorm Breath]]{1d4 rounds}.")), { dice: "1d4", ids: ["f1"] });
   assert.equal(mech.rechargeEntry(one("other-thing", "Other Thing", "action", "The dragonet can't use Fortune Fog again for [[/r 1d4 #Recharge Fortune Fog]]{1d4 rounds}.")), null);
+});
+
+/* ---------- ручная перезарядка: режимы, срез по умолчанию, rechargeSpec ---------- */
+
+const COND_TEXT = "<p><strong>Critical Failure</strong> The ooze can't use Slime again for [[/gmr 1d4 #Recharge Slime]]{1d4 rounds}.</p>";
+const mk = (text, o = {}) => ({ id: "s1", type: "action", slug: "slime", uuid: "I.s", name: "Slime", system: { traits: { value: [] }, actionType: { value: "action" }, description: { value: text } }, ...o });
+
+test("normalizeMech: {on:\"button\"} со сроком или без; мусор в объекте отбрасывается", () => {
+  assert.deepEqual(mech.normalizeMech({ recharge: { on: "button" } }), { recharge: { on: "button" } });
+  assert.deepEqual(mech.normalizeMech({ recharge: { on: "button", dice: "1к6" } }), { recharge: { on: "button", dice: "1d6" } });
+  for (const bad of [{ on: "auto" }, { on: "button", dice: "abc" }, { dice: "1d6" }, {}]) assert.deepEqual(mech.normalizeMech({ recharge: bad }), {}, JSON.stringify(bad));
+});
+
+test("rechargeSpec: флаг false / по кнопке / срок строкой / текст (безусловный авто, условный по кнопке)", () => {
+  const plain = mk("no roll"), cond = mk(COND_TEXT), auto = mk(BREATH_TEXT, { id: "b1", slug: "breath-weapon", name: "Breath Weapon" });
+  assert.deepEqual(mech.rechargeSpec(auto), { dice: "1d4", ids: ["b1"], mode: "auto" });
+  assert.deepEqual(mech.rechargeSpec(cond), { dice: "1d4", ids: ["s1"], mode: "button" }, "условная — по кнопке сама");
+  assert.equal(mech.rechargeEntry(cond), null, "автозамка у условной нет");
+  assert.equal(mech.rechargeSpec(plain), null);
+  assert.equal(mech.rechargeSpec(flagged(auto, { recharge: false })), null);
+  assert.deepEqual(mech.rechargeSpec(flagged(auto, { recharge: { on: "button" } })), { dice: "1d4", ids: ["b1"], mode: "button" }, "по кнопке у распознанной: срок из текста");
+  assert.deepEqual(mech.rechargeSpec(flagged(auto, { recharge: { on: "button", dice: "1d6" } })), { dice: "1d6", ids: ["b1"], mode: "button" });
+  assert.equal(mech.rechargeEntry(flagged(auto, { recharge: { on: "button" } })), null, "по кнопке — автозамка нет");
+  assert.deepEqual(mech.rechargeSpec(flagged(plain, { recharge: "1d6" })), { dice: "1d6", ids: ["s1"], mode: "auto" });
+  assert.equal(mech.rechargeSpec(flagged(plain, { recharge: { on: "button" } })), null, "срока нет нигде");
+  assert.deepEqual(mech.rechargeSpec(flagged(cond, { recharge: "1d8" })), { dice: "1d8", ids: ["s1"], mode: "auto" }, "условная, переведённая на авто");
+  assert.equal(mech.rechargeSpec({ ...auto, type: "equipment" }), null);
+});
+
+test("pruneMech: срезается только значение, у которого совпали и режим, и срок", () => {
+  const auto = { dice: "1d4", rc: "auto" }, cond = { dice: "1d4", rc: "button" }, none = { rc: "none" };
+  assert.deepEqual(mech.pruneMech({ recharge: "1d4" }, auto), {}, "авто, срок как в тексте");
+  assert.deepEqual(mech.pruneMech({ recharge: "1d6" }, auto), { recharge: "1d6" });
+  assert.deepEqual(mech.pruneMech({ recharge: { on: "button" } }, auto), { recharge: { on: "button" } }, "режим отличается — остаётся");
+  assert.deepEqual(mech.pruneMech({ recharge: "1d4" }, cond), { recharge: "1d4" }, "условная -> авто — остаётся");
+  assert.deepEqual(mech.pruneMech({ recharge: { on: "button" } }, cond), {}, "по кнопке, срок из текста");
+  assert.deepEqual(mech.pruneMech({ recharge: { on: "button", dice: "1d4" } }, cond), {});
+  assert.deepEqual(mech.pruneMech({ recharge: { on: "button", dice: "1d6" } }, cond), { recharge: { on: "button", dice: "1d6" } });
+  assert.deepEqual(mech.pruneMech({ recharge: false }, none), {}, "false у нераспознанной = по умолчанию");
+  assert.deepEqual(mech.pruneMech({ recharge: false }, auto), { recharge: false });
+  assert.deepEqual(mech.pruneMech({ recharge: "1d4" }, none), { recharge: "1d4" }, "у нераспознанной срок — это режим «авто»");
+  assert.deepEqual(mech.pruneMech({ recharge: { on: "button", dice: "1d4" } }, auto), { recharge: { on: "button", dice: "1d4" } });
+});
+
+test("formToMech: режимы формы; условная — «по кнопке» по умолчанию не пишется, выбор «авто» остаётся", () => {
+  const cond = { dice: "1d4", rc: "button" }, f = mech.mechToForm({});
+  assert.equal(f.recharge.mode, "default");
+  assert.deepEqual(mech.formToMech(f, cond), {});
+  f.recharge.mode = "button";
+  assert.deepEqual(mech.formToMech(f, cond), {}, "по кнопке = по умолчанию условной");
+  f.recharge.mode = "auto";
+  assert.deepEqual(mech.formToMech(f, cond), { recharge: "1d4" }, "авто без срока берёт срок из текста — и это не умолчание условной");
+  f.recharge.dice = "1d6";
+  assert.deepEqual(mech.formToMech(f, cond), { recharge: "1d6" });
+  f.recharge.mode = "button";
+  assert.deepEqual(mech.formToMech(f, cond), { recharge: { on: "button", dice: "1d6" } });
+  f.recharge.mode = "off";
+  assert.deepEqual(mech.formToMech(f, cond), { recharge: false });
+  assert.deepEqual(mech.formToMech(f, { rc: "none" }), {}, "«нет» у нераспознанной не пишется");
+  for (const m of [{ recharge: { on: "button" } }, { recharge: { on: "button", dice: "1d6" } }]) assert.deepEqual(mech.formToMech(mech.mechToForm(m)), m, JSON.stringify(m));
 });

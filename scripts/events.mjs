@@ -9,7 +9,7 @@ import * as apply from "./apply.mjs";
 import { testPredicate } from "./predicate.mjs";
 import { useKindOf, buildSnapshot } from "./use.mjs";
 import { card } from "./card.mjs";
-import { messageTargets, esc, combatOf, whisper } from "./builtin/lib.mjs";
+import { messageTargets, esc, combatOf, whisper, useOnce } from "./builtin/lib.mjs";
 import * as sustain from "./sustain.mjs";
 import { familiarsOf, familiarToken, familiarDown, spellDcOf } from "./familiar.mjs";
 import { parseMarker, challengeApplies } from "./saves.mjs";
@@ -239,7 +239,7 @@ export async function runEntry(ev, owner, found, m, sink = null) {
   if (entry.cost !== "reaction") return execEntry(ev, owner, found, m, sink, false);
   // реакция: гейт до окна (потрачена/запрещена — тишина), очередь на владельца и дедуп пачки урона по источнику; free — Легендарное Запугивание и т.п.: реакция не тратится
   // реакция опирается на выбор/проверку: выключенные режимы — тишина до окна, реакция цела
-  if (((entry.check || entry.challenge) && modeOf("challenge") === "off") || (entry.apply?.length && modeOf("effect") !== "auto")) return null;
+  if (((entry.check || entry.challenge) && modeOf("challenge") === "off") || ((entry.apply?.length || entry.use) && modeOf("effect") !== "auto")) return null;
   const free = !!entry.free && pass(entry.free, new Set(owner.getRollOptions?.() ?? []));
   if (!free && !reactionAvailable(owner)) return null;
   const group = `${owner.uuid}|${ev.message?.flags?.pf2e?.origin?.uuid ?? ev.other?.uuid ?? ""}`;
@@ -289,7 +289,8 @@ async function execEntry(ev, owner, { item, rule }, { i, entry }, sink, free) {
     if (r) res.recs.push({ tk: "self", ops: [{ op: "reactionSpent", actor: owner.uuid, prev: r.prev, set: r.set }] });
     return (spent = true);
   };
-  if (entry.apply?.length && modeOf("effect") === "auto") {
+  if (entry.use && modeOf("effect") !== "auto") await ChatMessage.create({ whisper: ChatMessage.getWhisperRecipients("GM").map((u) => u.id), speaker: { alias: "pf2e-automato" }, content: card(L("events.useNeedsAuto", { name: esc(item.name) }), "", { title: esc(item.name), icon: "fa-bolt" }) });
+  if ((entry.apply?.length || entry.use) && modeOf("effect") === "auto") {
     const twin = makeTwin(`ev:${base}`, snap({ v: 1, label: rule.label, onEvent: [entry] }, "event"), ev.message?.flags?.pf2e ?? null);
     // picks — общий на запись выбор шагов choose: шаги идут по одному (свой applyOps), а выбор нужен следующим
     const ctx = { scope: "apply", centre: ev.centre ?? null, skipPick: entry.cost ? { uuids: [other?.uuid], alive: true, immune: entry.check?.immunity ? (a) => hasImmunity(a, entry.check.immunity, owner.uuid) : null } : null, originActor: owner, originToken: ownerToken, originItem: item, rollOptions: [...ev.options], holdMessage: entry.hold ? ev.message : null, notes: !entry.challenge, degree: ev.degree, total: ev.total, picks, ...(other && { target: otherToken ?? other }) };
@@ -312,6 +313,12 @@ async function execEntry(ev, owner, { item, rule }, { i, entry }, sink, free) {
     };
     await run("self", mine, 0);
     if (other && theirs.length) await run(tk, theirs, mine.length);
+    // use: обычная карточка предмета (область, спасброски, «Урон», эффекты); у неё нет state.event — события урона у задетых соседей не гасятся (цепь взрывов)
+    // страховка от цикла: событие от сообщения этого же предмета (урон от собственного взрыва) его не использует. Цели карточки — источник урона (у смерти не сам мертвец), у хода — владелец
+    if (entry.use && spent && !halt && ev.message?.flags?.pf2e?.origin?.uuid !== item.uuid) {
+      const id = await useOnce(owner, item, entry.on === "damage-taken" ? otherToken : ownerToken);
+      if (id) res.host = id; else console.warn(`${MOD} | event: «${item.name}» не использована`);   // host в журнале: откат урона удаляет карточку и откатывает её шаги
+    }
   }
 
   // gate removed: испытание только если шаг снятия реально снял носитель — второй из двух быстрых Ударов его уже не найдёт (ops пуст), испытания нет

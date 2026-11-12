@@ -198,19 +198,19 @@ export function itemsWith(actor, branch, ruleOfItem, slugOf) {
 
 /**
  * Один раз использовать предмет: заклинание — сотворение с тратой ячейки/фокуса (pf2e), иначе карточка предмета. unchecked — лимиты модуля не блокируют своё же действие.
- * Цели использования — защищаемый токен: подмена только для liveTargets этого актёра (useTargetOverride), game.user.targets ГМа не трогаем.
+ * -> id созданной карточки | null. Цели использования — защищаемый токен: подмена только для liveTargets этого актёра (useTargetOverride), game.user.targets ГМа не трогаем.
  */
 export async function useOnce(owner, item, token) {
   const { unchecked } = await import("./impulse-gate.mjs");
   const run = item.isOfType?.("spell") && item.spellcasting?.cast ? () => item.spellcasting.cast(item, { rank: item.rank }) : () => item.toMessage();
   const last = () => game.messages.contents.at(-1)?.id, before = last();
-  useTargetOverride.set(owner.uuid, [token]);
+  useTargetOverride.set(owner.uuid, token ? [token] : []);   // нет токена — целей нет (не [null]: liveTargets читает .document)
   try { await unchecked(owner, item, run); } finally { useTargetOverride.delete(owner.uuid); }
-  const used = last() !== before;
+  const used = last() !== before, cardId = used ? last() : null;
   // частоту pf2e списывает только в createUseActionMessage (pf2e.mjs:54101), не в toMessage — повторяем его
   const f = item.system?.frequency;
   if (used && !item.isOfType?.("spell") && f && f.value > 0) await item.update({ "system.frequency.value": f.value - 1 }, { pf2eAutomato: true });
-  return used;
+  return cardId;   // id карточки использования | null
 }
 
 /**

@@ -3,8 +3,8 @@
 // Части окна у обоих режимов одни и те же (id), шаблоны подставляются по режиму в _configureRenderParts.
 import { MOD, L, errText, DEGREES, callGM, forcedReplace, forcedDelete, flagPath, damageLabel } from "../util.mjs";
 import { modeOf } from "../settings.mjs";
-import { DENY, DAMAGED_MODES, divergedHint, dropSpec, ruleToForm, formToRule, blankRow, blankEvent, blankTrigger, blankCast, blankChoice, reportEnv, pickedTokens, ruleUuids, buildReport } from "../sheet.mjs";
-import { ready as catalogReady, validateRule, resolveRule, divergedOf, slugOf, sourceOf, sourceKeyOf, worldKeyOf, keyDerived, DAMAGE_TYPES, FAILED_CHECK, FAILED_DEGREE, EVENT_ON, EVENT_SIDES, EVENT_TARGETED, EVENT_AFTER_USE, NEAR_ON, TRIGGER_ON, TRIGGER_PER, ESCAPE_STATS, REPEAT_ON, CHOICES_MIN, CHOICES_MAX } from "../rules.mjs";
+import { DENY, DAMAGED_MODES, divergedHint, dropSpec, ruleToForm, formToRule, blankRow, blankEvent, HP0, blankTrigger, blankCast, blankChoice, reportEnv, pickedTokens, ruleUuids, buildReport } from "../sheet.mjs";
+import { ready as catalogReady, validateRule, resolveRule, divergedOf, slugOf, sourceOf, sourceKeyOf, worldKeyOf, keyDerived, DAMAGE_TYPES, FAILED_CHECK, FAILED_DEGREE, EVENT_ON, EVENT_SIDES, EVENT_TARGETED, EVENT_AFTER_USE, EVENT_USE, NEAR_ON, TRIGGER_ON, TRIGGER_PER, ESCAPE_STATS, REPEAT_ON, CHOICES_MIN, CHOICES_MAX } from "../rules.mjs";
 import { automationsGroups } from "../compat.mjs";
 import { safeUuid, uuidLabel } from "../saves.mjs";
 import * as fx from "./effect.mjs";
@@ -12,6 +12,8 @@ import * as au from "./automation.mjs";
 import { F, fieldKit } from "./fields.mjs";
 import * as af from "./affliction-edit.mjs";
 import * as im from "./item.mjs";
+import * as px from "./passive.mjs";
+import { permanentBase } from "../builtin/neutralize-rules.mjs";
 import { BUILTIN } from "../builtin/index.mjs";
 import { hintsView, hintList } from "../hints.mjs";
 import { mechOf, mechToForm, formToMech, pruneMech, mechErrors, rechargePending, savePatch } from "../mech.mjs";
@@ -27,14 +29,18 @@ const picks = (list, prefix, cur) => list.map((v) => ({ value: v, label: t(`work
 /** Состояния pf2e: slug -> UUID компендиума берём в рантайме у ConditionManager (id в коде не зашиты). */
 const conditions = () => game.pf2e.ConditionManager.conditions;
 const condUuid = (slug) => conditions().get(slug)?.uuid ?? null;
+/** Обратно: UUID состояния -> slug (только то, что можно выбрать в списке свойств). */
+const condSlug = (uuid) => { const s = conditions().get(uuid)?.slug; return s && !NOT_GRANTABLE.has(s) ? s : null; };
 const condValued = (slug) => !!conditions().get(slug)?.system?.value?.isValued;
 // persistent-damage требует формулу и тип; состояния зрения у модуля идут своей политикой (apply.mjs SIGHT_CONDITIONS)
 const NOT_GRANTABLE = new Set(["persistent-damage", "hidden", "undetected", "concealed", "observed", "unnoticed"]);
 const condLabel = (slug) => { const k = CONFIG.PF2E.conditionTypes?.[slug]; return k ? game.i18n.localize(k) : slug; };
+const speedLabel = (sel) => game.i18n.localize(`PF2E.Actor.Speed.Type.${sel.replace("-speed", "").replace(/^./, (c) => c.toUpperCase())}`);
 /** Состояния для быстрого выбора: [{slug,label}] по алфавиту (тот же отбор, что в режиме «Эффект»). */
 const grantable = () => Object.keys(CONFIG.PF2E.conditionTypes ?? {}).filter((s) => conditions().has(s) && !NOT_GRANTABLE.has(s))
   .map((slug) => ({ slug, label: condLabel(slug) })).sort((a, z) => a.label.localeCompare(z.label));
 
+const FAMILIES = [["equipment", "weapon"], ["action", "feat"]];   // между типами семейства свойства переносятся при смене типа
 const TRAIT_SETS = ["spellTraits", "actionTraits", "featTraits", "consumableTraits", "equipmentTraits", "weaponTraits", "npcAttackTraits"];
 const traitLabel = (s) => { for (const k of TRAIT_SETS) { const v = CONFIG.PF2E[k]?.[s]; if (v) return game.i18n.localize(v); } return s; };
 
@@ -260,6 +266,7 @@ export class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
   #mode = "effect";
   #item = null;
   #au = null;        // состояние режима «Автоматизация»: { f, base, area, baseArea, open, sel, picker }
+  #pas = null;       // состояние режима «Пассивное» (только action/feat): { blocks, snap: правила предмета на момент загрузки, base: итог без правок }
   #errOpen = false;  // раскрыт ли полный список ошибок в подвале (подвал перерисовывается при вводе)
   #mech = null;     // черновик переопределений механизмов { form, base }: грузится отдельно от #loadAu (правило и mech сохраняются независимо)
   #dets = null;      // найденные механизмы предмета (разбор один раз на загрузку: M3 читает правила актёра)
@@ -279,7 +286,7 @@ export class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
     window: { title: "PF2E_AUTOMATO.workshop.title", icon: "fa-solid fa-hammer", resizable: true },
     actions: {
       addBlock(_e, el) { this.#add(el.dataset.kind); },
-      removeBlock(_e, el) { const o = this.#owner(); o.blocks = o.blocks.filter((b) => b.id !== Number(el.dataset.block)); this.#redraw(); },
+      removeBlock(_e, el) { const o = this.#owner(); if (o.blocks.find((b) => b.id === Number(el.dataset.block))?.ro) return; o.blocks = o.blocks.filter((b) => b.id !== Number(el.dataset.block)); this.#redraw(); },
       toggleBlock(_e, el) { const id = Number(el.dataset.block); this.#sel = this.#sel === id ? null : id; this.#redraw(); },
       pick(_e, el) { this.#set(el, el.dataset.v); this.#redraw(); },
       pickImg() {
@@ -345,8 +352,8 @@ export class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
       removeTrigger(_e, el) { this.#au.f.zone.trig.splice(Number(el.dataset.i), 1); this.#au.sel = null; this.#redraw(); },
       insertTemplate() { return this.#guard(() => this.#insertTemplate()); },
       openSheet() { this.#item?.sheet.render(true); },
-      saveItem() { return this.#guard(() => this.#saveItem()); },
-      resetDraft() { this.#loadAu(); this.#loadMech(); this.render(); },
+      saveItem() { return this.#guard(() => (this.#mode === "passive" ? this.#savePassive() : this.#saveItem())); },
+      resetDraft() { if (this.#mode === "passive") this.#loadPas(); else { this.#loadAu(); this.#loadMech(); } this.render(); },
       unsetRule() { return this.#guard(async () => { await this.#item.update(forcedDelete(flagPath("rule"))); this.#loadAu(); this.render(); }); },
       accept() {
         return this.#guard(async () => {
@@ -369,12 +376,14 @@ export class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
 
   _configureRenderParts(options) {
     const parts = super._configureRenderParts(options);
-    const mode = { automation: "auto", item: "item" }[this.#mode];
+    if (this.#mode === "passive" && !this.#pas) this.#mode = this.#item ? "automation" : "effect";   // предмет сменился на неспособность
+    const mode = { automation: "auto", passive: "passive", item: "item" }[this.#mode];
     if (mode) {
-      parts.header.template = TPL(`${mode}-head`);
+      const shared = mode === "passive" ? "auto" : mode;   // шапка и подвал «Пассивного» — те же, что у «Автоматизации»
+      parts.header.template = TPL(`${shared}-head`);
       parts.main.template = TPL(mode);
       parts.aside.template = TPL(`${mode}-aside`);
-      parts.footer.template = TPL(`${mode}-footer`);
+      parts.footer.template = TPL(`${shared}-footer`);
     }
     return parts;
   }
@@ -389,7 +398,7 @@ export class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
     if (typeof item === "string") item = await safeUuid(item);
     if (item && DENY.has(item.type)) { ui.notifications.warn(t("workshop.au.denied")); item = null; }
     const app = (Workshop.#instance ??= new Workshop());
-    if (!(item && !(await app.#setItem(item)))) app.#mode = ((m) => (m === "automation" && app.#item ? "automation" : m === "item" ? "item" : "effect"))(mode ?? (item ? "automation" : app.#mode));
+    if (!(item && !(await app.#setItem(item)))) app.#mode = ((m) => (m === "automation" && app.#item ? "automation" : m === "passive" && app.#pas ? "passive" : m === "item" ? "item" : "effect"))(mode ?? (item ? "automation" : app.#mode));
     return app.render({ force: true, window: { title: app.title } });
   }
 
@@ -403,12 +412,13 @@ export class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
     this.#item = item;
     if (!same || !this.#au) this.#loadAu();
     if (!same || !this.#mech) this.#loadMech();
+    if (!same || !this.#pas) this.#loadPas();
     return true;
   }
 
   /** Закрытие с несохранённой правкой — через подтверждение. */
   async close(options = {}) {
-    if (!options.force && this.#mode === "automation" && this.#dirty()) {
+    if (!options.force && this.#item && this.#dirty()) {
       const ok = await foundry.applications.api.DialogV2.confirm({ window: { title: t("workshop.au.switchTitle") }, classes: ["paf-dialog"], content: `<p>${foundry.utils.escapeHTML(t("workshop.au.closeAsk", { name: this.#item.name }))}</p>`, rejectClose: false });
       if (!ok) return this;
     }
@@ -422,7 +432,7 @@ export class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
 
   _onClose(options) { Workshop.#instance = null; return super._onClose(options); }
 
-  get title() { return this.#mode === "automation" && this.#item ? `${super.title} — ${this.#item.name}` : super.title; }
+  get title() { return (this.#mode === "automation" || this.#mode === "passive") && this.#item ? `${super.title} — ${this.#item.name}` : super.title; }
 
   /* ---------- «Автоматизация»: состояние ---------- */
 
@@ -442,6 +452,33 @@ export class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
     this.#mech = { form: mechToForm(saved), saved };   // saved — флаг на момент загрузки: правка извне (refresh) — не «несохранённая правка ведущего»
   }
 
+  /** Режим «Пассивное»: правила из _source (то, что реально сохранится), а не подготовленные pf2e. */
+  #loadPas() {
+    const item = this.#item;
+    if (!px.ABILITY_TYPES.has(item?.type)) { this.#pas = null; return; }
+    const src = item._source.system.rules ?? [], ctx = this.#ctx();
+    const blocks = px.readBlocks(foundry.utils.deepClone(src), ctx).map((b) => ({ ...b, id: ++this.#id }));
+    this.#pas = { blocks, snap: JSON.stringify(src), base: JSON.stringify(px.emitAll(blocks, ctx)) };
+  }
+
+  /** Сравниваем итог записи, а не форму блоков (как #mechDirty). */
+  #pasDirty() { return !!this.#pas && JSON.stringify(px.emitAll(this.#pas.blocks, this.#ctx())) !== this.#pas.base; }
+  #pasLocked() { return !this.#item.isOwner || !!this.#item.pack; }
+
+  async #savePassive() {
+    const p = this.#pas, item = this.#item, ctx = this.#ctx();
+    if (!p || this.#pasLocked() || !this.#pasDirty() || px.validatePassive(p.blocks, ctx).length) return;
+    if (JSON.stringify(item._source.system.rules ?? []) !== p.snap) {   // правила изменили снаружи (ChoiceSet, лист pf2e): не затираем
+      ui.notifications.warn(t("workshop.passive.external"));
+      this.#loadPas();
+      return this.render();
+    }
+    await item.update({ "system.rules": px.emitAll(p.blocks, ctx) });
+    ui.notifications.info(t("workshop.mech.saved"));
+    this.#loadPas();
+    this.render();
+  }
+
   #ruleDirty() {
     const a = this.#au;
     return !!a && (JSON.stringify(a.f) !== a.base || (a.f.targets === "area" && (a.area.shape !== a.baseArea.shape || au.clampSize(a.area.size) !== au.clampSize(a.baseArea.size))));
@@ -451,7 +488,7 @@ export class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
   #mechOut() { return this.#mech ? formToMech(this.#mech.form, mechBase(this.#dets)) : {}; }
   #mechDirty() { return !!this.#mech && (rechargePending(this.#mech.form) || JSON.stringify(this.#mechOut()) !== JSON.stringify(pruneMech(this.#mech.saved ?? mechOf(this.#item), mechBase(this.#dets)))); }
 
-  #dirty() { return this.#ruleDirty() || this.#mechDirty(); }
+  #dirty() { return this.#ruleDirty() || this.#mechDirty() || this.#pasDirty(); }
 
   /** Путь `mech.*` — в черновик переопределений; «Авто» → «выбрать» манёвры стартует с вычисленного списка. */
   #setMech(path, v) {
@@ -500,7 +537,7 @@ export class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
     const ev = /^(f\.ev\.\d+)\.on$/.exec(path);
     if (ev) au.evOnChanged(foundry.utils.getProperty(a, ev[1]), v);
     const sd = /^(f\.ev\.\d+)\.side$/.exec(path);   // скрытый флажок «после использования» не должен давать ошибку валидации
-    if (sd) { const e = foundry.utils.getProperty(a, sd[1]); if (v !== "self") e.afterUse = false; }
+    if (sd) { const e = foundry.utils.getProperty(a, sd[1]); if (v !== "self") { e.afterUse = false; e.use = false; } }
     // проверка без цели бросается на себя; вернули цель — «на выбранных»
     const vs = new RegExp(String.raw`^(${au.ROOT})\.ck\.vsType$`).exec(path)?.[1];
     if (vs) { const m = foundry.utils.getProperty(a, vs); if (v === "none") { m.targets = "self"; m.ck.imm.on = false; } else if (m.targets === "self") m.targets = "selected"; }
@@ -562,8 +599,17 @@ export class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
 
   /* ---------- общее ---------- */
 
-  #ctx() { return { t, uuidOf: condUuid, condLabel, resistKnown: (k) => k in CONFIG.PF2E.resistanceTypes, ruleKnown: (k) => k in game.pf2e.RuleElements.all }; }
-  #owner() { return this.#mode === "item" ? this.#wiz.m : this.model; }   // чьи кубики правим: эффекта или предмета
+  #ctx() { return { t, uuidOf: condUuid, slugOf: condSlug, condLabel, traitLabel, speedLabel, sluggify: game.pf2e?.system?.sluggify, strikeLabel: (s) => this.#strikes().find((x) => x.slug === s)?.label, resistKnown: (k) => k in CONFIG.PF2E.resistanceTypes, ruleKnown: (k) => k in game.pf2e.RuleElements.all }; }
+  /** Удары актёра для «чем бьёт»: slug по правилам pf2e (item.slug ?? sluggify(имя)), подпись — имя предмета. Без актёра — пусто (slug вводится руками). */
+  #strikes() {
+    const sg = game.pf2e?.system?.sluggify ?? ((s) => s), seen = new Map();
+    for (const a of (this.#mode === "passive" && this.#item?.actor?.system?.actions) || []) {   // только «Пассивное»: в «Эффекте» и мастере предмета Ударов этого актёра не предлагаем
+      const it = a.item, slug = it && (it.slug ?? sg(it.name));
+      if (slug && !seen.has(slug)) seen.set(slug, it.name);
+    }
+    return [...seen].map(([slug, label]) => ({ slug, label }));
+  }
+  #owner() { return this.#mode === "item" ? this.#wiz.m : this.#mode === "passive" ? this.#pas : this.model; }   // чьи кубики правим: эффекта, предмета в мастере или правила существующей способности
   #block(id) { return this.#owner().blocks.find((b) => b.id === Number(id)); }
   #add(kind, patch = {}) {
     const b = { id: ++this.#id, ...fx.blankBlock(kind), ...patch };
@@ -585,13 +631,37 @@ export class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
     if (el.dataset.i !== undefined) return this.#setIt(el.dataset.i, v);
     if (el.dataset.a !== undefined) return this.#setAuto(el.dataset.a, v);
     const f = el.dataset.f;
+    if (f === "whenPreset" || f === "whenParam") {   // пресет и параметр — не поля блока: они пишут полную строку when (иначе выбор отскакивает при перерисовке)
+      const b = this.#block(el.dataset.block);
+      if (f === "whenPreset") { b.whenPick = v; b.when = fx.whenFor(v, undefined, b); }   // выбор держим в блоке: «своё» не должно отскакивать к узнанному пресету
+      else if (String(v).trim() !== "") b.when = fx.whenFor(b.whenPick ?? fx.whenPresetOf(b).preset, v, b);   // стёртый параметр условие не трогает
+      return;
+    }
     if (el.dataset.block) this.#block(el.dataset.block)[f] = v;
     else foundry.utils.setProperty(this.model, f, v);
   }
 
-  #text(b, ctx = this.#ctx()) { return this.#mode === "item" ? im.blockText(this.#wiz.m.type, b, ctx) : fx.textOf(b, ctx); }
+  #text(b, ctx = this.#ctx()) {
+    if (this.#mode === "passive" && b.kind === "raw" && b.orig) return fx.parseRaw(b.json).rules.map((r) => r.key).join(", ") || "?";   // заголовок уже «Правило предмета»: в сводке только ключи
+    return this.#mode === "item" ? im.blockText(this.#wiz.m.type, b, ctx) : fx.textOf(b, ctx);
+  }
+
+  /** Условие, «чем бьёт» и скорость блока для шаблона. Условие у cond в «Эффекте» не показываем (GrantItem в эффекте читает предикат один раз при выдаче). */
+  #whenView(b) {
+    const out = {};
+    if (b.kind === "speed") out.c = { speed: Object.fromEntries(fx.SPEED_SEL.map((s) => [s === "all-speeds" && b.sel === "speed" ? "speed" : s, s === "all-speeds" ? t("workshop.speedAll") : speedLabel(s)])) };
+    out.showStrike = fx.hasStrike(b) && !(this.#mode === "item" && this.#wiz.m.type === "weapon");   // у оружия селектор подставляется — само оружие
+    if (out.showStrike) out.strikes = this.#strikes();
+    if (!fx.WHEN_KINDS.has(b.kind) || (this.#mode === "effect" && b.kind === "cond")) return out;
+    const { preset, param } = fx.whenPresetOf(b), isCond = preset === "targetCond" || preset === "selfCond";
+    const conds = isCond ? Object.fromEntries(grantable().map((c) => [c.slug, c.label])) : {};
+    if (isCond && !(param in conds)) conds[param] = condLabel(param);
+    out.wv = { preset, param, isCond, conds, isPct: preset === "hpLess", isTrait: preset === "vsTrait", presets: Object.fromEntries(fx.presetsFor(b).map((p) => [p, t(`workshop.whenPreset.${p || "none"}`)])) };
+    return out;
+  }
 
   #view(b, ctx) {
+    const { c: wc, ...wrest } = this.#whenView(b);
     const c = {
       target: choices(fx.TARGETS, "targets"), noteTarget: choices(fx.TARGETS.filter((x) => x !== "ac"), "targets"),
       resist: choices(fx.RESIST_TYPES, "dtype"), dmgType: choices(fx.DAMAGE_TYPES, "dtype"), die: Object.fromEntries(fx.DICE.map((d) => [d, d])),
@@ -599,8 +669,9 @@ export class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
       cond: { "": b.uuid ? b.name : t("workshop.condNone"), ...Object.fromEntries(grantable().map((c) => [c.slug, c.label])) }
     };
     return {
-      ...b, c, open: this.#sel === b.id, kindLabel: t(`workshop.kind.${b.kind}`), summary: this.#text(b, ctx),
-      isSigned: b.kind === "bonus" || b.kind === "speed", isBonus: b.kind === "bonus", isSpeed: b.kind === "speed",
+      ...b, c: { ...c, ...wc }, open: this.#sel === b.id, kindLabel: b.orig && b.kind === "raw" ? t("workshop.passive.rawOwn") : t(`workshop.kind.${b.kind}`), summary: this.#text(b, ctx),
+      isSigned: b.kind === "bonus" || b.kind === "speed", isBonus: b.kind === "bonus", isSpeed: b.kind === "speed", ...wrest,
+      sel: b.sel ?? "all-speeds",
       plus: Number(b.sign) > 0, types: picks(fx.BONUS_TYPES, "btype", b.type),
       showAcuity: b.kind === "sense" && !fx.PRECISE.has(b.sense), showRange: b.kind === "sense" && !fx.NO_RANGE.has(b.sense),
       [`is_${b.kind}`]: true
@@ -610,9 +681,11 @@ export class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
   async _prepareContext() {
     const modes = [{ key: "effect", label: t("workshop.mode.effect"), on: this.#mode === "effect" }];
     if (this.#item) modes.unshift({ key: "automation", label: t("workshop.mode.automation"), on: this.#mode === "automation" });
+    if (this.#pas) modes.splice(1, 0, { key: "passive", label: t("workshop.mode.passive"), on: this.#mode === "passive" });
     modes.push({ key: "item", label: t("workshop.mode.item"), on: this.#mode === "item" });
     const common = { modes, multi: modes.length > 1 };
     if (this.#mode === "automation") return { ...common, ...await this.#autoCtx() };
+    if (this.#mode === "passive") return { ...common, ...this.#pasCtx() };
     if (this.#mode === "item") return { ...common, ...this.#itemCtx() };
     const m = this.model, ctx = this.#ctx(), errors = fx.validate(m, ctx);
     const rules = m.blocks.flatMap((b) => fx.rulesOf(b, ctx)), dur = fx.durationText(m.dur, t);
@@ -625,6 +698,22 @@ export class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
       preview: { durShort: dur.short, durLong: dur.long, count: rules.length, json: JSON.stringify(rules, null, 2) },
       desc: fx.descriptionText(m.blocks, ctx), hint: t(this.#back ? "workshop.item.returnHint" : "workshop.footHint"),
       errors, error: errors[0] ? errors[0] + (errors.length > 1 ? ` ${t("workshop.err.more", { n: errors.length - 1 })}` : "") : ""
+    };
+  }
+
+  /** Контекст режима «Пассивное»: свойства правил способности, предпросмотр правил, подвал. Шапка и подвал — шаблоны «Автоматизации». */
+  #pasCtx() {
+    const p = this.#pas, item = this.#item, ctx = this.#ctx(), rules = px.emitAll(p.blocks, ctx), errors = px.validatePassive(p.blocks, ctx);
+    const dirty = this.#pasDirty(), locked = this.#pasLocked(), perm = permanentBase(item, item.actor?.type);
+    this.#live = null;   // сводки и плашки «Автоматизации» здесь не нужны
+    return {
+      passive: true,
+      head: { img: item.img, name: item.name, kind: game.i18n.localize(`TYPES.Item.${item.type}`), traits: (item.system.traits?.value ?? []).map(traitLabel), src: { label: t("workshop.passive.src") } },
+      notes: [item._source.system.actionType?.value !== "passive" && t("workshop.passive.notPassive"), perm && t("workshop.passive.permanent"), locked && t("workshop.passive.locked"), t("workshop.passive.note")].filter(Boolean),
+      blocks: p.blocks.map((b) => this.#view(b, ctx)), palette: fx.KINDS.map((kind) => ({ kind, icon: ICONS[kind], label: t(`workshop.kind.${kind}`) })),
+      preview: { count: rules.length, json: JSON.stringify(rules, null, 2) },
+      errors, errMore: errors.length > 1 ? t("workshop.err.more", { n: errors.length - 1 }) : "", errOpen: this.#errOpen,
+      dirty, status: t(dirty ? "workshop.passive.dirty" : "workshop.passive.clean"), lockedFlag: false, saveOff: !!errors.length || locked || !dirty
     };
   }
 
@@ -741,7 +830,7 @@ export class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
         i, title: `${i + 1}.`, name: [].concat(e.on).map((k) => t(`workshop.au.ev.on.${k}`)).join(", "),
         fields: [
           Array.isArray(e.on) ? F.sel(`${p}.on`, t("workshop.au.ev.onLabel"), "_", { _: e.on.map((k) => t(`workshop.au.ev.on.${k}`)).join(", ") })   // только чтение
-            : F.sel(`${p}.on`, t("workshop.au.ev.onLabel"), e.on, choices(EVENT_ON, "au.ev.on")),
+            : F.sel(`${p}.on`, t("workshop.au.ev.onLabel"), e.on, choices(EVENT_ON.flatMap((k) => (k === "damage-taken" ? [k, HP0] : [k])), "au.ev.on"), e.on === HP0 ? { tip: t("workshop.au.ev.hp0Hint") } : {}),
           F.sel(`${p}.side`, t("workshop.au.ev.sideLabel"), e.side, choices(au.evSides(e), "au.ev.side")),
           ...(e.side === "near" ? [
             F.text(`${p}.aura`, t("workshop.au.ev.zoneAura"), e.aura, { placeholder: "frightful-aura", hint: t("workshop.au.ev.zoneAuraHint") }), F.num(`${p}.range`, t("workshop.au.ev.zoneRange"), e.range, { min: 1 }),
@@ -749,6 +838,7 @@ export class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
           ] : []),
           F.text(`${p}.when`, t("workshop.au.ev.whenLabel"), e.when, { cls: "ws-grow ws-full", placeholder: "outcome:success, target:condition:off-guard", hint: t("workshop.au.ev.whenHint") }),
           F.chk(`${p}.once`, t("workshop.au.ev.once"), e.once, { cls: "ws-full" }),   // флажки события — столбиком, по строке на каждый
+          ...(e.side === "self" && (EVENT_USE.has(e.on) || e.on === HP0) ? [F.chk(`${p}.use`, t("workshop.au.ev.use"), e.use, { cls: "ws-full" })] : []),
           F.chk(`${p}.cost`, t("workshop.au.ev.cost"), e.cost, { cls: "ws-full" }),
           ...(e.cost ? [F.text(`${p}.free`, t("workshop.au.ev.free"), e.free, { placeholder: "skill:intimidation:rank:4", hint: t("workshop.au.ev.freeHint") })] : []),
           ...(EVENT_AFTER_USE.has(e.on) && e.side === "self" ? [F.chk(`${p}.afterUse`, t("workshop.au.ev.afterUse"), e.afterUse, { cls: "ws-full" })] : []),
@@ -915,6 +1005,7 @@ export class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
       const f = ev.target.closest("[data-f],[data-a],[data-i]");
       if (!f || f.tagName === "SELECT" || f.type === "checkbox") return;
       this.#set(f, f.value);
+      if (f.dataset.f === "whenParam") { const w = el.querySelector(`[name="b${f.dataset.block}-when"]`); if (w) w.value = this.#block(f.dataset.block).when; }   // запись условия следует за параметром
       if (f.dataset.i === "q") return this.#find();
       if (f.dataset.a === "probeDc") return;   // пересчёт по change (Enter/уход из поля): перерисовка панели сбила бы курсор
       if (this.#mode === "automation") { this.#typing = true; await this.render({ parts: ["aside", "footer"] }); this.#paint(); this.#settle(); return; }
@@ -927,6 +1018,7 @@ export class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
       const f = ev.target.closest("[data-f],[data-a],[data-i]");
       if (f?.dataset.a === "probeDc") { this.#set(f, f.value); this.render({ parts: ["aside"] }); return; }
       if (f?.dataset.a?.startsWith("mech.") && f.type === "text") { this.#set(f, f.value); return; }   // срок перезарядки: строку и подвал уже обновил input (#paint); перерисовка по change съела бы клик «Сохранить» сразу после ввода
+      if (f?.dataset.f === "when" && f.dataset.block) { const b = this.#block(f.dataset.block); b.when = f.value; delete b.whenPick; this.render({ parts: ["main"] }); return; }   // ручная запись: пресет и параметр перечитываются; footer не трогаем — клик «Сохранить» не должен теряться
       if (!f || !(f.tagName === "SELECT" || f.type === "checkbox")) return;
       const v = f.type === "checkbox" ? f.checked : f.value;
       this.#set(f, v);
@@ -1003,7 +1095,7 @@ export class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
   #fresh(type, old) {
     const m = im.blankItem(type);
     return { ...m, name: old.name, desc: old.desc, price: old.price, rarity: old.rarity, effect: old.effect, to: old.to, auto: old.auto, dest: old.dest,
-      blocks: ["equipment", "weapon"].includes(type) && ["equipment", "weapon"].includes(old.type) ? old.blocks : [],
+      blocks: FAMILIES.some((f) => f.includes(type) && f.includes(old.type)) ? old.blocks : [],
       level: type === "feat" ? Math.max(1, Number(old.level) || 1) : old.level, img: old.img.startsWith(im.DEFAULT_DIR) ? m.img : old.img };
   }
 
@@ -1061,7 +1153,7 @@ export class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
     ev.preventDefault();
     const doc = data.type === "Item" ? await safeUuid(data.uuid) : null, spec = dropSpec(data, doc), m = this.#wiz.m;
     if (spec?.temp) return ui.notifications.warn(L("sheet.dropTemp"));
-    if (spec?.kind === "condition" && (m.type === "equipment" || m.type === "weapon")) return this.#drop(ev);   // состояние — в кубик «Состояние»
+    if (spec?.kind === "condition" && im.hasRules(m)) return this.#drop(ev);   // состояние — в кубик «Состояние»
     if (spec?.kind !== "effect") return ui.notifications.warn(t("workshop.item.dropBad"));
     if (!(m.type === "consumable" || ((m.type === "action" || m.type === "feat") && m.act.type !== "passive"))) return ui.notifications.warn(t("workshop.item.dropNo"));
     this.#setEffect({ uuid: spec.text, name: doc.name });
@@ -1150,7 +1242,7 @@ export class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
       kinds: seg(["melee", "ranged"], m.weapon.kind, (k) => t(`workshop.item.kind_${k}`)), ranged: m.weapon.kind === "ranged",
       hands: seg(["held-in-one-hand", "held-in-two-hands"], m.usage, (k) => t(`workshop.item.hands_${k}`)),
       hasActivation: type === "consumable" || type === "equipment", activations: seg(im.ACTIVATIONS, m.activation, (k) => t(`workshop.item.act.${k === "" ? "none" : /^\d$/.test(k) ? `n${k}` : k}`)),
-      hasBlocks: type === "equipment" || type === "weapon", doesNote: t(`workshop.item.does.${type}`),
+      hasBlocks: im.hasRules(m), blocksNote: t(isAbility ? "workshop.item.blocksNoteAbility" : "workshop.item.blocksNote"), doesNote: passive ? "" : t(`workshop.item.does.${type}`),
       blocks: m.blocks.map((b) => this.#view(b, ctx)), palette: fx.KINDS.map((kd) => ({ kind: kd, icon: ICONS[kd], label: t(`workshop.kind.${kd}`) })),
       canAuto: type === "consumable", sums, autoNote, plan, done: w.done,
       dests: [{ value: "world", label: t("workshop.item.dest.world"), on: m.dest === "world" }, { value: "actor", label: actor ? t("workshop.item.dest.actor", { name: actor.name }) : t("workshop.item.dest.actorNone"), on: m.dest === "actor", disabled: !actorOk }],
@@ -1192,7 +1284,12 @@ export class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
   static refresh({ item = null } = {}) {
     const app = Workshop.#instance;
     if (app?.rendered && app.#mode === "item" && !item && app.#wiz.step === 4) return app.render({ parts: ["main", "footer"] });   // «выдать актёру» зависит от выделенного токена
-    if (!app?.rendered || app.#mode !== "automation") return;
+    if (!app?.rendered) return;
+    if (item && app.#item?.uuid === item.uuid && app.#pas && !app.#pasDirty() && JSON.stringify(item._source.system.rules ?? []) !== app.#pas.snap) {   // без несохранённой правки — состояние «Пассивного» перечитываем в любом режиме
+      app.#loadPas();
+      if (app.#mode === "passive") return app.render({ window: { title: app.title } });
+    }
+    if (app.#mode !== "automation") return;
     if (item) {
       if (app.#item?.uuid !== item.uuid) return;
       if (!app.#ruleDirty()) app.#loadAu(true);

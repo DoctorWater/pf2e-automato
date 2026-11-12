@@ -11,7 +11,7 @@ import { critRecharges, isBreath } from "../builtin/limit-text.mjs";
 import { needText } from "../builtin/impulse-gate.mjs";
 import { maneuversAuto, SPELLS, TITLE } from "../builtin/maneuver.mjs";
 import { strikeLinkState, modesRun } from "../strike-link.mjs";
-import { permanentBase, hasCondDoc } from "../builtin/neutralize-rules.mjs";
+import { permanentBase, hasCondDoc, grantsCond } from "../builtin/neutralize-rules.mjs";
 import { SLUG as SPIRIT, plan as spiritPlan } from "../builtin/spirit-link.mjs";
 import { optionOf } from "../builtin/spellshape.mjs";
 import { itemSlug } from "../builtin/lib.mjs";
@@ -35,7 +35,7 @@ const DETECT = {
   req: (item) => { const e = isUseItem(item) ? limitEntry(item)?.req : null; return e?.any?.length ? { any: e.any } : null; },
   strike: (item, env) => (env.strikeState ?? strikeLinkState)(item),
   maneuvers: (item) => { const auto = maneuversAuto(item); return auto.length ? { auto, all: SPELLS[itemSlug(item)] ?? auto } : null; },
-  permanent: (item) => { const p = permanentBase(item, item?.actor?.type); return p ? { p, own: (item.system?.rules ?? []).some((r) => r?.key === "GrantItem") || hasCondDoc(item.actor, p.cond) } : null; },
+  permanent: (item) => { const p = permanentBase(item, item?.actor?.type); return p ? { p, own: grantsCond(item.system?.rules, p) || hasCondDoc(item.actor, p.cond) } : null; },
   spirit: (item) => (item?.type === "spell" && itemSlug(item) === SPIRIT ? {} : null),
   shape: (item) => (optionOf(item) ? {} : null)
 };

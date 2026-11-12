@@ -3,8 +3,8 @@
 import { DEGREES, degreeFromTotal } from "../util.mjs";
 import { stepText } from "../chat.mjs";
 import { textOfMods } from "../inline-effect.mjs";
-import { modOf, keepGet, keepSet, blankCoat } from "../sheet.mjs";
-import { ESCAPE_STATS, REPEAT_END, FAILED_CHECK, EVENT_SIDES, EVENT_TARGETED, EVENT_AFTER_USE, nearAllowed } from "../rules.mjs";
+import { modOf, keepGet, keepSet, blankCoat, HP0 } from "../sheet.mjs";
+import { ESCAPE_STATS, REPEAT_END, FAILED_CHECK, EVENT_SIDES, EVENT_TARGETED, EVENT_AFTER_USE, EVENT_USE, nearAllowed } from "../rules.mjs";
 import { STEP_TARGETS } from "./effect.mjs";
 import { parseWhen, whenText, whenHuman } from "../predicate.mjs";
 import { defenseDc, pickStatistic } from "../checks.mjs";
@@ -353,12 +353,15 @@ const whoText = (f, env) => {
 };
 
 /** Стороны, доступные записи onEvent (форма): near — для хода/входа и для сотворения с counter. */
-export const evSides = (e) => EVENT_SIDES.filter((s) => (s !== "target" || EVENT_TARGETED.has(e.on)) && (s !== "near" ? e.on !== "enter" : nearAllowed(e.on, e.counter)));
+export const evSides = (e) => EVENT_SIDES.filter((s) => (e.on !== HP0 || s === "self") && (s !== "target" || EVENT_TARGETED.has(e.on)) && (s !== "near" ? e.on !== "enter" : nearAllowed(e.on, e.counter)));
 /** Смена события записи (форма): сторона и «после использования», ставшие невозможными, сбрасываются. */
 export function evOnChanged(e, v) {
+  if (v === HP0) { e.side = "self"; e.afterUse = false; return; }
+  if (!EVENT_USE.has(v)) e.use = false;
   if (e.side === "target" && !EVENT_TARGETED.has(v)) e.side = "self";
   if (!EVENT_AFTER_USE.has(v)) e.afterUse = false;
   if (v === "enter") e.side = "near"; else if (e.side === "near" && !nearAllowed(v, e.counter)) e.side = "self";
+  if (e.side !== "self") e.use = false;
 }
 
 /** Одна запись onEvent (форма) -> строка: событие · сторона · условие: шаги [· испытание]. */
@@ -366,8 +369,8 @@ export function evLine(e, env) {
   const { t } = env, when = String(e.when ?? "").trim();
   const steps = plates(e.apply, env), ch = e.ch?.on ? t("workshop.au.ev.chLine", { stat: env.statLabel(e.ch.statistic), dc: dcLabel(e.ch, { ...env, dc: null }) }) : "";
   return {
-    head: `${[].concat(e.on).map((k) => t(`workshop.au.ev.on.${k}`)).join(", ")} · ${t(`workshop.au.ev.side.${e.side}`)}${when ? ` · ${when}` : ""}${e.side === "near" ? ` · ${e.aura?.trim() ? t("workshop.au.ev.auraShort", { aura: e.aura.trim() }) : t("workshop.au.ev.rangeShort", { range: e.range })}${e.per ? ` · ${t(`workshop.au.trg.per.${e.per}`)}` : ""}` : ""}${e.once ? ` · ${t("workshop.au.ev.onceShort")}` : ""}${e.afterUse ? ` · ${t("workshop.au.ev.afterUseShort")}` : ""}${e.cost ? ` · ${t("workshop.au.ev.costShort")}` : ""}`,
-    body: [steps, ch].filter(Boolean).join("; ") || t("workshop.au.nothing")
+    head: `${[].concat(e.on).map((k) => t(`workshop.au.ev.on.${k}`)).join(", ")} · ${t(`workshop.au.ev.side.${e.side}`)}${when ? ` · ${when}` : ""}${e.side === "near" ? ` · ${e.aura?.trim() ? t("workshop.au.ev.auraShort", { aura: e.aura.trim() }) : t("workshop.au.ev.rangeShort", { range: e.range })}${e.per ? ` · ${t(`workshop.au.trg.per.${e.per}`)}` : ""}` : ""}${e.use ? ` · ${t("workshop.au.ev.useShort")}` : ""}${e.once ? ` · ${t("workshop.au.ev.onceShort")}` : ""}${e.afterUse ? ` · ${t("workshop.au.ev.afterUseShort")}` : ""}${e.cost ? ` · ${t("workshop.au.ev.costShort")}` : ""}`,
+    body: [steps, ch].filter(Boolean).join("; ") || t(e.use ? "workshop.au.ev.useBody" : "workshop.au.nothing")
   };
 }
 /** Запись onEvent (форма) -> части фразы без опций и событий: {save:{stat,dc}|null, fail — «при провале — …; при критическом провале — …» (только то, что есть), steps — шаги сразу}. */

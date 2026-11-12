@@ -5,7 +5,7 @@
       <h1 class="ws-title ws-title-static">{{head.name}}</h1>
       <span class="ws-lbl ws-accent">{{head.kind}}</span>
       <span class="ws-grow"></span>
-      <span class="ws-sub">{{localize "PF2E_AUTOMATO.workshop.au.ruleSource"}}</span>
+      {{#unless passive}}<span class="ws-sub">{{localize "PF2E_AUTOMATO.workshop.au.ruleSource"}}</span>{{/unless}}
       <span class="ws-pill ws-pill-static">{{head.src.label}}</span>
       {{#if head.src.low}}<span class="ws-pill ws-pill-static ws-pill-warn" data-tooltip="PF2E_AUTOMATO.sheet.confLowHint">{{localize "PF2E_AUTOMATO.sheet.confLow"}}</span>{{/if}}
       {{#if head.src.diverged}}<span class="ws-pill ws-pill-static ws-pill-warn" data-tooltip="{{head.src.diverged}}">{{localize "PF2E_AUTOMATO.sheet.diverged"}}</span>{{/if}}

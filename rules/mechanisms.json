@@ -153,6 +153,11 @@
       "primitive": "эффекты cover-bypass-* в паке модуля (tools/cover-bypass.mjs)",
       "aliases": ["ignor\\w*[^.]{0,40}\\bcover", "Strike ignoring concealment and cover", "concealment negation on target", "cover bypass", "ignores? (?:lesser |standard |greater )?cover"]
     },
+    "death-trigger": {
+      "title": "Смерть носителя, невыразимое: Удар/Шаг/заклинание перед смертью, остаться с 1 ПЗ, возрождение. Взрыв по области выразим: onUse area + onEvent damage-taken:hp0 use:true",
+      "primitive": null,
+      "aliases": ["death-trigger", "\\bon death\\b", "\\bwhen (it|this creature) dies\\b", "(strike|stride|step|cast)[^.]{0,40}(when|as) (it|you) (dies|would die)", "remain(s)? (at|with) 1 (hit point|hp)", "at 1 hit point instead of"]
+    },
     "triggered-save": {
       "title": "Спасбросок от ауры / входа в область / начала или конца хода",
       "primitive": "onEvent side:near / zone.triggers (plan-triggered-save.md)",

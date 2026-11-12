@@ -152,11 +152,11 @@
   {{/if}}
 
   {{#if hasBlocks}}
-  <p class="ws-note ws-wrap">{{localize "PF2E_AUTOMATO.workshop.item.blocksNote"}}</p>
+  <p class="ws-note ws-wrap">{{blocksNote}}</p>
   {{> "modules/pf2e-automato/templates/workshop-blocks.hbs"}}
   {{/if}}
 
-  <p class="ws-note ws-wrap">{{doesNote}}</p>
+  {{#if doesNote}}<p class="ws-note ws-wrap">{{doesNote}}</p>{{/if}}
 </section>
 {{/if}}
 

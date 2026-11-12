@@ -7,6 +7,7 @@
     {{else}}{{#if dirty}}<span class="ws-dot" aria-hidden="true"></span>{{/if}}{{status}}{{#if lockedFlag}} · {{localize "PF2E_AUTOMATO.sheet.locked"}}{{/if}}{{/if}}
   </span>
   <button type="button" class="ws-btn ws-btn-g" data-action="resetDraft" name="resetDraft" {{#unless dirty}}disabled{{/unless}}>{{localize "PF2E_AUTOMATO.workshop.au.reset"}}</button>
+  {{#unless passive}}
   {{#if canUnset}}<button type="button" class="ws-btn ws-btn-g" data-action="unsetRule" name="unsetRule" title="{{localize "PF2E_AUTOMATO.workshop.mech.unsetHint"}}">{{localize "PF2E_AUTOMATO.workshop.au.unset"}}</button>{{/if}}
   <details class="ws-menu" data-sync="world">
     <summary class="ws-btn">{{localize "PF2E_AUTOMATO.workshop.au.world"}} <i class="fa-solid fa-chevron-up" inert></i></summary>
@@ -20,5 +21,6 @@
       {{/if}}
     </div>
   </details>
+  {{/unless}}
   <button type="button" class="ws-btn ws-btn-p" data-action="saveItem" name="saveItem" {{#if saveOff}}disabled{{/if}}>{{localize "PF2E_AUTOMATO.sheet.saveFlag"}}</button>
 </div>

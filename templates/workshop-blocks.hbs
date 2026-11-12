@@ -9,7 +9,7 @@
           <span class="ws-kind">{{b.kindLabel}}</span>
           <span class="ws-text" data-block="{{b.id}}">{{b.summary}}</span>
         </button>
-        <button type="button" class="ws-x" data-action="removeBlock" data-block="{{b.id}}" aria-label="{{localize "PF2E_AUTOMATO.workshop.remove"}}" data-tooltip="PF2E_AUTOMATO.workshop.remove"><i class="fa-solid fa-trash" inert></i></button>
+        {{#unless b.ro}}<button type="button" class="ws-x" data-action="removeBlock" data-block="{{b.id}}" aria-label="{{localize "PF2E_AUTOMATO.workshop.remove"}}" data-tooltip="PF2E_AUTOMATO.workshop.remove"><i class="fa-solid fa-trash" inert></i></button>{{/unless}}
       </div>
       {{#if b.open}}
       <div class="ws-ed">
@@ -23,7 +23,7 @@
           <div class="ws-seg">{{#each b.types}}<button type="button" data-action="pick" data-block="{{b.id}}" data-f="type" data-v="{{value}}" aria-pressed="{{on}}" name="b{{b.id}}-type-{{value}}">{{label}}</button>{{/each}}</div>
         </div>
         {{#if b.isBonus}}<label class="ws-fld"><span class="ws-lbl">{{localize "PF2E_AUTOMATO.workshop.target"}}</span><select class="ws-inp" data-block="{{b.id}}" data-f="target" name="b{{b.id}}-target">{{selectOptions b.c.target selected=b.target}}</select></label>{{/if}}
-        {{#if b.isSpeed}}<span class="ws-note">{{localize "PF2E_AUTOMATO.workshop.feet"}}</span>{{/if}}
+        {{#if b.isSpeed}}<label class="ws-fld"><span class="ws-lbl">{{localize "PF2E_AUTOMATO.workshop.speedSel"}}</span><select class="ws-inp" data-block="{{b.id}}" data-f="sel" name="b{{b.id}}-sel">{{selectOptions b.c.speed selected=b.sel}}</select></label><span class="ws-note">{{localize "PF2E_AUTOMATO.workshop.feet"}}</span>{{/if}}
         {{/if}}
 
         {{#if b.is_resist}}
@@ -72,7 +72,19 @@
         {{/if}}
 
         {{#if b.is_raw}}
-        <label class="ws-fld ws-full"><span class="ws-lbl">{{localize "PF2E_AUTOMATO.workshop.rawJson"}}</span><textarea class="ws-inp ws-area ws-mono" spellcheck="false" data-block="{{b.id}}" data-f="json" name="b{{b.id}}-json">{{b.json}}</textarea></label>
+        <label class="ws-fld ws-full"><span class="ws-lbl">{{localize "PF2E_AUTOMATO.workshop.rawJson"}}</span><textarea class="ws-inp ws-area ws-mono" spellcheck="false" {{#if b.ro}}readonly{{/if}} data-block="{{b.id}}" data-f="json" name="b{{b.id}}-json">{{b.json}}</textarea></label>
+        {{#if b.ro}}<span class="ws-note">{{localize "PF2E_AUTOMATO.workshop.passive.roNote"}}</span>{{/if}}
+        {{/if}}
+        {{#if b.showStrike}}
+        <label class="ws-fld"><span class="ws-lbl">{{localize "PF2E_AUTOMATO.workshop.strike"}}</span><input class="ws-inp" type="text" list="ws-strikes-{{b.id}}" data-block="{{b.id}}" data-f="strike" value="{{b.strike}}" placeholder="{{localize "PF2E_AUTOMATO.workshop.strikeAll"}}" data-tooltip="PF2E_AUTOMATO.workshop.strikeHint" name="b{{b.id}}-strike"><datalist id="ws-strikes-{{b.id}}">{{#each b.strikes}}<option value="{{slug}}">{{label}}</option>{{/each}}</datalist></label>
+        {{/if}}
+
+        {{#if b.wv}}
+        <label class="ws-fld"><span class="ws-lbl">{{localize "PF2E_AUTOMATO.workshop.whenLbl"}}</span><select class="ws-inp" data-block="{{b.id}}" data-f="whenPreset" name="b{{b.id}}-whenPreset">{{selectOptions b.wv.presets selected=b.wv.preset}}</select></label>
+        {{#if b.wv.isCond}}<label class="ws-fld"><span class="ws-lbl">{{localize "PF2E_AUTOMATO.workshop.whenCond"}}</span><select class="ws-inp" data-block="{{b.id}}" data-f="whenParam" name="b{{b.id}}-whenParam">{{selectOptions b.wv.conds selected=b.wv.param}}</select></label>{{/if}}
+        {{#if b.wv.isPct}}<label class="ws-fld"><span class="ws-lbl">{{localize "PF2E_AUTOMATO.workshop.whenPct"}}</span><input class="ws-inp ws-num" type="number" min="1" max="100" data-block="{{b.id}}" data-f="whenParam" value="{{b.wv.param}}" name="b{{b.id}}-whenParam"></label>{{/if}}
+        {{#if b.wv.isTrait}}<label class="ws-fld"><span class="ws-lbl">{{localize "PF2E_AUTOMATO.workshop.whenTrait"}}</span><input class="ws-inp" type="text" data-block="{{b.id}}" data-f="whenParam" value="{{b.wv.param}}" name="b{{b.id}}-whenParam"></label>{{/if}}
+        <label class="ws-fld ws-full"><span class="ws-lbl">{{localize "PF2E_AUTOMATO.workshop.whenText"}}</span><input class="ws-inp ws-wide" type="text" spellcheck="false" data-block="{{b.id}}" data-f="when" value="{{b.when}}" placeholder="{{localize "PF2E_AUTOMATO.workshop.whenHint"}}" name="b{{b.id}}-when"></label>
         {{/if}}
       </div>
       {{/if}}

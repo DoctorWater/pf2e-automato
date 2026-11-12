@@ -66,6 +66,7 @@ test("permanentSources: GrantItem inMemoryOnly + NO_REACTIONS; у Slow с гот
   const p = PERMANENT.slow;
   assert.deepEqual(permanentSources(p, []), [{ key: "RollOption", domain: "all", option: "af:no-reactions" }, { key: "GrantItem", uuid: SLOWED, inMemoryOnly: true }]);
   assert.deepEqual(permanentSources(p, [{ key: "GrantItem", uuid: SLOWED, inMemoryOnly: true }]).map((r) => r.key), ["RollOption"]);
+  assert.deepEqual(permanentSources(p, [{ key: "GrantItem", uuid: "Compendium.pf2e.conditionitems.Item.other", inMemoryOnly: true }]).map((r) => r.key), ["RollOption", "GrantItem"]);   // чужой GrantItem выдаче Slowed не мешает
   assert.deepEqual(permanentSources(p, [], true).map((r) => r.key), ["RollOption"]);   // у существа уже есть документ Slowed (Ofalth Zombie)
 });
 
@@ -95,7 +96,7 @@ test("корпус: Slow NPC — 77 док.: NO_REACTIONS всем, Slowed Grant
   for (const i of all) {
     const p = permanentOf(i, "npc");
     if (!p) continue;
-    const n = i.dupCount || 1, own = i.ruleKeys.includes("GrantItem") ? [{ key: "GrantItem" }] : [];
+    const n = i.dupCount || 1, own = i.ruleKeys.includes("GrantItem") ? [{ key: "GrantItem", uuid: p.grant }] : [];   // в корпусе только ключи: GrantItem у Slow считаем выдачей Slowed
     const s = permanentSources(p, own);
     docs += n;
     assert.ok(s.some((r) => r.option === "af:no-reactions"));

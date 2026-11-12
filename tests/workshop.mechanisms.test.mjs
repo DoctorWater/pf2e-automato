@@ -151,7 +151,9 @@ test("M6: постоянное состояние у NPC; флаг и режим
   assert.match(mechanismsOf(slow, env())[0].state.text, /state\.mode/);
   delete modes.effect;
   assert.deepEqual(detectMechs({ ...slow, actor: { type: "character" } }, env()), []);
-  const own = { ...slow, system: { ...slow.system, rules: [{ key: "GrantItem" }] } };
+  const own = { ...slow, system: { ...slow.system, rules: [{ key: "GrantItem", uuid: "Compendium.pf2e.conditionitems.Item.xYTAsEpcJE1Ccni3", inMemoryOnly: true }] } };
+  const other = { ...slow, system: { ...slow.system, rules: [{ key: "GrantItem", uuid: "Compendium.pf2e.conditionitems.Item.other" }] } };
+  assert.doesNotMatch(mechanismsOf(other, env())[0].sum, /permanentOwn/, "чужой GrantItem не считается выдачей Slowed");
   assert.match(mechanismsOf(own, env())[0].sum, /permanentOwn/);
   assert.doesNotMatch(mechanismsOf(own, env())[0].sum, /память/);
   const ownOff = mechanismsOf(withMech(own, { permanent: false }), env())[0];

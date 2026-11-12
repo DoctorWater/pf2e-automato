@@ -177,13 +177,18 @@ const coatRule = (c) => ({ weapon: "choose", ...c.rest, ...(num(c.durValue) !== 
 /** Пустой шаг coat для Мастерской: испытание Стойкости с чертами «яд, ранение», СЛ вписывает ГМ. */
 export const blankCoat = () => ({ durValue: "", durUnit: "rounds", durExpiry: "", rest: {}, ch: { ...chForm(null), on: true, statistic: "fortitude", traits: "poison, injury" } });
 /** Пустая запись для кнопки «добавить событие». */
-export const blankEvent = () => ({ on: "attack-roll", side: "self", when: "", once: false, afterUse: false, cost: false, free: "", aura: "", range: "", per: "", apply: [], ch: chForm(null) });
+export const blankEvent = () => ({ on: "attack-roll", side: "self", when: "", once: false, use: false, afterUse: false, cost: false, free: "", aura: "", range: "", per: "", apply: [], ch: chForm(null) });
 // side:"near" (T3): aura / range / per живут в форме всегда, в правило идут только у near
-const evForm = (e) => ({ on: e.on, side: e.side ?? "self", when: whenText(e.when), hold: !!e.hold, once: !!e.once, afterUse: !!e.afterUse, cost: e.cost === "reaction", free: whenText(e.free), aura: e.aura ?? "", range: e.range ?? "", per: e.per ?? "", apply: (e.apply ?? []).map(rowOf), ch: { ...chForm(e.challenge), on: !!e.challenge }, check: e.check, counter: e.counter });   // counter (контрзаклинание) — как check: Мастерская не правит; check (Lingering Composition, Ты следующий) Мастерская не правит: едет в форме как есть
+// «ПЗ упали до 0» — выбор формы, а не поле правила: damage-taken + владелец + предикат damage-taken:hp0 (сам предикат в строке «Условие» не показываем)
+export const HP0 = "hp0", HP0_OPT = "damage-taken:hp0";
+const isHp0 = (e) => e.on === "damage-taken" && (e.side ?? "self") === "self" && Array.isArray(e.when) && e.when.includes(HP0_OPT);
+const evForm = (e) => ({ on: isHp0(e) ? HP0 : e.on, side: e.side ?? "self", when: whenText(isHp0(e) ? e.when.filter((x) => x !== HP0_OPT) : e.when), use: !!e.use, hold: !!e.hold, once: !!e.once, afterUse: !!e.afterUse, cost: e.cost === "reaction", free: whenText(e.free), aura: e.aura ?? "", range: e.range ?? "", per: e.per ?? "", apply: (e.apply ?? []).map(rowOf), ch: { ...chForm(e.challenge), on: !!e.challenge }, check: e.check, counter: e.counter });   // counter (контрзаклинание) — как check: Мастерская не правит; check (Lingering Composition, Ты следующий) Мастерская не правит: едет в форме как есть
 const nearZone = (e) => ({ ...(String(e.aura ?? "").trim() && { aura: String(e.aura).trim() }), ...(num(e.range) !== undefined && { range: num(e.range) }), ...(e.per && { per: e.per }) });
 function evRule(e) {
-  const when = parseWhen(e.when), free = e.cost ? parseWhen(e.free) : undefined;
-  return { on: e.on, side: e.side, ...(when !== undefined && { when }), ...(e.hold && { hold: true }), ...(e.once && { once: true }), ...(e.afterUse && { afterUse: true }), ...(e.cost && { cost: "reaction", ...(free !== undefined && { free }) }), ...(e.side === "near" && nearZone(e)), apply: (e.apply ?? []).map(applyOf).filter(Boolean), ...(e.ch?.on && { challenge: chRule(e.ch) }), ...(e.check && { check: e.check }), ...(e.counter && { counter: e.counter }) };
+  let when = parseWhen(e.when);
+  const hp0 = e.on === HP0, free = e.cost ? parseWhen(e.free) : undefined;
+  if (hp0 && typeof when !== "string") when = [HP0_OPT, ...(when === undefined ? [] : Array.isArray(when) ? when : [when])];
+  return { on: hp0 ? "damage-taken" : e.on, side: e.side, ...(when !== undefined && { when }), ...(e.use && { use: true }), ...(e.hold && { hold: true }), ...(e.once && { once: true }), ...(e.afterUse && { afterUse: true }), ...(e.cost && { cost: "reaction", ...(free !== undefined && { free }) }), ...(e.side === "near" && nearZone(e)), apply: (e.apply ?? []).map(applyOf).filter(Boolean), ...(e.ch?.on && { challenge: chRule(e.ch) }), ...(e.check && { check: e.check }), ...(e.counter && { counter: e.counter }) };
 }
 
 // триггеры зоны (T2): запись onUse.zone.triggers <-> форма; испытание и шаги — как у onEvent

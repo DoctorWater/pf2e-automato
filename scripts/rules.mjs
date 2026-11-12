@@ -697,6 +697,7 @@ export const EVENT_TARGETED = new Set(["attack-roll", "skill-check", "damage-rol
 // afterUse: бросок владельца сразу после карточки этого предмета (strike-gate: «Make a Strike. If it hits…»). Сотворение (spell-cast) — «следующее действие» (Lingering Composition, запись с check).
 export const HOLD_STEPS = ["release", "cancel", "end"];
 export const EVENT_GATES = ["target", "removed", "idle"];
+export const EVENT_USE = new Set(["damage-taken", "turn-start", "turn-end"]);   // use: предмет по событию; у остальных (бросок урона, сотворение) использование само порождает такое же событие — цикл
 export const EVENT_AFTER_USE = new Set(["attack-roll", "skill-check", "saving-throw", "damage-roll", "spell-cast"]);
 
 /** check записи onEvent (Lingering Composition): проверка владельца против СЛ уровня самого высокого существа среди целей сотворения; шаги по степеням — только на владельца. */
@@ -759,10 +760,12 @@ function vEvent(e, i, err) {
   } else if (e.aura != null || e.range != null || e.per != null) err.push(E("ev.nearOnly", `${path}.aura`));
   if (e.once != null) { if (typeof e.once !== "boolean") err.push(E("ev.once", `${path}.once`)); else if (e.once) out.once = true; }   // once — один раз на эффект/состояние получателя, а не на каждое событие
   const apply = vApplyList(e.apply, `${path}.apply`, "self", err);
+  // use — запись использует сам предмет-носитель (обычная карточка: область, спасброски, «Урон»); только владелец-источник события, без шагов фамильяра; без challenge/check — у записи одна карточка-хозяин для отката pf2e
+  if (e.use != null) { if (e.use !== true || out.side !== "self" || !ons.every((o) => EVENT_USE.has(o)) || e.challenge != null || e.check != null) err.push(E("ev.use", `${path}.use`)); else out.use = true; }
   // cost — запись тратит реакцию владельца; free — условие по опциям владельца, при котором не тратит (Ты следующий: Легендарное Запугивание)
   if (e.cost != null) {
     // подтверждение — шаги apply; выбор (если есть) первым и существа (enemies/allies): по нему определяется отказ
-    if (e.cost !== "reaction" || (!apply.length && e.counter == null) || (apply.some((a) => a.choose) && !["enemies", "allies"].includes(apply[0]?.choose?.from))) err.push(E("ev.cost", `${path}.cost`)); else out.cost = "reaction";   // выбор — первым шагом: он же подтверждение траты
+    if (e.cost !== "reaction" || (!apply.length && !out.use && e.counter == null) || (apply.some((a) => a.choose) && !["enemies", "allies"].includes(apply[0]?.choose?.from))) err.push(E("ev.cost", `${path}.cost`)); else out.cost = "reaction";   // выбор — первым шагом: он же подтверждение траты
   }
   if (e.free != null) { if (e.cost == null || !isPredicate(e.free)) err.push(E("ev.free", `${path}.free`)); else out.free = e.free; }
   if (e.afterUse != null) { if (typeof e.afterUse !== "boolean" || (e.afterUse && !(EVENT_AFTER_USE.has(e.on) && out.side === "self"))) err.push(E("ev.afterUse", `${path}.afterUse`)); else if (e.afterUse) out.afterUse = true; }
@@ -786,7 +789,7 @@ function vEvent(e, i, err) {
     if (e.on !== "spell-cast" || out.side !== "near" || e.cost !== "reaction") err.push(E("ev.counter", `${path}.counter`));
     else { const c = vCounter(e.counter, `${path}.counter`, err); if (c) out.counter = c; }
   } else if (out.side === "near" && ons.includes("spell-cast")) err.push(E("ev.counter", `${path}.on`));
-  if (!apply.length && e.challenge == null && e.check == null && e.counter == null) err.push(E("ev.empty", path));
+  if (!apply.length && !out.use && e.challenge == null && e.check == null && e.counter == null) err.push(E("ev.empty", path));
   // у события нет области использования: from:"point" некуда указывать
   if ([apply, ...Object.values(out.challenge?.byDegree ?? {}), ...Object.values(out.check?.byDegree ?? {})].some((l) => movesOf(l).some((m) => m.from === "point"))) err.push(E("move.bad", `${path}.apply`));
   return out;

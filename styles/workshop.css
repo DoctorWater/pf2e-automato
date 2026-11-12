@@ -38,6 +38,7 @@
 .pf2e-automato-workshop .ws-inp { height: 30px; box-sizing: border-box; padding: 0 8px; font: inherit; color: #2a2420; background: #fffdf9; border: 1px solid #baa991; border-radius: 3px; box-shadow: none; }
 .pf2e-automato-workshop .ws-num { width: 64px; font-variant-numeric: tabular-nums; }
 .pf2e-automato-workshop .ws-wide { width: 180px; }
+.pf2e-automato-workshop .ws-full .ws-wide { width: 100%; }
 .pf2e-automato-workshop .ws-area { width: 100%; height: 72px; padding: 6px 8px; resize: vertical; }
 .pf2e-automato-workshop .ws-mono { height: 120px; font: 12px/1.5 "Roboto Mono", ui-monospace, monospace; white-space: pre; }
 .pf2e-automato-workshop .ws-full { flex: 1 1 100%; }

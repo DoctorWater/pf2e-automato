@@ -215,6 +215,10 @@ test("активация: не дублируется, если в описан�
   assert.match(blockText("weapon", blankBlock("dmg"), ctx), /wText\.dmg/);
   assert.match(blockText("weapon", { ...blankBlock("bonus"), target: "attack-roll" }, ctx), /wText\.attack.*\+1/);
   assert.match(blockText("equipment", blankBlock("bonus"), ctx), /text\.bonus/);
+  const w = { when: "target:mode:undead" };   // условие у оружия: суффикс есть и в обход textOf
+  assert.match(blockText("weapon", { ...blankBlock("dmg"), ...w }, ctx), /wText\.dmg.*text\.when/);
+  assert.match(blockText("weapon", { ...blankBlock("bonus"), target: "damage", ...w }, ctx), /wText\.damage.*text\.when/);
+  assert.doesNotMatch(blockText("weapon", blankBlock("dmg"), ctx), /text\.when/);
 });
 
 test("сырой GrantItem в физическом предмете: нужен inMemoryOnly и UUID состояния; GrantItem из raw не правим", () => {
@@ -233,4 +237,10 @@ test("шаблон кубиков: сводка в .ws-text, в textarea «За�
   assert.match(html, /class="ws-text"[^>]*>\{\{b\.summary\}\}/);
   assert.match(html, /data-f="text"[^>]*>\{\{b\.text\}\}<\/textarea>/);
   assert.ok(!/ws-text[^>]*>\{\{b\.text\}\}/.test(html));
+});
+
+test("оружие: скрытый strike от прежнего типа не обходит WEAPON_SEL",()=>{
+  const m = { ...blankItem("weapon"), name: "X", blocks: [{ ...blankBlock("dmg"), strike: "jaws" }, { ...blankBlock("bonus"), target: "attack-roll", strike: "jaws" }] };
+  assert.deepEqual(rulesOf(m, ctx).map((r) => r.selector), ["{item|id}-damage", "{item|id}-attack"]);
+  assert.equal(rulesOf({ ...m, type: "equipment" }, ctx)[0].selector, "jaws-damage");
 });

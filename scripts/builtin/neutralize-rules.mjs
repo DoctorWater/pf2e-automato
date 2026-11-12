@@ -45,11 +45,14 @@ export const permanentOf = (item, actorType) => (mechOf(item).permanent === fals
 /** Чистая: у актёра уже есть документ этого состояния (часть бестиариев кладёт Slowed прямо в существо: Ofalth Zombie, Zombie Owlbear). */
 export const hasCondDoc = (actor, cond) => !!cond && (actor?._source?.items ?? []).some((i) => i.type === "condition" && i.system?.slug === cond);
 
+/** Чистая: среди правил предмета уже есть GrantItem именно этого состояния (другой GrantItem выдаче не мешает). */
+export const grantsCond = (rules, p) => (rules ?? []).some((r) => r?.key === "GrantItem" && r.uuid === p.grant);
+
 /** Чистая: исходники синтетических правил. Состояние — только там, где его не выдаёт сам предмет (GrantItem у 9 Slow) и нет документа состояния у существа; запрет реакций — всем. */
 export function permanentSources(p, ownRules = [], hasDoc = false) {
   return [
     ...(p.noReactions ? [{ key: "RollOption", domain: "all", option: NO_REACTIONS }] : []),
-    ...(p.grant && !hasDoc && !ownRules.some((r) => r?.key === "GrantItem") ? [{ key: "GrantItem", uuid: p.grant, inMemoryOnly: true }] : [])
+    ...(p.grant && !hasDoc && !grantsCond(ownRules, p) ? [{ key: "GrantItem", uuid: p.grant, inMemoryOnly: true }] : [])
   ];
 }
 

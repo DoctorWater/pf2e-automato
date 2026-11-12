@@ -4,6 +4,7 @@
 import { MOD, errText, sluggify } from "../util.mjs";
 import { validateRule, dupActivate } from "../rules.mjs";
 import * as fx from "./effect.mjs";
+import { rulesOf as grantRules, grantErrors } from "./passive.mjs";
 
 export const TYPES = ["consumable", "equipment", "weapon", "action", "feat"];
 export const PHYSICAL = new Set(["consumable", "equipment", "weapon"]);
@@ -28,7 +29,6 @@ export const linksEffect = (type) => type === "consumable";
 const num = (v) => { const s = String(v ?? "").trim().replace(",", "."); return s !== "" && Number.isFinite(Number(s)) ? Number(s) : NaN; };
 const esc = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 const isMeleeThrown = (x) => /^thrown-\d+$/.test(x);   // ближнее оружие, которое можно метнуть (кинжал): range задан, но оно не дальнобойное
-const COND_UUID = /^Compendium\.[^.]+\.conditionitems\.Item\./;   // как в rules.mjs
 const HTMLISH = /<\/?[a-z][^>]*>/i;
 
 export const blankItem = (type = "consumable") => ({
@@ -115,15 +115,13 @@ export function ruleOf(m) {
   return { v: 1, yield: null, onUse: { targets: self ? "self" : "selected", apply: [{ to: self ? "self" : "target", effect: { uuid: m.effect.uuid } }] }, onAttacked: null, macros: [], onTurn: null };
 }
 
-/** Rule Elements предмета из кубиков; у оружия селекторы «все Удары» сужаем до самого оружия. */
+/** Свойства пишутся в предмет: снаряжение и оружие, пассивные действия и черты (у активных правила работали бы постоянно). */
+export const hasRules = (m) => ["equipment", "weapon"].includes(m.type) || ((m.type === "action" || m.type === "feat") && m.act.type === "passive");
+
+/** Rule Elements предмета из кубиков; у оружия селекторы «все Удары» сужаем до самого оружия. GrantItem — только inMemoryOnly (passive.rulesOf). */
 export function rulesOf(m, ctx) {
-  if (!["equipment", "weapon"].includes(m.type)) return [];
-  // pf2e: GrantItem в физическом предмете допустим только inMemoryOnly (состояние на время, пока правило не игнорируется, т.е. предмет надет)
-  const rules = m.blocks.flatMap((b) => fx.rulesOf(b, ctx).map((r) => {
-    if (b.kind !== "cond" || r.key !== "GrantItem") return r;   // сырой JSON не правим: его GrantItem проверяет validate
-    const { onDeleteActions, ...rest } = r;
-    return { ...rest, inMemoryOnly: true };
-  }));
+  if (!hasRules(m)) return [];
+  const rules = m.blocks.flatMap((b) => grantRules(m.type === "weapon" ? { ...b, strike: "" } : b, ctx));   // у оружия «чем бьёт» — само оружие (WEAPON_SEL), скрытый strike от прежнего типа не в счёт
   return m.type === "weapon" ? rules.map((r) => (WEAPON_SEL[r.selector] ? { ...r, selector: WEAPON_SEL[r.selector] } : r)) : rules;
 }
 
@@ -166,13 +164,7 @@ export function validate(m, ctx) {
     if (!(Number.isInteger(num(m.weapon.dice)) && num(m.weapon.dice) >= 1)) err("dice");
     if (m.weapon.kind === "ranged" && !(Number.isInteger(num(m.weapon.range)) && num(m.weapon.range) >= 5)) err("range");
   }
-  if (m.blocks.length && ["equipment", "weapon"].includes(m.type)) {
-    out.push(...fx.validate({ ...fx.blankModel(), name: "x", blocks: m.blocks }, ctx));
-    m.blocks.forEach((b, i) => {   // inMemoryOnly принимает только состояния
-      const bad = b.kind === "cond" ? !!b.uuid : b.kind === "raw" && fx.rulesOf(b, ctx).some((r) => r.key === "GrantItem" && !(r.inMemoryOnly === true && COND_UUID.test(String(r.uuid))));
-      if (bad) out.push(t("workshop.err.block", { n: i + 1, what: t(`workshop.item.err.${b.kind === "cond" ? "condEffect" : "rawGrant"}`) }));
-    });
-  }
+  if (m.blocks.length && hasRules(m)) out.push(...fx.validate({ ...fx.blankModel(), name: "x", blocks: m.blocks }, ctx), ...grantErrors(m.blocks, ctx));
   const raw = ruleOf(m);
   if (raw) { const v = validateRule(raw), dup = dupActivate(raw); if (dup || !v.ok) err("rule", { error: errText(dup ?? v.errors[0]) }); }
   return out;
@@ -220,8 +212,8 @@ export function buildItem(m, ctx) {
 /** Строка кубика для списка; у оружия — явно «этого оружия». */
 export function blockText(type, b, ctx) {
   const { t } = ctx, v = (Number(b.sign) < 0 ? -1 : 1) * Math.abs(Number(b.value));
-  if (type === "weapon" && b.kind === "dmg") return t("workshop.item.wText.dmg", { number: b.number, die: b.die, type: t(`workshop.dtype.${b.dmgType}`) });
+  if (type === "weapon" && b.kind === "dmg") return t("workshop.item.wText.dmg", { number: b.number, die: b.die, type: t(`workshop.dtype.${b.dmgType}`) }) + fx.whenSuffix(b, ctx);
   if (type === "weapon" && b.kind === "bonus" && ["attack-roll", "damage"].includes(b.target))
-    return t(`workshop.item.wText.${b.target === "damage" ? "damage" : "attack"}`, { amount: `${v < 0 ? "−" : "+"}${Math.abs(v)}`, kind: t(`workshop.${v < 0 ? "penalty" : "bonus"}Kind.${b.type}`) });
+    return t(`workshop.item.wText.${b.target === "damage" ? "damage" : "attack"}`, { amount: `${v < 0 ? "−" : "+"}${Math.abs(v)}`, kind: t(`workshop.${v < 0 ? "penalty" : "bonus"}Kind.${b.type}`) }) + fx.whenSuffix(b, ctx);
   return fx.textOf(b, ctx);
 }

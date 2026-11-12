@@ -39,7 +39,7 @@
         "unlimitedLong": "Unlimited, removed manually"
       },
       "gives": "What it does",
-      "noBlocks": "The effect does nothing yet. Pick a property below, for example an AC bonus.",
+      "noBlocks": "Nothing yet. Pick a property below, for example an AC bonus.",
       "add": "Add a property",
       "remove": "Remove property",
       "kind": {
@@ -96,6 +96,33 @@
       "dice": "Dice",
       "die": "Die",
       "strikesOnly": "Added to Strike damage.",
+      "strike": "Strike",
+      "strikeAll": "all Strikes",
+      "strikeHint": "Strike slug: empty means all Strikes.",
+      "speedSel": "Speed",
+      "speedAll": "All Speeds",
+      "whenLbl": "Condition",
+      "whenText": "Condition text",
+      "whenHint": "pf2e predicate: comma means all of them; JSON for \"or\" and \"not\"",
+      "whenCond": "If in condition",
+      "whenPct": "HP, %",
+      "whenTrait": "Trait",
+      "whenPreset": {
+        "none": "No condition",
+        "targetCond": "Target has condition…",
+        "selfCond": "Owner has condition…",
+        "hpLess": "HP below…",
+        "undead": "Opponent is undead",
+        "vsTrait": "Against effects with trait…",
+        "custom": "Custom condition"
+      },
+      "when": {
+        "targetCond": "target is {name}",
+        "selfCond": "owner is {name}",
+        "hpLess": "HP below {n}%",
+        "undead": "opponent is undead",
+        "vsTrait": "against effects with the {trait} trait"
+      },
       "sense": "Sense",
       "acuity": "Acuity",
       "range": "Range, ft",
@@ -125,6 +152,9 @@
       "text": {
         "bonus": "{target}: {amount} {kind}",
         "speed": "Speed: {amount} ft, {kind}",
+        "speedSel": "{speed} Speed: {amount} ft, {kind}",
+        "strike": " (Strike: {strike})",
+        "when": ", if {when}",
         "resist": "Resistance: {type} {value}",
         "weak": "Weakness: {type} {value}",
         "forbid": "Can't use reactions",
@@ -161,7 +191,10 @@
         "rawJson": "JSON could not be parsed: {error}",
         "exceptUnknown": "pf2e does not know the type “{key}”.",
         "rawUnknown": "unknown Rule Element “{key}”.",
-        "lightDim": "dim light cannot be smaller than bright light."
+        "lightDim": "dim light cannot be smaller than bright light.",
+        "strike": "the Strike slug must be lowercase with hyphens, as pf2e makes it (pick a Strike from the list).", "whenBad": "condition not understood: use a list of pf2e statements (comma-separated or a JSON array).",
+        "whenRoll": "pf2e checks this condition while preparing the actor, where there is no target, item or roll, so it will not apply.",
+        "whenHp": "an HP condition does not work on a condition: pf2e grants it before it computes HP percent."
       },
       "target": "Applies to",
       "dtype": {
@@ -211,7 +244,20 @@
       "mode": {
         "effect": "Effect",
         "automation": "Automation",
+        "passive": "Passive",
         "item": "Item"
+      },
+      "passive": {
+        "src": "Item rules",
+        "note": "Properties are written straight into the item's rules and apply while the item is on the creature; the module is not needed for that. Rules that are not in the palette are shown as they are and are not changed on save.",
+        "notPassive": "This is not a passive ability: its rules apply permanently while the creature has it, not only when it is used.",
+        "permanent": "The module adds this ability's permanent condition (see Automation); it is not shown here.",
+        "locked": "The item is read-only (from a compendium or no permission): editing is unavailable.",
+        "roNote": "Edit it on the Rules tab of the pf2e sheet.",
+        "rawOwn": "Item rule (JSON)",
+        "external": "The item's rules were changed from outside. The current version is loaded; repeat your edit.",
+        "dirty": "Unsaved changes",
+        "clean": "No changes"
       },
       "modes": "Workshop mode",
       "mech": {
@@ -709,6 +755,7 @@
           "passive": "Passive"
         },
         "blocksNote": "Properties while the item is worn — the same properties as in Effect mode; written straight into the item.",
+        "blocksNoteAbility": "A passive ability's properties apply permanently while the creature has it — the same properties as in Effect mode; written straight into the item.",
         "does": {
           "consumable": "The automation rule applies the chosen effect when the consumable is used — to the user or to the selected target.",
           "equipment": "Rule Elements work while the item is worn (for an item with the Invested trait — while invested too): no extra conditions needed, pf2e requires this itself.",
@@ -781,7 +828,7 @@
           "rule": "The automation rule could not be built: {error}",
           "rawGrant": "A GrantItem in an item works only with inMemoryOnly:true and a pf2e condition UUID (Compendium.….conditionitems.Item.…).",
           "actorType": "Actor “{name}” does not accept items of type “{type}” — choose “World only”.",
-          "condEffect": "equipment and weapons only support pf2e conditions, not effects — pick a condition.",
+          "condEffect": "item rules only support pf2e conditions, not effects — pick a condition.",
           "noActor": "Select an actor’s token or choose “World only”."
         }
       }
